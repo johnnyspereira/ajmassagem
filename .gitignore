@@ -42,6 +42,7 @@ temp-*-output.txt
 /portal-login-*.png
 /tsc-resolve.log
 /cloudflared.yml
+/wacrm/
 
 # env files (can opt-in for committing if needed)
 .env*
