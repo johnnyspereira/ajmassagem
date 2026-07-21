@@ -152,6 +152,24 @@ type WhatsAppClient = EventEmitter & {
 type Message = WhatsAppMessageLike;
 type MessageAck = number;
 type MessageMedia = unknown;
+type WhatsAppWebModule = {
+  Client: new (...args: unknown[]) => WhatsAppClient;
+  LocalAuth: new (...args: unknown[]) => unknown;
+  MessageMedia: new (
+    mimetype: string,
+    data: string,
+    filename?: string,
+    filesize?: number
+  ) => MessageMedia;
+};
+
+async function importWhatsAppWeb(): Promise<WhatsAppWebModule> {
+  const dynamicImport = new Function(
+    'specifier',
+    'return import(specifier)'
+  ) as (specifier: string) => Promise<WhatsAppWebModule>;
+  return dynamicImport('whatsapp-web.js');
+}
 
 const MEDIA_MIME_FALLBACK: Record<BaileysOutboundContentType, string> = {
   text: 'text/plain',
@@ -912,7 +930,7 @@ async function createMessageMediaFromUrl(
   contentType: BaileysOutboundContentType,
   filename?: string | null
 ): Promise<MessageMedia> {
-  const { MessageMedia } = await import('whatsapp-web.js');
+  const { MessageMedia } = await importWhatsAppWeb();
   const response = await fetch(mediaUrl, {
     headers: { accept: 'image/*, video/*, audio/*, application/*, text/*' },
   });
@@ -1798,7 +1816,7 @@ async function getCustomerChatIds(limit: number): Promise<string[]> {
 }
 
 async function buildClient() {
-  const { Client, LocalAuth } = await import('whatsapp-web.js');
+  const { Client, LocalAuth } = await importWhatsAppWeb();
 
   await recoverOrphanedBrowserProfile();
 

@@ -34,8 +34,13 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Check Linux CSS/runtime resolution
+        run: |
+          node -e "for (const m of ['tailwindcss','@tailwindcss/postcss','lightningcss']) { console.log(m + ' => ' + require.resolve(m)) }"
+          node -e "const fs=require('fs'); for (const p of ['node_modules/shadcn/dist/tailwind.css','node_modules/tw-animate-css/dist/tw-animate.css']) { if (!fs.existsSync(p)) { throw new Error(p + ' not found') } console.log(p + ' OK') }"
+
       - name: Build Next.js standalone runtime
-        run: npm run build
+        run: npm run build:cpanel
 
       - name: Assemble cPanel runtime branch
         shell: bash
