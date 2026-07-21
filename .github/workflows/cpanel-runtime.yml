@@ -12,7 +12,6 @@ jobs:
   build-runtime:
     runs-on: ubuntu-latest
     env:
-      NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: '1'
       PUPPETEER_SKIP_DOWNLOAD: 'true'
       WHATSAPP_MODE: remote_worker
@@ -32,7 +31,7 @@ jobs:
           node-version: '22'
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --include=dev
 
       - name: Check Linux CSS/runtime resolution
         run: |
@@ -41,6 +40,8 @@ jobs:
 
       - name: Build Next.js standalone runtime
         run: npm run build:cpanel
+        env:
+          NODE_ENV: production
 
       - name: Assemble cPanel runtime branch
         shell: bash
