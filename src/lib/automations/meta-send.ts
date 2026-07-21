@@ -3,11 +3,7 @@ import {
   interactivePayloadToText,
   type InteractiveMessagePayload,
 } from '@/lib/whatsapp/interactive';
-import {
-  getBaileysSessionStatus,
-  sendTextViaBaileys,
-  startBaileysSession,
-} from '@/lib/whatsapp/baileys';
+import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 import { supabaseAdmin } from './admin-client';
 
 // ------------------------------------------------------------
@@ -71,17 +67,45 @@ async function sendViaQr(
 ): Promise<{ whatsapp_message_id: string }> {
   await waitForQrConnection(input.accountId, input.userId);
 
-  const result = await sendTextViaBaileys(
-    input.accountId,
-    input.conversationId,
-    input.text,
-    { senderType: 'bot' }
-  );
+  const result = remoteWhatsAppWorker.enabled()
+    ? await remoteWhatsAppWorker.send({
+        accountId: input.accountId,
+        conversationId: input.conversationId,
+        message: {
+          text: input.text,
+          contentType: 'text',
+          senderType: 'bot',
+        },
+      })
+    : await sendTextViaLocalQr(
+        input.accountId,
+        input.conversationId,
+        input.text,
+        { senderType: 'bot' }
+      );
 
   return { whatsapp_message_id: result.whatsappMessageId };
 }
 
 async function waitForQrConnection(accountId: string, userId: string) {
+  if (remoteWhatsAppWorker.enabled()) {
+    const status = await remoteWhatsAppWorker.status({
+      accountId,
+      userId,
+      autoStart: true,
+    });
+    if (!status.connected) {
+      throw new Error(
+        status.lastError ||
+          `WhatsApp QR session is not connected (state: ${status.state}).`
+      );
+    }
+    return;
+  }
+
+  const { getBaileysSessionStatus, startBaileysSession } = await import(
+    '@/lib/whatsapp/baileys'
+  );
   let status = await startBaileysSession({
     accountId,
     userId,
@@ -100,6 +124,16 @@ async function waitForQrConnection(accountId: string, userId: string) {
         `WhatsApp QR session is not connected (state: ${status.state}).`
     );
   }
+}
+
+async function sendTextViaLocalQr(
+  accountId: string,
+  conversationId: string,
+  text: string,
+  options: { senderType?: 'agent' | 'bot'; replyToMessageId?: string | null }
+) {
+  const { sendTextViaBaileys } = await import('@/lib/whatsapp/baileys');
+  return sendTextViaBaileys(accountId, conversationId, text, options);
 }
 
 function renderTemplateValue(

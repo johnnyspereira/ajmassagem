@@ -1,8 +1,4 @@
 import { NextResponse } from 'next/server';
-import {
-  bindBaileysSessionContext,
-  stopBaileysSession,
-} from '@/lib/whatsapp/baileys';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 
@@ -15,6 +11,10 @@ export async function POST() {
       });
       return NextResponse.json(result);
     }
+
+    const { bindBaileysSessionContext, stopBaileysSession } = await import(
+      '@/lib/whatsapp/baileys'
+    );
 
     bindBaileysSessionContext(ctx.accountId, ctx.userId);
     await stopBaileysSession(true);

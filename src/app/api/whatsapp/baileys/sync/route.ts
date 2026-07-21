@@ -1,16 +1,10 @@
 import { NextResponse } from 'next/server';
-import {
-  bindBaileysSessionContext,
-  startBaileysSession,
-  syncBaileysHistory,
-} from '@/lib/whatsapp/baileys';
 import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account';
 import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 
 export async function POST(request: Request) {
   try {
     const ctx = await getCurrentAccount();
-    bindBaileysSessionContext(ctx.accountId, ctx.userId);
 
     const body = await request.json().catch(() => ({}));
     const chatLimit =
@@ -27,6 +21,14 @@ export async function POST(request: Request) {
       });
       return NextResponse.json(result);
     }
+
+    const {
+      bindBaileysSessionContext,
+      startBaileysSession,
+      syncBaileysHistory,
+    } = await import('@/lib/whatsapp/baileys');
+
+    bindBaileysSessionContext(ctx.accountId, ctx.userId);
 
     const status = await startBaileysSession({
       accountId: ctx.accountId,

@@ -1,5 +1,3 @@
-import type { BaileysSessionStatus, BaileysSyncResult } from './baileys';
-
 type WorkerSendInput = {
   text: string;
   contentType?: string;
@@ -14,6 +12,27 @@ type WorkerSendInput = {
 type WorkerSendResult = {
   messageId: string;
   whatsappMessageId: string;
+};
+
+type WorkerSessionStatus = {
+  connected: boolean;
+  state: 'idle' | 'starting' | 'qr' | 'connected' | 'disconnected' | 'error';
+  qr: string | null;
+  lastError: string | null;
+  userJid: string | null;
+  connectedAt: string | null;
+  connectedForSeconds: number | null;
+  hasSavedAuth: boolean;
+  isStarting: boolean;
+  lastActivityAt: string | null;
+  lastRestartAt: string | null;
+  restartCount: number;
+};
+
+type WorkerSyncResult = {
+  chatsScanned: number;
+  messagesScanned: number;
+  messagesPersisted: number;
 };
 
 function isRemoteWorkerMode() {
@@ -70,7 +89,7 @@ export const remoteWhatsAppWorker = {
     accountId: string;
     userId: string;
     autoStart?: boolean;
-  }): Promise<BaileysSessionStatus> {
+  }): Promise<WorkerSessionStatus> {
     return workerFetch('/status', {
       query: {
         account_id: input.accountId,
@@ -83,7 +102,7 @@ export const remoteWhatsAppWorker = {
   restart(input: {
     accountId: string;
     userId: string;
-  }): Promise<{ success: true; status: BaileysSessionStatus }> {
+  }): Promise<{ success: true; status: WorkerSessionStatus }> {
     return workerFetch('/restart', {
       method: 'POST',
       body: JSON.stringify(input),
@@ -102,7 +121,7 @@ export const remoteWhatsAppWorker = {
     userId: string;
     chatLimit?: number;
     messageLimit?: number;
-  }): Promise<{ success: true } & BaileysSyncResult> {
+  }): Promise<{ success: true } & WorkerSyncResult> {
     return workerFetch('/sync', {
       method: 'POST',
       body: JSON.stringify(input),

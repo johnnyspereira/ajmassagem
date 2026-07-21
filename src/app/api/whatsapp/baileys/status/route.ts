@@ -1,9 +1,4 @@
 import { NextResponse } from 'next/server';
-import {
-  bindBaileysSessionContext,
-  getBaileysSessionStatus,
-  startBaileysSession,
-} from '@/lib/whatsapp/baileys';
 import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account';
 import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 
@@ -20,6 +15,12 @@ export async function GET(request: Request) {
       });
       return NextResponse.json(status);
     }
+
+    const {
+      bindBaileysSessionContext,
+      getBaileysSessionStatus,
+      startBaileysSession,
+    } = await import('@/lib/whatsapp/baileys');
 
     bindBaileysSessionContext(ctx.accountId, ctx.userId);
     const status = autoStart

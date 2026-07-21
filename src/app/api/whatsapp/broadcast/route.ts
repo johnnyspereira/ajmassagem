@@ -4,11 +4,6 @@ import { sendTemplateMessage } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import type { SendTimeParams } from '@/lib/whatsapp/template-send-builder';
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
-import {
-  getBaileysSessionStatus,
-  sendTextViaBaileys,
-  startBaileysSession,
-} from '@/lib/whatsapp/baileys';
 import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive';
 import { interactivePayloadToText } from '@/lib/whatsapp/interactive';
@@ -401,7 +396,7 @@ async function sendQrInternalBroadcast({
               senderType: 'bot',
             },
           })
-        : await sendTextViaBaileys(accountId, conversationId, text, {
+        : await sendTextViaLocalQr(accountId, conversationId, text, {
             senderType: 'bot',
           });
 
@@ -476,6 +471,10 @@ async function waitForQrConnection(accountId: string, userId: string) {
     });
   }
 
+  const { getBaileysSessionStatus, startBaileysSession } = await import(
+    '@/lib/whatsapp/baileys'
+  );
+
   let status = await startBaileysSession({
     accountId,
     userId,
@@ -489,6 +488,16 @@ async function waitForQrConnection(accountId: string, userId: string) {
   }
 
   return status;
+}
+
+async function sendTextViaLocalQr(
+  accountId: string,
+  conversationId: string,
+  text: string,
+  options: { senderType?: 'agent' | 'bot'; replyToMessageId?: string | null }
+) {
+  const { sendTextViaBaileys } = await import('@/lib/whatsapp/baileys');
+  return sendTextViaBaileys(accountId, conversationId, text, options);
 }
 
 async function findOrCreateConversation(

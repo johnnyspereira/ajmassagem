@@ -5,11 +5,7 @@ import { resolveAuditUserId } from '@/lib/api/v1/contacts';
 import { portalAuthEmail } from '@/lib/portal/identity';
 import { portalErrorResponse, requirePortalAccess } from '@/lib/portal/server';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
-import {
-  getBaileysSessionStatus,
-  sendTextViaBaileys,
-  startBaileysSession,
-} from '@/lib/whatsapp/baileys';
+import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 
 function clientIp(request: Request) {
   return (
@@ -82,14 +78,15 @@ export async function POST(
     .maybeSingle();
   const auditUserId =
     qrConfig?.user_id || (await resolveAuditUserId(admin, settings.account_id));
-  let status = await getBaileysSessionStatus();
-  if (!status.connected) {
-    status = await startBaileysSession({
-      accountId: settings.account_id,
-      userId: auditUserId,
-      autoStart: true,
-      restoreOnly: true,
-    });
+  let status = remoteWhatsAppWorker.enabled()
+    ? await remoteWhatsAppWorker.status({
+        accountId: settings.account_id,
+        userId: auditUserId,
+        autoStart: true,
+      })
+    : await getLocalQrStatus();
+  if (!status.connected && !remoteWhatsAppWorker.enabled()) {
+    status = await startLocalQrSession(settings.account_id, auditUserId);
   }
   if (!status.connected) {
     return Response.json(
@@ -236,12 +233,25 @@ export async function POST(
       magicLink.properties.hashed_token
     );
 
-    await sendTextViaBaileys(
-      settings.account_id,
-      conversation.id,
-      `Olá${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}. ✨\n\nO seu acesso seguro ao *Portal 360* está pronto.\n\n👉 *Entrar automaticamente:*\n${portalUrl.toString()}\n\nSe preferir entrar manualmente, utilize o seu email e esta senha temporária:\n\n🔐 *${password}*\n\nO link é pessoal, de utilização única e expira por segurança. No primeiro acesso, poderá definir uma nova senha. Não partilhe estes dados.`,
-      { senderType: 'bot' }
-    );
+    const whatsappText = `Olá${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}. ✨\n\nO seu acesso seguro ao *Portal 360* está pronto.\n\n👉 *Entrar automaticamente:*\n${portalUrl.toString()}\n\nSe preferir entrar manualmente, utilize o seu email e esta senha temporária:\n\n🔐 *${password}*\n\nO link é pessoal, de utilização única e expira por segurança. No primeiro acesso, poderá definir uma nova senha. Não partilhe estes dados.`;
+    if (remoteWhatsAppWorker.enabled()) {
+      await remoteWhatsAppWorker.send({
+        accountId: settings.account_id,
+        conversationId: conversation.id,
+        message: {
+          text: whatsappText,
+          contentType: 'text',
+          senderType: 'bot',
+        },
+      });
+    } else {
+      await sendTextViaLocalQr(
+        settings.account_id,
+        conversation.id,
+        whatsappText,
+        { senderType: 'bot' }
+      );
+    }
     return generic;
   } catch (error) {
     if (createdUserId) {
@@ -270,6 +280,31 @@ export async function POST(
       { status: 502 }
     );
   }
+}
+
+async function getLocalQrStatus() {
+  const { getBaileysSessionStatus } = await import('@/lib/whatsapp/baileys');
+  return getBaileysSessionStatus();
+}
+
+async function startLocalQrSession(accountId: string, userId: string) {
+  const { startBaileysSession } = await import('@/lib/whatsapp/baileys');
+  return startBaileysSession({
+    accountId,
+    userId,
+    autoStart: true,
+    restoreOnly: true,
+  });
+}
+
+async function sendTextViaLocalQr(
+  accountId: string,
+  conversationId: string,
+  text: string,
+  options: { senderType?: 'agent' | 'bot'; replyToMessageId?: string | null }
+) {
+  const { sendTextViaBaileys } = await import('@/lib/whatsapp/baileys');
+  return sendTextViaBaileys(accountId, conversationId, text, options);
 }
 
 export async function PATCH(

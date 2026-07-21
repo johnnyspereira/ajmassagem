@@ -18,11 +18,7 @@ import {
   phoneVariants,
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils';
-import {
-  getBaileysSessionStatus,
-  sendMessageViaBaileys,
-  sendTextViaBaileys,
-} from '@/lib/whatsapp/baileys';
+import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 import { supabaseAdmin } from './admin-client';
 
 // ------------------------------------------------------------
@@ -340,6 +336,14 @@ export async function engineSendInteractiveList(
 type SendInput =
   | (SendInteractiveButtonsEngineArgs & { kind: 'buttons' })
   | (SendInteractiveListEngineArgs & { kind: 'list' });
+type LocalQrContentType =
+  | 'text'
+  | 'template'
+  | 'interactive'
+  | 'image'
+  | 'video'
+  | 'document'
+  | 'audio';
 
 async function sendInteractiveViaMeta(
   input: SendInput
@@ -486,50 +490,56 @@ async function sendInteractiveViaMeta(
   return { whatsapp_message_id: waMessageId };
 }
 
-async function isQrConnected(): Promise<boolean> {
-  try {
-    const status = await getBaileysSessionStatus();
-    return status.connected;
-  } catch {
-    return false;
-  }
-}
-
 async function sendTextViaQrIfConnected(
   args: SendTextEngineArgs
 ): Promise<{ whatsapp_message_id: string } | null> {
-  if (!(await isQrConnected())) return null;
-  const result = await sendTextViaBaileys(
-    args.accountId,
-    args.conversationId,
-    args.text,
-    { senderType: 'bot' }
-  );
+  if (!(await isQrConnectedFor(args.accountId, args.userId))) return null;
+  const result = remoteWhatsAppWorker.enabled()
+    ? await remoteWhatsAppWorker.send({
+        accountId: args.accountId,
+        conversationId: args.conversationId,
+        message: {
+          text: args.text,
+          contentType: 'text',
+          senderType: 'bot',
+        },
+      })
+    : await sendTextViaLocalQr(args.accountId, args.conversationId, args.text, {
+        senderType: 'bot',
+      });
   return { whatsapp_message_id: result.whatsappMessageId };
 }
 
 async function sendMediaViaQrIfConnected(
   args: SendMediaEngineArgs
 ): Promise<{ whatsapp_message_id: string } | null> {
-  if (!(await isQrConnected())) return null;
-  const result = await sendMessageViaBaileys(
-    args.accountId,
-    args.conversationId,
-    {
-      text: args.caption ?? '',
-      contentType: args.kind,
-      mediaUrl: args.link,
-      filename: args.filename,
-      senderType: 'bot',
-    }
-  );
+  if (!(await isQrConnectedFor(args.accountId, args.userId))) return null;
+  const result = remoteWhatsAppWorker.enabled()
+    ? await remoteWhatsAppWorker.send({
+        accountId: args.accountId,
+        conversationId: args.conversationId,
+        message: {
+          text: args.caption ?? '',
+          contentType: args.kind,
+          mediaUrl: args.link,
+          filename: args.filename,
+          senderType: 'bot',
+        },
+      })
+    : await sendMessageViaLocalQr(args.accountId, args.conversationId, {
+        text: args.caption ?? '',
+        contentType: args.kind,
+        mediaUrl: args.link,
+        filename: args.filename,
+        senderType: 'bot',
+      });
   return { whatsapp_message_id: result.whatsappMessageId };
 }
 
 async function sendInteractiveViaQrIfConnected(
   input: SendInput
 ): Promise<{ whatsapp_message_id: string } | null> {
-  if (!(await isQrConnected())) return null;
+  if (!(await isQrConnectedFor(input.accountId, input.userId))) return null;
 
   const interactivePayload: InteractiveMessagePayload =
     input.kind === 'buttons'
@@ -549,16 +559,65 @@ async function sendInteractiveViaQrIfConnected(
           sections: input.sections,
         };
 
-  const result = await sendMessageViaBaileys(
-    input.accountId,
-    input.conversationId,
-    {
+  const result = remoteWhatsAppWorker.enabled()
+    ? await remoteWhatsAppWorker.send({
+        accountId: input.accountId,
+        conversationId: input.conversationId,
+        message: {
+          text: interactivePayloadToText(interactivePayload),
+          contentType: 'interactive',
+          interactivePayload,
+          senderType: 'bot',
+        },
+      })
+    : await sendMessageViaLocalQr(input.accountId, input.conversationId, {
       text: interactivePayloadToText(interactivePayload),
       contentType: 'interactive',
       interactivePayload,
       senderType: 'bot',
-    }
-  );
+    });
 
   return { whatsapp_message_id: result.whatsappMessageId };
+}
+
+async function isQrConnectedFor(accountId: string, userId: string) {
+  try {
+    const status = remoteWhatsAppWorker.enabled()
+      ? await remoteWhatsAppWorker.status({ accountId, userId, autoStart: false })
+      : await getLocalQrStatus();
+    return status.connected;
+  } catch {
+    return false;
+  }
+}
+
+async function getLocalQrStatus() {
+  const { getBaileysSessionStatus } = await import('@/lib/whatsapp/baileys');
+  return getBaileysSessionStatus();
+}
+
+async function sendTextViaLocalQr(
+  accountId: string,
+  conversationId: string,
+  text: string,
+  options: { senderType?: 'agent' | 'bot'; replyToMessageId?: string | null }
+) {
+  const { sendTextViaBaileys } = await import('@/lib/whatsapp/baileys');
+  return sendTextViaBaileys(accountId, conversationId, text, options);
+}
+
+async function sendMessageViaLocalQr(
+  accountId: string,
+  conversationId: string,
+  input: {
+    text: string;
+    contentType?: LocalQrContentType;
+    mediaUrl?: string | null;
+    filename?: string | null;
+    interactivePayload?: InteractiveMessagePayload | null;
+    senderType?: 'agent' | 'bot';
+  }
+) {
+  const { sendMessageViaBaileys } = await import('@/lib/whatsapp/baileys');
+  return sendMessageViaBaileys(accountId, conversationId, input);
 }
