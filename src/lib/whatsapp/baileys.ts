@@ -171,6 +171,14 @@ async function importWhatsAppWeb(): Promise<WhatsAppWebModule> {
   return dynamicImport('whatsapp-web.js');
 }
 
+async function runtimeImport<T>(specifier: string): Promise<T> {
+  const dynamicImport = new Function(
+    'specifier',
+    'return import(specifier)'
+  ) as (specifier: string) => Promise<T>;
+  return dynamicImport(specifier);
+}
+
 const MEDIA_MIME_FALLBACK: Record<BaileysOutboundContentType, string> = {
   text: 'text/plain',
   template: 'text/plain',
@@ -1146,7 +1154,9 @@ async function runQrAutomations(input: {
   isFirstInboundMessage: boolean;
   flowConsumed: boolean;
 }) {
-  const { runAutomationsForTrigger } = await import('@/lib/automations/engine');
+  const { runAutomationsForTrigger } = await runtimeImport<
+    typeof import('@/lib/automations/engine')
+  >('@/lib/automations/engine');
   const triggers: AutomationTriggerType[] = input.flowConsumed
     ? []
     : ['new_message_received', 'keyword_match'];
@@ -1176,7 +1186,9 @@ async function runQrFlows(input: {
   messageId: string;
   isFirstInboundMessage: boolean;
 }): Promise<boolean> {
-  const { dispatchInboundToFlows } = await import('@/lib/flows/engine');
+  const { dispatchInboundToFlows } = await runtimeImport<
+    typeof import('@/lib/flows/engine')
+  >('@/lib/flows/engine');
   const result = await dispatchInboundToFlows({
     accountId: input.accountId,
     userId: input.userId,
