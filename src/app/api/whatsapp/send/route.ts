@@ -17,6 +17,7 @@ import {
   startBaileysSession,
 } from '@/lib/whatsapp/baileys';
 import { interactivePayloadToText } from '@/lib/whatsapp/interactive';
+import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 import type { MessageTemplate } from '@/types';
 
 function qrSendErrorMessage(error: unknown): string {
@@ -219,10 +220,17 @@ export async function POST(request: Request) {
       !hasMetaConfig;
 
     if (qrCapableTypes.includes(message_type)) {
-      const qrStatus = await waitForQrConnection(accountId, user.id, {
-        autoStart: qrRequired,
-        timeoutMs: qrRequired ? 25000 : 0,
-      });
+      const useRemoteQr = remoteWhatsAppWorker.enabled();
+      const qrStatus = useRemoteQr
+        ? await remoteWhatsAppWorker.status({
+            accountId,
+            userId: user.id,
+            autoStart: qrRequired,
+          })
+        : await waitForQrConnection(accountId, user.id, {
+            autoStart: qrRequired,
+            timeoutMs: qrRequired ? 25000 : 0,
+          });
 
       if (!qrStatus.connected && qrRequired) {
         return NextResponse.json(
@@ -252,8 +260,22 @@ export async function POST(request: Request) {
                   })
                 : content_text || '';
 
-          const result =
-            message_type === 'text'
+          const result = useRemoteQr
+            ? await remoteWhatsAppWorker.send({
+                accountId,
+                conversationId,
+                message: {
+                  text: textToSend,
+                  contentType: message_type,
+                  mediaUrl: media_url,
+                  filename,
+                  templateName: template_name,
+                  interactivePayload: interactive_payload,
+                  replyToMessageId: reply_to_message_id,
+                  senderType: 'agent',
+                },
+              })
+            : message_type === 'text'
               ? await sendTextViaBaileys(
                   accountId,
                   conversationId,

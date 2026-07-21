@@ -1,0 +1,19 @@
+{
+  "name": "ajmassagem-whatsapp-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WhatsApp QR bridge for AJ Massagem CRM remote-worker mode.",
+  "main": "server.cjs",
+  "scripts": {
+    "start": "node server.cjs"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.7",
+    "dotenv": "^17.2.3",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.34.7"
+  }
+}

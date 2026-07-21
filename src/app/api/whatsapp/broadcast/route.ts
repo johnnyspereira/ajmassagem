@@ -9,6 +9,7 @@ import {
   sendTextViaBaileys,
   startBaileysSession,
 } from '@/lib/whatsapp/baileys';
+import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive';
 import { interactivePayloadToText } from '@/lib/whatsapp/interactive';
 import {
@@ -390,9 +391,19 @@ async function sendQrInternalBroadcast({
     }
 
     try {
-      const result = await sendTextViaBaileys(accountId, conversationId, text, {
-        senderType: 'bot',
-      });
+      const result = remoteWhatsAppWorker.enabled()
+        ? await remoteWhatsAppWorker.send({
+            accountId,
+            conversationId,
+            message: {
+              text,
+              contentType: 'text',
+              senderType: 'bot',
+            },
+          })
+        : await sendTextViaBaileys(accountId, conversationId, text, {
+            senderType: 'bot',
+          });
 
       results.push({
         phone,
@@ -457,6 +468,14 @@ function renderQrInternalText(
 }
 
 async function waitForQrConnection(accountId: string, userId: string) {
+  if (remoteWhatsAppWorker.enabled()) {
+    return remoteWhatsAppWorker.status({
+      accountId,
+      userId,
+      autoStart: true,
+    });
+  }
+
   let status = await startBaileysSession({
     accountId,
     userId,

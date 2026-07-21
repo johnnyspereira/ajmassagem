@@ -1,16 +1,11 @@
 import path from 'path';
 import { once } from 'events';
+import type { EventEmitter } from 'events';
 import { execFile } from 'child_process';
 import { existsSync } from 'fs';
 import { mkdir, readFile, rm, writeFile } from 'fs/promises';
 import { promisify } from 'util';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type {
-  Client as WhatsAppClient,
-  Message,
-  MessageAck,
-  MessageMedia,
-} from 'whatsapp-web.js';
 import { supabaseAdmin } from '@/lib/flows/admin-client';
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
 import { handleAppointmentConfirmationReply } from '@/lib/clinic/appointment-confirmation';
@@ -132,6 +127,31 @@ type WhatsAppMessageLike = {
 };
 
 type QrDeliveryStatus = 'sent' | 'delivered' | 'read' | 'failed';
+type WhatsAppClient = EventEmitter & {
+  info?: { wid?: { _serialized?: string }; me?: { user?: string } };
+  pupPage?: {
+    evaluate: <TResult, TArg = unknown>(
+      fn: (arg: TArg) => TResult,
+      arg?: TArg
+    ) => Promise<TResult>;
+  };
+  destroy: () => Promise<void>;
+  getState: () => Promise<string | null | undefined>;
+  getContactLidAndPhone?: (
+    lids: string[]
+  ) => Promise<Array<{ pn?: string | null }>>;
+  getNumberId: (phone: string) => Promise<{ _serialized?: string } | null>;
+  getChatById: (chatId: string) => Promise<unknown>;
+  sendMessage: (
+    jid: string,
+    content: string | MessageMedia,
+    options?: Record<string, unknown>
+  ) => Promise<SentWhatsAppMessage | null>;
+  initialize: () => Promise<void>;
+};
+type Message = WhatsAppMessageLike;
+type MessageAck = number;
+type MessageMedia = unknown;
 
 const MEDIA_MIME_FALLBACK: Record<BaileysOutboundContentType, string> = {
   text: 'text/plain',
@@ -503,7 +523,7 @@ async function destroyClient(reason: string): Promise<void> {
 
   destroyPromise = activeClient
     .destroy()
-    .catch((error) => {
+    .catch((error: unknown) => {
       console.error('[whatsapp-web.js] client destroy failed:', {
         reason,
         error: error instanceof Error ? error.message : String(error),
@@ -1558,8 +1578,11 @@ async function fetchChatMessages(
       `Timed out while opening WhatsApp chat ${chatId}.`
     );
     if (!chat) return [];
+    const chatWithMessages = chat as {
+      fetchMessages: (input: { limit: number }) => Promise<WhatsAppMessageLike[]>;
+    };
     return await withTimeout(
-      chat.fetchMessages({ limit }),
+      chatWithMessages.fetchMessages({ limit }),
       10000,
       `Timed out while fetching WhatsApp messages for ${chatId}.`
     );
@@ -1967,8 +1990,8 @@ async function ensureClient(
   lastRestartAt = new Date().toISOString();
   restartCount += 1;
 
-  client = await buildClient();
-  const initializingClient = client;
+  const initializingClient = await buildClient();
+  client = initializingClient;
   initPromise = (async () => {
     try {
       const eventPromise = Promise.race([

@@ -5,12 +5,22 @@ import {
   startBaileysSession,
 } from '@/lib/whatsapp/baileys';
 import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account';
+import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 
 export async function GET(request: Request) {
   try {
     const ctx = await getCurrentAccount();
     const { searchParams } = new URL(request.url);
     const autoStart = searchParams.get('autostart') !== 'false';
+    if (remoteWhatsAppWorker.enabled()) {
+      const status = await remoteWhatsAppWorker.status({
+        accountId: ctx.accountId,
+        userId: ctx.userId,
+        autoStart,
+      });
+      return NextResponse.json(status);
+    }
+
     bindBaileysSessionContext(ctx.accountId, ctx.userId);
     const status = autoStart
       ? await getBaileysSessionStatus()

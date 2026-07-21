@@ -8,13 +8,12 @@ estatico nem copie apenas a pasta `public`.
 - Node.js 20 ou 22.
 - Aplicacao Node ativa continuamente, sem suspensao por inatividade.
 - Acesso SSH/Terminal e Git.
-- Permissao para executar Chromium/Puppeteer.
-- Diretorio persistente e gravavel para `whatsapp_auth`.
 - Ligacoes HTTPS e WebSocket de saida.
 - Cron com execucao pelo menos a cada minuto.
 
-O WhatsApp QR nao e adequado a um alojamento partilhado que encerre processos,
-proiba Chromium ou apague ficheiros da aplicacao. Nesse caso, use um VPS.
+O WhatsApp QR deve rodar no **WhatsApp Bridge** quando o CRM estiver em cPanel
+partilhado. Assim o cPanel nao precisa de Chromium/Puppeteer nem da pasta
+`whatsapp_auth`.
 
 ## 1. Publicar no Git
 
@@ -66,23 +65,39 @@ SUPABASE_SERVICE_ROLE_KEY=SUA_CHAVE_SERVICE_ROLE
 ENCRYPTION_KEY=64_CARACTERES_HEXADECIMAIS
 META_APP_SECRET=SEGREDO_META
 NEXT_PUBLIC_SITE_URL=https://crm.seudominio.pt
+NEXT_PUBLIC_APP_URL=https://crm.seudominio.pt
 NEXT_PUBLIC_APP_LOCALE=pt
 ALLOWED_INVITE_HOSTS=crm.seudominio.pt
 AUTOMATION_CRON_SECRET=SEGREDO_LONGO_E_ALEATORIO
+WHATSAPP_MODE=remote_worker
+WHATSAPP_WORKER_URL=https://wa-worker.seudominio.pt
+WHATSAPP_WORKER_SECRET=SEGREDO_IGUAL_AO_WORKER
+PUPPETEER_SKIP_DOWNLOAD=true
 ```
 
 As variaveis `NEXT_PUBLIC_*` sao incorporadas durante o build. Se forem
 alteradas, execute `npm run build` novamente e reinicie a aplicacao.
 
-## 5. Preservar a sessao WhatsApp QR
+## 5. WhatsApp QR pelo computador
 
-A pasta `whatsapp_auth` e criada na raiz em tempo de execucao. Ela nao pertence
-ao Git, mas precisa permanecer no servidor entre deploys e reinicios. Inclua-a
-no backup do alojamento e nunca execute uma implantacao que apague toda a raiz.
+No cPanel use:
 
-O utilizador da aplicacao precisa de permissao de leitura e escrita nessa pasta.
-O Chromium usado pelo WhatsApp tambem precisa das bibliotecas Linux exigidas
-pelo Puppeteer.
+```dotenv
+WHATSAPP_MODE=remote_worker
+WHATSAPP_WORKER_URL=https://wa-worker.seudominio.pt
+WHATSAPP_WORKER_SECRET=SEGREDO_IGUAL_AO_WORKER
+```
+
+No computador que fica ligado 24h, rode o worker em:
+
+```text
+workers/whatsapp-bridge
+```
+
+Veja `workers/whatsapp-bridge/README.md`.
+
+O CRM continua usando as mesmas telas de Inbox/Settings. A diferenca e que as
+rotas `/api/whatsapp/baileys/*` e `/api/whatsapp/send` chamam o worker remoto.
 
 ## 6. Configurar os agendamentos Cron
 
@@ -116,8 +131,8 @@ e na ordem numerica; nunca sao executadas automaticamente pelo deploy.
 
 - `npm run build` falha: confira Node 20/22 e as variaveis `NEXT_PUBLIC_*`.
 - Aplicacao retorna 503: confira `server.cjs`, `PORT` e o log do Passenger.
-- QR nao aparece: confirme Chromium, memoria, escrita em `whatsapp_auth` e que
-  o processo Node nao e suspenso.
-- QR desconecta apos deploy: a pasta `whatsapp_auth` foi removida ou mudou de
-  caminho/permissoes.
+- QR nao aparece: confira se o worker local esta ligado e se
+  `WHATSAPP_WORKER_URL` responde `/status`.
+- QR desconecta apos deploy: a sessao fica no PC, nao no cPanel; confira se o
+  PC reiniciou, suspendeu ou se o tunnel caiu.
 - Automacoes nao executam: confira Cron, URL HTTPS e o segredo Bearer.
