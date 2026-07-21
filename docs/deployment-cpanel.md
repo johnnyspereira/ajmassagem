@@ -40,18 +40,32 @@ Configure:
 
 - Node.js version: `20` ou `22`.
 - Application mode: `Production`.
-- Application startup file: `server.cjs`.
+- Application startup file: `server.js` se estiver usando a branch
+  `cpanel-runtime`.
 - Application URL: o dominio ou subdominio do CRM.
 
-No Terminal do cPanel, dentro da raiz clonada, execute:
+O cPanel partilhado pode nao conseguir executar `next build` por limite LVE de
+memoria. Para esse caso, use a branch pre-compilada:
 
-```bash
-npm ci
-npm run build
+```text
+main            codigo-fonte
+cpanel-runtime  app ja compilado pelo GitHub Actions
 ```
 
-Depois use **Restart Application** no Setup Node.js App. O cPanel fornece a
-porta em `PORT`; o `server.cjs` ja esta preparado para utiliza-la.
+No cPanel, mude o repositorio para a branch `cpanel-runtime`, use
+`server.js` como startup file e clique apenas em **Restart Application** apos
+cada pull. Nao execute **Run NPM Install** nem **Run JS script > build** nessa
+branch.
+
+Para gerar/atualizar a branch `cpanel-runtime`, configure os secrets do GitHub:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+NEXT_PUBLIC_APP_URL
+```
+
+Depois execute a Action **Build cPanel runtime** ou faca push na branch `main`.
 
 ## 4. Variaveis de ambiente
 
