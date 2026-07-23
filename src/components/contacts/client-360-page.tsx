@@ -28,6 +28,7 @@ import {
   UserRound,
   WalletCards,
   ExternalLink,
+  AlertTriangle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -56,6 +57,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { formatCurrency } from '@/lib/currency';
+import {
+  findExistingContact,
+  isUniqueViolation,
+  type ExistingContact,
+} from '@/lib/contacts/dedupe';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import type {
@@ -319,6 +325,10 @@ export function Client360Page({
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [savingClient, setSavingClient] = useState(false);
+  const [mergeCandidate, setMergeCandidate] = useState<ExistingContact | null>(
+    null
+  );
+  const [mergingContact, setMergingContact] = useState(false);
   const [savingCustomFields, setSavingCustomFields] = useState(false);
   const [newNote, setNewNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
@@ -624,12 +634,51 @@ export function Client360Page({
 
     setSavingClient(false);
     if (error || !data) {
+      if (error && isUniqueViolation(error) && accountId) {
+        const existing = await findExistingContact(
+          supabase,
+          accountId,
+          draft.phone.trim()
+        );
+        if (existing && existing.id !== contactId) {
+          setMergeCandidate(existing);
+          toast.error(
+            'Este telefone ja pertence a outro cliente. Pode abrir ou juntar os cadastros.'
+          );
+          return;
+        }
+      }
       toast.error(error?.message ?? 'Não foi possível guardar o cliente.');
       return;
     }
 
     setContact(data as Contact);
     toast.success('Dados do cliente guardados.');
+  }
+
+  async function mergeIntoExistingContact() {
+    if (!mergeCandidate || !contactId) return;
+    if (!canOperate) {
+      toast.error('O seu cargo possui acesso apenas de leitura.');
+      return;
+    }
+
+    setMergingContact(true);
+    const targetId = mergeCandidate.id;
+    const { error } = await supabase.rpc('merge_contacts', {
+      p_source_contact_id: contactId,
+      p_target_contact_id: targetId,
+    });
+    setMergingContact(false);
+
+    if (error) {
+      toast.error(error.message || 'Nao foi possivel juntar os cadastros.');
+      return;
+    }
+
+    toast.success('Cadastros unidos com sucesso.');
+    setMergeCandidate(null);
+    router.replace(`/contacts/${targetId}`);
   }
 
   async function toggleTag(tagId: string) {
@@ -2288,6 +2337,72 @@ export function Client360Page({
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog
+        open={!!mergeCandidate}
+        onOpenChange={(open) => {
+          if (!open && !mergingContact) setMergeCandidate(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Telefone ja usado em outro cliente
+            </DialogTitle>
+            <DialogDescription>
+              O telefone informado pertence a outro cadastro. Para evitar dados
+              duplicados, pode abrir o cadastro existente ou juntar este cliente
+              ao cadastro que ja possui o numero.
+            </DialogDescription>
+          </DialogHeader>
+          {mergeCandidate ? (
+            <div className="bg-muted/40 rounded-md border p-3 text-sm">
+              <p className="font-semibold">
+                {mergeCandidate.name || mergeCandidate.phone || 'Cliente'}
+              </p>
+              <p className="text-muted-foreground mt-1">
+                Telefone: {mergeCandidate.phone}
+              </p>
+              <p className="text-muted-foreground mt-2 text-xs">
+                Ao juntar, agenda, Inbox, financeiro, tags, notas, vouchers,
+                packs, indicacoes e historico passam para este cadastro. Campos
+                vazios no destino sao preenchidos com dados deste cliente.
+              </p>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setMergeCandidate(null)}
+              disabled={mergingContact}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (mergeCandidate)
+                  router.push(`/contacts/${mergeCandidate.id}`);
+              }}
+              disabled={!mergeCandidate || mergingContact}
+            >
+              Abrir existente
+            </Button>
+            <Button
+              onClick={() => void mergeIntoExistingContact()}
+              disabled={!mergeCandidate || mergingContact || !canOperate}
+            >
+              {mergingContact ? (
+                <RefreshCw className="animate-spin" />
+              ) : (
+                <UserRound />
+              )}
+              Juntar cadastros
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={createConversationOpen}
