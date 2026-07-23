@@ -30,6 +30,9 @@
     "flows": "Flows",
     "aiAgents": "AI Agents",
     "settings": "Settings",
+    "support": "Support",
+    "help": "Help Center",
+    "website": "Public Website",
     "beta": "Beta",
     "unreadConversations": "{count} unread {count, plural, =1 {conversation} other {conversations}}",
     "unreadNotifications": "{count} unread {count, plural, =1 {notification} other {notifications}}",
@@ -59,6 +62,9 @@
     "flows": "Flows",
     "aiAgents": "AI Agents",
     "settings": "Settings",
+    "support": "Support",
+    "help": "Help Center",
+    "website": "Public Website",
     "groupService": "Service",
     "groupSales": "Sales",
     "groupAutomation": "Automation",
@@ -2231,7 +2237,8 @@
       "referrals": "Referrals",
       "roles": "Roles & access",
       "members": "Team members",
-      "api": "API keys"
+      "api": "API keys",
+      "data-cleanup": "Data cleanup"
     },
     "workTime": {
       "title": "Work time",

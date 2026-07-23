@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import { Inter } from 'next/font/google';
-import Script from 'next/script';
 import './globals.css';
 import { ThemeProvider } from '@/hooks/use-theme';
 import { ThemedToaster } from '@/components/themed-toaster';
@@ -21,6 +20,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  manifest: '/manifest.webmanifest',
+  applicationName: 'CRM WhatsApp',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'CRM',
+  },
   title: {
     default: 'CRM',
     template: '%s · CRM',
@@ -32,6 +38,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [{ url: '/icon' }],
+    apple: [{ url: '/icon' }],
   },
   formatDetection: {
     email: false,
@@ -106,9 +113,9 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <Script
+        <script
           id="theme-boot"
-          strategy="beforeInteractive"
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }}
         />
       </head>

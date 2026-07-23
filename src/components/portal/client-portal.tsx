@@ -7,6 +7,8 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   BadgeEuro,
+  Bell,
+  BookOpen,
   CalendarCheck,
   CalendarDays,
   Check,
@@ -22,6 +24,7 @@ import {
   Gift,
   Home,
   ImagePlus,
+  LifeBuoy,
   KeyRound,
   Loader2,
   LockKeyhole,
@@ -55,6 +58,11 @@ import { Label } from '@/components/ui/label';
 import { formatCurrency } from '@/lib/currency';
 import { downloadReceiptPdf } from '@/lib/finance/receipt-pdf';
 import { cn } from '@/lib/utils';
+import { PortalSupport } from '@/components/portal/portal-support';
+import { PortalNotifications } from '@/components/portal/portal-notifications';
+import { PortalHelp } from '@/components/portal/portal-help';
+import { PortalHelpLauncher } from '@/components/portal/portal-help-launcher';
+import { PushNotifications } from '@/components/notifications/push-notifications';
 
 type PortalTab =
   | 'home'
@@ -63,6 +71,9 @@ type PortalTab =
   | 'benefits'
   | 'referrals'
   | 'finance'
+  | 'support'
+  | 'notifications'
+  | 'help'
   | 'profile';
 
 type PublicPortal = {
@@ -410,6 +421,8 @@ export function ClientPortal({ slug }: { slug: string }) {
   const [password, setPassword] = useState('');
   const [passwordSent, setPasswordSent] = useState(false);
   const [tab, setTab] = useState<PortalTab>('home');
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [supportRequestKey, setSupportRequestKey] = useState(0);
   const [bookingOpen, setBookingOpen] = useState(false);
 
   const loadPortal = useCallback(async () => {
@@ -436,7 +449,38 @@ export function ClientPortal({ slug }: { slug: string }) {
         dataPayload.error || 'Não foi possível carregar o portal.'
       );
     setData(dataPayload as PortalData);
+    const notificationsResponse = await fetch(
+      `/api/portal/${encodeURIComponent(slug)}/notifications`,
+      { cache: 'no-store' }
+    );
+    if (notificationsResponse.ok) {
+      const notificationsPayload = await notificationsResponse.json();
+      setUnreadNotifications(
+        (notificationsPayload.notifications ?? []).filter(
+          (item: { read_at: string | null }) => !item.read_at
+        ).length
+      );
+    }
   }, [slug]);
+
+  useEffect(() => {
+    if (!data) return;
+    const refreshUnread = async () => {
+      const response = await fetch(
+        `/api/portal/${encodeURIComponent(slug)}/notifications`,
+        { cache: 'no-store' }
+      );
+      if (!response.ok) return;
+      const payload = await response.json();
+      setUnreadNotifications(
+        (payload.notifications ?? []).filter(
+          (item: { read_at: string | null }) => !item.read_at
+        ).length
+      );
+    };
+    const timer = window.setInterval(() => void refreshUnread(), 30_000);
+    return () => window.clearInterval(timer);
+  }, [data, slug]);
 
   useEffect(() => {
     async function bootstrapPortal() {
@@ -643,6 +687,20 @@ export function ClientPortal({ slug }: { slug: string }) {
               <p className="text-sm font-semibold">{portalTabLabel(tab)}</p>
             </div>
             <div className="ml-auto hidden items-center gap-2 sm:flex">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative"
+                onClick={() => setTab('notifications')}
+                title="Notificações"
+              >
+                <Bell />
+                {unreadNotifications > 0 && (
+                  <span className="bg-destructive text-destructive-foreground absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full text-[10px] font-bold">
+                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                  </span>
+                )}
+              </Button>
               <span className="border-border bg-background flex items-center gap-2 rounded-md border px-3 py-2 text-xs">
                 <LockKeyhole className="size-3.5 text-emerald-600" /> Sessão
                 segura
@@ -698,6 +756,21 @@ export function ClientPortal({ slug }: { slug: string }) {
           {tab === 'profile' && (
             <ProfileView data={data} onRefresh={refreshData} />
           )}
+          {tab === 'support' && (
+            <PortalSupport
+              key={supportRequestKey}
+              slug={slug}
+              createInitially={supportRequestKey > 0}
+            />
+          )}
+          {tab === 'notifications' && (
+            <PortalNotifications
+              slug={slug}
+              onNavigate={(next) => setTab(next as PortalTab)}
+              onUnreadChange={setUnreadNotifications}
+            />
+          )}
+          {tab === 'help' && <PortalHelp />}
         </main>
       </div>
 
@@ -745,6 +818,26 @@ export function ClientPortal({ slug }: { slug: string }) {
           />
         )}
         <MobileNav
+          icon={Bell}
+          label={
+            unreadNotifications ? `Avisos (${unreadNotifications})` : 'Avisos'
+          }
+          active={tab === 'notifications'}
+          onClick={() => setTab('notifications')}
+        />
+        <MobileNav
+          icon={BookOpen}
+          label="Ajuda"
+          active={tab === 'help'}
+          onClick={() => setTab('help')}
+        />
+        <MobileNav
+          icon={LifeBuoy}
+          label="Suporte"
+          active={tab === 'support'}
+          onClick={() => setTab('support')}
+        />
+        <MobileNav
           icon={UserRound}
           label="Perfil"
           active={tab === 'profile'}
@@ -763,6 +856,16 @@ export function ClientPortal({ slug }: { slug: string }) {
         open={data.settings.requiresPasswordChange}
         slug={slug}
         onChanged={refreshData}
+      />
+      <PortalHelpLauncher
+        onLearn={() => setTab('help')}
+        onContact={() => {
+          setSupportRequestKey((value) => value + 1);
+          setTab('support');
+        }}
+      />
+      <PushNotifications
+        endpoint={`/api/portal/${encodeURIComponent(slug)}/push`}
       />
     </div>
   );
@@ -1062,6 +1165,9 @@ function PortalNav({
     { id: 'benefits', label: 'Benefícios e saldo', icon: Gift },
     { id: 'referrals', label: 'Indique um amigo', icon: Share2 },
     { id: 'finance', label: 'Pagamentos e faturas', icon: ReceiptText },
+    { id: 'support', label: 'Meus pedidos', icon: LifeBuoy },
+    { id: 'help', label: 'Central de ajuda', icon: BookOpen },
+    { id: 'notifications', label: 'Notificações', icon: Bell },
     { id: 'profile', label: 'Perfil e privacidade', icon: UserRound },
   ];
   return (
@@ -1100,6 +1206,9 @@ function portalTabLabel(tab: PortalTab) {
     benefits: 'Benefícios e saldo',
     referrals: 'Indique um amigo',
     finance: 'Pagamentos e faturas',
+    support: 'Meus pedidos',
+    help: 'Central de ajuda',
+    notifications: 'Notificações',
     profile: 'Perfil e privacidade',
   }[tab];
 }

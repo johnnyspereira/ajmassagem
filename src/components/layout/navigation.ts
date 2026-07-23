@@ -7,6 +7,9 @@ import {
   GitBranch,
   LayoutDashboard,
   MessageSquare,
+  LifeBuoy,
+  CircleHelp,
+  Globe2,
   HeartHandshake,
   Radio,
   Settings,
@@ -36,9 +39,12 @@ export const navItems: NavItem[] = [
   { href: '/automations', labelKey: 'automations', icon: Zap },
   { href: '/flows', labelKey: 'flows', icon: Workflow, beta: true },
   { href: '/agents', labelKey: 'aiAgents', icon: Bot },
+  { href: '/support', labelKey: 'support', icon: LifeBuoy },
+  { href: '/website', labelKey: 'website', icon: Globe2 },
 ];
 
 export const bottomNavItems: NavItem[] = [
+  { href: '/help', labelKey: 'help', icon: CircleHelp },
   { href: '/settings', labelKey: 'settings', icon: Settings },
 ];
 

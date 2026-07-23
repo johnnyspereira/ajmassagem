@@ -65,6 +65,7 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  allowedDevOrigins: ['192.168.1.17'],
 
   /**
    * Cache-Control policy.
@@ -105,6 +106,15 @@ const nextConfig: NextConfig = {
    */
   async headers() {
     return [
+      {
+        source: '/sw.js',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
       {
         source: '/api/:path*',
         headers: [{ key: 'Cache-Control', value: 'no-store' }],

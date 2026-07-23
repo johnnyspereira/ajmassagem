@@ -30,6 +30,9 @@
     "flows": "Fluxos",
     "aiAgents": "Agentes de IA",
     "settings": "Configurações",
+    "support": "Suporte",
+    "help": "Central de Ajuda",
+    "website": "Site Público",
     "beta": "Beta",
     "unreadConversations": "{count} {count, plural, =1 {conversa não lida} other {conversas não lidas}}",
     "unreadNotifications": "{count} {count, plural, =1 {notificação não lida} other {notificações não lidas}}",
@@ -59,6 +62,9 @@
     "flows": "Fluxos",
     "aiAgents": "Agentes de IA",
     "settings": "Configurações",
+    "support": "Suporte",
+    "help": "Central de Ajuda",
+    "website": "Site Público",
     "groupService": "Atendimento",
     "groupSales": "Comercial",
     "groupAutomation": "Automação",
@@ -2221,7 +2227,8 @@
       "referrals": "Indicações",
       "roles": "Cargos e acessos",
       "members": "Membros da equipe",
-      "api": "Chaves de API"
+      "api": "Chaves de API",
+      "data-cleanup": "Limpeza de dados"
     },
     "workTime": {
       "title": "Jornada de trabalho",

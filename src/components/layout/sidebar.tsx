@@ -12,12 +12,15 @@ import {
   BadgeEuro,
   BarChart3,
   Bot,
+  CircleHelp,
+  Globe2,
   CalendarDays,
   Crown,
   GitBranch,
   LayoutDashboard,
   LogOut,
   MessageSquare,
+  LifeBuoy,
   Radio,
   Settings,
   Shield,
@@ -97,9 +100,12 @@ const navItems: NavItem[] = [
   { href: '/automations', labelKey: 'automations', icon: Zap },
   { href: '/flows', labelKey: 'flows', icon: Workflow, beta: true },
   { href: '/agents', labelKey: 'aiAgents', icon: Bot },
+  { href: '/support', labelKey: 'support', icon: LifeBuoy },
+  { href: '/website', labelKey: 'website', icon: Globe2 },
 ];
 
 const bottomNavItems = [
+  { href: '/help', labelKey: 'help', icon: CircleHelp },
   { href: '/settings', labelKey: 'settings', icon: Settings },
 ];
 

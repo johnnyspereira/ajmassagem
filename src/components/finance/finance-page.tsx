@@ -15,6 +15,8 @@ import {
   FileClock,
   Gift,
   History,
+  Landmark,
+  LayoutDashboard,
   Loader2,
   Minus,
   PackageCheck,
@@ -25,6 +27,7 @@ import {
   Search,
   ShoppingCart,
   Trash2,
+  UserRound,
   WalletCards,
   X,
 } from 'lucide-react';
@@ -49,6 +52,7 @@ import { useCan } from '@/hooks/use-can';
 import { formatCurrency } from '@/lib/currency';
 import { downloadVoucherPdf } from '@/lib/finance/voucher-pdf';
 import { downloadReceiptPdf } from '@/lib/finance/receipt-pdf';
+import { OwnerTreasury } from '@/components/finance/owner-treasury';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import type {
@@ -158,13 +162,25 @@ export function FinancePage({
     defaultCurrency,
     profileLoading,
     canEditSettings,
+    isOwner,
   } = useAuth();
   const canOperate = useCan('send-messages');
 
   const [activeTab, setActiveTab] = useState(
-    ['sales', 'cash', 'packs', 'vouchers', 'invoices'].includes(initialTab)
+    [
+      'overview',
+      'sales',
+      'cash',
+      'packs',
+      'vouchers',
+      'invoices',
+      'treasury',
+      'pos',
+    ].includes(initialTab)
       ? initialTab
-      : 'pos'
+      : initialAppointmentId
+        ? 'pos'
+        : 'overview'
   );
   const [catalogMode, setCatalogMode] = useState<
     'services' | 'products' | 'packs'
@@ -1011,44 +1027,46 @@ export function FinancePage({
   return (
     <div className="space-y-5">
       <PageHeader cashSession={cashSession} onRefresh={loadFinance} />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <FinanceMetric
-          label="Faturado"
-          value={money(financeMetrics.billed, defaultCurrency)}
-          detail={`${sales.length} vendas recentes`}
-          icon={ReceiptText}
-        />
-        <FinanceMetric
-          label="Recebido"
-          value={money(financeMetrics.received, defaultCurrency)}
-          detail="pagamentos confirmados"
-          icon={CircleDollarSign}
-        />
-        <FinanceMetric
-          label="A receber"
-          value={money(financeMetrics.due, defaultCurrency)}
-          detail={`${financeMetrics.openSales} contas pendentes`}
-          icon={History}
-        />
-        <FinanceMetric
-          label="Caixa esperado"
-          value={money(
-            Number(cashSnapshot?.expected_amount ?? 0),
-            defaultCurrency
-          )}
-          detail={cashSession ? 'sessão atual' : 'caixa fechado'}
-          icon={Banknote}
-        />
-        <FinanceMetric
-          label="Benefícios ativos"
-          value={String(
-            vouchers.filter((item) => item.status === 'active').length +
-              clientPacks.filter((item) => item.status === 'active').length
-          )}
-          detail="vouchers e packs"
-          icon={WalletCards}
-        />
-      </div>
+      {activeTab === 'overview' && (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <FinanceMetric
+            label="Faturado"
+            value={money(financeMetrics.billed, defaultCurrency)}
+            detail={`${sales.length} vendas recentes`}
+            icon={ReceiptText}
+          />
+          <FinanceMetric
+            label="Recebido"
+            value={money(financeMetrics.received, defaultCurrency)}
+            detail="pagamentos confirmados"
+            icon={CircleDollarSign}
+          />
+          <FinanceMetric
+            label="A receber"
+            value={money(financeMetrics.due, defaultCurrency)}
+            detail={`${financeMetrics.openSales} contas pendentes`}
+            icon={History}
+          />
+          <FinanceMetric
+            label="Caixa esperado"
+            value={money(
+              Number(cashSnapshot?.expected_amount ?? 0),
+              defaultCurrency
+            )}
+            detail={cashSession ? 'sessão atual' : 'caixa fechado'}
+            icon={Banknote}
+          />
+          <FinanceMetric
+            label="Benefícios ativos"
+            value={String(
+              vouchers.filter((item) => item.status === 'active').length +
+                clientPacks.filter((item) => item.status === 'active').length
+            )}
+            detail="vouchers e packs"
+            icon={WalletCards}
+          />
+        </div>
+      )}
       {initialAppointmentId ? (
         <div className="border-primary/30 bg-primary/5 flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3">
           <div>
@@ -1063,35 +1081,130 @@ export function FinancePage({
         </div>
       ) : null}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-4">
-        <TabsList className="w-full justify-start overflow-x-auto">
-          <TabsTrigger value="pos">
-            <ShoppingCart /> POS
-          </TabsTrigger>
-          <TabsTrigger value="sales">
-            <ReceiptText /> Vendas
-          </TabsTrigger>
-          <TabsTrigger value="invoices">
-            <FileClock /> Faturas
-            {invoiceRequests.filter((item) => item.status === 'pending')
-              .length > 0 && (
-              <Badge variant="destructive">
-                {
-                  invoiceRequests.filter((item) => item.status === 'pending')
-                    .length
-                }
-              </Badge>
+        <div className="border-border bg-background/95 sticky top-0 z-20 -mx-1 overflow-x-auto border-b px-1 py-2 backdrop-blur">
+          <TabsList className="bg-muted/60 flex h-10 w-full min-w-max justify-start gap-1 p-1 [&_button]:!h-8 [&_button]:!min-h-0 [&_button]:!rounded-md [&_button]:!border-0 [&_button]:!px-3 [&_button]:!py-1 [&_button]:!shadow-none [&_button>span>span:last-child]:hidden">
+            <TabsTrigger
+              value="overview"
+              className="border-border data-active:border-primary data-active:bg-primary/5 bg-card min-h-16 justify-start rounded-xl border px-3 py-2 shadow-sm"
+            >
+              <LayoutDashboard />
+              <span className="text-left">
+                <span className="block font-semibold">Visão geral</span>
+                <span className="text-muted-foreground block text-[10px]">
+                  Indicadores e ações
+                </span>
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="pos"
+              className="border-border data-active:border-primary data-active:bg-primary/5 bg-card min-h-16 justify-start rounded-xl border px-3 py-2 shadow-sm"
+            >
+              <ShoppingCart />
+              <span className="text-left">
+                <span className="block font-semibold">Ponto de venda</span>
+                <span className="text-muted-foreground block text-[10px]">
+                  Cobrar e faturar
+                </span>
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="sales"
+              className="border-border data-active:border-primary data-active:bg-primary/5 bg-card min-h-16 justify-start rounded-xl border px-3 py-2 shadow-sm"
+            >
+              <ReceiptText />
+              <span className="text-left">
+                <span className="block font-semibold">Vendas</span>
+                <span className="text-muted-foreground block text-[10px]">
+                  Histórico e saldos
+                </span>
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="invoices"
+              className="border-border data-active:border-primary data-active:bg-primary/5 bg-card min-h-16 justify-start rounded-xl border px-3 py-2 shadow-sm"
+            >
+              <FileClock />
+              <span className="text-left">
+                <span className="block font-semibold">Faturas</span>
+                <span className="text-muted-foreground block text-[10px]">
+                  Pedidos e documentos
+                </span>
+              </span>
+              {invoiceRequests.filter((item) => item.status === 'pending')
+                .length > 0 && (
+                <Badge variant="destructive">
+                  {
+                    invoiceRequests.filter((item) => item.status === 'pending')
+                      .length
+                  }
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="cash"
+              className="border-border data-active:border-primary data-active:bg-primary/5 bg-card min-h-16 justify-start rounded-xl border px-3 py-2 shadow-sm"
+            >
+              <Banknote />
+              <span className="text-left">
+                <span className="block font-semibold">Caixa</span>
+                <span className="text-muted-foreground block text-[10px]">
+                  Sessões e movimentos
+                </span>
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="vouchers"
+              className="border-border data-active:border-primary data-active:bg-primary/5 bg-card min-h-16 justify-start rounded-xl border px-3 py-2 shadow-sm"
+            >
+              <Gift />
+              <span className="text-left">
+                <span className="block font-semibold">Vouchers</span>
+                <span className="text-muted-foreground block text-[10px]">
+                  Saldos e utilização
+                </span>
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="packs"
+              className="border-border data-active:border-primary data-active:bg-primary/5 bg-card min-h-16 justify-start rounded-xl border px-3 py-2 shadow-sm"
+            >
+              <PackageCheck />
+              <span className="text-left">
+                <span className="block font-semibold">Packs</span>
+                <span className="text-muted-foreground block text-[10px]">
+                  Planos e sessões
+                </span>
+              </span>
+            </TabsTrigger>
+            {isOwner && (
+              <TabsTrigger
+                value="treasury"
+                className="bg-card min-h-16 justify-start rounded-xl border border-amber-500/30 px-3 py-2 shadow-sm data-active:border-amber-500 data-active:bg-amber-500/10"
+              >
+                <Landmark />
+                <span className="text-left">
+                  <span className="block font-semibold">Gestão privada</span>
+                  <span className="text-muted-foreground block text-[10px]">
+                    Só proprietários
+                  </span>
+                </span>
+              </TabsTrigger>
             )}
-          </TabsTrigger>
-          <TabsTrigger value="cash">
-            <Banknote /> Caixa
-          </TabsTrigger>
-          <TabsTrigger value="vouchers">
-            <Gift /> Vouchers
-          </TabsTrigger>
-          <TabsTrigger value="packs">
-            <PackageCheck /> Packs
-          </TabsTrigger>
-        </TabsList>
+          </TabsList>
+        </div>
+
+        <TabsContent value="overview">
+          <FinanceOverview
+            sales={sales}
+            cashSession={cashSession}
+            vouchers={vouchers}
+            clientPacks={clientPacks}
+            invoiceRequests={invoiceRequests}
+            currency={defaultCurrency}
+            isOwner={isOwner}
+            onNavigate={setActiveTab}
+          />
+        </TabsContent>
 
         <TabsContent value="pos">
           <PosView
@@ -1198,6 +1311,11 @@ export function FinancePage({
             onCreate={() => window.location.assign('/settings?tab=clinic')}
           />
         </TabsContent>
+        {isOwner && (
+          <TabsContent value="treasury">
+            <OwnerTreasury />
+          </TabsContent>
+        )}
       </Tabs>
 
       <Dialog open={cashOpen} onOpenChange={setCashOpen}>
@@ -1619,6 +1737,204 @@ export function FinancePage({
   );
 }
 
+function FinanceOverview({
+  sales,
+  cashSession,
+  vouchers,
+  clientPacks,
+  invoiceRequests,
+  currency,
+  isOwner,
+  onNavigate,
+}: {
+  sales: FinanceSale[];
+  cashSession: FinanceCashSession | null;
+  vouchers: FinanceVoucher[];
+  clientPacks: FinanceClientPack[];
+  invoiceRequests: FinanceInvoiceRequest[];
+  currency: string;
+  isOwner: boolean;
+  onNavigate: (value: string) => void;
+}) {
+  const openSales = sales.filter(
+    (sale) => sale.status === 'open' || sale.status === 'partially_paid'
+  );
+  const due = openSales.reduce(
+    (sum, sale) => sum + Number(sale.balance_due),
+    0
+  );
+  const recent = sales.slice(0, 6);
+  return (
+    <div className="grid gap-4 xl:grid-cols-3">
+      <Card className="xl:col-span-2">
+        <CardHeader>
+          <CardTitle>Operação financeira</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <OverviewAction
+            icon={ShoppingCart}
+            title="Nova venda"
+            detail="Registar serviços, produtos e pagamentos"
+            onClick={() => onNavigate('pos')}
+          />
+          <OverviewAction
+            icon={History}
+            title="Valores a receber"
+            detail={`${openSales.length} vendas · ${money(due, currency)}`}
+            onClick={() => onNavigate('sales')}
+          />
+          <OverviewAction
+            icon={Banknote}
+            title={cashSession ? 'Caixa aberto' : 'Abrir caixa'}
+            detail={
+              cashSession
+                ? 'Consultar movimentos da sessão'
+                : 'Iniciar operação em dinheiro'
+            }
+            onClick={() => onNavigate('cash')}
+          />
+          <OverviewAction
+            icon={FileClock}
+            title="Pedidos de fatura"
+            detail={`${invoiceRequests.filter((item) => item.status === 'pending').length} aguardam tratamento`}
+            onClick={() => onNavigate('invoices')}
+          />
+          <OverviewAction
+            icon={Gift}
+            title="Benefícios"
+            detail={`${vouchers.filter((item) => item.status === 'active').length} vouchers ativos`}
+            onClick={() => onNavigate('vouchers')}
+          />
+          {isOwner && (
+            <OverviewAction
+              icon={Landmark}
+              title="Gestão e tesouraria"
+              detail="Contas, prestações e fluxo de caixa"
+              onClick={() => onNavigate('treasury')}
+            />
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Estado atual</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <OverviewLine
+            label="Caixa"
+            value={cashSession ? 'Aberto' : 'Fechado'}
+            positive={Boolean(cashSession)}
+          />
+          <OverviewLine
+            label="Vendas pendentes"
+            value={String(openSales.length)}
+          />
+          <OverviewLine
+            label="Faturas pendentes"
+            value={String(
+              invoiceRequests.filter((item) => item.status === 'pending').length
+            )}
+          />
+          <OverviewLine
+            label="Vouchers ativos"
+            value={String(
+              vouchers.filter((item) => item.status === 'active').length
+            )}
+          />
+          <OverviewLine
+            label="Packs ativos"
+            value={String(
+              clientPacks.filter((item) => item.status === 'active').length
+            )}
+          />
+        </CardContent>
+      </Card>
+      <Card className="xl:col-span-3">
+        <CardHeader>
+          <CardTitle>Últimas vendas</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {recent.length ? (
+            recent.map((sale) => (
+              <button
+                key={sale.id}
+                type="button"
+                onClick={() => onNavigate('sales')}
+                className="hover:bg-muted flex w-full items-center justify-between rounded-lg border p-3 text-left transition-colors"
+              >
+                <div>
+                  <p className="text-sm font-medium">
+                    Venda #{sale.sale_number} ·{' '}
+                    {sale.contact?.name || 'Cliente não identificado'}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    {SALE_STATUS[sale.status] || sale.status} ·{' '}
+                    {new Date(sale.created_at).toLocaleDateString('pt-PT')}
+                  </p>
+                </div>
+                <strong>
+                  {money(sale.total_amount, sale.currency || currency)}
+                </strong>
+              </button>
+            ))
+          ) : (
+            <p className="text-muted-foreground py-8 text-center text-sm">
+              Ainda não existem vendas.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function OverviewAction({
+  icon: Icon,
+  title,
+  detail,
+  onClick,
+}: {
+  icon: React.ElementType;
+  title: string;
+  detail: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="hover:border-primary/50 hover:bg-primary/5 flex gap-3 rounded-xl border p-4 text-left transition-colors"
+    >
+      <span className="bg-primary/10 text-primary rounded-lg p-2">
+        <Icon className="size-5" />
+      </span>
+      <span>
+        <span className="block text-sm font-semibold">{title}</span>
+        <span className="text-muted-foreground mt-1 block text-xs leading-relaxed">
+          {detail}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function OverviewLine({
+  label,
+  value,
+  positive = false,
+}: {
+  label: string;
+  value: string;
+  positive?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between border-b pb-2 last:border-0">
+      <span className="text-muted-foreground">{label}</span>
+      <Badge variant={positive ? 'default' : 'secondary'}>{value}</Badge>
+    </div>
+  );
+}
+
 function PageHeader({
   cashSession,
   onRefresh,
@@ -1629,9 +1945,10 @@ function PageHeader({
   return (
     <div className="border-border flex flex-col gap-3 border-b pb-5 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 className="text-2xl font-bold">Financeiro & POS</h1>
+        <h1 className="text-2xl font-bold">Centro Financeiro</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Operação de vendas, recebimentos, pagamentos e caixa.
+          Operação, recebimentos, caixa, benefícios e gestão financeira num só
+          lugar.
         </p>
       </div>
       <div className="flex items-center gap-2">
@@ -1717,10 +2034,34 @@ function PosView(props: {
     setVoucherOpen,
     cashSession,
   } = props;
+  const [clientSearch, setClientSearch] = useState('');
+  const [clientSearchOpen, setClientSearchOpen] = useState(false);
+  const selectedContact = contacts.find((contact) => contact.id === contactId);
+  const filteredContacts = useMemo(() => {
+    const term = clientSearch.trim().toLocaleLowerCase('pt');
+    const matches = term
+      ? contacts.filter((contact) =>
+          [
+            contact.name,
+            contact.phone,
+            contact.client_reference,
+            contact.email,
+            contact.tax_id,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLocaleLowerCase('pt')
+            .includes(term)
+        )
+      : contacts;
+
+    return matches.slice(0, 12);
+  }, [clientSearch, contacts]);
+
   return (
-    <div className="grid min-h-[620px] gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(390px,0.75fr)]">
-      <section className="border-border bg-card overflow-hidden rounded-lg border">
-        <div className="border-border space-y-3 border-b p-3">
+    <div className="grid min-h-[680px] min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px]">
+      <section className="border-border bg-card min-w-0 overflow-hidden rounded-xl border shadow-sm">
+        <div className="border-border bg-card/95 sticky top-0 z-10 space-y-3 border-b p-4 backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="bg-muted flex rounded-md p-1">
               {(['services', 'products', 'packs'] as const).map((mode) => (
@@ -1728,7 +2069,8 @@ function PosView(props: {
                   key={mode}
                   type="button"
                   onClick={() => setCatalogMode(mode)}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium ${catalogMode === mode ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}
+                  aria-pressed={catalogMode === mode}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${catalogMode === mode ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   {mode === 'services'
                     ? 'Serviços'
@@ -1761,21 +2103,34 @@ function PosView(props: {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Pesquisar catálogo..."
-              className="pl-9"
+              aria-label="Pesquisar no catálogo"
+              className="h-10 pl-9"
             />
+            {search ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setSearch('')}
+                aria-label="Limpar pesquisa"
+                className="absolute top-1/2 right-1.5 -translate-y-1/2"
+              >
+                <X />
+              </Button>
+            ) : null}
           </div>
         </div>
-        <div className="bg-border grid gap-px sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 p-3 sm:grid-cols-2 2xl:grid-cols-3">
           {catalog.map((item) => (
             <button
               key={`${item.type}-${item.id}`}
               type="button"
               onClick={() => props.addCatalogItem(item)}
               disabled={item.available === false}
-              className="bg-card hover:bg-muted min-h-28 p-4 text-left"
+              className="border-border bg-background hover:border-primary/35 hover:bg-primary/[0.03] disabled:bg-muted/40 group min-h-32 rounded-lg border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm disabled:pointer-events-none disabled:opacity-50"
             >
               <div className="flex items-start justify-between gap-2">
-                <span className="bg-primary-soft text-primary flex size-8 items-center justify-center rounded-md">
+                <span className="bg-primary-soft text-primary flex size-9 items-center justify-center rounded-lg transition-transform group-hover:scale-105">
                   {item.type === 'service' ? (
                     <BadgeEuro />
                   ) : item.type === 'product' ? (
@@ -1784,24 +2139,56 @@ function PosView(props: {
                     <PackageCheck />
                   )}
                 </span>
-                <span className="font-semibold">
+                <span className="text-sm font-semibold tabular-nums">
                   {money(item.price, defaultCurrency)}
                 </span>
               </div>
-              <p className="mt-3 line-clamp-2 font-medium">{item.name}</p>
+              <p className="mt-3 line-clamp-2 text-sm leading-snug font-medium">
+                {item.name}
+              </p>
               <p className="text-muted-foreground mt-1 text-xs">
                 {item.detail}
               </p>
             </button>
           ))}
+          {catalog.length === 0 ? (
+            <div className="text-muted-foreground col-span-full flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
+              <Search className="mb-3 size-8 opacity-40" />
+              <p className="text-foreground text-sm font-medium">
+                Nenhum item encontrado
+              </p>
+              <p className="mt-1 max-w-xs text-xs">
+                Experimente outro termo ou selecione uma categoria diferente.
+              </p>
+              {search ? (
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  onClick={() => setSearch('')}
+                  className="mt-2"
+                >
+                  Limpar pesquisa
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </section>
-      <section className="border-border bg-card flex min-h-0 flex-col overflow-hidden rounded-lg border">
-        <div className="border-border flex items-center justify-between border-b p-3">
+      <section className="border-border bg-card flex min-h-0 min-w-0 flex-col overflow-y-auto rounded-xl border shadow-sm xl:sticky xl:top-16 xl:max-h-[calc(100vh-5rem)]">
+        <div className="border-border flex items-center justify-between border-b p-4">
           <div>
-            <h2 className="font-semibold">Venda atual</h2>
+            <h2 className="flex items-center gap-2 font-semibold">
+              <span className="bg-primary-soft text-primary flex size-8 items-center justify-center rounded-lg">
+                <ShoppingCart className="size-4" />
+              </span>
+              Venda atual
+            </h2>
             <p className="text-muted-foreground text-xs">
-              {cart.length} itens · {cashSession ? 'caixa aberto' : 'sem caixa'}
+              {cart.length} {cart.length === 1 ? 'item' : 'itens'} ·{' '}
+              <span className={cashSession ? 'text-emerald-600' : undefined}>
+                {cashSession ? 'caixa aberto' : 'sem caixa'}
+              </span>
             </p>
           </div>
           {cart.length > 0 && (
@@ -1810,18 +2197,142 @@ function PosView(props: {
             </Button>
           )}
         </div>
-        <div className="space-y-3 p-3">
+        <div className="space-y-3 p-4">
           <Field label="Cliente">
-            <NativeSelect value={contactId} onChange={setContactId}>
-              <option value="">Consumidor final</option>
-              {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.name || contact.phone} ·{' '}
-                  {contact.client_reference || contact.phone}
-                </option>
-              ))}
-            </NativeSelect>
+            <div className="relative">
+              <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2" />
+              <Input
+                value={clientSearch}
+                onChange={(event) => {
+                  setClientSearch(event.target.value);
+                  setClientSearchOpen(true);
+                }}
+                onFocus={() => setClientSearchOpen(true)}
+                onBlur={() => setClientSearchOpen(false)}
+                placeholder={
+                  selectedContact
+                    ? 'Pesquisar outro cliente...'
+                    : 'Nome, telefone, email ou NIF...'
+                }
+                aria-label="Pesquisar cliente"
+                aria-expanded={clientSearchOpen}
+                aria-controls="pos-client-results"
+                autoComplete="off"
+                className="h-10 pr-9 pl-9"
+              />
+              {clientSearch ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => setClientSearch('')}
+                  aria-label="Limpar pesquisa de cliente"
+                  className="absolute top-1/2 right-1.5 -translate-y-1/2"
+                >
+                  <X />
+                </Button>
+              ) : null}
+              {clientSearchOpen ? (
+                <div
+                  id="pos-client-results"
+                  className="border-border bg-popover absolute top-full right-0 left-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-lg border p-1 shadow-lg"
+                >
+                  <button
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setContactId('');
+                      setClientSearch('');
+                      setClientSearchOpen(false);
+                    }}
+                    className="hover:bg-muted flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm"
+                  >
+                    <span className="bg-muted flex size-8 shrink-0 items-center justify-center rounded-full">
+                      <UserRound className="size-4" />
+                    </span>
+                    <span>
+                      <span className="block font-medium">
+                        Consumidor final
+                      </span>
+                      <span className="text-muted-foreground block text-xs">
+                        Venda sem cliente associado
+                      </span>
+                    </span>
+                  </button>
+                  <div className="bg-border mx-2 my-1 h-px" />
+                  {filteredContacts.map((contact) => (
+                    <button
+                      key={contact.id}
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => {
+                        setContactId(contact.id);
+                        setClientSearch('');
+                        setClientSearchOpen(false);
+                      }}
+                      className="hover:bg-muted flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left"
+                    >
+                      <span className="bg-primary-soft text-primary flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
+                        {(contact.name || contact.phone)
+                          .slice(0, 1)
+                          .toUpperCase()}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">
+                          {contact.name || 'Cliente sem nome'}
+                        </span>
+                        <span className="text-muted-foreground block truncate text-xs">
+                          {[contact.phone, contact.client_reference]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                      </span>
+                      {contact.id === contactId ? (
+                        <Check className="text-primary size-4 shrink-0" />
+                      ) : null}
+                    </button>
+                  ))}
+                  {filteredContacts.length === 0 ? (
+                    <div className="text-muted-foreground px-3 py-6 text-center text-sm">
+                      Nenhum cliente encontrado para “{clientSearch}”.
+                    </div>
+                  ) : null}
+                  {contacts.length > filteredContacts.length ? (
+                    <p className="text-muted-foreground border-border border-t px-3 py-2 text-center text-[11px]">
+                      Escreva mais para refinar os resultados
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </Field>
+          {selectedContact ? (
+            <div className="border-primary/20 bg-primary/[0.04] flex items-center gap-3 rounded-lg border p-3">
+              <span className="bg-primary text-primary-foreground flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
+                {(selectedContact.name || selectedContact.phone)
+                  .slice(0, 1)
+                  .toUpperCase()}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">
+                  {selectedContact.name || 'Cliente sem nome'}
+                </span>
+                <span className="text-muted-foreground block truncate text-xs">
+                  {selectedContact.phone}
+                </span>
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setContactId('')}
+                aria-label="Remover cliente da venda"
+              >
+                <X />
+              </Button>
+            </div>
+          ) : null}
           {contactId ? (
             <div className="border-border bg-muted/40 flex items-center justify-between rounded-md border px-3 py-2 text-xs">
               <span className="text-muted-foreground">
@@ -1833,17 +2344,22 @@ function PosView(props: {
             </div>
           ) : null}
         </div>
-        <div className="min-h-40 flex-1 space-y-2 overflow-y-auto px-3">
+        <div className="min-h-40 flex-1 space-y-2 overflow-y-auto px-4">
           {cart.length === 0 ? (
-            <div className="text-muted-foreground flex h-40 flex-col items-center justify-center text-sm">
-              <ShoppingCart className="mb-2 size-6" />
-              Selecione itens no catálogo
+            <div className="text-muted-foreground flex h-44 flex-col items-center justify-center rounded-lg border border-dashed text-center text-sm">
+              <span className="bg-muted mb-3 flex size-10 items-center justify-center rounded-full">
+                <ShoppingCart className="size-5" />
+              </span>
+              <span className="text-foreground font-medium">
+                A venda está vazia
+              </span>
+              <span className="mt-1 text-xs">Selecione itens no catálogo</span>
             </div>
           ) : (
             cart.map((item) => (
               <div
                 key={item.key}
-                className="border-border rounded-md border p-2.5"
+                className="border-border bg-background rounded-lg border p-3"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -1915,7 +2431,7 @@ function PosView(props: {
             ))
           )}
         </div>
-        <div className="border-border mt-3 space-y-3 border-t p-3">
+        <div className="border-border bg-card mt-3 space-y-3 border-t p-4">
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
             <span className="text-muted-foreground">Subtotal</span>
             <span className="text-right">
@@ -2044,7 +2560,7 @@ function PosView(props: {
               <Plus /> Adicionar pagamento
             </Button>
           </div>
-          <div className="bg-muted grid grid-cols-2 rounded-md p-2 text-xs">
+          <div className="bg-muted/70 grid grid-cols-2 rounded-lg p-3 text-xs">
             <span>
               Pago agora: <strong>{money(paidNow, defaultCurrency)}</strong>
             </span>
@@ -2060,7 +2576,7 @@ function PosView(props: {
             className="min-h-16"
           />
           <Button
-            className="w-full"
+            className="w-full shadow-sm"
             size="lg"
             onClick={finishSale}
             disabled={!canOperate || saving || cart.length === 0}

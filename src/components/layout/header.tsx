@@ -45,6 +45,9 @@ const pageTitles: Record<string, string> = {
   '/broadcasts': 'broadcasts',
   '/automations': 'automations',
   '/settings': 'settings',
+  '/support': 'support',
+  '/help': 'help',
+  '/website': 'website',
 };
 
 function getPageTitleKey(pathname: string): string {
@@ -72,7 +75,7 @@ const topbarGroupConfigs = [
   },
   {
     labelKey: 'groupSystem',
-    hrefs: ['/settings'],
+    hrefs: ['/settings', '/support', '/help', '/website'],
   },
 ] as const;
 

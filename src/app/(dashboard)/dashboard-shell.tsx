@@ -8,8 +8,10 @@ import { Header } from '@/components/layout/header';
 import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
 import { InboxFloatingAlerts } from '@/components/inbox/inbox-floating-alerts';
 import { NotificationRealtimeAlerts } from '@/components/notifications/notification-realtime-alerts';
+import { PushNotifications } from '@/components/notifications/push-notifications';
 import { WorkTimeProvider } from '@/components/work-time/work-time-provider';
 import { DocumentTitle } from '@/components/layout/document-title';
+import { ContextualHelp } from '@/components/support/contextual-help';
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
 // itself can stay a server component and export metadata (noindex) —
@@ -53,6 +55,8 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
         <PresenceHeartbeat />
         <InboxFloatingAlerts />
         <NotificationRealtimeAlerts />
+        <PushNotifications />
+        <ContextualHelp />
         <div
           className={navigationLayout === 'topbar' ? 'lg:hidden' : 'contents'}
         >

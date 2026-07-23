@@ -86,6 +86,7 @@ export async function middleware(request: NextRequest) {
     '/broadcasts',
     '/automations',
     '/settings',
+    '/website',
   ];
   if (
     !user &&

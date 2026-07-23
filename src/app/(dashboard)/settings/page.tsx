@@ -24,6 +24,7 @@ import { ReferralSettings } from '@/components/settings/referral-settings';
 import { RolesAccessPanel } from '@/components/settings/roles-access-panel';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
+import { DataCleanupPanel } from '@/components/settings/data-cleanup-panel';
 import {
   getVisibleSettingsSections,
   resolveAllowedSection,
@@ -98,6 +99,7 @@ export default function SettingsPage() {
     roles: <RolesAccessPanel onSelect={go} />,
     members: <MembersTab />,
     api: <ApiKeysSettings />,
+    'data-cleanup': <DataCleanupPanel />,
   };
 
   return (

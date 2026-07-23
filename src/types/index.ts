@@ -256,6 +256,8 @@ export type NotificationType =
   | 'appointment_cancelled'
   | 'client_created'
   | 'payment_received'
+  | 'support_ticket_created'
+  | 'support_new_message'
   | 'system_alert';
 
 export type NotificationCategory =
@@ -267,7 +269,8 @@ export type NotificationCategory =
   | 'automation'
   | 'system'
   | 'broadcast'
-  | 'work_time';
+  | 'work_time'
+  | 'support';
 
 export type NotificationPriority = 'low' | 'normal' | 'high' | 'critical';
 

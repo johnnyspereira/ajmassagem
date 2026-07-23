@@ -12,6 +12,7 @@ import {
   Shield,
   Tags,
   TimerReset,
+  Trash2,
   User,
   UsersRound,
   Zap,
@@ -46,6 +47,7 @@ export const SETTINGS_SECTIONS = [
   'roles',
   'members',
   'api',
+  'data-cleanup',
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
@@ -182,6 +184,13 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     icon: KeyRound,
     group: 'system',
     minRole: 'admin',
+  },
+  'data-cleanup': {
+    id: 'data-cleanup',
+    label: 'Data cleanup',
+    icon: Trash2,
+    group: 'system',
+    minRole: 'owner',
   },
 };
 

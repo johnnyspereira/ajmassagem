@@ -22,6 +22,7 @@ import {
   Inbox,
   ReceiptText,
   Loader2,
+  LifeBuoy,
   MessageCircle,
   Radio,
   RefreshCw,
@@ -102,6 +103,7 @@ const CATEGORY_ORDER: NotificationCategory[] = [
   'broadcast',
   'work_time',
   'system',
+  'support',
 ];
 
 const CATEGORY_META: Record<
@@ -152,6 +154,11 @@ const CATEGORY_META: Record<
     label: 'Sistema',
     icon: Settings,
     className: 'border-slate-500/30 bg-slate-500/10 text-slate-500',
+  },
+  support: {
+    label: 'Suporte',
+    icon: LifeBuoy,
+    className: 'border-indigo-500/30 bg-indigo-500/10 text-indigo-600',
   },
 };
 
@@ -384,6 +391,20 @@ const TYPE_META: Record<NotificationType, NotificationTypeMeta> = {
     priority: 'normal',
     icon: Banknote,
     actionLabel: 'Abrir financeiro',
+  },
+  support_ticket_created: {
+    label: 'Novo ticket de suporte',
+    category: 'support',
+    priority: 'normal',
+    icon: LifeBuoy,
+    actionLabel: 'Abrir ticket',
+  },
+  support_new_message: {
+    label: 'Nova mensagem de suporte',
+    category: 'support',
+    priority: 'high',
+    icon: LifeBuoy,
+    actionLabel: 'Responder ticket',
   },
   system_alert: {
     label: 'Alerta do sistema',

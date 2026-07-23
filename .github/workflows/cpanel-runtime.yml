@@ -47,6 +47,9 @@ jobs:
         shell: bash
         run: |
           rm -rf cpanel-runtime
+          git fetch origin cpanel-runtime:refs/remotes/origin/cpanel-runtime
+          git worktree add --detach cpanel-runtime origin/cpanel-runtime
+          find cpanel-runtime -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           mkdir -p cpanel-runtime/.next
           cp -a .next/standalone/. cpanel-runtime/
           cp -a .next/static cpanel-runtime/.next/static
@@ -69,13 +72,12 @@ jobs:
         shell: bash
         run: |
           cd cpanel-runtime
-          git init
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Runtime output is unchanged; nothing to publish."
+            exit 0
+          fi
           git commit -m "Build cPanel runtime from ${GITHUB_SHA}"
-          git branch -M cpanel-runtime
-          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git push -f origin cpanel-runtime
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git push origin HEAD:cpanel-runtime
