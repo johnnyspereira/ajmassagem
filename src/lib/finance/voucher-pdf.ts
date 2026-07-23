@@ -1,3 +1,4 @@
+import { drawBrandMark, imageUrlToPng } from '@/lib/finance/pdf-design';
 import type { FinanceVoucher } from '@/types';
 
 type VoucherBrand = {
@@ -10,46 +11,6 @@ function safeFilePart(value: string) {
   return value.replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '');
 }
 
-async function imageUrlToPng(url?: string | null) {
-  if (!url) return null;
-  try {
-    const response = await fetch(url);
-    if (!response.ok) return null;
-    const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    try {
-      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const element = new Image();
-        element.onload = () => resolve(element);
-        element.onerror = reject;
-        element.src = objectUrl;
-      });
-      const canvas = document.createElement('canvas');
-      const size = 600;
-      canvas.width = size;
-      canvas.height = size;
-      const context = canvas.getContext('2d');
-      if (!context) return null;
-      context.clearRect(0, 0, size, size);
-      const scale = Math.min(size / image.width, size / image.height);
-      const width = image.width * scale;
-      const height = image.height * scale;
-      context.drawImage(
-        image,
-        (size - width) / 2,
-        (size - height) / 2,
-        width,
-        height
-      );
-      return canvas.toDataURL('image/png');
-    } finally {
-      URL.revokeObjectURL(objectUrl);
-    }
-  } catch {
-    return null;
-  }
-}
-
 function formatAmount(value: number, currency: string) {
   return new Intl.NumberFormat('pt-PT', {
     style: 'currency',
@@ -57,13 +18,21 @@ function formatAmount(value: number, currency: string) {
   }).format(value);
 }
 
+function voucherValidationUrl(voucher: FinanceVoucher) {
+  const origin =
+    typeof window !== 'undefined' ? window.location.origin : undefined;
+  const pin = encodeURIComponent(voucher.pin_code || '');
+  return `${origin || ''}/voucher/${encodeURIComponent(voucher.id)}?pin=${pin}`;
+}
+
 export async function downloadVoucherPdf(
   voucher: FinanceVoucher,
   brand: VoucherBrand
 ) {
-  const [{ jsPDF }, QRCode] = await Promise.all([
+  const [{ jsPDF }, QRCode, logo] = await Promise.all([
     import('jspdf'),
     import('qrcode'),
+    imageUrlToPng(brand.logoUrl),
   ]);
   const document = new jsPDF({
     orientation: 'landscape',
@@ -73,117 +42,164 @@ export async function downloadVoucherPdf(
 
   const width = document.internal.pageSize.getWidth();
   const height = document.internal.pageSize.getHeight();
-  const ink = '#172033';
-  const accent = '#f43f5e';
-  const soft = '#fff1f2';
-  const muted = '#667085';
   const recipient =
     voucher.recipient_name || voucher.owner?.name || 'Alguém especial';
   const validity = voucher.expires_at
     ? new Date(voucher.expires_at).toLocaleDateString('pt-PT')
     : 'Sem data limite';
-  const qrPayload = `VOUCHER:${voucher.code}`;
-  const [logo, qrCode] = await Promise.all([
-    imageUrlToPng(brand.logoUrl),
-    QRCode.toDataURL(qrPayload, {
-      width: 500,
-      margin: 1,
-      color: { dark: ink, light: '#ffffff' },
-      errorCorrectionLevel: 'H',
-    }),
-  ]);
+  const validationUrl = voucherValidationUrl(voucher);
+  const qrCode = await QRCode.toDataURL(validationUrl, {
+    width: 600,
+    margin: 2,
+    color: { dark: '#111827', light: '#ffffff' },
+    errorCorrectionLevel: 'H',
+  });
+  const isService = voucher.voucher_type === 'service';
+  const headline = isService
+    ? voucher.service?.name || 'Uma experiência especial'
+    : formatAmount(Number(voucher.initial_balance), voucher.currency);
+  const gold = '#d6b36a';
+  const midnight = '#0b1020';
+  const panel = '#151d33';
+  const pale = '#cbd5e1';
 
-  document.setFillColor(ink);
+  document.setFillColor(midnight);
   document.rect(0, 0, width, height, 'F');
-  document.setFillColor(accent);
-  document.rect(0, 0, 7, height, 'F');
+  document.setFillColor('#111a31');
+  document.circle(width - 10, 2, 59, 'F');
+  document.setFillColor('#5f1634');
+  document.circle(width + 1, 7, 39, 'F');
+  document.setFillColor('#be123c');
+  document.circle(-8, height + 6, 31, 'F');
+  document.setDrawColor(gold);
+  document.setLineWidth(0.45);
+  document.roundedRect(9, 9, width - 18, height - 18, 4, 4, 'S');
+  document.setLineWidth(0.15);
+  document.roundedRect(11, 11, width - 22, height - 22, 3, 3, 'S');
 
-  document.setFillColor('#ffffff');
-  document.roundedRect(14, 12, width - 28, height - 24, 4, 4, 'F');
-  document.setFillColor(soft);
-  document.roundedRect(width - 64, 20, 42, 42, 3, 3, 'F');
-  document.addImage(qrCode, 'PNG', width - 59, 25, 32, 32);
-
-  if (logo) {
-    document.addImage(logo, 'PNG', 24, 20, 19, 19);
-  } else {
-    document.setFillColor(accent);
-    document.circle(33.5, 29.5, 9.5, 'F');
-    document.setTextColor('#ffffff');
-    document.setFont('helvetica', 'bold');
-    document.setFontSize(14);
-    document.text(brand.name.slice(0, 2).toUpperCase(), 33.5, 31.5, {
-      align: 'center',
-    });
+  for (let radius = 19; radius <= 57; radius += 8) {
+    document.setDrawColor('#29334c');
+    document.circle(width - 9, 5, radius, 'S');
   }
 
-  document.setTextColor(ink);
+  drawBrandMark(document, {
+    name: brand.name,
+    logo,
+    x: 19,
+    y: 18,
+    size: 17,
+    dark: true,
+  });
+  document.setTextColor('#ffffff');
   document.setFont('helvetica', 'bold');
-  document.setFontSize(12);
-  document.text(brand.name || 'Vale-presente', 48, 27);
+  document.setFontSize(11);
+  document.text(brand.name || 'Vale-presente', 42, 25);
   document.setFont('helvetica', 'normal');
-  document.setTextColor(muted);
-  document.setFontSize(8);
-  document.text('UMA EXPERIÊNCIA PARA OFERECER', 48, 33);
+  document.setTextColor(pale);
+  document.setFontSize(6.5);
+  document.text('SIGNATURE GIFT EXPERIENCE', 42, 31);
 
-  document.setTextColor(accent);
+  document.setFillColor('#f8fafc');
+  document.roundedRect(width - 66, 18, 47, 53, 4, 4, 'F');
+  document.setFillColor('#ffffff');
+  document.roundedRect(width - 60.5, 23, 36, 36, 2, 2, 'F');
+  document.addImage(qrCode, 'PNG', width - 58.5, 25, 32, 32);
   document.setFont('helvetica', 'bold');
-  document.setFontSize(9);
-  document.text(
-    voucher.voucher_type === 'service'
-      ? 'VOUCHER DE SERVIÇO'
-      : 'CARTÃO-PRESENTE',
-    24,
-    52
-  );
-  document.setTextColor(ink);
-  document.setFontSize(voucher.voucher_type === 'service' ? 18 : 28);
-  document.text(
-    voucher.voucher_type === 'service'
-      ? document.splitTextToSize(
-          voucher.service?.name || 'Uma experiência especial',
-          105
-        )
-      : formatAmount(Number(voucher.initial_balance), voucher.currency),
-    24,
-    66
-  );
+  document.setFontSize(6.2);
+  document.setTextColor('#172033');
+  document.text('LER · CONSULTAR · VALIDAR', width - 42.5, 65, {
+    align: 'center',
+  });
 
+  document.setDrawColor(gold);
+  document.setLineDashPattern([1.2, 1.2], 0);
+  document.line(width - 74, 18, width - 74, height - 34);
+  document.setLineDashPattern([], 0);
+  document.setFillColor(midnight);
+  document.circle(width - 74, 9, 3, 'F');
+  document.circle(width - 74, height - 9, 3, 'F');
+
+  document.setFillColor(gold);
+  document.roundedRect(19, 45, isService ? 39 : 34, 7.5, 3.75, 3.75, 'F');
+  document.setTextColor(midnight);
+  document.setFont('helvetica', 'bold');
+  document.setFontSize(6.2);
+  document.text(isService ? 'VOUCHER DE SERVIÇO' : 'CARTÃO-PRESENTE', 23, 50);
+
+  document.setTextColor('#ffffff');
+  document.setFont('helvetica', 'bold');
+  document.setFontSize(isService ? 20 : 31);
+  const headlineLines = document.splitTextToSize(headline, 105) as string[];
+  document.text(headlineLines.slice(0, 2), 19, 65);
+
+  const recipientY = isService && headlineLines.length > 1 ? 85 : 80;
   document.setFont('helvetica', 'normal');
-  document.setFontSize(9);
-  document.setTextColor(muted);
-  document.text('Preparado especialmente para', 24, 77);
+  document.setFontSize(6.5);
+  document.setTextColor(gold);
+  document.text('EXCLUSIVAMENTE PARA', 19, recipientY);
   document.setFont('helvetica', 'bold');
-  document.setFontSize(14);
-  document.setTextColor(ink);
-  document.text(document.splitTextToSize(recipient, 98), 24, 85);
+  document.setFontSize(15);
+  document.setTextColor('#ffffff');
+  document.text(
+    (document.splitTextToSize(recipient, 101) as string[]).slice(0, 1),
+    19,
+    recipientY + 8
+  );
 
   if (voucher.message) {
+    document.setDrawColor('#35405a');
+    document.line(19, recipientY + 13, 125, recipientY + 13);
     document.setFont('helvetica', 'italic');
-    document.setFontSize(8.5);
-    document.setTextColor(muted);
-    const message = document.splitTextToSize(`“${voucher.message}”`, 104);
-    document.text(message.slice(0, 2), 24, 98);
+    document.setFontSize(7.5);
+    document.setTextColor(pale);
+    const message = document.splitTextToSize(
+      `“${voucher.message}”`,
+      102
+    ) as string[];
+    document.text(message.slice(0, 2), 19, recipientY + 20);
   }
 
-  document.setDrawColor('#e4e7ec');
-  document.line(24, height - 29, width - 24, height - 29);
-  document.setFont('helvetica', 'normal');
-  document.setFontSize(7.5);
-  document.setTextColor(muted);
-  document.text('CÓDIGO DO VOUCHER', 24, height - 20);
-  document.text('PIN', 70, height - 20);
-  document.text('VÁLIDO ATÉ', 92, height - 20);
-  document.text('COMO UTILIZAR', 137, height - 20);
-  document.setFont('helvetica', 'bold');
-  document.setFontSize(10);
-  document.setTextColor(ink);
-  document.text(voucher.code, 24, height - 14);
-  document.text(voucher.pin_code || '----', 70, height - 14);
-  document.text(validity, 92, height - 14);
-  document.setFontSize(8);
-  document.text('Apresente o código e PIN.', 137, height - 14);
+  const detailY = height - 32;
+  document.setFillColor(panel);
+  document.roundedRect(17, detailY, width - 34, 20, 3, 3, 'F');
+  const columns = [
+    { label: 'CÓDIGO', value: voucher.code, x: 23 },
+    { label: 'PIN', value: voucher.pin_code || '—', x: 68 },
+    { label: 'VALIDADE', value: validity, x: 93 },
+    { label: 'UTILIZAÇÃO', value: 'Apresente este voucher', x: 136 },
+  ];
+  for (const column of columns) {
+    document.setFont('helvetica', 'bold');
+    document.setFontSize(6);
+    document.setTextColor(gold);
+    document.text(column.label, column.x, detailY + 7);
+    document.setFontSize(8.5);
+    document.setTextColor('#ffffff');
+    document.text(column.value, column.x, detailY + 14);
+  }
 
+  document.setFont('helvetica', 'normal');
+  document.setFontSize(6);
+  document.setTextColor('#94a3b8');
+  document.text(
+    [
+      brand.publicUrl,
+      'Documento digital autenticável por QR Code',
+      `Ref. ${voucher.code}`,
+    ]
+      .filter(Boolean)
+      .join('   •   '),
+    width / 2,
+    height - 4.5,
+    { align: 'center' }
+  );
+
+  document.setProperties({
+    title: `Voucher ${voucher.code}`,
+    subject: isService ? 'Voucher de serviço' : 'Cartão-presente',
+    author: brand.name,
+    creator: brand.name,
+  });
   const filename = safeFilePart(`voucher-${recipient}-${voucher.code}`);
   document.save(`${filename || 'voucher'}.pdf`);
 }

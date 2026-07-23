@@ -9,12 +9,14 @@ import {
   Check,
   ChevronRight,
   CircleDollarSign,
+  CreditCard,
   Download,
   ExternalLink,
   FileCheck2,
   FileClock,
   Gift,
   History,
+  HandCoins,
   Landmark,
   LayoutDashboard,
   Loader2,
@@ -114,6 +116,14 @@ const PAYMENT_METHODS: Array<{ value: FinancePaymentMethod; label: string }> = [
   { value: 'other', label: 'Outro' },
 ];
 
+const REGISTER_METHODS = PAYMENT_METHODS.filter(
+  (method) => !['voucher', 'client_credit'].includes(method.value)
+);
+
+function paymentMethodLabel(method: string) {
+  return PAYMENT_METHODS.find((item) => item.value === method)?.label || method;
+}
+
 const SALE_STATUS: Record<string, string> = {
   open: 'Pendente',
   partially_paid: 'Parcial',
@@ -124,6 +134,32 @@ const SALE_STATUS: Record<string, string> = {
 
 function money(value: number, currency: string) {
   return formatCurrency(Number(value || 0), currency);
+}
+
+function registerMethodTotals(
+  sales: FinanceSale[],
+  sessionId?: string,
+  movements: FinanceCashMovement[] = []
+) {
+  const totals = Object.fromEntries(
+    PAYMENT_METHODS.map(({ value }) => [value, 0])
+  ) as Record<FinancePaymentMethod, number>;
+  if (!sessionId) return totals;
+
+  for (const payment of sales.flatMap((sale) => sale.payments ?? [])) {
+    if (
+      payment.cash_session_id === sessionId &&
+      ['confirmed', 'refunded'].includes(payment.status)
+    ) {
+      totals[payment.method] +=
+        Number(payment.amount) * (payment.status === 'refunded' ? -1 : 1);
+    }
+  }
+  for (const movement of movements) {
+    if (movement.movement_type !== 'tip') continue;
+    totals[movement.payment_method || 'cash'] += Number(movement.amount);
+  }
+  return totals;
 }
 
 function randomId() {
@@ -222,11 +258,17 @@ export function FinancePage({
   const [cashCloseOpen, setCashCloseOpen] = useState(false);
   const [openingAmount, setOpeningAmount] = useState(0);
   const [closingAmount, setClosingAmount] = useState(0);
+  const [closingBreakdown, setClosingBreakdown] = useState<
+    Partial<Record<FinancePaymentMethod, number>>
+  >({});
   const [cashNotes, setCashNotes] = useState('');
   const [cashMovementOpen, setCashMovementOpen] = useState(false);
   const [cashMovementType, setCashMovementType] = useState<
-    'deposit' | 'withdrawal' | 'expense' | 'adjustment'
+    'deposit' | 'withdrawal' | 'expense' | 'adjustment' | 'tip'
   >('expense');
+  const [cashMovementMethod, setCashMovementMethod] =
+    useState<FinancePaymentMethod>('cash');
+  const [cashMovementCategory, setCashMovementCategory] = useState('');
   const [cashMovementAmount, setCashMovementAmount] = useState(0);
   const [cashMovementDescription, setCashMovementDescription] = useState('');
   const [cashMovementReference, setCashMovementReference] = useState('');
@@ -384,7 +426,7 @@ export function FinancePage({
     );
     if (cashRes.data?.id) {
       const { data: snapshot, error: snapshotError } = await supabase.rpc(
-        'get_finance_cash_snapshot',
+        'get_finance_register_snapshot',
         { p_cash_session_id: cashRes.data.id }
       );
       if (snapshotError) {
@@ -816,10 +858,14 @@ export function FinancePage({
   async function closeCashRegister() {
     if (!cashSession || !user?.id || !canOperate) return;
     const expected = Number(cashSnapshot?.expected_amount ?? 0);
+    const counted = {
+      ...closingBreakdown,
+      cash: closingAmount,
+    };
     setSaving(true);
-    const { error } = await supabase.rpc('close_finance_cash_session', {
+    const { error } = await supabase.rpc('close_finance_cash_session_v2', {
       p_cash_session_id: cashSession.id,
-      p_counted_amount: closingAmount,
+      p_counted_breakdown: counted,
       p_notes: cashNotes || null,
     });
     setSaving(false);
@@ -828,6 +874,7 @@ export function FinancePage({
       `Caixa fechado. Diferença: ${money(closingAmount - expected, defaultCurrency)}.`
     );
     setCashCloseOpen(false);
+    setClosingBreakdown({});
     setCashNotes('');
     await loadFinance();
   }
@@ -841,12 +888,14 @@ export function FinancePage({
     )
       return;
     setSaving(true);
-    const { error } = await supabase.rpc('add_finance_cash_movement', {
+    const { error } = await supabase.rpc('add_finance_register_movement', {
       p_cash_session_id: cashSession.id,
       p_movement_type: cashMovementType,
       p_amount: cashMovementAmount,
       p_description: cashMovementDescription.trim(),
       p_reference: cashMovementReference.trim() || null,
+      p_payment_method: cashMovementMethod,
+      p_category: cashMovementCategory.trim() || null,
     });
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -855,6 +904,8 @@ export function FinancePage({
     setCashMovementAmount(0);
     setCashMovementDescription('');
     setCashMovementReference('');
+    setCashMovementCategory('');
+    setCashMovementMethod('cash');
     await loadFinance();
   }
 
@@ -1281,6 +1332,13 @@ export function FinancePage({
             onMovement={() => setCashMovementOpen(true)}
             onClose={() => {
               setClosingAmount(Number(cashSnapshot?.expected_amount ?? 0));
+              const totals = registerMethodTotals(
+                sales,
+                cashSession?.id,
+                cashMovements
+              );
+              totals.cash = Number(cashSnapshot?.expected_amount ?? 0);
+              setClosingBreakdown(totals);
               setCashCloseOpen(true);
             }}
           />
@@ -1352,7 +1410,7 @@ export function FinancePage({
         </DialogContent>
       </Dialog>
       <Dialog open={cashCloseOpen} onOpenChange={setCashCloseOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Fechar caixa</DialogTitle>
             <DialogDescription>
@@ -1368,6 +1426,57 @@ export function FinancePage({
               onChange={(event) => setClosingAmount(Number(event.target.value))}
             />
           </Field>
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium">Conferência por canal</p>
+              <p className="text-muted-foreground text-xs">
+                Confirme os totais dos terminais e extratos do turno.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {REGISTER_METHODS.filter(({ value }) => value !== 'cash').map(
+                (method) => {
+                  const expected = registerMethodTotals(
+                    sales,
+                    cashSession?.id,
+                    cashMovements
+                  )[method.value];
+                  const counted = Number(
+                    closingBreakdown[method.value] ?? expected
+                  );
+                  return (
+                    <Field key={method.value} label={method.label}>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={counted}
+                        onChange={(event) =>
+                          setClosingBreakdown((current) => ({
+                            ...current,
+                            [method.value]: Number(event.target.value),
+                          }))
+                        }
+                      />
+                      <p
+                        className={cn(
+                          'mt-1 text-[11px]',
+                          Math.abs(counted - expected) > 0.009
+                            ? 'text-destructive'
+                            : 'text-muted-foreground'
+                        )}
+                      >
+                        Sistema: {money(expected, defaultCurrency)}
+                        {Math.abs(counted - expected) > 0.009
+                          ? ` · diferença ${money(counted - expected, defaultCurrency)}`
+                          : ' · conferido'}
+                      </p>
+                    </Field>
+                  );
+                }
+              )}
+            </div>
+          </div>
           <div className="bg-muted grid grid-cols-2 gap-3 rounded-md p-3 text-sm">
             <span className="text-muted-foreground">Esperado</span>
             <strong className="text-right">
@@ -1616,7 +1725,8 @@ export function FinancePage({
           <DialogHeader>
             <DialogTitle>Novo movimento de caixa</DialogTitle>
             <DialogDescription>
-              Registe entradas, retiradas, despesas ou acertos de numerário.
+              Registe gorjetas, entradas, retiradas, despesas ou acertos em
+              qualquer forma de pagamento.
             </DialogDescription>
           </DialogHeader>
           <Field label="Tipo de movimento">
@@ -1624,16 +1734,47 @@ export function FinancePage({
               value={cashMovementType}
               onChange={(value) =>
                 setCashMovementType(
-                  value as 'deposit' | 'withdrawal' | 'expense' | 'adjustment'
+                  value as
+                    'deposit' | 'withdrawal' | 'expense' | 'adjustment' | 'tip'
                 )
               }
             >
+              <option value="tip">Gorjeta</option>
               <option value="deposit">Entrada / reforço</option>
               <option value="withdrawal">Retirada / sangria</option>
               <option value="expense">Despesa</option>
               <option value="adjustment">Ajuste</option>
             </NativeSelect>
           </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Forma de pagamento">
+              <NativeSelect
+                value={cashMovementMethod}
+                onChange={(value) =>
+                  setCashMovementMethod(value as FinancePaymentMethod)
+                }
+              >
+                {REGISTER_METHODS.map((method) => (
+                  <option key={method.value} value={method.value}>
+                    {method.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+            <Field label="Categoria (opcional)">
+              <Input
+                value={cashMovementCategory}
+                onChange={(event) =>
+                  setCashMovementCategory(event.target.value)
+                }
+                placeholder={
+                  cashMovementType === 'tip'
+                    ? 'Equipa, profissional...'
+                    : 'Operação, despesas...'
+                }
+              />
+            </Field>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Valor">
               <Input
@@ -3285,8 +3426,7 @@ function CashView({
     .filter(
       (payment) =>
         payment.cash_session_id === cashSession?.id &&
-        payment.method === 'cash' &&
-        payment.status === 'confirmed'
+        ['confirmed', 'refunded'].includes(payment.status)
     );
   const movementLabels: Record<string, string> = {
     deposit: 'Reforço',
@@ -3294,12 +3434,53 @@ function CashView({
     expense: 'Despesa',
     adjustment: 'Ajuste',
     refund: 'Reembolso',
+    tip: 'Gorjeta',
   };
+  const methodTotals = registerMethodTotals(sales, cashSession?.id, movements);
+  const tipTotals = movements
+    .filter((movement) => movement.movement_type === 'tip')
+    .reduce((total, movement) => total + Number(movement.amount), 0);
+  const salesReceived = payments.reduce(
+    (total, payment) =>
+      total + Number(payment.amount) * (payment.status === 'refunded' ? -1 : 1),
+    0
+  );
+  const grandTotal = salesReceived + tipTotals;
   const cashReceived = Number(snapshot?.cash_received ?? 0);
   const expected = Number(snapshot?.expected_amount ?? 0);
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)]">
-      <Card>
+    <div className="grid gap-4 xl:grid-cols-[minmax(340px,0.85fr)_minmax(0,1.15fr)]">
+      <Card className="overflow-hidden">
+        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-violet-950 p-6 text-white">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.18em] text-violet-300 uppercase">
+                Turno atual
+              </p>
+              <p className="mt-2 text-3xl font-black">
+                {money(grandTotal, currency)}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                Recebimentos + gorjetas em todos os canais
+              </p>
+            </div>
+            <span className="rounded-2xl bg-white/10 p-3 text-violet-200">
+              <CircleDollarSign className="size-7" />
+            </span>
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.06] p-3">
+              <p className="text-xs text-slate-400">Vendas recebidas</p>
+              <p className="mt-1 font-bold">{money(salesReceived, currency)}</p>
+            </div>
+            <div className="rounded-xl border border-amber-300/15 bg-amber-300/[0.08] p-3">
+              <p className="text-xs text-amber-200/70">Gorjetas</p>
+              <p className="mt-1 font-bold text-amber-200">
+                {money(tipTotals, currency)}
+              </p>
+            </div>
+          </div>
+        </div>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Banknote /> Estado do caixa
@@ -3343,7 +3524,7 @@ function CashView({
                   onClick={onMovement}
                   disabled={!canOperate}
                 >
-                  <Plus /> Movimento
+                  <HandCoins /> Movimento / gorjeta
                 </Button>
                 <Button
                   variant="destructive"
@@ -3364,60 +3545,93 @@ function CashView({
           )}
         </CardContent>
       </Card>
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
-          <CardTitle>Movimentos em dinheiro</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard /> Recebimentos por canal
+          </CardTitle>
         </CardHeader>
-        <CardContent className="max-h-[430px] space-y-2 overflow-y-auto">
-          {payments.length || movements.length ? (
-            [
-              ...payments.map((payment) => ({
-                id: payment.id,
-                date: payment.paid_at,
-                label: 'Recebimento de venda',
-                amount: Number(payment.amount),
-                incoming: true,
-              })),
-              ...movements.map((movement) => ({
-                id: movement.id,
-                date: movement.created_at,
-                label: `${movementLabels[movement.movement_type] ?? movement.movement_type} · ${movement.description}`,
-                amount: Number(movement.amount),
-                incoming: ['deposit', 'adjustment'].includes(
-                  movement.movement_type
-                ),
-              })),
-            ]
-              .sort(
-                (a, b) =>
-                  new Date(b.date).getTime() - new Date(a.date).getTime()
-              )
-              .map((movement) => (
-                <div
-                  key={movement.id}
-                  className="border-border flex items-center justify-between border-b py-2 text-sm"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate">{movement.label}</p>
-                    <span className="text-muted-foreground text-xs">
-                      {new Date(movement.date).toLocaleString('pt-PT')}
-                    </span>
-                  </div>
-                  <strong
-                    className={
-                      movement.incoming ? 'text-emerald-600' : 'text-red-600'
-                    }
-                  >
-                    {movement.incoming ? '+' : '-'}
-                    {money(movement.amount, currency)}
-                  </strong>
+        <CardContent>
+          <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {REGISTER_METHODS.map((method) => (
+              <div
+                key={method.value}
+                className="bg-muted/60 rounded-xl border p-3"
+              >
+                <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                  {method.value === 'cash' ? (
+                    <Banknote className="size-3.5" />
+                  ) : (
+                    <CreditCard className="size-3.5" />
+                  )}
+                  {method.label}
                 </div>
-              ))
-          ) : (
-            <p className="text-muted-foreground text-sm">
-              Sem movimentos nesta sessão.
-            </p>
-          )}
+                <p className="mt-1.5 text-base font-bold">
+                  {money(methodTotals[method.value], currency)}
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className="border-border mb-2 flex items-center justify-between border-t pt-4">
+            <p className="text-sm font-semibold">Linha do tempo do turno</p>
+            <Badge variant="outline">
+              {payments.length + movements.length}
+            </Badge>
+          </div>
+          <div className="max-h-[330px] space-y-1 overflow-y-auto pr-1">
+            {payments.length || movements.length ? (
+              [
+                ...payments.map((payment) => ({
+                  id: payment.id,
+                  date: payment.paid_at,
+                  label: `Venda · ${paymentMethodLabel(payment.method)}`,
+                  amount: Number(payment.amount),
+                  incoming: payment.status !== 'refunded',
+                  method: payment.method,
+                })),
+                ...movements.map((movement) => ({
+                  id: movement.id,
+                  date: movement.created_at,
+                  label: `${movementLabels[movement.movement_type] ?? movement.movement_type} · ${movement.description}`,
+                  amount: Number(movement.amount),
+                  incoming: ['deposit', 'adjustment', 'tip'].includes(
+                    movement.movement_type
+                  ),
+                  method: movement.payment_method || 'cash',
+                })),
+              ]
+                .sort(
+                  (a, b) =>
+                    new Date(b.date).getTime() - new Date(a.date).getTime()
+                )
+                .map((movement) => (
+                  <div
+                    key={movement.id}
+                    className="border-border flex items-center justify-between border-b py-2 text-sm"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate">{movement.label}</p>
+                      <span className="text-muted-foreground text-xs">
+                        {paymentMethodLabel(movement.method)} ·{' '}
+                        {new Date(movement.date).toLocaleString('pt-PT')}
+                      </span>
+                    </div>
+                    <strong
+                      className={
+                        movement.incoming ? 'text-emerald-600' : 'text-red-600'
+                      }
+                    >
+                      {movement.incoming ? '+' : '-'}
+                      {money(movement.amount, currency)}
+                    </strong>
+                  </div>
+                ))
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                Sem movimentos nesta sessão.
+              </p>
+            )}
+          </div>
         </CardContent>
       </Card>
       <Card className="xl:col-span-2">

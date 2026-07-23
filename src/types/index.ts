@@ -555,6 +555,12 @@ export interface FinanceCashSession {
   closing_counted_amount?: number | null;
   expected_amount?: number | null;
   difference_amount?: number | null;
+  expected_breakdown?: Record<string, number>;
+  closing_breakdown?: Record<string, number>;
+  reconciliation_breakdown?: Record<
+    string,
+    { expected: number; counted: number; difference: number }
+  >;
   notes?: string | null;
   opened_at: string;
   closed_at?: string | null;
@@ -565,7 +571,10 @@ export interface FinanceCashMovement {
   id: string;
   account_id: string;
   cash_session_id: string;
-  movement_type: 'deposit' | 'withdrawal' | 'expense' | 'refund' | 'adjustment';
+  movement_type:
+    'deposit' | 'withdrawal' | 'expense' | 'refund' | 'adjustment' | 'tip';
+  payment_method?: FinancePaymentMethod;
+  category?: string | null;
   amount: number;
   description: string;
   reference?: string | null;
@@ -581,6 +590,8 @@ export interface FinanceCashSnapshot {
   deposits: number;
   outflows: number;
   expected_amount: number;
+  payments_by_method?: Partial<Record<FinancePaymentMethod, number>>;
+  tips_by_method?: Partial<Record<FinancePaymentMethod, number>>;
 }
 
 export interface FinancePackCatalog {

@@ -16,12 +16,11 @@
     status: 'Aguardando conversa no WhatsApp Web.',
     statusKind: 'neutral',
     loading: false,
+    lastLookupPhone: '',
   };
 
   function normalizeUrl(value) {
-    const trimmed = String(value || '')
-      .trim()
-      .replace(/\/+$/, '');
+    const trimmed = String(value || '').trim().replace(/\/+$/, '');
     if (!trimmed) return '';
     if (/^https?:\/\//i.test(trimmed)) return trimmed;
     return `https://${trimmed}`;
@@ -35,6 +34,15 @@
     return digits;
   }
 
+  function formatPhone(phone) {
+    const digits = normalizePhone(phone);
+    if (!digits) return '';
+    if (digits.startsWith('351') && digits.length === 12) {
+      return `+351 ${digits.slice(3, 6)} ${digits.slice(6, 9)} ${digits.slice(9)}`;
+    }
+    return digits.startsWith('351') ? `+${digits}` : digits;
+  }
+
   function firstPhone(text) {
     const matches = String(text || '').match(PHONE_RE) || [];
     const hit = matches.find((item) => normalizePhone(item).length >= 8);
@@ -42,9 +50,7 @@
   }
 
   function looksLikePresence(value) {
-    const text = String(value || '')
-      .trim()
-      .toLowerCase();
+    const text = String(value || '').trim().toLowerCase();
     return (
       !text ||
       text.includes('visto por') ||
@@ -60,9 +66,7 @@
   }
 
   function cleanName(value) {
-    const text = String(value || '')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const text = String(value || '').replace(/\s+/g, ' ').trim();
     if (looksLikePresence(text)) return '';
     if (normalizePhone(text).length >= 8 && text.length < 24) return '';
     return text;
@@ -202,9 +206,7 @@
 
   function detectConversation() {
     const panelConversation = detectFromContactInfoPanel();
-    if (panelConversation?.phone) {
-      return panelConversation;
-    }
+    if (panelConversation?.phone) return panelConversation;
 
     const header = getMainHeader();
     if (!header) {
@@ -220,19 +222,13 @@
       .map(cleanName)
       .filter(Boolean);
 
-    const headerText = textOf(header);
     const title = titleCandidates[0] || '';
-    const rawPhone = firstPhone(`${title} ${headerText} ${document.title}`);
+    const rawPhone = firstPhone(`${title} ${textOf(header)} ${document.title}`);
     const phone = normalizePhone(rawPhone);
     const pageConversation = phone ? null : detectFromVisiblePage();
 
     return {
-      name:
-        title ||
-        panelConversation?.name ||
-        pageConversation?.name ||
-        rawPhone ||
-        '',
+      name: title || panelConversation?.name || pageConversation?.name || rawPhone || '',
       rawPhone,
       phone: phone || panelConversation?.phone || pageConversation?.phone || '',
     };
@@ -246,9 +242,7 @@
 
   function requireConfig() {
     if (!state.crmUrl || !state.apiKey) {
-      throw new Error(
-        'Configure a URL do CRM e a API key no ícone da extensão.'
-      );
+      throw new Error('Configure a URL do CRM e a API key no icone da extensao.');
     }
   }
 
@@ -268,11 +262,13 @@
   }
 
   function readManualPhoneInput() {
-    const input = document.querySelector(
-      `#${ROOT_ID} [data-role="manual-phone"]`
-    );
+    const input = document.querySelector(`#${ROOT_ID} [data-role="manual-phone"]`);
     if (input?.value) state.manualPhone = input.value;
     return normalizePhone(state.manualPhone);
+  }
+
+  function currentPhone() {
+    return state.conversation.phone || readManualPhoneInput();
   }
 
   function setStatus(message, kind = 'neutral') {
@@ -281,18 +277,21 @@
     render();
   }
 
-  async function findContact() {
-    const phone = state.conversation.phone || readManualPhoneInput();
+  async function findContact(options = {}) {
+    const phone = currentPhone();
     if (!phone) {
       setStatus(
-        'Não consegui detectar o telefone nesta conversa. Abra o perfil do contato no WhatsApp Web ou use uma conversa cujo cabeçalho mostre o número.',
+        'Nao consegui detectar o telefone. Abra os dados do contato ou informe manualmente.',
         'error'
       );
       return;
     }
 
-    state.loading = true;
-    render();
+    if (!options.silent) {
+      state.loading = true;
+      render();
+    }
+
     try {
       const payload = await crmFetch(
         `/api/v1/contacts?search=${encodeURIComponent(phone)}&limit=5`
@@ -303,25 +302,28 @@
         contacts[0] ||
         null;
       state.contact = exact;
+      state.lastLookupPhone = phone;
       setStatus(
         exact
           ? 'Cliente encontrado no CRM.'
-          : 'Nenhum cliente encontrado para este número.',
+          : 'Nenhum cliente encontrado para este numero.',
         exact ? 'ok' : 'neutral'
       );
     } catch (error) {
       console.error('[AJ CRM extension] find contact failed:', error);
       setStatus(error.message || 'Falha ao buscar cliente.', 'error');
     } finally {
-      state.loading = false;
-      render();
+      if (!options.silent) {
+        state.loading = false;
+        render();
+      }
     }
   }
 
   async function createOrUpdateContact() {
-    const phone = state.conversation.phone || readManualPhoneInput();
+    const phone = currentPhone();
     if (!phone) {
-      setStatus('Não há telefone detectado para criar o cliente.', 'error');
+      setStatus('Nao ha telefone detectado para criar o cliente.', 'error');
       return;
     }
 
@@ -336,6 +338,7 @@
         }),
       });
       state.contact = payload.data || null;
+      state.lastLookupPhone = phone;
       setStatus('Cliente criado/atualizado no CRM.', 'ok');
     } catch (error) {
       console.error('[AJ CRM extension] create contact failed:', error);
@@ -348,10 +351,25 @@
 
   function openCrm(path) {
     if (!state.crmUrl) {
-      setStatus('Configure a URL do CRM no ícone da extensão.', 'error');
+      setStatus('Configure a URL do CRM no icone da extensao.', 'error');
       return;
     }
     window.open(`${state.crmUrl}${path}`, '_blank', 'noopener,noreferrer');
+  }
+
+  function contactPath(tab) {
+    const id = state.contact?.id;
+    if (!id) return '/contacts';
+    return tab ? `/contacts/${id}?tab=${encodeURIComponent(tab)}` : `/contacts/${id}`;
+  }
+
+  async function copyToClipboard(value, successMessage) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setStatus(successMessage, 'ok');
+    } catch {
+      setStatus('Nao foi possivel copiar para a area de transferencia.', 'error');
+    }
   }
 
   function render() {
@@ -364,6 +382,11 @@
 
     const contact = state.contact;
     const tags = Array.isArray(contact?.tags) ? contact.tags : [];
+    const phone = currentPhone();
+    const configured = Boolean(state.crmUrl && state.apiKey);
+    const contactInitial = (contact?.name || contact?.phone || '?')
+      .slice(0, 1)
+      .toUpperCase();
 
     root.innerHTML = `
       <button class="aj-crm-toggle" type="button" data-action="toggle">
@@ -373,19 +396,23 @@
         <div class="aj-crm-head">
           <div>
             <div class="aj-crm-title">AJ CRM</div>
-            <div class="aj-crm-subtitle">Painel dentro do WhatsApp Web</div>
+            <div class="aj-crm-subtitle">
+              <span class="aj-crm-dot ${configured ? 'aj-crm-dot-ok' : 'aj-crm-dot-error'}"></span>
+              ${configured ? 'Conectado ao CRM' : 'Configure URL e API key'}
+            </div>
           </div>
-          <button class="aj-crm-close" type="button" data-action="toggle">×</button>
+          <button class="aj-crm-close" type="button" data-action="toggle">x</button>
         </div>
+
         <div class="aj-crm-body">
           <div class="aj-crm-section">
             <div class="aj-crm-label">Conversa atual</div>
             <div class="aj-crm-value">${escapeHtml(state.conversation.name || 'Nenhuma conversa detectada')}</div>
             <div class="aj-crm-muted" style="margin-top: 6px;">
-              ${state.conversation.phone ? `Telefone: ${escapeHtml(state.conversation.phone)}` : 'Telefone ainda não detectado'}
+              ${phone ? `Telefone: ${escapeHtml(formatPhone(phone))}` : 'Telefone ainda nao detectado'}
             </div>
             ${
-              state.conversation.phone
+              phone
                 ? ''
                 : `
                   <div class="aj-crm-manual-phone">
@@ -398,6 +425,10 @@
               <button class="aj-crm-button" type="button" data-action="find" ${state.loading ? 'disabled' : ''}>Buscar</button>
               <button class="aj-crm-button aj-crm-button-primary" type="button" data-action="create" ${state.loading ? 'disabled' : ''}>Criar/Atualizar</button>
             </div>
+            <div class="aj-crm-row aj-crm-row-compact">
+              <button class="aj-crm-button" type="button" data-action="copy-phone" ${phone ? '' : 'disabled'}>Copiar telefone</button>
+              <button class="aj-crm-button" type="button" data-action="open-contacts-search" ${phone ? '' : 'disabled'}>Pesquisar no CRM</button>
+            </div>
           </div>
 
           <div class="aj-crm-section">
@@ -405,17 +436,33 @@
             ${
               contact
                 ? `
-                  <div class="aj-crm-value">${escapeHtml(contact.name || contact.phone || 'Cliente')}</div>
-                  <div class="aj-crm-muted" style="margin-top: 6px;">
-                    Ref.: ${escapeHtml(contact.client_reference || contact.reference || 'sem referência')}<br />
-                    ${escapeHtml(contact.phone || '')}
+                  <div class="aj-crm-client-card">
+                    <div class="aj-crm-avatar">${escapeHtml(contactInitial)}</div>
+                    <div class="aj-crm-client-main">
+                      <div class="aj-crm-value">${escapeHtml(contact.name || contact.phone || 'Cliente')}</div>
+                      <div class="aj-crm-muted">
+                        Ref.: ${escapeHtml(contact.client_reference || contact.reference || 'sem referencia')}<br />
+                        ${escapeHtml(formatPhone(contact.phone || ''))}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="aj-crm-mini-grid">
+                    <button class="aj-crm-mini" type="button" data-action="open-contact">Cliente 360</button>
+                    <button class="aj-crm-mini" type="button" data-action="open-contact-edit">Editar ficha</button>
+                    <button class="aj-crm-mini" type="button" data-action="open-new-appointment">Nova marcacao</button>
+                    <button class="aj-crm-mini" type="button" data-action="open-contact-finance">Financeiro</button>
                   </div>
                   <div class="aj-crm-chipline">
-                    ${tags.length ? tags.map((tag) => `<span class="aj-crm-chip">${escapeHtml(tag.name || tag)}</span>`).join('') : '<span class="aj-crm-chip">sem etiquetas</span>'}
-                  </div>
-                  <div class="aj-crm-row">
-                    <button class="aj-crm-button" type="button" data-action="open-contact">Abrir Cliente</button>
-                    <button class="aj-crm-button" type="button" data-action="open-inbox">Abrir Inbox</button>
+                    ${
+                      tags.length
+                        ? tags
+                            .map(
+                              (tag) =>
+                                `<span class="aj-crm-chip">${escapeHtml(tag.name || tag)}</span>`
+                            )
+                            .join('')
+                        : '<span class="aj-crm-chip">sem etiquetas</span>'
+                    }
                   </div>
                 `
                 : `
@@ -427,10 +474,14 @@
           </div>
 
           <div class="aj-crm-section">
-            <div class="aj-crm-label">Próximas ações</div>
+            <div class="aj-crm-label">Acoes rapidas</div>
             <div class="aj-crm-row">
               <button class="aj-crm-button" type="button" data-action="open-agenda">Agenda</button>
               <button class="aj-crm-button" type="button" data-action="open-finance">Financeiro</button>
+            </div>
+            <div class="aj-crm-row aj-crm-row-compact">
+              <button class="aj-crm-button" type="button" data-action="open-inbox">Inbox</button>
+              <button class="aj-crm-button" type="button" data-action="open-settings">API keys</button>
             </div>
             <div class="aj-crm-status aj-crm-status-${state.statusKind}">
               ${state.loading ? 'Processando...' : escapeHtml(state.status)}
@@ -465,17 +516,22 @@
       void findContact();
       return;
     }
+    if (action === 'copy-phone') {
+      const phone = currentPhone();
+      if (phone) void copyToClipboard(formatPhone(phone), 'Telefone copiado.');
+      return;
+    }
+    if (action === 'open-contacts-search') {
+      const phone = currentPhone();
+      openCrm(phone ? `/contacts?search=${encodeURIComponent(phone)}` : '/contacts');
+      return;
+    }
     if (action === 'use-manual-phone') {
-      const input = document.querySelector(
-        `#${ROOT_ID} [data-role="manual-phone"]`
-      );
+      const input = document.querySelector(`#${ROOT_ID} [data-role="manual-phone"]`);
       const rawPhone = input?.value || '';
       const phone = normalizePhone(rawPhone);
       if (!phone) {
-        setStatus(
-          'Informe um telefone valido para usar nesta conversa.',
-          'error'
-        );
+        setStatus('Informe um telefone valido para usar nesta conversa.', 'error');
         return;
       }
       state.manualPhone = rawPhone;
@@ -485,6 +541,8 @@
         phone,
         name: state.conversation.name || phone,
       };
+      state.contact = null;
+      state.lastLookupPhone = '';
       setStatus('Telefone definido manualmente para esta conversa.', 'ok');
       return;
     }
@@ -497,6 +555,20 @@
       openCrm(id ? `/contacts/${id}` : '/contacts');
       return;
     }
+    if (action === 'open-contact-edit') {
+      const id = state.contact?.id;
+      openCrm(id ? `/contacts/${id}?edit=1` : '/contacts');
+      return;
+    }
+    if (action === 'open-contact-finance') {
+      openCrm(contactPath('finance'));
+      return;
+    }
+    if (action === 'open-new-appointment') {
+      const id = state.contact?.id;
+      openCrm(id ? `/agenda?new=1&contact=${encodeURIComponent(id)}` : '/agenda?new=1');
+      return;
+    }
     if (action === 'open-inbox') {
       openCrm('/inbox');
       return;
@@ -507,7 +579,23 @@
     }
     if (action === 'open-finance') {
       openCrm('/finance');
+      return;
     }
+    if (action === 'open-settings') {
+      openCrm('/settings?tab=api');
+    }
+  }
+
+  function scheduleAutoLookup(next) {
+    if (!next.phone || next.phone === state.lastLookupPhone) return;
+    if (!state.crmUrl || !state.apiKey) return;
+
+    state.lastLookupPhone = next.phone;
+    window.setTimeout(() => {
+      if (state.conversation.phone === next.phone && !state.contact) {
+        void findContact({ silent: true });
+      }
+    }, 450);
   }
 
   function pollConversation() {
@@ -535,6 +623,7 @@
         };
       }
     }
+
     const changed =
       next.name !== state.conversation.name ||
       next.phone !== state.conversation.phone;
@@ -542,25 +631,29 @@
     if (changed) {
       state.conversation = next;
       state.contact = null;
+      state.lastLookupPhone = '';
       state.status = next.name
         ? 'Conversa detectada. Busque ou crie o cliente no CRM.'
         : 'Aguardando conversa no WhatsApp Web.';
       state.statusKind = 'neutral';
       render();
     }
+
+    scheduleAutoLookup(next);
   }
 
   async function boot() {
     await loadSettings();
     state.conversation = detectConversation();
     render();
+    scheduleAutoLookup(state.conversation);
     setInterval(pollConversation, 1200);
 
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'sync') return;
       if (changes.crmUrl) state.crmUrl = normalizeUrl(changes.crmUrl.newValue);
       if (changes.apiKey) state.apiKey = changes.apiKey.newValue || '';
-      setStatus('Configuração da extensão atualizada.', 'ok');
+      setStatus('Configuracao da extensao atualizada.', 'ok');
     });
   }
 
