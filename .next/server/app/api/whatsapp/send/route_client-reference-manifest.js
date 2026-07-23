@@ -1,0 +1,1 @@
+globalThis.__RSC_MANIFEST=(globalThis.__RSC_MANIFEST||{});globalThis.__RSC_MANIFEST["/api/whatsapp/send/route"]={"moduleLoading":{"prefix":"/_next/"},"ssrModuleMapping":{},"edgeSSRModuleMapping":{},"clientModules":{},"entryCSSFiles":{"/home/runner/work/ajmassagem/ajmassagem/src/app/api/whatsapp/send/route":[]},"rscModuleMapping":{},"edgeRscModuleMapping":{}};

@@ -1,0 +1,1 @@
+globalThis.__RSC_MANIFEST=(globalThis.__RSC_MANIFEST||{});globalThis.__RSC_MANIFEST["/api/account/api-keys/[id]/route"]={"moduleLoading":{"prefix":"/_next/"},"ssrModuleMapping":{},"edgeSSRModuleMapping":{},"clientModules":{},"entryCSSFiles":{"/home/runner/work/ajmassagem/ajmassagem/src/app/api/account/api-keys/[id]/route":[]},"rscModuleMapping":{},"edgeRscModuleMapping":{}};
