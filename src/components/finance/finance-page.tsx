@@ -55,6 +55,10 @@ import { useCan } from '@/hooks/use-can';
 import { formatCurrency } from '@/lib/currency';
 import { downloadVoucherPdf } from '@/lib/finance/voucher-pdf';
 import { downloadReceiptPdf } from '@/lib/finance/receipt-pdf';
+import {
+  calculateRegisterBalance,
+  cashMovementSign,
+} from '@/lib/finance/register-balance';
 import { OwnerTreasury } from '@/components/finance/owner-treasury';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -3545,23 +3549,15 @@ function CashView({
     refund: 'Reembolso',
     tip: 'Gorjeta',
   };
-  const paymentTotals = snapshot?.payments_by_method ?? {};
-  const tipMethodTotals = snapshot?.tips_by_method ?? {};
-  const methodTotals = Object.fromEntries(
-    PAYMENT_METHODS.map(({ value }) => [
-      value,
-      Number(paymentTotals[value] ?? 0) + Number(tipMethodTotals[value] ?? 0),
-    ])
-  ) as Record<FinancePaymentMethod, number>;
-  const salesReceived = Object.values(paymentTotals).reduce(
-    (total, amount) => total + Number(amount ?? 0),
-    0
-  );
-  const tipTotals = Object.values(tipMethodTotals).reduce(
-    (total, amount) => total + Number(amount ?? 0),
-    0
-  );
-  const grandTotal = salesReceived + tipTotals;
+  const registerBalance = calculateRegisterBalance(snapshot, sessionMovements);
+  const {
+    byMethod: methodTotals,
+    salesReceived,
+    tipsReceived: tipTotals,
+    manualEntries,
+    outflows,
+    netTurnBalance,
+  } = registerBalance;
   const cashReceived = Number(snapshot?.cash_received ?? 0);
   const expected = Number(snapshot?.expected_amount ?? 0);
   return (
@@ -3574,10 +3570,10 @@ function CashView({
                 Turno atual
               </p>
               <p className="mt-2 text-3xl font-black">
-                {money(grandTotal, currency)}
+                {money(netTurnBalance, currency)}
               </p>
               <p className="mt-1 text-xs text-slate-400">
-                Recebimentos + gorjetas em todos os canais
+                Saldo líquido: entradas menos despesas e saídas
               </p>
             </div>
             <span className="rounded-2xl bg-white/10 p-3 text-violet-200">
@@ -3593,6 +3589,18 @@ function CashView({
               <p className="text-xs text-amber-200/70">Gorjetas</p>
               <p className="mt-1 font-bold text-amber-200">
                 {money(tipTotals, currency)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-emerald-300/15 bg-emerald-300/[0.08] p-3">
+              <p className="text-xs text-emerald-200/70">Outras entradas</p>
+              <p className="mt-1 font-bold text-emerald-200">
+                +{money(manualEntries, currency)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-red-300/15 bg-red-300/[0.08] p-3">
+              <p className="text-xs text-red-200/70">Despesas e saídas</p>
+              <p className="mt-1 font-bold text-red-200">
+                -{money(outflows, currency)}
               </p>
             </div>
           </div>
@@ -3664,7 +3672,7 @@ function CashView({
       <Card className="overflow-hidden">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CreditCard /> Recebimentos por canal
+            <CreditCard /> Saldo líquido por canal
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -3712,9 +3720,7 @@ function CashView({
                   date: movement.created_at,
                   label: `${movementLabels[movement.movement_type] ?? movement.movement_type} · ${movement.description}`,
                   amount: Number(movement.amount),
-                  incoming: ['deposit', 'adjustment', 'tip'].includes(
-                    movement.movement_type
-                  ),
+                  incoming: cashMovementSign(movement.movement_type) > 0,
                   method: movement.payment_method || 'cash',
                   source: 'manual' as const,
                   movement,
