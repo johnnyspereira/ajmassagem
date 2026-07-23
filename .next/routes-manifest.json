@@ -389,6 +389,14 @@
       "namedRegex": "^/api/v1/webhooks/(?<nxtPid>[^/]+?)(?:/)?$"
     },
     {
+      "page": "/api/vouchers/[id]/transfer",
+      "regex": "^/api/vouchers/([^/]+?)/transfer(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/vouchers/(?<nxtPid>[^/]+?)/transfer(?:/)?$"
+    },
+    {
       "page": "/api/whatsapp/media/[mediaId]",
       "regex": "^/api/whatsapp/media/([^/]+?)(?:/)?$",
       "routeKeys": {
