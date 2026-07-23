@@ -22,6 +22,7 @@ import {
   Loader2,
   Minus,
   PackageCheck,
+  Pencil,
   Plus,
   ReceiptText,
   RefreshCw,
@@ -136,32 +137,6 @@ function money(value: number, currency: string) {
   return formatCurrency(Number(value || 0), currency);
 }
 
-function registerMethodTotals(
-  sales: FinanceSale[],
-  sessionId?: string,
-  movements: FinanceCashMovement[] = []
-) {
-  const totals = Object.fromEntries(
-    PAYMENT_METHODS.map(({ value }) => [value, 0])
-  ) as Record<FinancePaymentMethod, number>;
-  if (!sessionId) return totals;
-
-  for (const payment of sales.flatMap((sale) => sale.payments ?? [])) {
-    if (
-      payment.cash_session_id === sessionId &&
-      ['confirmed', 'refunded'].includes(payment.status)
-    ) {
-      totals[payment.method] +=
-        Number(payment.amount) * (payment.status === 'refunded' ? -1 : 1);
-    }
-  }
-  for (const movement of movements) {
-    if (movement.movement_type !== 'tip') continue;
-    totals[movement.payment_method || 'cash'] += Number(movement.amount);
-  }
-  return totals;
-}
-
 function randomId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
@@ -272,6 +247,10 @@ export function FinancePage({
   const [cashMovementAmount, setCashMovementAmount] = useState(0);
   const [cashMovementDescription, setCashMovementDescription] = useState('');
   const [cashMovementReference, setCashMovementReference] = useState('');
+  const [editingCashMovement, setEditingCashMovement] =
+    useState<FinanceCashMovement | null>(null);
+  const [deletingCashMovement, setDeletingCashMovement] =
+    useState<FinanceCashMovement | null>(null);
 
   const [customOpen, setCustomOpen] = useState(false);
   const [customName, setCustomName] = useState('');
@@ -909,6 +888,73 @@ export function FinancePage({
     await loadFinance();
   }
 
+  function clearCashMovementForm() {
+    setCashMovementOpen(false);
+    setEditingCashMovement(null);
+    setCashMovementType('expense');
+    setCashMovementMethod('cash');
+    setCashMovementCategory('');
+    setCashMovementAmount(0);
+    setCashMovementDescription('');
+    setCashMovementReference('');
+  }
+
+  function startEditCashMovement(movement: FinanceCashMovement) {
+    setEditingCashMovement(movement);
+    setCashMovementType(
+      movement.movement_type as
+        'deposit' | 'withdrawal' | 'expense' | 'adjustment' | 'tip'
+    );
+    setCashMovementMethod(movement.payment_method || 'cash');
+    setCashMovementCategory(movement.category || '');
+    setCashMovementAmount(Number(movement.amount));
+    setCashMovementDescription(movement.description);
+    setCashMovementReference(movement.reference || '');
+  }
+
+  async function updateCashMovement() {
+    if (
+      !editingCashMovement ||
+      !canOperate ||
+      cashMovementAmount <= 0 ||
+      !cashMovementDescription.trim()
+    )
+      return;
+    setSaving(true);
+    const { error } = await supabase
+      .from('finance_cash_movements')
+      .update({
+        movement_type: cashMovementType,
+        payment_method: cashMovementMethod,
+        category: cashMovementCategory.trim() || null,
+        amount: cashMovementAmount,
+        description: cashMovementDescription.trim(),
+        reference: cashMovementReference.trim() || null,
+      })
+      .eq('id', editingCashMovement.id)
+      .eq('account_id', accountId);
+    setSaving(false);
+    if (error) return toast.error(`Não foi possível editar: ${error.message}`);
+    toast.success('Lançamento atualizado.');
+    clearCashMovementForm();
+    await loadFinance();
+  }
+
+  async function deleteCashMovement() {
+    if (!deletingCashMovement || !canEditSettings) return;
+    setSaving(true);
+    const { error } = await supabase
+      .from('finance_cash_movements')
+      .delete()
+      .eq('id', deletingCashMovement.id)
+      .eq('account_id', accountId);
+    setSaving(false);
+    if (error) return toast.error(`Não foi possível excluir: ${error.message}`);
+    toast.success('Lançamento excluído do caixa.');
+    setDeletingCashMovement(null);
+    await loadFinance();
+  }
+
   function startReverseSale(sale: FinanceSale) {
     setReverseSale(sale);
     setReverseMode(Number(sale.paid_amount) > 0 ? 'refund' : 'void');
@@ -1328,15 +1374,20 @@ export function FinancePage({
             sessions={cashSessions}
             currency={defaultCurrency}
             canOperate={canOperate}
+            canDelete={canEditSettings}
             onOpen={() => setCashOpen(true)}
             onMovement={() => setCashMovementOpen(true)}
+            onEditMovement={startEditCashMovement}
+            onDeleteMovement={setDeletingCashMovement}
             onClose={() => {
               setClosingAmount(Number(cashSnapshot?.expected_amount ?? 0));
-              const totals = registerMethodTotals(
-                sales,
-                cashSession?.id,
-                cashMovements
-              );
+              const totals = Object.fromEntries(
+                PAYMENT_METHODS.map(({ value }) => [
+                  value,
+                  Number(cashSnapshot?.payments_by_method?.[value] ?? 0) +
+                    Number(cashSnapshot?.tips_by_method?.[value] ?? 0),
+                ])
+              ) as Record<FinancePaymentMethod, number>;
               totals.cash = Number(cashSnapshot?.expected_amount ?? 0);
               setClosingBreakdown(totals);
               setCashCloseOpen(true);
@@ -1436,11 +1487,11 @@ export function FinancePage({
             <div className="grid gap-3 sm:grid-cols-2">
               {REGISTER_METHODS.filter(({ value }) => value !== 'cash').map(
                 (method) => {
-                  const expected = registerMethodTotals(
-                    sales,
-                    cashSession?.id,
-                    cashMovements
-                  )[method.value];
+                  const expected =
+                    Number(
+                      cashSnapshot?.payments_by_method?.[method.value] ?? 0
+                    ) +
+                    Number(cashSnapshot?.tips_by_method?.[method.value] ?? 0);
                   const counted = Number(
                     closingBreakdown[method.value] ?? expected
                   );
@@ -1720,13 +1771,24 @@ export function FinancePage({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={cashMovementOpen} onOpenChange={setCashMovementOpen}>
+      <Dialog
+        open={cashMovementOpen || Boolean(editingCashMovement)}
+        onOpenChange={(open) => {
+          if (!open) clearCashMovementForm();
+          else setCashMovementOpen(true);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Novo movimento de caixa</DialogTitle>
+            <DialogTitle>
+              {editingCashMovement
+                ? 'Editar lançamento do caixa'
+                : 'Novo movimento de caixa'}
+            </DialogTitle>
             <DialogDescription>
-              Registe gorjetas, entradas, retiradas, despesas ou acertos em
-              qualquer forma de pagamento.
+              {editingCashMovement
+                ? 'A alteração recalcula imediatamente os totais e a conferência do turno.'
+                : 'Registe gorjetas, entradas, retiradas, despesas ou acertos em qualquer forma de pagamento.'}
             </DialogDescription>
           </DialogHeader>
           <Field label="Tipo de movimento">
@@ -1807,22 +1869,60 @@ export function FinancePage({
             />
           </Field>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setCashMovementOpen(false)}
-            >
+            <Button variant="outline" onClick={clearCashMovementForm}>
               Cancelar
             </Button>
             <Button
-              onClick={addCashMovement}
+              onClick={
+                editingCashMovement ? updateCashMovement : addCashMovement
+              }
               disabled={
                 saving ||
                 cashMovementAmount <= 0 ||
                 !cashMovementDescription.trim()
               }
             >
-              {saving ? <Loader2 className="animate-spin" /> : <Plus />}
-              Registar movimento
+              {saving ? (
+                <Loader2 className="animate-spin" />
+              ) : editingCashMovement ? (
+                <Pencil />
+              ) : (
+                <Plus />
+              )}
+              {editingCashMovement
+                ? 'Guardar alterações'
+                : 'Registar movimento'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={Boolean(deletingCashMovement)}
+        onOpenChange={(open) => !open && setDeletingCashMovement(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Excluir lançamento do caixa?</DialogTitle>
+            <DialogDescription>
+              O lançamento “{deletingCashMovement?.description}” será removido e
+              os totais do turno serão recalculados. Esta ação não pode ser
+              desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeletingCashMovement(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={deleteCashMovement}
+              disabled={saving || !canEditSettings}
+            >
+              {saving ? <Loader2 className="animate-spin" /> : <Trash2 />}
+              Excluir
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -3406,9 +3506,12 @@ function CashView({
   sessions,
   currency,
   canOperate,
+  canDelete,
   onOpen,
   onClose,
   onMovement,
+  onEditMovement,
+  onDeleteMovement,
 }: {
   cashSession: FinanceCashSession | null;
   sales: FinanceSale[];
@@ -3417,9 +3520,12 @@ function CashView({
   sessions: FinanceCashSession[];
   currency: string;
   canOperate: boolean;
+  canDelete: boolean;
   onOpen: () => void;
   onClose: () => void;
   onMovement: () => void;
+  onEditMovement: (movement: FinanceCashMovement) => void;
+  onDeleteMovement: (movement: FinanceCashMovement) => void;
 }) {
   const payments = sales
     .flatMap((sale) => sale.payments ?? [])
@@ -3428,6 +3534,9 @@ function CashView({
         payment.cash_session_id === cashSession?.id &&
         ['confirmed', 'refunded'].includes(payment.status)
     );
+  const sessionMovements = movements.filter(
+    (movement) => movement.cash_session_id === cashSession?.id
+  );
   const movementLabels: Record<string, string> = {
     deposit: 'Reforço',
     withdrawal: 'Sangria',
@@ -3436,13 +3545,20 @@ function CashView({
     refund: 'Reembolso',
     tip: 'Gorjeta',
   };
-  const methodTotals = registerMethodTotals(sales, cashSession?.id, movements);
-  const tipTotals = movements
-    .filter((movement) => movement.movement_type === 'tip')
-    .reduce((total, movement) => total + Number(movement.amount), 0);
-  const salesReceived = payments.reduce(
-    (total, payment) =>
-      total + Number(payment.amount) * (payment.status === 'refunded' ? -1 : 1),
+  const paymentTotals = snapshot?.payments_by_method ?? {};
+  const tipMethodTotals = snapshot?.tips_by_method ?? {};
+  const methodTotals = Object.fromEntries(
+    PAYMENT_METHODS.map(({ value }) => [
+      value,
+      Number(paymentTotals[value] ?? 0) + Number(tipMethodTotals[value] ?? 0),
+    ])
+  ) as Record<FinancePaymentMethod, number>;
+  const salesReceived = Object.values(paymentTotals).reduce(
+    (total, amount) => total + Number(amount ?? 0),
+    0
+  );
+  const tipTotals = Object.values(tipMethodTotals).reduce(
+    (total, amount) => total + Number(amount ?? 0),
     0
   );
   const grandTotal = salesReceived + tipTotals;
@@ -3575,11 +3691,11 @@ function CashView({
           <div className="border-border mb-2 flex items-center justify-between border-t pt-4">
             <p className="text-sm font-semibold">Linha do tempo do turno</p>
             <Badge variant="outline">
-              {payments.length + movements.length}
+              {payments.length + sessionMovements.length}
             </Badge>
           </div>
           <div className="max-h-[330px] space-y-1 overflow-y-auto pr-1">
-            {payments.length || movements.length ? (
+            {payments.length || sessionMovements.length ? (
               [
                 ...payments.map((payment) => ({
                   id: payment.id,
@@ -3588,8 +3704,10 @@ function CashView({
                   amount: Number(payment.amount),
                   incoming: payment.status !== 'refunded',
                   method: payment.method,
+                  source: 'payment' as const,
+                  movement: null,
                 })),
-                ...movements.map((movement) => ({
+                ...sessionMovements.map((movement) => ({
                   id: movement.id,
                   date: movement.created_at,
                   label: `${movementLabels[movement.movement_type] ?? movement.movement_type} · ${movement.description}`,
@@ -3598,6 +3716,8 @@ function CashView({
                     movement.movement_type
                   ),
                   method: movement.payment_method || 'cash',
+                  source: 'manual' as const,
+                  movement,
                 })),
               ]
                 .sort(
@@ -3616,14 +3736,40 @@ function CashView({
                         {new Date(movement.date).toLocaleString('pt-PT')}
                       </span>
                     </div>
-                    <strong
-                      className={
-                        movement.incoming ? 'text-emerald-600' : 'text-red-600'
-                      }
-                    >
-                      {movement.incoming ? '+' : '-'}
-                      {money(movement.amount, currency)}
-                    </strong>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <strong
+                        className={
+                          movement.incoming
+                            ? 'text-emerald-600'
+                            : 'text-red-600'
+                        }
+                      >
+                        {movement.incoming ? '+' : '-'}
+                        {money(movement.amount, currency)}
+                      </strong>
+                      {movement.source === 'manual' && movement.movement ? (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            title="Editar lançamento"
+                            disabled={!canOperate}
+                            onClick={() => onEditMovement(movement.movement)}
+                          >
+                            <Pencil />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            title="Excluir lançamento"
+                            disabled={!canDelete}
+                            onClick={() => onDeleteMovement(movement.movement)}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </>
+                      ) : null}
+                    </div>
                   </div>
                 ))
             ) : (
