@@ -130,6 +130,30 @@
   margin-top: 10px;
 }
 
+.aj-crm-manual-phone {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.aj-crm-input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d0d5dd;
+  border-radius: 9px;
+  padding: 8px 10px;
+  background: #fff;
+  color: #101828;
+  font-size: 12px;
+  outline: none;
+}
+
+.aj-crm-input:focus {
+  border-color: #ef5b45;
+  box-shadow: 0 0 0 3px rgba(239, 91, 69, 0.14);
+}
+
 .aj-crm-button {
   display: inline-flex;
   align-items: center;

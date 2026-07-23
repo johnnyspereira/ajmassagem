@@ -11,6 +11,7 @@
       phone: '',
       rawPhone: '',
     },
+    manualPhone: '',
     contact: null,
     status: 'Aguardando conversa no WhatsApp Web.',
     statusKind: 'neutral',
@@ -40,8 +41,69 @@
     return hit || '';
   }
 
+  function looksLikePresence(value) {
+    const text = String(value || '')
+      .trim()
+      .toLowerCase();
+    return (
+      !text ||
+      text.includes('visto por') ||
+      text.includes('last seen') ||
+      text.includes('online') ||
+      text.includes('digitando') ||
+      text.includes('typing') ||
+      text.includes('gravando') ||
+      text.includes('recording') ||
+      text.includes('dados do contato') ||
+      text.includes('contact info')
+    );
+  }
+
+  function cleanName(value) {
+    const text = String(value || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (looksLikePresence(text)) return '';
+    if (normalizePhone(text).length >= 8 && text.length < 24) return '';
+    return text;
+  }
+
   function textOf(node) {
     return (node?.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function isVisible(node) {
+    if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
+    if (node.closest?.(`#${ROOT_ID}`)) return false;
+    const rect = node.getBoundingClientRect();
+    const style = window.getComputedStyle(node);
+    return (
+      rect.width > 0 &&
+      rect.height > 0 &&
+      style.visibility !== 'hidden' &&
+      style.display !== 'none' &&
+      Number(style.opacity || '1') > 0
+    );
+  }
+
+  function scorePhone(rawPhone) {
+    const digits = normalizePhone(rawPhone);
+    if (digits.length < 8) return 0;
+    let score = digits.length;
+    if (digits.startsWith('351')) score += 6;
+    if (digits.length >= 11 && digits.length <= 13) score += 4;
+    if (digits.length > 15) score -= 8;
+    return score;
+  }
+
+  function bestPhoneFromText(text) {
+    const matches = String(text || '').match(PHONE_RE) || [];
+    return (
+      matches
+        .map((raw) => ({ raw, score: scorePhone(raw) }))
+        .filter((item) => item.score > 0)
+        .sort((a, b) => b.score - a.score)[0]?.raw || ''
+    );
   }
 
   function getMainHeader() {
@@ -52,27 +114,127 @@
     );
   }
 
-  function detectConversation() {
-    const header = getMainHeader();
-    if (!header) {
-      return { name: '', phone: '', rawPhone: '' };
-    }
+  function getContactInfoPanel() {
+    const candidates = Array.from(
+      document.querySelectorAll(
+        'section, aside, div[role="region"], div[role="dialog"], [aria-label]'
+      )
+    );
+    return candidates.find((node) => {
+      const text = textOf(node).toLowerCase();
+      return (
+        text.includes('dados do contato') ||
+        text.includes('contact info') ||
+        text.includes('detalhes do contato')
+      );
+    });
+  }
 
-    const titleNode =
-      header.querySelector('span[title]') ||
-      header.querySelector('[dir="auto"][title]') ||
-      header.querySelector('[role="button"] span[dir="auto"]') ||
-      header.querySelector('span[dir="auto"]');
+  function detectFromContactInfoPanel() {
+    const panel = getContactInfoPanel();
+    if (!panel) return null;
 
-    const headerText = textOf(header);
-    const title =
-      titleNode?.getAttribute?.('title')?.trim() || textOf(titleNode) || '';
-    const rawPhone = firstPhone(`${title} ${headerText} ${document.title}`);
+    const panelText = textOf(panel);
+    const rawPhone = bestPhoneFromText(panelText) || firstPhone(panelText);
+    const titleCandidates = Array.from(
+      panel.querySelectorAll('span[title], h1, h2, h3, [dir="auto"]')
+    )
+      .map((node) => node.getAttribute?.('title') || textOf(node))
+      .map(cleanName)
+      .filter(Boolean);
 
+    const name =
+      titleCandidates.find((value) => normalizePhone(value).length < 8) ||
+      titleCandidates[0] ||
+      rawPhone ||
+      '';
+
+    if (!name && !rawPhone) return null;
     return {
-      name: title || rawPhone || '',
+      name,
       rawPhone,
       phone: normalizePhone(rawPhone),
+    };
+  }
+
+  function detectFromVisiblePage() {
+    const nodes = Array.from(
+      document.querySelectorAll(
+        'a[href^="tel:"], span, div, button, [title], [aria-label]'
+      )
+    ).filter(isVisible);
+
+    const rawPhone =
+      nodes
+        .map((node) => {
+          const href = node.getAttribute?.('href') || '';
+          if (href.startsWith('tel:')) return href.slice(4);
+          return (
+            node.getAttribute?.('title') ||
+            node.getAttribute?.('aria-label') ||
+            textOf(node)
+          );
+        })
+        .map(bestPhoneFromText)
+        .filter(Boolean)
+        .sort((a, b) => scorePhone(b) - scorePhone(a))[0] || '';
+
+    if (!rawPhone) return null;
+
+    const header = getMainHeader();
+    const titleCandidates = header
+      ? Array.from(
+          header.querySelectorAll(
+            'span[title], [dir="auto"][title], [role="button"] span[dir="auto"], span[dir="auto"]'
+          )
+        )
+          .map((node) => node.getAttribute?.('title') || textOf(node))
+          .map(cleanName)
+          .filter(Boolean)
+      : [];
+
+    return {
+      name: titleCandidates[0] || rawPhone,
+      rawPhone,
+      phone: normalizePhone(rawPhone),
+    };
+  }
+
+  function detectConversation() {
+    const panelConversation = detectFromContactInfoPanel();
+    if (panelConversation?.phone) {
+      return panelConversation;
+    }
+
+    const header = getMainHeader();
+    if (!header) {
+      return detectFromVisiblePage() || { name: '', phone: '', rawPhone: '' };
+    }
+
+    const titleCandidates = Array.from(
+      header.querySelectorAll(
+        'span[title], [dir="auto"][title], [role="button"] span[dir="auto"], span[dir="auto"]'
+      )
+    )
+      .map((node) => node.getAttribute?.('title') || textOf(node))
+      .map(cleanName)
+      .filter(Boolean);
+
+    const headerText = textOf(header);
+    const title = titleCandidates[0] || '';
+    const rawPhone = firstPhone(`${title} ${headerText} ${document.title}`);
+    const phone = normalizePhone(rawPhone);
+    const pageConversation = phone ? null : detectFromVisiblePage();
+
+    return {
+      name:
+        title ||
+        panelConversation?.name ||
+        pageConversation?.name ||
+        rawPhone ||
+        '',
+      rawPhone,
+      phone: phone || panelConversation?.phone || pageConversation?.phone || '',
     };
   }
 
@@ -105,6 +267,14 @@
     return response.payload;
   }
 
+  function readManualPhoneInput() {
+    const input = document.querySelector(
+      `#${ROOT_ID} [data-role="manual-phone"]`
+    );
+    if (input?.value) state.manualPhone = input.value;
+    return normalizePhone(state.manualPhone);
+  }
+
   function setStatus(message, kind = 'neutral') {
     state.status = message;
     state.statusKind = kind;
@@ -112,7 +282,7 @@
   }
 
   async function findContact() {
-    const phone = state.conversation.phone;
+    const phone = state.conversation.phone || readManualPhoneInput();
     if (!phone) {
       setStatus(
         'Não consegui detectar o telefone nesta conversa. Abra o perfil do contato no WhatsApp Web ou use uma conversa cujo cabeçalho mostre o número.',
@@ -149,7 +319,7 @@
   }
 
   async function createOrUpdateContact() {
-    const phone = state.conversation.phone;
+    const phone = state.conversation.phone || readManualPhoneInput();
     if (!phone) {
       setStatus('Não há telefone detectado para criar o cliente.', 'error');
       return;
@@ -194,7 +364,6 @@
 
     const contact = state.contact;
     const tags = Array.isArray(contact?.tags) ? contact.tags : [];
-    const initials = (state.conversation.name || '?').slice(0, 2).toUpperCase();
 
     root.innerHTML = `
       <button class="aj-crm-toggle" type="button" data-action="toggle">
@@ -215,6 +384,16 @@
             <div class="aj-crm-muted" style="margin-top: 6px;">
               ${state.conversation.phone ? `Telefone: ${escapeHtml(state.conversation.phone)}` : 'Telefone ainda não detectado'}
             </div>
+            ${
+              state.conversation.phone
+                ? ''
+                : `
+                  <div class="aj-crm-manual-phone">
+                    <input class="aj-crm-input" data-role="manual-phone" value="${escapeHtml(state.manualPhone)}" placeholder="+351 900 000 000" />
+                    <button class="aj-crm-button" type="button" data-action="use-manual-phone">Usar telefone</button>
+                  </div>
+                `
+            }
             <div class="aj-crm-row">
               <button class="aj-crm-button" type="button" data-action="find" ${state.loading ? 'disabled' : ''}>Buscar</button>
               <button class="aj-crm-button aj-crm-button-primary" type="button" data-action="create" ${state.loading ? 'disabled' : ''}>Criar/Atualizar</button>
@@ -286,6 +465,29 @@
       void findContact();
       return;
     }
+    if (action === 'use-manual-phone') {
+      const input = document.querySelector(
+        `#${ROOT_ID} [data-role="manual-phone"]`
+      );
+      const rawPhone = input?.value || '';
+      const phone = normalizePhone(rawPhone);
+      if (!phone) {
+        setStatus(
+          'Informe um telefone valido para usar nesta conversa.',
+          'error'
+        );
+        return;
+      }
+      state.manualPhone = rawPhone;
+      state.conversation = {
+        ...state.conversation,
+        rawPhone,
+        phone,
+        name: state.conversation.name || phone,
+      };
+      setStatus('Telefone definido manualmente para esta conversa.', 'ok');
+      return;
+    }
     if (action === 'create') {
       void createOrUpdateContact();
       return;
@@ -309,7 +511,30 @@
   }
 
   function pollConversation() {
-    const next = detectConversation();
+    let next = detectConversation();
+    if (
+      !next.phone &&
+      state.conversation.phone &&
+      next.name &&
+      next.name === state.conversation.name
+    ) {
+      next = {
+        ...next,
+        rawPhone: state.conversation.rawPhone,
+        phone: state.conversation.phone,
+      };
+    }
+    if (!next.phone && state.manualPhone) {
+      const phone = normalizePhone(state.manualPhone);
+      if (phone) {
+        next = {
+          ...next,
+          rawPhone: state.manualPhone,
+          phone,
+          name: next.name || state.conversation.name || phone,
+        };
+      }
+    }
     const changed =
       next.name !== state.conversation.name ||
       next.phone !== state.conversation.phone;
