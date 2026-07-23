@@ -483,6 +483,14 @@
         "nxtPslug": "nxtPslug"
       },
       "namedRegex": "^/site/(?<nxtPslug>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/voucher/[id]",
+      "regex": "^/voucher/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/voucher/(?<nxtPid>[^/]+?)(?:/)?$"
     }
   ],
   "staticRoutes": [
