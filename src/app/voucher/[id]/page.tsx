@@ -9,6 +9,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 
+import { VoucherTransferForm } from '@/components/finance/voucher-transfer-form';
 import { supabaseAdmin } from '@/lib/flows/admin-client';
 
 export const dynamic = 'force-dynamic';
@@ -72,31 +73,31 @@ const STATUS = {
   active: {
     label: 'Válido e ativo',
     detail: 'Este voucher está pronto para ser utilizado.',
-    className: 'border-emerald-400/25 bg-emerald-400/10 text-emerald-300',
+    className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     icon: BadgeCheck,
   },
   pending: {
     label: 'A aguardar ativação',
     detail: 'Este voucher foi emitido, mas ainda não está ativo.',
-    className: 'border-amber-300/25 bg-amber-300/10 text-amber-200',
+    className: 'border-amber-200 bg-amber-50 text-amber-700',
     icon: ShieldCheck,
   },
   used: {
     label: 'Já utilizado',
     detail: 'O benefício associado a este voucher já foi utilizado.',
-    className: 'border-slate-300/20 bg-slate-300/10 text-slate-300',
+    className: 'border-stone-200 bg-stone-100 text-stone-600',
     icon: ShieldCheck,
   },
   expired: {
     label: 'Expirado',
     detail: 'A data de validade deste voucher já terminou.',
-    className: 'border-rose-300/25 bg-rose-300/10 text-rose-200',
+    className: 'border-rose-200 bg-rose-50 text-rose-700',
     icon: CircleX,
   },
   cancelled: {
     label: 'Cancelado',
     detail: 'Este voucher foi cancelado pelo estabelecimento.',
-    className: 'border-rose-300/25 bg-rose-300/10 text-rose-200',
+    className: 'border-rose-200 bg-rose-50 text-rose-700',
     icon: CircleX,
   },
 } as const;
@@ -135,11 +136,11 @@ export default async function VoucherPage({
   const isService = voucher.voucher_type === 'service';
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#080d1b] px-4 py-8 text-white sm:px-6 sm:py-14">
+    <main className="relative min-h-screen overflow-hidden bg-[#f7f3ee] px-4 py-8 text-stone-900 sm:px-6 sm:py-14">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-1/2 -left-40 size-96 rounded-full bg-rose-600/20 blur-3xl" />
-        <div className="absolute -top-32 -right-32 size-[28rem] rounded-full bg-indigo-500/20 blur-3xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0,rgba(8,13,27,.78)_72%)]" />
+        <div className="absolute top-1/2 -left-40 size-96 rounded-full bg-rose-200/50 blur-3xl" />
+        <div className="absolute -top-32 -right-32 size-[28rem] rounded-full bg-amber-100/70 blur-3xl" />
+        <div className="absolute inset-0 [background-image:radial-gradient(#c9b8a9_0.7px,transparent_0.7px)] [background-size:18px_18px] opacity-35" />
       </div>
 
       <div className="relative mx-auto max-w-3xl">
@@ -165,25 +166,26 @@ export default async function VoucherPage({
               <p className="text-sm font-bold tracking-wide">
                 {account?.name || 'Voucher'}
               </p>
-              <p className="text-xs text-slate-400">
-                Signature Gift Experience
+              <p className="text-xs text-stone-500">
+                Uma experiência para oferecer
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-emerald-300">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
             <ShieldCheck className="size-4" />
             Consulta segura
           </div>
         </div>
 
-        <section className="relative overflow-hidden rounded-[2rem] border border-[#d6b36a]/50 bg-[#11182b] shadow-2xl shadow-black/50">
-          <div className="absolute -top-24 -right-20 size-72 rounded-full border border-white/5" />
-          <div className="absolute -top-16 -right-10 size-56 rounded-full border border-white/5" />
-          <div className="absolute top-4 right-4 text-[#d6b36a]/10">
+        <section className="relative overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-[0_30px_90px_rgba(66,45,35,0.14)]">
+          <div className="absolute top-0 left-0 h-1.5 w-full bg-gradient-to-r from-rose-500 via-[#d6b36a] to-rose-300" />
+          <div className="absolute -top-24 -right-20 size-72 rounded-full border border-stone-100" />
+          <div className="absolute -top-16 -right-10 size-56 rounded-full border border-stone-100" />
+          <div className="absolute top-4 right-4 text-rose-100">
             <Gift className="size-40" strokeWidth={0.8} />
           </div>
 
-          <div className="relative border-b border-white/10 p-7 sm:p-10">
+          <div className="relative border-b border-stone-100 p-7 sm:p-10">
             <div
               className={`mb-8 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold ${statusConfig.className}`}
             >
@@ -201,7 +203,7 @@ export default async function VoucherPage({
             </h1>
 
             <div className="mt-10">
-              <p className="text-xs tracking-[0.2em] text-slate-400 uppercase">
+              <p className="text-xs tracking-[0.2em] text-stone-400 uppercase">
                 Exclusivamente para
               </p>
               <p className="mt-2 text-2xl font-bold">
@@ -210,13 +212,13 @@ export default async function VoucherPage({
             </div>
 
             {voucher.message ? (
-              <blockquote className="mt-7 max-w-xl border-l-2 border-[#d6b36a] pl-5 text-base leading-relaxed text-slate-300 italic">
+              <blockquote className="mt-7 max-w-xl border-l-2 border-[#d6b36a] pl-5 text-base leading-relaxed text-stone-600 italic">
                 “{voucher.message}”
               </blockquote>
             ) : null}
           </div>
 
-          <div className="relative grid gap-5 bg-black/15 p-7 sm:grid-cols-3 sm:p-10">
+          <div className="relative grid gap-5 bg-stone-50/80 p-7 sm:grid-cols-3 sm:p-10">
             <Detail
               label="Estado"
               value={statusConfig.label}
@@ -242,12 +244,18 @@ export default async function VoucherPage({
           </div>
         </section>
 
-        <div className="mt-6 flex flex-col gap-3 px-2 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <VoucherTransferForm
+          voucherId={voucher.id}
+          pin={pin}
+          disabled={status !== 'active'}
+        />
+
+        <div className="mt-6 flex flex-col gap-3 px-2 text-xs text-stone-500 sm:flex-row sm:items-center sm:justify-between">
           <span>Voucher autenticado · Ref. {voucher.code}</span>
           {account?.public_url ? (
             <a
               href={account.public_url}
-              className="text-slate-400 transition hover:text-white"
+              className="text-stone-500 transition hover:text-rose-700"
             >
               Visitar {account.name}
             </a>
@@ -270,14 +278,14 @@ function Detail({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-      <div className="flex items-center gap-2 text-xs font-bold tracking-wider text-slate-400 uppercase">
+    <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-2 text-xs font-bold tracking-wider text-stone-400 uppercase">
         {icon}
         {label}
       </div>
-      <p className="mt-2 font-bold text-white">{value}</p>
+      <p className="mt-2 font-bold text-stone-900">{value}</p>
       {detail ? (
-        <p className="mt-1 text-xs leading-relaxed text-slate-500">{detail}</p>
+        <p className="mt-1 text-xs leading-relaxed text-stone-500">{detail}</p>
       ) : null}
     </div>
   );
@@ -285,17 +293,17 @@ function Detail({
 
 function InvalidVoucher() {
   return (
-    <main className="grid min-h-screen place-items-center bg-[#080d1b] px-6 text-white">
+    <main className="grid min-h-screen place-items-center bg-[#f7f3ee] px-6 text-stone-900">
       <section className="max-w-md text-center">
         <span className="mx-auto grid size-16 place-items-center rounded-2xl border border-rose-400/20 bg-rose-400/10 text-rose-300">
           <CircleX className="size-8" />
         </span>
         <h1 className="mt-6 text-3xl font-black">Voucher não encontrado</h1>
-        <p className="mt-3 leading-relaxed text-slate-400">
+        <p className="mt-3 leading-relaxed text-stone-500">
           O código de autenticação não é válido. Confirme que utilizou o QR Code
           original ou contacte o estabelecimento.
         </p>
-        <div className="mt-7 inline-flex items-center gap-2 text-xs text-slate-500">
+        <div className="mt-7 inline-flex items-center gap-2 text-xs text-stone-500">
           <Sparkles className="size-4 text-[#d6b36a]" />
           Validação segura de vouchers
         </div>
