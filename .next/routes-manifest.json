@@ -16,6 +16,16 @@
   ],
   "headers": [
     {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ],
+      "regex": "^/sw\\.js(?:/)?$"
+    },
+    {
       "source": "/api/:path*",
       "headers": [
         {
@@ -259,6 +269,14 @@
       "namedRegex": "^/api/portal/(?<nxtPslug>[^/]+?)/invoice\\-requests/(?<nxtPid>[^/]+?)/document(?:/)?$"
     },
     {
+      "page": "/api/portal/[slug]/notifications",
+      "regex": "^/api/portal/([^/]+?)/notifications(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/api/portal/(?<nxtPslug>[^/]+?)/notifications(?:/)?$"
+    },
+    {
       "page": "/api/portal/[slug]/password",
       "regex": "^/api/portal/([^/]+?)/password(?:/)?$",
       "routeKeys": {
@@ -283,12 +301,28 @@
       "namedRegex": "^/api/portal/(?<nxtPslug>[^/]+?)/public(?:/)?$"
     },
     {
+      "page": "/api/portal/[slug]/push",
+      "regex": "^/api/portal/([^/]+?)/push(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/api/portal/(?<nxtPslug>[^/]+?)/push(?:/)?$"
+    },
+    {
       "page": "/api/portal/[slug]/session",
       "regex": "^/api/portal/([^/]+?)/session(?:/)?$",
       "routeKeys": {
         "nxtPslug": "nxtPslug"
       },
       "namedRegex": "^/api/portal/(?<nxtPslug>[^/]+?)/session(?:/)?$"
+    },
+    {
+      "page": "/api/portal/[slug]/support",
+      "regex": "^/api/portal/([^/]+?)/support(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/api/portal/(?<nxtPslug>[^/]+?)/support(?:/)?$"
     },
     {
       "page": "/api/quick-replies/[id]",
@@ -305,6 +339,14 @@
         "nxtPcode": "nxtPcode"
       },
       "namedRegex": "^/api/referrals/(?<nxtPcode>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/site/[slug]/contact",
+      "regex": "^/api/site/([^/]+?)/contact(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/api/site/(?<nxtPslug>[^/]+?)/contact(?:/)?$"
     },
     {
       "page": "/api/v1/broadcasts/[id]",
@@ -433,6 +475,14 @@
         "nxtPcode": "nxtPcode"
       },
       "namedRegex": "^/refer/(?<nxtPcode>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/site/[slug]",
+      "regex": "^/site/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/site/(?<nxtPslug>[^/]+?)(?:/)?$"
     }
   ],
   "staticRoutes": [
@@ -477,6 +527,12 @@
       "regex": "^/api/account/api\\-keys(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/account/api\\-keys(?:/)?$"
+    },
+    {
+      "page": "/api/account/data-cleanup",
+      "regex": "^/api/account/data\\-cleanup(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/account/data\\-cleanup(?:/)?$"
     },
     {
       "page": "/api/account/invitations",
@@ -585,6 +641,24 @@
       "regex": "^/api/inbox/conversations/clear(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/inbox/conversations/clear(?:/)?$"
+    },
+    {
+      "page": "/api/push/dispatch",
+      "regex": "^/api/push/dispatch(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/push/dispatch(?:/)?$"
+    },
+    {
+      "page": "/api/push/public-key",
+      "regex": "^/api/push/public\\-key(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/push/public\\-key(?:/)?$"
+    },
+    {
+      "page": "/api/push/subscriptions",
+      "regex": "^/api/push/subscriptions(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/push/subscriptions(?:/)?$"
     },
     {
       "page": "/api/quick-replies",
@@ -767,6 +841,12 @@
       "namedRegex": "^/forgot\\-password(?:/)?$"
     },
     {
+      "page": "/help",
+      "regex": "^/help(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/help(?:/)?$"
+    },
+    {
       "page": "/icon",
       "regex": "^/icon(?:/)?$",
       "routeKeys": {},
@@ -783,6 +863,12 @@
       "regex": "^/login(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/login(?:/)?$"
+    },
+    {
+      "page": "/manifest.webmanifest",
+      "regex": "^/manifest\\.webmanifest(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/manifest\\.webmanifest(?:/)?$"
     },
     {
       "page": "/notifications",
@@ -831,6 +917,24 @@
       "regex": "^/signup(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/signup(?:/)?$"
+    },
+    {
+      "page": "/site",
+      "regex": "^/site(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/site(?:/)?$"
+    },
+    {
+      "page": "/support",
+      "regex": "^/support(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/support(?:/)?$"
+    },
+    {
+      "page": "/website",
+      "regex": "^/website(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/website(?:/)?$"
     }
   ],
   "dataRoutes": [],

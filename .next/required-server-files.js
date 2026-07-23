@@ -105,6 +105,9 @@ self.__SERVER_FILES_MANIFEST={
       }
     },
     "outputFileTracingRoot": "/home/runner/work/ajmassagem/ajmassagem",
+    "allowedDevOrigins": [
+      "192.168.1.17"
+    ],
     "cacheComponents": false,
     "cacheLife": {
       "default": {
