@@ -67,6 +67,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ContactForm } from '@/components/contacts/contact-form';
+import { ContactSearchSelect } from '@/components/contacts/contact-search-select';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import {
@@ -3052,7 +3053,8 @@ export function AgendaPage({
 
                     <Field label="Cliente">
                       <div className="flex gap-2">
-                        <NativeSelect
+                        <ContactSearchSelect
+                          contacts={contacts}
                           value={editDraft.contactId}
                           disabled={!canOperate}
                           onChange={(value) =>
@@ -3060,14 +3062,11 @@ export function AgendaPage({
                               prev ? { ...prev, contactId: value } : prev
                             )
                           }
-                        >
-                          <option value="">Selecione um cliente</option>
-                          {contacts.map((contact) => (
-                            <option key={contact.id} value={contact.id}>
-                              {appointmentContactLabel(contact)}
-                            </option>
-                          ))}
-                        </NativeSelect>
+                          placeholder="Selecione um cliente"
+                          searchPlaceholder="Buscar por nome, telefone, referência, email..."
+                          emptyOptionLabel="Sem cliente"
+                          className="flex-1"
+                        />
                         <Button
                           type="button"
                           variant="outline"
@@ -4261,7 +4260,8 @@ export function AgendaPage({
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Cliente">
                 <div className="flex gap-2">
-                  <NativeSelect
+                  <ContactSearchSelect
+                    contacts={contacts}
                     value={appointmentDraft.contactId}
                     disabled={Boolean(appointmentReferralId)}
                     onChange={(value) =>
@@ -4270,14 +4270,11 @@ export function AgendaPage({
                         contactId: value,
                       }))
                     }
-                  >
-                    <option value="">Selecione um cliente</option>
-                    {contacts.map((contact) => (
-                      <option key={contact.id} value={contact.id}>
-                        {appointmentContactLabel(contact)}
-                      </option>
-                    ))}
-                  </NativeSelect>
+                    placeholder="Selecione um cliente"
+                    searchPlaceholder="Buscar por nome, telefone, referência, email..."
+                    emptyOptionLabel="Sem cliente"
+                    className="flex-1"
+                  />
                   <Button
                     type="button"
                     variant="outline"

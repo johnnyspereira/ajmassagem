@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BadgeEuro,
   Banknote,
+  Building2,
   Box,
   Check,
   ChevronRight,
@@ -23,14 +24,15 @@ import {
   Minus,
   PackageCheck,
   Pencil,
+  Phone,
   Plus,
   ReceiptText,
   RefreshCw,
   RotateCcw,
+  ArrowRightLeft,
   Search,
   ShoppingCart,
   Trash2,
-  UserRound,
   WalletCards,
   X,
 } from 'lucide-react';
@@ -50,6 +52,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { ContactSearchSelect } from '@/components/contacts/contact-search-select';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { formatCurrency } from '@/lib/currency';
@@ -70,12 +73,14 @@ import type {
   FinanceBenefitLog,
   FinanceCashMovement,
   FinanceCashSnapshot,
+  FinanceFundAccount,
   FinanceClientPack,
   FinanceItemType,
   FinanceInvoiceRequest,
   FinancePackCatalog,
   FinancePaymentMethod,
   FinanceSale,
+  FinanceVoucherTransferRequest,
   FinanceVoucher,
 } from '@/types';
 
@@ -108,6 +113,14 @@ type CatalogItem = {
   price: number;
   detail: string;
   available?: boolean;
+};
+
+type OpeningPosition = {
+  id?: string;
+  name: string;
+  accountType: FinanceFundAccount['account_type'];
+  institution: string;
+  amount: number;
 };
 
 const PAYMENT_METHODS: Array<{ value: FinancePaymentMethod; label: string }> = [
@@ -217,10 +230,14 @@ export function FinancePage({
   );
   const [cashSessions, setCashSessions] = useState<FinanceCashSession[]>([]);
   const [cashMovements, setCashMovements] = useState<FinanceCashMovement[]>([]);
+  const [fundAccounts, setFundAccounts] = useState<FinanceFundAccount[]>([]);
   const [cashSnapshot, setCashSnapshot] = useState<FinanceCashSnapshot | null>(
     null
   );
   const [vouchers, setVouchers] = useState<FinanceVoucher[]>([]);
+  const [voucherTransferRequests, setVoucherTransferRequests] = useState<
+    FinanceVoucherTransferRequest[]
+  >([]);
   const [clientPacks, setClientPacks] = useState<FinanceClientPack[]>([]);
   const [benefitLogs, setBenefitLogs] = useState<FinanceBenefitLog[]>([]);
 
@@ -235,7 +252,14 @@ export function FinancePage({
 
   const [cashOpen, setCashOpen] = useState(false);
   const [cashCloseOpen, setCashCloseOpen] = useState(false);
-  const [openingAmount, setOpeningAmount] = useState(0);
+  const [openingPositions, setOpeningPositions] = useState<OpeningPosition[]>(
+    []
+  );
+  const [fundTransferOpen, setFundTransferOpen] = useState(false);
+  const [transferSourceId, setTransferSourceId] = useState('');
+  const [transferDestinationId, setTransferDestinationId] = useState('');
+  const [transferAmount, setTransferAmount] = useState(0);
+  const [transferDescription, setTransferDescription] = useState('');
   const [closingAmount, setClosingAmount] = useState(0);
   const [closingBreakdown, setClosingBreakdown] = useState<
     Partial<Record<FinancePaymentMethod, number>>
@@ -298,6 +322,7 @@ export function FinancePage({
       logsRes,
       movementsRes,
       invoiceRequestsRes,
+      voucherTransferRequestsRes,
     ] = await Promise.all([
       supabase
         .from('clinic_services')
@@ -375,6 +400,12 @@ export function FinancePage({
         .eq('account_id', accountId)
         .order('requested_at', { ascending: false })
         .limit(300),
+      supabase
+        .from('finance_voucher_transfer_requests')
+        .select('*, voucher:finance_vouchers(*, owner:contacts(*), service:clinic_services(*))')
+        .eq('account_id', accountId)
+        .order('created_at', { ascending: false })
+        .limit(300),
     ]);
 
     const firstError =
@@ -386,7 +417,8 @@ export function FinancePage({
       clientPacksRes.error ??
       logsRes.error ??
       movementsRes.error ??
-      invoiceRequestsRes.error;
+      invoiceRequestsRes.error ??
+      voucherTransferRequestsRes.error;
     if (firstError) {
       if (isMissingFinanceSchema(firstError)) setSchemaMissing(true);
       else toast.error(`Falha ao carregar financeiro: ${firstError.message}`);
@@ -407,6 +439,21 @@ export function FinancePage({
     setInvoiceRequests(
       (invoiceRequestsRes.data ?? []) as FinanceInvoiceRequest[]
     );
+    setVoucherTransferRequests(
+      (voucherTransferRequestsRes.data ?? []) as FinanceVoucherTransferRequest[]
+    );
+    const { data: accountPositions, error: accountPositionsError } =
+      await supabase.rpc('get_finance_fund_accounts');
+    if (!accountPositionsError) {
+      setFundAccounts(
+        (accountPositions ?? []).map((item: FinanceFundAccount) => ({
+          ...item,
+          balance: Number(item.balance),
+        }))
+      );
+    } else {
+      setFundAccounts([]);
+    }
     if (cashRes.data?.id) {
       const { data: snapshot, error: snapshotError } = await supabase.rpc(
         'get_finance_register_snapshot',
@@ -487,6 +534,16 @@ export function FinancePage({
           event: '*',
           schema: 'public',
           table: 'finance_invoice_requests',
+          filter: `account_id=eq.${accountId}`,
+        },
+        scheduleRefresh
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'finance_fund_transactions',
           filter: `account_id=eq.${accountId}`,
         },
         scheduleRefresh
@@ -825,9 +882,25 @@ export function FinancePage({
 
   async function openCashRegister() {
     if (!accountId || !user?.id || !canOperate) return;
+    const positions = openingPositions.filter((position) =>
+      position.name.trim()
+    );
+    if (
+      !positions.length ||
+      positions.some((position) => position.amount < 0)
+    ) {
+      toast.error('Informe pelo menos uma origem com um saldo válido.');
+      return;
+    }
     setSaving(true);
-    const { error } = await supabase.rpc('open_finance_cash_session', {
-      p_opening_amount: openingAmount,
+    const { error } = await supabase.rpc('open_finance_cash_session_v3', {
+      p_opening_positions: positions.map((position) => ({
+        name: position.name.trim(),
+        account_type: position.accountType,
+        institution: position.institution.trim() || null,
+        amount: position.amount,
+        currency: defaultCurrency,
+      })),
       p_notes: cashNotes || null,
     });
     setSaving(false);
@@ -835,6 +908,66 @@ export function FinancePage({
     toast.success('Caixa aberto.');
     setCashOpen(false);
     setCashNotes('');
+    await loadFinance();
+  }
+
+  function startOpenCashRegister() {
+    setOpeningPositions(
+      fundAccounts.length
+        ? fundAccounts.map((account) => ({
+            id: account.id,
+            name: account.name,
+            accountType: account.account_type,
+            institution: account.institution || '',
+            amount: Number(account.balance),
+          }))
+        : [
+            {
+              name: 'Dinheiro',
+              accountType: 'cash',
+              institution: '',
+              amount: 0,
+            },
+            {
+              name: 'Revolut',
+              accountType: 'bank',
+              institution: 'Revolut',
+              amount: 0,
+            },
+            {
+              name: 'Santander',
+              accountType: 'bank',
+              institution: 'Santander',
+              amount: 0,
+            },
+          ]
+    );
+    setCashOpen(true);
+  }
+
+  async function transferFunds() {
+    if (
+      !transferSourceId ||
+      !transferDestinationId ||
+      transferSourceId === transferDestinationId ||
+      transferAmount <= 0
+    ) {
+      toast.error('Selecione contas diferentes e informe um valor válido.');
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.rpc('transfer_finance_funds', {
+      p_source_account_id: transferSourceId,
+      p_destination_account_id: transferDestinationId,
+      p_amount: transferAmount,
+      p_description: transferDescription.trim() || null,
+    });
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success('Transferência entre contas registada.');
+    setFundTransferOpen(false);
+    setTransferAmount(0);
+    setTransferDescription('');
     await loadFinance();
   }
 
@@ -1376,10 +1509,16 @@ export function FinancePage({
             snapshot={cashSnapshot}
             movements={cashMovements}
             sessions={cashSessions}
+            fundAccounts={fundAccounts}
             currency={defaultCurrency}
             canOperate={canOperate}
             canDelete={canEditSettings}
-            onOpen={() => setCashOpen(true)}
+            onOpen={startOpenCashRegister}
+            onTransfer={() => {
+              setTransferSourceId(fundAccounts[0]?.id || '');
+              setTransferDestinationId(fundAccounts[1]?.id || '');
+              setFundTransferOpen(true);
+            }}
             onMovement={() => setCashMovementOpen(true)}
             onEditMovement={startEditCashMovement}
             onDeleteMovement={setDeletingCashMovement}
@@ -1401,13 +1540,19 @@ export function FinancePage({
         <TabsContent value="vouchers">
           <VouchersView
             vouchers={vouchers}
+            transferRequests={voucherTransferRequests}
+            contacts={contacts}
             logs={benefitLogs}
             currency={defaultCurrency}
+            accountId={accountId}
+            userId={user?.id ?? ''}
+            canManage={canOperate}
             brand={{
               name: account?.name || 'CRM',
               logoUrl: account?.logo_url,
               publicUrl: account?.public_url,
             }}
+            onRefresh={loadFinance}
             onSell={() => {
               setActiveTab('pos');
               setVoucherOpen(true);
@@ -1432,22 +1577,102 @@ export function FinancePage({
       </Tabs>
 
       <Dialog open={cashOpen} onOpenChange={setCashOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Abrir caixa</DialogTitle>
             <DialogDescription>
-              Informe o fundo inicial disponível em dinheiro.
+              Confira onde está cada valor no início do turno.
             </DialogDescription>
           </DialogHeader>
-          <Field label="Valor inicial">
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={openingAmount}
-              onChange={(event) => setOpeningAmount(Number(event.target.value))}
-            />
-          </Field>
+          <div className="space-y-3">
+            {openingPositions.map((position, index) => (
+              <div
+                key={position.id || `${position.name}-${index}`}
+                className="grid gap-3 rounded-xl border p-3 sm:grid-cols-[130px_1fr_140px_auto]"
+              >
+                <NativeSelect
+                  value={position.accountType}
+                  onChange={(value) =>
+                    setOpeningPositions((current) =>
+                      current.map((item, itemIndex) =>
+                        itemIndex === index
+                          ? {
+                              ...item,
+                              accountType:
+                                value as FinanceFundAccount['account_type'],
+                            }
+                          : item
+                      )
+                    )
+                  }
+                >
+                  <option value="cash">Dinheiro</option>
+                  <option value="bank">Conta bancária</option>
+                  <option value="other">Outra conta</option>
+                </NativeSelect>
+                <Input
+                  value={position.name}
+                  disabled={Boolean(position.id)}
+                  onChange={(event) =>
+                    setOpeningPositions((current) =>
+                      current.map((item, itemIndex) =>
+                        itemIndex === index
+                          ? { ...item, name: event.target.value }
+                          : item
+                      )
+                    )
+                  }
+                  placeholder="Ex.: Revolut ou Santander"
+                />
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={position.amount}
+                  onChange={(event) =>
+                    setOpeningPositions((current) =>
+                      current.map((item, itemIndex) =>
+                        itemIndex === index
+                          ? { ...item, amount: Number(event.target.value) }
+                          : item
+                      )
+                    )
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  title="Remover origem"
+                  disabled={openingPositions.length === 1}
+                  onClick={() =>
+                    setOpeningPositions((current) =>
+                      current.filter((_, itemIndex) => itemIndex !== index)
+                    )
+                  }
+                >
+                  <Trash2 />
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                setOpeningPositions((current) => [
+                  ...current,
+                  {
+                    name: '',
+                    accountType: 'bank',
+                    institution: '',
+                    amount: 0,
+                  },
+                ])
+              }
+            >
+              <Plus /> Adicionar conta
+            </Button>
+          </div>
           <Field label="Observação">
             <Textarea
               value={cashNotes}
@@ -1460,6 +1685,81 @@ export function FinancePage({
             </Button>
             <Button onClick={openCashRegister} disabled={saving}>
               {saving && <Loader2 className="animate-spin" />} Abrir caixa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={fundTransferOpen} onOpenChange={setFundTransferOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Transferir entre contas</DialogTitle>
+            <DialogDescription>
+              Move o valor entre duas contas sem alterar o saldo financeiro
+              total.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Conta de origem">
+              <NativeSelect
+                value={transferSourceId}
+                onChange={setTransferSourceId}
+              >
+                <option value="">Selecione</option>
+                {fundAccounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name} · {money(account.balance, account.currency)}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+            <Field label="Conta de destino">
+              <NativeSelect
+                value={transferDestinationId}
+                onChange={setTransferDestinationId}
+              >
+                <option value="">Selecione</option>
+                {fundAccounts
+                  .filter((account) => account.id !== transferSourceId)
+                  .map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name}
+                    </option>
+                  ))}
+              </NativeSelect>
+            </Field>
+          </div>
+          <Field label="Valor">
+            <Input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={transferAmount}
+              onChange={(event) =>
+                setTransferAmount(Number(event.target.value))
+              }
+            />
+          </Field>
+          <Field label="Descrição (opcional)">
+            <Input
+              value={transferDescription}
+              onChange={(event) => setTransferDescription(event.target.value)}
+              placeholder="Ex.: Reforço da conta Santander"
+            />
+          </Field>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setFundTransferOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={transferFunds} disabled={saving}>
+              {saving ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <ArrowRightLeft />
+              )}
+              Transferir
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2279,29 +2579,7 @@ function PosView(props: {
     setVoucherOpen,
     cashSession,
   } = props;
-  const [clientSearch, setClientSearch] = useState('');
-  const [clientSearchOpen, setClientSearchOpen] = useState(false);
   const selectedContact = contacts.find((contact) => contact.id === contactId);
-  const filteredContacts = useMemo(() => {
-    const term = clientSearch.trim().toLocaleLowerCase('pt');
-    const matches = term
-      ? contacts.filter((contact) =>
-          [
-            contact.name,
-            contact.phone,
-            contact.client_reference,
-            contact.email,
-            contact.tax_id,
-          ]
-            .filter(Boolean)
-            .join(' ')
-            .toLocaleLowerCase('pt')
-            .includes(term)
-        )
-      : contacts;
-
-    return matches.slice(0, 12);
-  }, [clientSearch, contacts]);
 
   return (
     <div className="grid min-h-[680px] min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px]">
@@ -2444,113 +2722,14 @@ function PosView(props: {
         </div>
         <div className="space-y-3 p-4">
           <Field label="Cliente">
-            <div className="relative">
-              <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2" />
-              <Input
-                value={clientSearch}
-                onChange={(event) => {
-                  setClientSearch(event.target.value);
-                  setClientSearchOpen(true);
-                }}
-                onFocus={() => setClientSearchOpen(true)}
-                onBlur={() => setClientSearchOpen(false)}
-                placeholder={
-                  selectedContact
-                    ? 'Pesquisar outro cliente...'
-                    : 'Nome, telefone, email ou NIF...'
-                }
-                aria-label="Pesquisar cliente"
-                aria-expanded={clientSearchOpen}
-                aria-controls="pos-client-results"
-                autoComplete="off"
-                className="h-10 pr-9 pl-9"
-              />
-              {clientSearch ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => setClientSearch('')}
-                  aria-label="Limpar pesquisa de cliente"
-                  className="absolute top-1/2 right-1.5 -translate-y-1/2"
-                >
-                  <X />
-                </Button>
-              ) : null}
-              {clientSearchOpen ? (
-                <div
-                  id="pos-client-results"
-                  className="border-border bg-popover absolute top-full right-0 left-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-lg border p-1 shadow-lg"
-                >
-                  <button
-                    type="button"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => {
-                      setContactId('');
-                      setClientSearch('');
-                      setClientSearchOpen(false);
-                    }}
-                    className="hover:bg-muted flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm"
-                  >
-                    <span className="bg-muted flex size-8 shrink-0 items-center justify-center rounded-full">
-                      <UserRound className="size-4" />
-                    </span>
-                    <span>
-                      <span className="block font-medium">
-                        Consumidor final
-                      </span>
-                      <span className="text-muted-foreground block text-xs">
-                        Venda sem cliente associado
-                      </span>
-                    </span>
-                  </button>
-                  <div className="bg-border mx-2 my-1 h-px" />
-                  {filteredContacts.map((contact) => (
-                    <button
-                      key={contact.id}
-                      type="button"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => {
-                        setContactId(contact.id);
-                        setClientSearch('');
-                        setClientSearchOpen(false);
-                      }}
-                      className="hover:bg-muted flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left"
-                    >
-                      <span className="bg-primary-soft text-primary flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
-                        {(contact.name || contact.phone)
-                          .slice(0, 1)
-                          .toUpperCase()}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">
-                          {contact.name || 'Cliente sem nome'}
-                        </span>
-                        <span className="text-muted-foreground block truncate text-xs">
-                          {[contact.phone, contact.client_reference]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </span>
-                      </span>
-                      {contact.id === contactId ? (
-                        <Check className="text-primary size-4 shrink-0" />
-                      ) : null}
-                    </button>
-                  ))}
-                  {filteredContacts.length === 0 ? (
-                    <div className="text-muted-foreground px-3 py-6 text-center text-sm">
-                      Nenhum cliente encontrado para “{clientSearch}”.
-                    </div>
-                  ) : null}
-                  {contacts.length > filteredContacts.length ? (
-                    <p className="text-muted-foreground border-border border-t px-3 py-2 text-center text-[11px]">
-                      Escreva mais para refinar os resultados
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
+            <ContactSearchSelect
+              contacts={contacts}
+              value={contactId}
+              onChange={setContactId}
+              placeholder="Consumidor final"
+              searchPlaceholder="Buscar por nome, telefone, referência, email..."
+              emptyOptionLabel="Consumidor final"
+            />
           </Field>
           {selectedContact ? (
             <div className="border-primary/20 bg-primary/[0.04] flex items-center gap-3 rounded-lg border p-3">
@@ -3508,10 +3687,12 @@ function CashView({
   snapshot,
   movements,
   sessions,
+  fundAccounts,
   currency,
   canOperate,
   canDelete,
   onOpen,
+  onTransfer,
   onClose,
   onMovement,
   onEditMovement,
@@ -3522,10 +3703,12 @@ function CashView({
   snapshot: FinanceCashSnapshot | null;
   movements: FinanceCashMovement[];
   sessions: FinanceCashSession[];
+  fundAccounts: FinanceFundAccount[];
   currency: string;
   canOperate: boolean;
   canDelete: boolean;
   onOpen: () => void;
+  onTransfer: () => void;
   onClose: () => void;
   onMovement: () => void;
   onEditMovement: (movement: FinanceCashMovement) => void;
@@ -3788,6 +3971,73 @@ function CashView({
       </Card>
       <Card className="xl:col-span-2">
         <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle>Onde está o dinheiro</CardTitle>
+              <p className="text-muted-foreground mt-1 text-sm">
+                Numerário e saldos por conta financeira
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={onTransfer}
+              disabled={!canOperate || fundAccounts.length < 2}
+            >
+              <ArrowRightLeft /> Transferir entre contas
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {fundAccounts.length ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {fundAccounts.map((account) => (
+                <div
+                  key={account.id}
+                  className="bg-muted/40 rounded-xl border p-4"
+                >
+                  <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                    {account.account_type === 'cash' ? (
+                      <Banknote className="size-4" />
+                    ) : (
+                      <Building2 className="size-4" />
+                    )}
+                    {account.account_type === 'cash'
+                      ? 'Dinheiro físico'
+                      : account.institution || 'Conta bancária'}
+                  </div>
+                  <p className="mt-2 font-semibold">{account.name}</p>
+                  <p className="mt-1 text-xl font-black">
+                    {money(account.balance, account.currency)}
+                  </p>
+                </div>
+              ))}
+              <div className="bg-muted/20 rounded-xl border border-dashed p-4">
+                <p className="text-muted-foreground text-xs">
+                  Saldo financeiro total
+                </p>
+                <p className="mt-3 text-xl font-black">
+                  {money(
+                    fundAccounts.reduce(
+                      (total, account) => total + Number(account.balance),
+                      0
+                    ),
+                    currency
+                  )}
+                </p>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Transferências internas não alteram este total.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              As contas serão criadas ao abrir o próximo turno.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+      <Card className="xl:col-span-2">
+        <CardHeader>
           <CardTitle>Fechos recentes</CardTitle>
         </CardHeader>
         <CardContent>
@@ -3999,18 +4249,40 @@ export function PacksView({
 
 export function VouchersView({
   vouchers,
+  transferRequests,
+  contacts,
   logs,
   currency,
+  accountId,
+  userId,
+  canManage,
   brand,
+  onRefresh,
   onSell,
 }: {
   vouchers: FinanceVoucher[];
+  transferRequests: FinanceVoucherTransferRequest[];
+  contacts: Contact[];
   logs: FinanceBenefitLog[];
   currency: string;
+  accountId?: string | null;
+  userId: string;
+  canManage: boolean;
   brand: { name: string; logoUrl?: string | null; publicUrl?: string | null };
+  onRefresh: () => Promise<void>;
   onSell: () => void;
 }) {
+  const db = useMemo(() => createClient(), []);
   const [generatingCode, setGeneratingCode] = useState<string | null>(null);
+  const [decision, setDecision] = useState<{
+    request: FinanceVoucherTransferRequest;
+    action: 'contacted' | 'approved' | 'rejected';
+  } | null>(null);
+  const [decisionNotes, setDecisionNotes] = useState('');
+  const [savingDecision, setSavingDecision] = useState(false);
+  const activeRequests = transferRequests.filter((request) =>
+    ['pending', 'contacted'].includes(request.status)
+  );
 
   async function generatePdf(voucher: FinanceVoucher) {
     setGeneratingCode(voucher.code);
@@ -4028,6 +4300,121 @@ export function VouchersView({
     }
   }
 
+  async function findOrCreateRecipientContact(
+    request: FinanceVoucherTransferRequest
+  ) {
+    if (!accountId || !userId) throw new Error('Sessão inválida.');
+    const normalizedPhone = request.recipient_phone.replace(/\D/g, '');
+    const existing =
+      contacts.find(
+        (contact) =>
+          contact.phone_normalized === normalizedPhone ||
+          contact.phone?.replace(/\D/g, '') === normalizedPhone
+      ) ?? null;
+    if (existing) return existing.id;
+
+    const { data: fetched } = await db
+      .from('contacts')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('phone_normalized', normalizedPhone)
+      .maybeSingle();
+    if (fetched?.id) return fetched.id as string;
+
+    const { data: created, error } = await db
+      .from('contacts')
+      .insert({
+        account_id: accountId,
+        user_id: userId,
+        name: request.recipient_name,
+        phone: request.recipient_phone,
+      })
+      .select('id')
+      .single();
+
+    if (error || !created) {
+      const { data: raced } = await db
+        .from('contacts')
+        .select('id')
+        .eq('account_id', accountId)
+        .eq('phone_normalized', normalizedPhone)
+        .maybeSingle();
+      if (raced?.id) return raced.id as string;
+      throw new Error(error?.message || 'Não foi possível criar o cliente.');
+    }
+
+    return created.id as string;
+  }
+
+  async function finishTransferDecision() {
+    if (!decision || !canManage) return;
+    setSavingDecision(true);
+    const now = new Date().toISOString();
+    try {
+      if (decision.action === 'approved') {
+        const contactId = await findOrCreateRecipientContact(decision.request);
+        const { error: voucherError } = await db
+          .from('finance_vouchers')
+          .update({
+            owner_contact_id: contactId,
+            recipient_name: decision.request.recipient_name,
+            updated_at: now,
+          })
+          .eq('id', decision.request.voucher_id);
+        if (voucherError) throw new Error(voucherError.message);
+
+        await db.from('finance_benefit_logs').insert({
+          account_id: decision.request.account_id,
+          voucher_id: decision.request.voucher_id,
+          action: 'adjusted',
+          performed_by_user_id: userId,
+          approved_by_user_id: userId,
+          notes:
+            decisionNotes.trim() ||
+            `Voucher transferido para ${decision.request.recipient_name}`,
+          metadata: {
+            transfer_request_id: decision.request.id,
+            recipient_name: decision.request.recipient_name,
+            recipient_phone: decision.request.recipient_phone,
+            new_owner_contact_id: contactId,
+          },
+        });
+      }
+
+      const { error } = await db
+        .from('finance_voucher_transfer_requests')
+        .update({
+          status: decision.action,
+          reviewed_by_user_id:
+            decision.action === 'contacted' ? null : userId || null,
+          reviewed_at: decision.action === 'contacted' ? null : now,
+          notes: decisionNotes.trim() || null,
+          updated_at: now,
+        })
+        .eq('id', decision.request.id);
+      if (error) throw new Error(error.message);
+
+      toast.success(
+        decision.action === 'approved'
+          ? 'Voucher transferido para o novo cliente.'
+          : decision.action === 'contacted'
+            ? 'Pedido marcado como contactado.'
+            : 'Pedido de transferência rejeitado.'
+      );
+      setDecision(null);
+      setDecisionNotes('');
+      await onRefresh();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível tratar o pedido.'
+      );
+    } finally {
+      setSavingDecision(false);
+    }
+  }
+
   return (
     <section className="border-border bg-card overflow-hidden rounded-lg border">
       <div className="border-border flex items-center justify-between border-b p-4">
@@ -4040,6 +4427,105 @@ export function VouchersView({
         <Button onClick={onSell}>
           <Gift /> Vender voucher
         </Button>
+      </div>
+      <div className="border-border border-b p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-semibold">
+              Pedidos de transferência
+            </h3>
+            <p className="text-muted-foreground text-xs">
+              Pedidos enviados pela página pública do voucher via QR Code.
+            </p>
+          </div>
+          <Badge variant={activeRequests.length ? 'destructive' : 'secondary'}>
+            {activeRequests.length} em aberto
+          </Badge>
+        </div>
+        {activeRequests.length ? (
+          <div className="space-y-2">
+            {activeRequests.map((request) => (
+              <article
+                key={request.id}
+                className="border-border bg-background rounded-lg border p-3"
+              >
+                <div className="flex flex-wrap items-start gap-3">
+                  <span className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-md">
+                    <Phone className="size-4" />
+                  </span>
+                  <div className="min-w-56 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium">{request.recipient_name}</p>
+                      <Badge
+                        variant={
+                          request.status === 'pending'
+                            ? 'destructive'
+                            : 'secondary'
+                        }
+                      >
+                        {voucherTransferStatus(request.status)}
+                      </Badge>
+                    </div>
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      {request.recipient_phone} pediu o voucher{' '}
+                      <span className="font-mono">
+                        {request.voucher?.code ?? '—'}
+                      </span>{' '}
+                      em {new Date(request.created_at).toLocaleString('pt-PT')}
+                    </p>
+                    {request.voucher?.owner ? (
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        Titular atual:{' '}
+                        {request.voucher.owner.name ||
+                          request.voucher.owner.phone}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {request.status === 'pending' ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!canManage}
+                        onClick={() => {
+                          setDecision({ request, action: 'contacted' });
+                          setDecisionNotes(request.notes ?? '');
+                        }}
+                      >
+                        <Phone /> Contactado
+                      </Button>
+                    ) : null}
+                    <Button
+                      size="sm"
+                      disabled={!canManage}
+                      onClick={() => {
+                        setDecision({ request, action: 'approved' });
+                        setDecisionNotes(request.notes ?? '');
+                      }}
+                    >
+                      <Check /> Aprovar
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={!canManage}
+                      onClick={() => {
+                        setDecision({ request, action: 'rejected' });
+                        setDecisionNotes(request.notes ?? '');
+                      }}
+                    >
+                      <X /> Rejeitar
+                    </Button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="text-muted-foreground rounded-md border border-dashed p-4 text-center text-sm">
+            Nenhum pedido pendente neste momento.
+          </p>
+        )}
       </div>
       <div className="divide-border divide-y">
         {vouchers.length ? (
@@ -4131,8 +4617,83 @@ export function VouchersView({
           <Empty icon={Gift} text="Nenhum voucher emitido." />
         )}
       </div>
+      <Dialog
+        open={Boolean(decision)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDecision(null);
+            setDecisionNotes('');
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {decision?.action === 'approved'
+                ? 'Aprovar transferência'
+                : decision?.action === 'contacted'
+                  ? 'Marcar como contactado'
+                  : 'Rejeitar transferência'}
+            </DialogTitle>
+            <DialogDescription>
+              {decision
+                ? `${decision.request.recipient_name} (${decision.request.recipient_phone}) · voucher ${decision.request.voucher?.code ?? '—'}`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {decision?.action === 'approved' ? (
+              <div className="bg-muted/50 rounded-md p-3 text-sm">
+                O CRM vai encontrar ou criar este cliente pelo telefone e mudar
+                o titular do voucher para ele.
+              </div>
+            ) : null}
+            <Field label="Notas internas">
+              <Textarea
+                value={decisionNotes}
+                onChange={(event) => setDecisionNotes(event.target.value)}
+                rows={4}
+                placeholder="Ex.: contacto confirmado por WhatsApp..."
+              />
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDecision(null);
+                setDecisionNotes('');
+              }}
+            >
+              Voltar
+            </Button>
+            <Button
+              variant={
+                decision?.action === 'rejected' ? 'destructive' : 'default'
+              }
+              onClick={() => void finishTransferDecision()}
+              disabled={savingDecision || !canManage}
+            >
+              {savingDecision ? <Loader2 className="animate-spin" /> : <Check />}
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
+}
+
+function voucherTransferStatus(
+  status: FinanceVoucherTransferRequest['status']
+) {
+  return {
+    pending: 'Pendente',
+    contacted: 'Contactado',
+    approved: 'Aprovado',
+    rejected: 'Rejeitado',
+    cancelled: 'Cancelado',
+  }[status];
 }
 
 const BENEFIT_LOG_LABEL: Record<FinanceBenefitLog['action'], string> = {

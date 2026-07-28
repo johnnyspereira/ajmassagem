@@ -39,6 +39,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { ContactSearchSelect } from '@/components/contacts/contact-search-select';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
 import { createClient } from '@/lib/supabase/client';
@@ -863,18 +864,15 @@ export function OwnerTreasury() {
             ) : (
               <>
                 <Field label="Cliente">
-                  <SearchableSelect
+                  <ContactSearchSelect
+                    contacts={contacts}
                     value={draft.contactId}
                     onChange={(value) =>
                       setDraft({ ...draft, contactId: value })
                     }
                     placeholder="Sem cliente"
-                    searchPlaceholder="Pesquisar por nome, telefone ou email..."
-                    options={contacts.map((item) => ({
-                      value: item.id,
-                      label: item.name || item.phone,
-                      search: `${item.name ?? ''} ${item.phone} ${item.email ?? ''}`,
-                    }))}
+                    searchPlaceholder="Buscar por nome, telefone, referência, email..."
+                    emptyOptionLabel="Sem cliente"
                   />
                 </Field>
                 <Field label="Voucher relacionado (opcional)">

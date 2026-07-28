@@ -594,6 +594,16 @@ export interface FinanceCashSnapshot {
   tips_by_method?: Partial<Record<FinancePaymentMethod, number>>;
 }
 
+export interface FinanceFundAccount {
+  id: string;
+  name: string;
+  account_type: 'cash' | 'bank' | 'other';
+  institution?: string | null;
+  currency: string;
+  is_active: boolean;
+  balance: number;
+}
+
 export interface FinancePackCatalog {
   id: string;
   account_id: string;
@@ -734,6 +744,21 @@ export interface FinanceVoucher {
   created_at: string;
   updated_at: string;
   owner?: Contact | null;
+}
+
+export interface FinanceVoucherTransferRequest {
+  id: string;
+  account_id: string;
+  voucher_id: string;
+  recipient_name: string;
+  recipient_phone: string;
+  status: 'pending' | 'contacted' | 'approved' | 'rejected' | 'cancelled';
+  reviewed_by_user_id?: string | null;
+  reviewed_at?: string | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+  voucher?: FinanceVoucher | null;
 }
 
 export interface FinanceClientWallet {

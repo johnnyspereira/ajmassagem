@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { ContactSearchSelect } from '@/components/contacts/contact-search-select';
 import {
   Check,
   X,
@@ -282,18 +283,15 @@ export function DealForm({
 
             <div className="grid gap-2">
               <Label className="text-muted-foreground">{t('contact')}</Label>
-              <select
+              <ContactSearchSelect
+                contacts={contacts}
                 value={contactId}
-                onChange={(e) => setContactId(e.target.value)}
-                className="border-border bg-muted text-foreground focus:border-primary focus:ring-primary h-9 w-full rounded-lg border px-2.5 text-sm outline-none focus:ring-1"
-              >
-                <option value="">{t('selectContact')}</option>
-                {contacts.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name || c.phone}
-                  </option>
-                ))}
-              </select>
+                onChange={setContactId}
+                placeholder={t('selectContact')}
+                searchPlaceholder="Buscar por nome, telefone, referência, email..."
+                emptyOptionLabel={t('selectContact')}
+                allowEmpty={false}
+              />
 
               {linkedConversation && (
                 <Link
