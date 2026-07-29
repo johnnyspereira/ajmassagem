@@ -93,8 +93,8 @@
   "/anamnese/public/[slug]/page": "app/anamnese/public/[slug]/page.js",
   "/anamnese/[token]/page": "app/anamnese/[token]/page.js",
   "/portal/[slug]/page": "app/portal/[slug]/page.js",
-  "/voucher/[id]/page": "app/voucher/[id]/page.js",
   "/site/page": "app/site/page.js",
+  "/voucher/[id]/page": "app/voucher/[id]/page.js",
   "/(auth)/forgot-password/page": "app/(auth)/forgot-password/page.js",
   "/(auth)/login/page": "app/(auth)/login/page.js",
   "/(auth)/reset-password/page": "app/(auth)/reset-password/page.js",
@@ -125,6 +125,7 @@
   "/(dashboard)/settings/page": "app/(dashboard)/settings/page.js",
   "/(dashboard)/settings/whatsapp/page": "app/(dashboard)/settings/whatsapp/page.js",
   "/(dashboard)/support/page": "app/(dashboard)/support/page.js",
+  "/(dashboard)/tasks/page": "app/(dashboard)/tasks/page.js",
   "/(dashboard)/website/page": "app/(dashboard)/website/page.js",
   "/join/[token]/page": "app/join/[token]/page.js",
   "/icon/route": "app/icon/route.js"

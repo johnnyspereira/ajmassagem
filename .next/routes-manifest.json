@@ -959,6 +959,12 @@
       "namedRegex": "^/support(?:/)?$"
     },
     {
+      "page": "/tasks",
+      "regex": "^/tasks(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/tasks(?:/)?$"
+    },
+    {
       "page": "/website",
       "regex": "^/website(?:/)?$",
       "routeKeys": {},
