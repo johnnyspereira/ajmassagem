@@ -154,6 +154,12 @@ function money(value: number, currency: string) {
   return formatCurrency(Number(value || 0), currency);
 }
 
+function datetimeLocalValue(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  const offsetMs = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
 function randomId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
@@ -275,6 +281,9 @@ export function FinancePage({
   const [cashMovementAmount, setCashMovementAmount] = useState(0);
   const [cashMovementDescription, setCashMovementDescription] = useState('');
   const [cashMovementReference, setCashMovementReference] = useState('');
+  const [cashMovementDate, setCashMovementDate] = useState(() =>
+    datetimeLocalValue()
+  );
   const [editingCashMovement, setEditingCashMovement] =
     useState<FinanceCashMovement | null>(null);
   const [deletingCashMovement, setDeletingCashMovement] =
@@ -1000,9 +1009,15 @@ export function FinancePage({
       !cashSession ||
       !canOperate ||
       cashMovementAmount <= 0 ||
-      !cashMovementDescription.trim()
+      !cashMovementDescription.trim() ||
+      !cashMovementDate
     )
       return;
+    const occurredAt = new Date(cashMovementDate);
+    if (Number.isNaN(occurredAt.getTime())) {
+      toast.error('Informe uma data/hora válida.');
+      return;
+    }
     setSaving(true);
     const { error } = await supabase.rpc('add_finance_register_movement', {
       p_cash_session_id: cashSession.id,
@@ -1012,6 +1027,7 @@ export function FinancePage({
       p_reference: cashMovementReference.trim() || null,
       p_payment_method: cashMovementMethod,
       p_category: cashMovementCategory.trim() || null,
+      p_occurred_at: occurredAt.toISOString(),
     });
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -1022,6 +1038,7 @@ export function FinancePage({
     setCashMovementReference('');
     setCashMovementCategory('');
     setCashMovementMethod('cash');
+    setCashMovementDate(datetimeLocalValue());
     await loadFinance();
   }
 
@@ -1034,6 +1051,7 @@ export function FinancePage({
     setCashMovementAmount(0);
     setCashMovementDescription('');
     setCashMovementReference('');
+    setCashMovementDate(datetimeLocalValue());
   }
 
   function startEditCashMovement(movement: FinanceCashMovement) {
@@ -1047,6 +1065,7 @@ export function FinancePage({
     setCashMovementAmount(Number(movement.amount));
     setCashMovementDescription(movement.description);
     setCashMovementReference(movement.reference || '');
+    setCashMovementDate(datetimeLocalValue(new Date(movement.created_at)));
   }
 
   async function updateCashMovement() {
@@ -1054,9 +1073,15 @@ export function FinancePage({
       !editingCashMovement ||
       !canOperate ||
       cashMovementAmount <= 0 ||
-      !cashMovementDescription.trim()
+      !cashMovementDescription.trim() ||
+      !cashMovementDate
     )
       return;
+    const occurredAt = new Date(cashMovementDate);
+    if (Number.isNaN(occurredAt.getTime())) {
+      toast.error('Informe uma data/hora válida.');
+      return;
+    }
     setSaving(true);
     const { error } = await supabase
       .from('finance_cash_movements')
@@ -1067,6 +1092,7 @@ export function FinancePage({
         amount: cashMovementAmount,
         description: cashMovementDescription.trim(),
         reference: cashMovementReference.trim() || null,
+        created_at: occurredAt.toISOString(),
       })
       .eq('id', editingCashMovement.id)
       .eq('account_id', accountId);
@@ -2163,6 +2189,14 @@ export function FinancePage({
               />
             </Field>
           </div>
+          <Field label="Data/hora do lançamento">
+            <Input
+              type="datetime-local"
+              value={cashMovementDate}
+              onChange={(event) => setCashMovementDate(event.target.value)}
+              max={datetimeLocalValue()}
+            />
+          </Field>
           <Field label="Motivo">
             <Textarea
               value={cashMovementDescription}
@@ -2183,7 +2217,8 @@ export function FinancePage({
               disabled={
                 saving ||
                 cashMovementAmount <= 0 ||
-                !cashMovementDescription.trim()
+                !cashMovementDescription.trim() ||
+                !cashMovementDate
               }
             >
               {saving ? (
