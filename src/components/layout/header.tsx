@@ -43,6 +43,7 @@ const pageTitles: Record<string, string> = {
   '/referrals': 'referrals',
   '/pipelines': 'pipelines',
   '/broadcasts': 'broadcasts',
+  '/scheduled-messages': 'scheduledMessages',
   '/automations': 'automations',
   '/settings': 'settings',
   '/support': 'support',
@@ -71,7 +72,14 @@ const topbarGroupConfigs = [
   },
   {
     labelKey: 'groupAutomation',
-    hrefs: ['/pipelines', '/broadcasts', '/automations', '/flows', '/agents'],
+    hrefs: [
+      '/pipelines',
+      '/broadcasts',
+      '/scheduled-messages',
+      '/automations',
+      '/flows',
+      '/agents',
+    ],
   },
   {
     labelKey: 'groupSystem',

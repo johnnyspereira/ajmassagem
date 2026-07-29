@@ -118,13 +118,14 @@ rotas `/api/whatsapp/baileys/*` e `/api/whatsapp/send` chamam o worker remoto.
 Crie chamadas protegidas pelo mesmo valor de `AUTOMATION_CRON_SECRET`:
 
 ```bash
-curl -fsS -H "Authorization: Bearer SEU_SEGREDO" https://crm.seudominio.pt/api/automations/cron
-curl -fsS -H "Authorization: Bearer SEU_SEGREDO" https://crm.seudominio.pt/api/flows/cron
-curl -fsS -H "Authorization: Bearer SEU_SEGREDO" https://crm.seudominio.pt/api/clinic/appointments/reminders
+curl -fsS -H "x-cron-secret: SEU_SEGREDO" https://crm.seudominio.pt/api/automations/cron
+curl -fsS -H "x-cron-secret: SEU_SEGREDO" https://crm.seudominio.pt/api/flows/cron
+curl -fsS -H "x-cron-secret: SEU_SEGREDO" https://crm.seudominio.pt/api/clinic/appointments/reminders
+curl -fsS -H "x-cron-secret: SEU_SEGREDO" https://crm.seudominio.pt/api/whatsapp/scheduled/process
 ```
 
-Automacoes e fluxos podem rodar a cada minuto. Lembretes de agenda podem rodar
-a cada 5 minutos.
+Automacoes, fluxos e mensagens agendadas podem rodar a cada minuto. Lembretes
+de agenda podem rodar a cada 5 minutos.
 
 ## 7. Atualizar pelo Git
 
