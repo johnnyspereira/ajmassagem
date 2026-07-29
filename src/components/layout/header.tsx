@@ -36,6 +36,7 @@ const pageTitles: Record<string, string> = {
   '/dashboard': 'dashboard',
   '/inbox': 'inbox',
   '/notifications': 'notifications',
+  '/tasks': 'tasks',
   '/agenda': 'agenda',
   '/contacts': 'contacts',
   '/finance': 'finance',
@@ -64,7 +65,7 @@ const topbarDirectHrefs = ['/dashboard', '/agenda'];
 const topbarGroupConfigs = [
   {
     labelKey: 'groupService',
-    hrefs: ['/inbox', '/notifications', '/contacts'],
+    hrefs: ['/inbox', '/notifications', '/tasks', '/contacts'],
   },
   {
     labelKey: 'groupSales',
