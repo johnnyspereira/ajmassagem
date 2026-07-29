@@ -767,6 +767,12 @@
       "namedRegex": "^/api/whatsapp/react(?:/)?$"
     },
     {
+      "page": "/api/whatsapp/scheduled/process",
+      "regex": "^/api/whatsapp/scheduled/process(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/whatsapp/scheduled/process(?:/)?$"
+    },
+    {
       "page": "/api/whatsapp/send",
       "regex": "^/api/whatsapp/send(?:/)?$",
       "routeKeys": {},
@@ -915,6 +921,12 @@
       "regex": "^/reset\\-password(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/reset\\-password(?:/)?$"
+    },
+    {
+      "page": "/scheduled-messages",
+      "regex": "^/scheduled\\-messages(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/scheduled\\-messages(?:/)?$"
     },
     {
       "page": "/settings",
