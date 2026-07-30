@@ -659,6 +659,12 @@
       "namedRegex": "^/api/inbox/conversations/clear(?:/)?$"
     },
     {
+      "page": "/api/marketing/automation-rules/process",
+      "regex": "^/api/marketing/automation\\-rules/process(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/marketing/automation\\-rules/process(?:/)?$"
+    },
+    {
       "page": "/api/message-library/usage",
       "regex": "^/api/message\\-library/usage(?:/)?$",
       "routeKeys": {},
