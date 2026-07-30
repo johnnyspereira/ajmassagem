@@ -10,6 +10,7 @@ import {
   Palette,
   PlugZap,
   Shield,
+  Sparkles,
   Tags,
   TimerReset,
   Trash2,
@@ -48,6 +49,7 @@ export const SETTINGS_SECTIONS = [
   'members',
   'api',
   'data-cleanup',
+  'new-features',
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
@@ -191,6 +193,12 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     icon: Trash2,
     group: 'system',
     minRole: 'owner',
+  },
+  'new-features': {
+    id: 'new-features',
+    label: 'New features',
+    icon: Sparkles,
+    group: 'system',
   },
 };
 

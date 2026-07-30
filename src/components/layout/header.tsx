@@ -66,24 +66,20 @@ const topbarDirectHrefs = ['/dashboard', '/agenda'];
 
 const topbarGroupConfigs = [
   {
-    labelKey: 'groupService',
+    labelKey: 'groupOperation',
     hrefs: ['/inbox', '/notifications', '/tasks', '/contacts'],
   },
   {
-    labelKey: 'groupSales',
-    hrefs: ['/finance', '/reports', '/referrals'],
+    labelKey: 'groupCommercial',
+    hrefs: ['/pipelines', '/finance', '/reports', '/referrals'],
+  },
+  {
+    labelKey: 'groupMarketing',
+    hrefs: ['/broadcasts', '/scheduled-messages', '/library'],
   },
   {
     labelKey: 'groupAutomation',
-    hrefs: [
-      '/pipelines',
-      '/broadcasts',
-      '/scheduled-messages',
-      '/library',
-      '/automations',
-      '/flows',
-      '/agents',
-    ],
+    hrefs: ['/automations', '/flows', '/agents'],
   },
   {
     labelKey: 'groupSystem',
@@ -97,8 +93,9 @@ const headerLabelFallbacks = {
     aiAgents: 'Agentes de IA',
     reports: 'Relatórios',
     referrals: 'Indicações',
-    groupService: 'Atendimento',
-    groupSales: 'Comercial',
+    groupOperation: 'Operacao',
+    groupCommercial: 'Comercial',
+    groupMarketing: 'Marketing',
     groupAutomation: 'Automação',
     groupSystem: 'Sistema',
   },
@@ -107,8 +104,9 @@ const headerLabelFallbacks = {
     aiAgents: 'AI Agents',
     reports: 'Reports',
     referrals: 'Referrals',
-    groupService: 'Service',
-    groupSales: 'Sales',
+    groupOperation: 'Operation',
+    groupCommercial: 'Commercial',
+    groupMarketing: 'Marketing',
     groupAutomation: 'Automation',
     groupSystem: 'System',
   },

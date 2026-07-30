@@ -2274,7 +2274,8 @@
       "roles": "Roles & access",
       "members": "Team members",
       "api": "API keys",
-      "data-cleanup": "Data cleanup"
+      "data-cleanup": "Data cleanup",
+      "new-features": "What's new"
     },
     "workTime": {
       "title": "Work time",
@@ -2382,6 +2383,18 @@
       "identity": "Identity",
       "theme": "Theme",
       "clock": "Clock"
+    },
+    "newFeatures": {
+      "title": "CRM news",
+      "desc": "Customize the new-feature badge and choose which modules show it.",
+      "reset": "Reset defaults",
+      "customizeTitle": "Badge appearance",
+      "labelText": "Text",
+      "labelColor": "Color",
+      "modulesTitle": "Modules marked as new",
+      "hide": "Hide",
+      "show": "Show",
+      "toastReset": "New-feature badges reset"
     },
     "profile": {
       "title": "Your profile",

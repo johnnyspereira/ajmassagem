@@ -2264,7 +2264,8 @@
       "roles": "Cargos e acessos",
       "members": "Membros da equipe",
       "api": "Chaves de API",
-      "data-cleanup": "Limpeza de dados"
+      "data-cleanup": "Limpeza de dados",
+      "new-features": "Novidades"
     },
     "workTime": {
       "title": "Jornada de trabalho",
@@ -2372,6 +2373,18 @@
       "identity": "Identidade",
       "theme": "Tema",
       "clock": "Ponto"
+    },
+    "newFeatures": {
+      "title": "Novidades do CRM",
+      "desc": "Personalize o selo de novidades e escolha em quais modulos ele aparece.",
+      "reset": "Repor padrao",
+      "customizeTitle": "Aparencia do selo",
+      "labelText": "Texto",
+      "labelColor": "Cor",
+      "modulesTitle": "Modulos marcados como novidade",
+      "hide": "Ocultar",
+      "show": "Mostrar",
+      "toastReset": "Novidades repostas"
     },
     "profile": {
       "title": "Seu perfil",
