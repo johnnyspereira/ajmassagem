@@ -36,6 +36,7 @@ import {
   Zap,
 } from 'lucide-react';
 import type { AccountRole } from '@/lib/auth/roles';
+import { NewFeatureBadge } from '@/components/layout/new-feature-badge';
 
 // Per-role chip metadata used in the sidebar's account strip + the
 // Members tab roster. Keeping this near both consumers in a single
@@ -88,21 +89,67 @@ interface NavItem {
    * Purely informational — doesn't affect routing or access.
    */
   beta?: boolean;
+  newBadge?: {
+    key: string;
+    label?: string;
+    className?: string;
+  };
 }
 
+const TODAY_NEW_BADGE = {
+  label: 'NOVO',
+  className:
+    'border-emerald-500/40 bg-emerald-500/10 text-emerald-400 shadow-[0_0_18px_rgba(16,185,129,0.16)]',
+};
+
 const navItems: NavItem[] = [
-  { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
+  {
+    href: '/dashboard',
+    labelKey: 'dashboard',
+    icon: LayoutDashboard,
+    newBadge: { key: 'dashboard-followups', ...TODAY_NEW_BADGE },
+  },
   { href: '/inbox', labelKey: 'inbox', icon: MessageSquare },
   { href: '/notifications', labelKey: 'notifications', icon: Bell },
-  { href: '/tasks', labelKey: 'tasks', icon: SquareCheckBig },
+  {
+    href: '/tasks',
+    labelKey: 'tasks',
+    icon: SquareCheckBig,
+    newBadge: { key: 'client-tasks', ...TODAY_NEW_BADGE },
+  },
   { href: '/agenda', labelKey: 'agenda', icon: CalendarDays },
-  { href: '/contacts', labelKey: 'contacts', icon: Users },
+  {
+    href: '/contacts',
+    labelKey: 'contacts',
+    icon: Users,
+    newBadge: { key: 'contacts-import-export', ...TODAY_NEW_BADGE },
+  },
   { href: '/pipelines', labelKey: 'pipelines', icon: GitBranch },
-  { href: '/finance', labelKey: 'finance', icon: BadgeEuro },
+  {
+    href: '/finance',
+    labelKey: 'finance',
+    icon: BadgeEuro,
+    newBadge: { key: 'retroactive-cash', ...TODAY_NEW_BADGE },
+  },
   { href: '/reports', labelKey: 'reports', icon: BarChart3 },
-  { href: '/broadcasts', labelKey: 'broadcasts', icon: Radio },
-  { href: '/scheduled-messages', labelKey: 'scheduledMessages', icon: Send },
-  { href: '/library', labelKey: 'library', icon: LibraryBig },
+  {
+    href: '/broadcasts',
+    labelKey: 'broadcasts',
+    icon: Radio,
+    newBadge: { key: 'saved-audience-segments', ...TODAY_NEW_BADGE },
+  },
+  {
+    href: '/scheduled-messages',
+    labelKey: 'scheduledMessages',
+    icon: Send,
+    newBadge: { key: 'scheduled-whatsapp', ...TODAY_NEW_BADGE },
+  },
+  {
+    href: '/library',
+    labelKey: 'library',
+    icon: LibraryBig,
+    newBadge: { key: 'message-library', ...TODAY_NEW_BADGE },
+  },
   { href: '/automations', labelKey: 'automations', icon: Zap },
   { href: '/flows', labelKey: 'flows', icon: Workflow, beta: true },
   { href: '/agents', labelKey: 'aiAgents', icon: Bot },
@@ -261,6 +308,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                       >
                         {t('beta')}
                       </span>
+                    )}
+                    {item.newBadge && (
+                      <NewFeatureBadge badge={item.newBadge} />
                     )}
                     {showUnreadDot && (
                       <span

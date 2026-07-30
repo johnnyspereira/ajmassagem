@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ModeToggle } from '@/components/layout/mode-toggle';
+import { NewFeatureBadge } from '@/components/layout/new-feature-badge';
 import { WorkTimeClock } from '@/components/work-time/work-time-clock';
 import {
   bottomNavItems,
@@ -231,6 +232,9 @@ export function Header({
                     {attentionLabel}
                   </span>
                 )}
+                {item.newBadge && (
+                  <NewFeatureBadge badge={item.newBadge} compact />
+                )}
               </Link>
             );
           })}
@@ -290,6 +294,9 @@ export function Header({
                             <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1 py-0.5 text-[8px] font-semibold text-amber-500 uppercase">
                               Beta
                             </span>
+                          )}
+                          {item.newBadge && (
+                            <NewFeatureBadge badge={item.newBadge} compact />
                           )}
                           {itemAttentionLabel && (
                             <span className="bg-primary text-primary-foreground flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-semibold">
