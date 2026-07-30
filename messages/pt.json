@@ -513,6 +513,12 @@
       },
       "searchPlaceholder": "Pesquisar por nome, telefone ou email...",
       "filterByTags": "Filtrar por etiquetas",
+      "savedSegments": {
+        "filter": "Segmentos",
+        "title": "Segmentos guardados",
+        "empty": "Ainda nao ha segmentos guardados.",
+        "clear": "Remover segmento"
+      },
       "clearAll": "Limpar tudo",
       "noTagsYet": "Ainda não há etiquetas.",
       "selectedCount": "{count} selecionado(s)",

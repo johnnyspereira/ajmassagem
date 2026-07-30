@@ -513,6 +513,12 @@
       },
       "searchPlaceholder": "Search by name, phone, or email...",
       "filterByTags": "Filter by tags",
+      "savedSegments": {
+        "filter": "Segments",
+        "title": "Saved segments",
+        "empty": "No saved segments yet.",
+        "clear": "Remove segment"
+      },
       "clearAll": "Clear all",
       "noTagsYet": "No tags yet.",
       "selectedCount": "{count} selected",

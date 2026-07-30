@@ -63,6 +63,7 @@ import {
   ChevronRight,
   SlidersHorizontal,
   Filter,
+  Bookmark,
   X,
   CalendarDays,
   Gift,
@@ -111,6 +112,23 @@ interface ContactInsight {
   activePackCount: number;
 }
 
+type SavedAudienceConfig = {
+  type: 'all' | 'tags' | 'custom_field' | 'csv';
+  tagIds?: string[];
+  excludeTagIds?: string[];
+  customField?: {
+    fieldId: string;
+    operator: 'is' | 'is_not' | 'contains';
+    value: string;
+  };
+};
+
+interface SavedContactSegment {
+  id: string;
+  name: string;
+  config: SavedAudienceConfig;
+}
+
 const EMPTY_INSIGHT: ContactInsight = {
   conversationCount: 0,
   openConversationCount: 0,
@@ -142,7 +160,7 @@ export default function ContactsPage() {
   const t = useTranslations('Contacts.page');
   const supabase = createClient();
   const router = useRouter();
-  const { defaultCurrency } = useAuth();
+  const { accountId, defaultCurrency } = useAuth();
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
 
@@ -159,6 +177,8 @@ export default function ContactsPage() {
   const [copiedPhoneId, setCopiedPhoneId] = useState<string | null>(null);
   // Tag filter — contacts shown must have ANY of these tags (OR).
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [savedSegments, setSavedSegments] = useState<SavedContactSegment[]>([]);
+  const [selectedSavedSegmentId, setSelectedSavedSegmentId] = useState('');
 
   // Modals
   const [formOpen, setFormOpen] = useState(false);
@@ -197,6 +217,16 @@ export default function ContactsPage() {
       });
     }
   }, [supabase]);
+
+  const fetchSavedSegments = useCallback(async () => {
+    if (!accountId) return;
+    const { data } = await supabase
+      .from('contact_segments')
+      .select('id, name, config')
+      .eq('account_id', accountId)
+      .order('name');
+    setSavedSegments((data ?? []) as SavedContactSegment[]);
+  }, [accountId, supabase]);
 
   const fetchContactInsights = useCallback(
     async (contactIds: string[], seq: number) => {
@@ -379,6 +409,30 @@ export default function ContactsPage() {
         current.add(item.tag_id);
         tagsByContact.set(item.contact_id, current);
       }
+
+      const selectedSavedSegment = savedSegments.find(
+        (item) => item.id === selectedSavedSegmentId
+      );
+      let customFieldMatches: Set<string> | null = null;
+      const customField = selectedSavedSegment?.config.customField;
+      if (
+        selectedSavedSegment?.config.type === 'custom_field' &&
+        customField?.fieldId &&
+        customField.value
+      ) {
+        let query = supabase
+          .from('contact_custom_values')
+          .select('contact_id')
+          .eq('custom_field_id', customField.fieldId);
+        if (customField.operator === 'is') query = query.eq('value', customField.value);
+        else if (customField.operator === 'is_not') {
+          query = query.neq('value', customField.value);
+        } else {
+          query = query.ilike('value', `%${customField.value}%`);
+        }
+        const { data: matches } = await query.limit(10000);
+        customFieldMatches = new Set((matches ?? []).map((item) => item.contact_id));
+      }
       const contactsWithConversations = new Set(
         (conversationsRes.data ?? []).map((item) => item.contact_id)
       );
@@ -392,6 +446,25 @@ export default function ContactsPage() {
 
       return rows.filter((contact) => {
         const contactTags = tagsByContact.get(contact.id) ?? new Set<string>();
+        if (selectedSavedSegment) {
+          const cfg = selectedSavedSegment.config;
+          if (
+            cfg.type === 'tags' &&
+            (cfg.tagIds?.length ?? 0) > 0 &&
+            !cfg.tagIds!.some((tagId) => contactTags.has(tagId))
+          ) {
+            return false;
+          }
+          if (cfg.type === 'custom_field' && !customFieldMatches?.has(contact.id)) {
+            return false;
+          }
+          if (
+            (cfg.excludeTagIds?.length ?? 0) > 0 &&
+            cfg.excludeTagIds!.some((tagId) => contactTags.has(tagId))
+          ) {
+            return false;
+          }
+        }
         if (
           selectedTagIds.length > 0 &&
           !selectedTagIds.some((tagId) => contactTags.has(tagId))
@@ -423,7 +496,7 @@ export default function ContactsPage() {
         return true;
       });
     },
-    [segment, selectedTagIds, supabase]
+    [savedSegments, segment, selectedSavedSegmentId, selectedTagIds, supabase]
   );
 
   const fetchContacts = useCallback(async () => {
@@ -443,7 +516,7 @@ export default function ContactsPage() {
     let count = 0;
     let usedAdvancedFilter = false;
 
-    if (advancedFilterAvailable) {
+    if (advancedFilterAvailable && !selectedSavedSegmentId) {
       const { data, error } = await supabase.rpc('filter_contacts_advanced', {
         p_tag_ids: selectedTagIds,
         p_search: term || null,
@@ -466,7 +539,7 @@ export default function ContactsPage() {
       }
     }
 
-    if (!usedAdvancedFilter && segment !== 'all') {
+    if (!usedAdvancedFilter && (segment !== 'all' || selectedSavedSegmentId)) {
       try {
         const fallbackRows = await fetchFallbackRows(term);
         contactRows = fallbackRows.slice(from, to + 1);
@@ -575,6 +648,7 @@ export default function ContactsPage() {
     page,
     search,
     segment,
+    selectedSavedSegmentId,
     selectedTagIds,
     supabase,
     tagsMap,
@@ -588,7 +662,8 @@ export default function ContactsPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchTags();
-  }, [fetchTags]);
+    fetchSavedSegments();
+  }, [fetchSavedSegments, fetchTags]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -719,13 +794,18 @@ export default function ContactsPage() {
     setPage(0);
   }
 
+  function applySavedSegment(segmentId: string) {
+    setSelectedSavedSegmentId(segmentId);
+    setPage(0);
+  }
+
   async function selectAllResults() {
     if (totalCount === 0) return;
     setSelectingAll(true);
 
     try {
       let ids: string[] = [];
-      if (advancedFilterAvailable) {
+      if (advancedFilterAvailable && !selectedSavedSegmentId) {
         const { data, error } = await supabase.rpc('filter_contacts_advanced', {
           p_tag_ids: selectedTagIds,
           p_search: search.trim() || null,
@@ -961,7 +1041,10 @@ export default function ContactsPage() {
     a.name.localeCompare(b.name)
   );
   const hasActiveFilters =
-    search.trim().length > 0 || selectedTagIds.length > 0 || segment !== 'all';
+    search.trim().length > 0 ||
+    selectedTagIds.length > 0 ||
+    selectedSavedSegmentId ||
+    segment !== 'all';
 
   function toggleTagFilter(tagId: string) {
     setSelectedTagIds((prev) =>
@@ -980,6 +1063,7 @@ export default function ContactsPage() {
   function clearAllFilters() {
     setSearch('');
     setSelectedTagIds([]);
+    setSelectedSavedSegmentId('');
     setSegment('all');
     setPage(0);
   }
@@ -1238,6 +1322,69 @@ export default function ContactsPage() {
                   )}
                 </PopoverContent>
               </Popover>
+
+              <Popover>
+                <PopoverTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      className="border-border text-muted-foreground hover:bg-muted shrink-0"
+                    />
+                  }
+                >
+                  <Bookmark className="size-4" />
+                  {t('savedSegments.filter')}
+                  {selectedSavedSegmentId && (
+                    <span className="bg-primary text-primary-foreground ml-1 inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold">
+                      1
+                    </span>
+                  )}
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-72 p-0">
+                  <div className="border-border flex items-center justify-between border-b px-3 py-2">
+                    <span className="text-popover-foreground text-sm font-medium">
+                      {t('savedSegments.title')}
+                    </span>
+                    {selectedSavedSegmentId && (
+                      <button
+                        onClick={() => applySavedSegment('')}
+                        className="text-muted-foreground hover:text-foreground text-xs"
+                      >
+                        {t('clearAll')}
+                      </button>
+                    )}
+                  </div>
+                  {savedSegments.length === 0 ? (
+                    <p className="text-muted-foreground px-3 py-4 text-center text-sm">
+                      {t('savedSegments.empty')}
+                    </p>
+                  ) : (
+                    <div className="max-h-64 overflow-y-auto py-1">
+                      {savedSegments.map((item) => {
+                        const active = selectedSavedSegmentId === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() =>
+                              applySavedSegment(active ? '' : item.id)
+                            }
+                            className={cn(
+                              'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors',
+                              active
+                                ? 'bg-primary/10 text-primary'
+                                : 'text-popover-foreground hover:bg-muted/60'
+                            )}
+                          >
+                            <Bookmark className="size-3.5 shrink-0" />
+                            <span className="truncate">{item.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <span className="text-muted-foreground px-1 text-xs">
@@ -1284,6 +1431,23 @@ export default function ContactsPage() {
               >
                 {t('clearAll')}
               </button>
+            </div>
+          )}
+
+          {selectedSavedSegmentId && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="border-primary/25 bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium">
+                <Bookmark className="size-3" />
+                {savedSegments.find((item) => item.id === selectedSavedSegmentId)
+                  ?.name ?? t('savedSegments.filter')}
+                <button
+                  onClick={() => applySavedSegment('')}
+                  aria-label={t('savedSegments.clear')}
+                  className="hover:opacity-70"
+                >
+                  <X className="size-3" />
+                </button>
+              </span>
             </div>
           )}
         </div>
