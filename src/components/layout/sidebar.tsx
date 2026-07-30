@@ -17,6 +17,7 @@ import {
   CalendarDays,
   Crown,
   GitBranch,
+  HeartHandshake,
   LibraryBig,
   LayoutDashboard,
   LogOut,
@@ -132,6 +133,7 @@ const navItems: NavItem[] = [
     newBadge: { key: 'retroactive-cash', ...TODAY_NEW_BADGE },
   },
   { href: '/reports', labelKey: 'reports', icon: BarChart3 },
+  { href: '/referrals', labelKey: 'referrals', icon: HeartHandshake },
   {
     href: '/broadcasts',
     labelKey: 'broadcasts',
@@ -162,6 +164,32 @@ const bottomNavItems = [
   { href: '/settings', labelKey: 'settings', icon: Settings },
 ];
 
+const navSections = [
+  {
+    labelKey: 'groupOperation',
+    hrefs: [
+      '/dashboard',
+      '/inbox',
+      '/notifications',
+      '/agenda',
+      '/tasks',
+      '/contacts',
+    ],
+  },
+  {
+    labelKey: 'groupCommercial',
+    hrefs: ['/pipelines', '/finance', '/reports', '/referrals'],
+  },
+  {
+    labelKey: 'groupMarketing',
+    hrefs: ['/broadcasts', '/scheduled-messages', '/library'],
+  },
+  {
+    labelKey: 'groupAutomation',
+    hrefs: ['/automations', '/flows', '/agents'],
+  },
+] as const;
+
 interface SidebarProps {
   /** Controlled on mobile by the Header's hamburger button. Ignored on lg+. */
   open?: boolean;
@@ -176,6 +204,13 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const { profile, profileLoading, account, accountRole, signOut } = useAuth();
   const totalUnread = useTotalUnread();
   const unreadNotifications = useUnreadNotifications();
+  const navItemByHref = new Map(navItems.map((item) => [item.href, item]));
+  const systemItems = [
+    ...['/support', '/website']
+      .map((href) => navItemByHref.get(href))
+      .filter((item): item is NavItem => Boolean(item)),
+    ...bottomNavItems,
+  ];
   // Only surface the account-name strip when it actually carries
   // information. A solo user's personal account is named after them
   // (the 017 signup trigger seeds it from `full_name`), so showing it
@@ -271,8 +306,20 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
         {/* Main navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-4">
-          <ul className="flex flex-col gap-1">
-            {navItems.map((item) => {
+          <div className="space-y-4">
+            {navSections.map((section) => {
+              const items = section.hrefs
+                .map((href) => navItemByHref.get(href))
+                .filter((item): item is NavItem => Boolean(item));
+              if (items.length === 0) return null;
+
+              return (
+                <div key={section.labelKey} className="space-y-1.5">
+                  <p className="text-muted-foreground/70 px-3 text-[10px] font-bold tracking-[0.18em] uppercase">
+                    {t(section.labelKey)}
+                  </p>
+                  <ul className="flex flex-col gap-1">
+            {items.map((item) => {
               const isActive =
                 pathname === item.href ||
                 (item.href !== '/dashboard' && pathname.startsWith(item.href));
@@ -337,12 +384,18 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 </li>
               );
             })}
-          </ul>
+                  </ul>
+                </div>
+              );
+            })}
 
-          <div className="border-border my-4 border-t" />
+            <div className="border-border border-t pt-4">
+              <p className="text-muted-foreground/70 px-3 text-[10px] font-bold tracking-[0.18em] uppercase">
+                {t('groupSystem')}
+              </p>
 
-          <ul className="flex flex-col gap-1">
-            {bottomNavItems.map((item) => {
+          <ul className="mt-1.5 flex flex-col gap-1">
+            {systemItems.map((item) => {
               const isActive = pathname.startsWith(item.href);
               return (
                 <li key={item.href}>
@@ -362,6 +415,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               );
             })}
           </ul>
+            </div>
+          </div>
         </nav>
 
         {/* User section */}
