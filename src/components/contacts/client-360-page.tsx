@@ -133,9 +133,48 @@ type TimelineEvent = {
     | 'deal'
     | 'note'
     | 'tag'
+    | 'task'
+    | 'campaign'
     | 'referral'
     | 'finance';
   href?: string;
+};
+
+type ClientTask = {
+  id: string;
+  title: string;
+  description: string | null;
+  due_at: string | null;
+  priority: string;
+  status: string;
+  completed_at: string | null;
+  created_at: string;
+};
+
+type ScheduledWhatsAppMessage = {
+  id: string;
+  content_text: string;
+  scheduled_at: string;
+  status: string;
+  sent_at: string | null;
+  created_at: string;
+};
+
+type BroadcastRecipientEvent = {
+  id: string;
+  status: string;
+  created_at: string;
+  sent_at?: string | null;
+  delivered_at?: string | null;
+  read_at?: string | null;
+  broadcast?: {
+    id?: string;
+    name?: string | null;
+    status?: string | null;
+    scheduled_at?: string | null;
+    sent_at?: string | null;
+    created_at?: string | null;
+  } | null;
 };
 
 type ClientDraft = {
@@ -284,6 +323,8 @@ function eventDot(tone: TimelineEvent['tone']) {
     deal: 'bg-violet-500',
     note: 'bg-amber-500',
     tag: 'bg-pink-500',
+    task: 'bg-orange-500',
+    campaign: 'bg-blue-500',
     referral: 'bg-cyan-500',
     finance: 'bg-emerald-500',
   }[tone];
@@ -321,6 +362,13 @@ export function Client360Page({
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [summary, setSummary] = useState<Client360Summary | null>(null);
   const [clientEvents, setClientEvents] = useState<ClientActivityEvent[]>([]);
+  const [clientTasks, setClientTasks] = useState<ClientTask[]>([]);
+  const [scheduledMessages, setScheduledMessages] = useState<
+    ScheduledWhatsAppMessage[]
+  >([]);
+  const [broadcastEvents, setBroadcastEvents] = useState<
+    BroadcastRecipientEvent[]
+  >([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
@@ -377,6 +425,9 @@ export function Client360Page({
       walletTransactionsRes,
       summaryRes,
       clientEventsRes,
+      tasksRes,
+      scheduledMessagesRes,
+      broadcastEventsRes,
     ] = await Promise.all([
       supabase.from('contacts').select('*').eq('id', contactId).single(),
       supabase
@@ -484,6 +535,30 @@ export function Client360Page({
         .eq('contact_id', contactId)
         .order('created_at', { ascending: false })
         .limit(50),
+      supabase
+        .from('crm_tasks')
+        .select(
+          'id, title, description, due_at, priority, status, completed_at, created_at'
+        )
+        .eq('account_id', accountId)
+        .eq('contact_id', contactId)
+        .order('created_at', { ascending: false })
+        .limit(25),
+      supabase
+        .from('scheduled_whatsapp_messages')
+        .select('id, content_text, scheduled_at, status, sent_at, created_at')
+        .eq('account_id', accountId)
+        .eq('contact_id', contactId)
+        .order('scheduled_at', { ascending: false })
+        .limit(25),
+      supabase
+        .from('broadcast_recipients')
+        .select(
+          'id, status, created_at, sent_at, delivered_at, read_at, broadcast:broadcasts(id, name, status, scheduled_at, sent_at, created_at)'
+        )
+        .eq('contact_id', contactId)
+        .order('created_at', { ascending: false })
+        .limit(25),
     ]);
 
     if (contactRes.error) {
@@ -559,6 +634,17 @@ export function Client360Page({
       clientEventsRes.error
         ? []
         : ((clientEventsRes.data as ClientActivityEvent[] | null) ?? [])
+    );
+    setClientTasks(tasksRes.error ? [] : ((tasksRes.data as ClientTask[] | null) ?? []));
+    setScheduledMessages(
+      scheduledMessagesRes.error
+        ? []
+        : ((scheduledMessagesRes.data as ScheduledWhatsAppMessage[] | null) ?? [])
+    );
+    setBroadcastEvents(
+      broadcastEventsRes.error
+        ? []
+        : ((broadcastEventsRes.data as BroadcastRecipientEvent[] | null) ?? [])
     );
 
     const nextConversations =
@@ -927,6 +1013,43 @@ export function Client360Page({
           ? ('tag' as const)
           : ('note' as const),
       })),
+      ...clientTasks.map((task) => ({
+        id: `task-${task.id}`,
+        title:
+          task.status === 'completed'
+            ? `Tarefa concluída: ${task.title}`
+            : `Tarefa criada: ${task.title}`,
+        detail:
+          task.description ||
+          `${labelFor(task.priority)} · ${task.due_at ? safeDate(task.due_at) : 'Sem prazo'}`,
+        at: task.completed_at || task.due_at || task.created_at,
+        tone: 'task' as const,
+        href: `/tasks?contact=${contactId}`,
+      })),
+      ...scheduledMessages.map((message) => ({
+        id: `scheduled-message-${message.id}`,
+        title: `Mensagem ${labelFor(message.status).toLowerCase()}`,
+        detail: message.content_text || 'Mensagem automática/agendada',
+        at: message.sent_at || message.scheduled_at || message.created_at,
+        tone: 'campaign' as const,
+        href: '/scheduled-messages',
+      })),
+      ...broadcastEvents.map((recipient) => ({
+        id: `broadcast-${recipient.id}`,
+        title: `Campanha ${labelFor(recipient.status).toLowerCase()}`,
+        detail: recipient.broadcast?.name || 'Envio de campanha',
+        at:
+          recipient.read_at ||
+          recipient.delivered_at ||
+          recipient.sent_at ||
+          recipient.broadcast?.sent_at ||
+          recipient.broadcast?.scheduled_at ||
+          recipient.created_at,
+        tone: 'campaign' as const,
+        href: recipient.broadcast?.id
+          ? `/broadcasts/${recipient.broadcast.id}`
+          : '/broadcasts',
+      })),
       ...clientReferrals.map((referral) => ({
         id: `referral-${referral.id}`,
         title:
@@ -968,11 +1091,14 @@ export function Client360Page({
   }, [
     appointments,
     clientEvents,
+    clientTasks,
     clientReferrals,
+    broadcastEvents,
     deals,
     defaultCurrency,
     messages,
     sales,
+    scheduledMessages,
     walletTransactions,
     wallets,
     contactId,
@@ -2288,6 +2414,8 @@ export function Client360Page({
                 <option value="message">Mensagens</option>
                 <option value="appointment">Agenda</option>
                 <option value="deal">Comercial</option>
+                <option value="campaign">Campanhas</option>
+                <option value="task">Tarefas</option>
                 <option value="finance">Financeiro</option>
                 <option value="referral">Indicações</option>
                 <option value="note">Ficha e notas</option>
