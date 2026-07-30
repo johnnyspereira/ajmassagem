@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect, KeyboardEvent } from 'react';
 import {
   Send,
   LayoutTemplate,
+  LibraryBig,
   Paperclip,
   Image as ImageIcon,
   Video,
@@ -52,6 +53,7 @@ import {
 } from '@/lib/whatsapp/interactive';
 import type { InteractiveMessagePayload, QuickReply } from '@/types';
 import { QuickReplyPicker } from './quick-reply-picker';
+import { LibraryPicker, type InboxLibraryItem } from './library-picker';
 
 /** Media content types an agent can send from the composer. */
 export type ComposerMediaKind = 'image' | 'video' | 'document' | 'audio';
@@ -71,7 +73,7 @@ export interface SendMediaPayload {
   /** Public chat-media URL Meta fetches at send time. */
   mediaUrl: string;
   /** Storage object path — lets the caller GC the object if the send fails. */
-  path: string;
+  path?: string;
   /** Optional caption (image/video/document only). */
   caption?: string;
   /** Original file name — surfaced to the recipient for documents. */
@@ -149,6 +151,7 @@ export function MessageComposer({
     useState<InteractiveMessagePayload>(blankButtonsPayload);
   const [savingQuickReply, setSavingQuickReply] = useState(false);
   const [quickReplyOpen, setQuickReplyOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   // Media attachment state. `draft` holds an uploaded-but-not-yet-sent
   // attachment; `busy` covers the upload/transcode window.
@@ -379,6 +382,57 @@ export function MessageComposer({
     [openInteractiveBuilder, adjustHeight]
   );
 
+  const appendText = useCallback(
+    (body: string) => {
+      if (!body.trim()) return;
+      setText((prev) =>
+        prev && !/\s$/.test(prev) ? `${prev}\n${body}` : `${prev}${body}`
+      );
+      requestAnimationFrame(() => {
+        adjustHeight();
+        const el = textareaRef.current;
+        if (el) {
+          el.focus();
+          el.setSelectionRange(el.value.length, el.value.length);
+        }
+      });
+    },
+    [adjustHeight]
+  );
+
+  const handlePickLibraryItem = useCallback(
+    (item: InboxLibraryItem) => {
+      setLibraryOpen(false);
+      void fetch('/api/message-library/usage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id }),
+      }).catch(() => {});
+      if (item.item_type === 'text') {
+        appendText(item.content_text ?? '');
+        return;
+      }
+      if (item.item_type === 'link') {
+        appendText([item.content_text, item.asset_url].filter(Boolean).join('\n'));
+        return;
+      }
+      if (!item.asset_url) {
+        toast.error('Este material não tem URL para enviar.');
+        return;
+      }
+      setDraft({
+        kind: item.item_type,
+        mediaUrl: item.asset_url,
+        path: '',
+        filename:
+          item.title ||
+          (item.item_type === 'document' ? 'documento' : 'material'),
+        caption: item.caption || item.content_text || '',
+      });
+    },
+    [appendText]
+  );
+
   // Upload a captured file to chat-media and stage it as a draft.
   const stageUpload = useCallback(
     async (kind: ComposerMediaKind, file: File) => {
@@ -551,7 +605,7 @@ export function MessageComposer({
 
   // Discard GCs the staged object — it was uploaded but never sent.
   const discardDraft = useCallback(() => {
-    removeStaged(draft?.path);
+    if (draft?.path) removeStaged(draft.path);
     setDraft(null);
   }, [draft?.path, removeStaged]);
 
@@ -723,12 +777,28 @@ export function MessageComposer({
                 <Zap className="mr-2 h-4 w-4" />
                 {t('quickReplies')}
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setLibraryOpen(true)}>
+                <LibraryBig className="mr-2 h-4 w-4" />
+                Biblioteca
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={onOpenTemplates}>
                 <LayoutTemplate className="mr-2 h-4 w-4" />
                 {t('sendTemplate')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          <GatedButton
+            variant="ghost"
+            size="sm"
+            canAct={!readOnly}
+            gateReason="send messages"
+            title={readOnly ? undefined : 'Biblioteca'}
+            className="text-muted-foreground hover:text-primary h-9 w-9 shrink-0 p-0"
+            onClick={() => setLibraryOpen(true)}
+          >
+            <LibraryBig className="h-4 w-4" />
+          </GatedButton>
 
           <GatedButton
             variant="ghost"
@@ -843,6 +913,11 @@ export function MessageComposer({
         open={quickReplyOpen}
         onOpenChange={setQuickReplyOpen}
         onPick={handlePickQuickReply}
+      />
+      <LibraryPicker
+        open={libraryOpen}
+        onOpenChange={setLibraryOpen}
+        onPick={handlePickLibraryItem}
       />
     </div>
   );
