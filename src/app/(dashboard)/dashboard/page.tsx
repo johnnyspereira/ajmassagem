@@ -47,6 +47,7 @@ import { ConversationsChart } from '@/components/dashboard/conversations-chart';
 import { PipelineDonut } from '@/components/dashboard/pipeline-donut';
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart';
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
+import { FollowUpCommandCenter } from '@/components/dashboard/follow-up-command-center';
 import { TodayOperationsPanel } from '@/components/dashboard/today-operations';
 import {
   AutomationInsightsPanel,
@@ -314,6 +315,8 @@ export default function DashboardPage() {
         </div>
         <WhatsAppHealthCard data={whatsapp} loading={whatsappLoading} />
       </div>
+
+      <FollowUpCommandCenter />
 
       {/* Metric cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
