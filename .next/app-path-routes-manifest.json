@@ -36,6 +36,7 @@
   "/api/flows/templates/route": "/api/flows/templates",
   "/api/inbox/conversations/clear/route": "/api/inbox/conversations/clear",
   "/api/invitations/[token]/redeem/route": "/api/invitations/[token]/redeem",
+  "/api/message-library/usage/route": "/api/message-library/usage",
   "/api/portal/[slug]/appointments/route": "/api/portal/[slug]/appointments",
   "/api/portal/[slug]/claim/route": "/api/portal/[slug]/claim",
   "/api/portal/[slug]/data/route": "/api/portal/[slug]/data",

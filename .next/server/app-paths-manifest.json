@@ -36,6 +36,7 @@
   "/api/flows/templates/route": "app/api/flows/templates/route.js",
   "/api/inbox/conversations/clear/route": "app/api/inbox/conversations/clear/route.js",
   "/api/invitations/[token]/redeem/route": "app/api/invitations/[token]/redeem/route.js",
+  "/api/message-library/usage/route": "app/api/message-library/usage/route.js",
   "/api/portal/[slug]/appointments/route": "app/api/portal/[slug]/appointments/route.js",
   "/api/portal/[slug]/claim/route": "app/api/portal/[slug]/claim/route.js",
   "/api/portal/[slug]/data/route": "app/api/portal/[slug]/data/route.js",
