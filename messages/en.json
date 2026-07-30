@@ -927,6 +927,14 @@
       "title": "Broadcasts",
       "subtitle": "Send bulk messages to your contacts using approved templates.",
       "newBroadcast": "New Broadcast",
+      "calendarView": "Calendar",
+      "listView": "List",
+      "duplicate": "Duplicate",
+      "copyName": "Copy of {name}",
+      "toastDuplicated": "Campaign duplicated as draft",
+      "toastDuplicateFailed": "Failed to duplicate campaign",
+      "toastNotSignedIn": "Session expired. Sign in again.",
+      "toastNoAccount": "Your profile is not linked to an account.",
       "noBroadcastsYet": "No broadcasts yet",
       "createFirst": "Create your first broadcast to reach your contacts at scale.",
       "table": {
@@ -936,7 +944,8 @@
         "delivery": "Delivery",
         "read": "Read",
         "status": "Status",
-        "date": "Date"
+        "date": "Date",
+        "actions": "Actions"
       },
       "errorLoad": "Failed to load broadcasts",
       "retry": "Retry"

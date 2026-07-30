@@ -927,6 +927,14 @@
       "title": "Transmissões",
       "subtitle": "Envie mensagens em massa para seus contatos usando modelos aprovados.",
       "newBroadcast": "Nova transmissão",
+      "calendarView": "Calendario",
+      "listView": "Lista",
+      "duplicate": "Duplicar",
+      "copyName": "Copia de {name}",
+      "toastDuplicated": "Campanha duplicada como rascunho",
+      "toastDuplicateFailed": "Falha ao duplicar campanha",
+      "toastNotSignedIn": "Sessao expirada. Entre novamente.",
+      "toastNoAccount": "Seu perfil nao esta vinculado a uma conta.",
       "noBroadcastsYet": "Ainda não há transmissões",
       "createFirst": "Crie sua primeira transmissão para alcançar seus contatos em escala.",
       "table": {
@@ -936,7 +944,8 @@
         "delivery": "Entrega",
         "read": "Lidas",
         "status": "Status",
-        "date": "Data"
+        "date": "Data",
+        "actions": "Acoes"
       },
       "errorLoad": "Falha ao carregar transmissões",
       "retry": "Tentar novamente"
@@ -2790,3 +2799,4 @@
     }
   }
 }
+
