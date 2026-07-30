@@ -941,6 +941,12 @@
       "namedRegex": "^/scheduled\\-messages(?:/)?$"
     },
     {
+      "page": "/segments",
+      "regex": "^/segments(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/segments(?:/)?$"
+    },
+    {
       "page": "/settings",
       "regex": "^/settings(?:/)?$",
       "routeKeys": {},
