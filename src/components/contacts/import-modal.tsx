@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -30,6 +30,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Upload,
   FileText,
@@ -38,11 +39,25 @@ import {
   XCircle,
   AlertTriangle,
   Tag,
+  Download,
+  RefreshCw,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 const DEFAULT_TAG_COLOR = '#3b82f6';
 const PREVIEW_LIMIT = 5;
+const CSV_TEMPLATE =
+  'phone,name,email,company,tags,source,tax_id,birth_date,address_line,postal_code,city,country,marketing_consent,whatsapp_consent\n' +
+  '+351912345678,Maria Silva,maria@email.pt,AJ Massagem,"VIP, Follow-up",Instagram,123456789,1990-05-21,Rua Exemplo 12,1000-000,Lisboa,Portugal,sim,sim\n';
+
+type ImportPlan = {
+  total: number;
+  unique: number;
+  duplicatePhones: number;
+  existing: number;
+  newRows: number;
+  tagNames: string[];
+};
 
 function truncateFilename(name: string, max = 48): string {
   if (name.length <= max) return name;
@@ -117,6 +132,33 @@ function ImportPreviewTags({
   );
 }
 
+function downloadCsvTemplate() {
+  const blob = new Blob([`\uFEFF${CSV_TEMPLATE}`], {
+    type: 'text/csv;charset=utf-8',
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'modelo-importar-clientes.csv';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function uniqueTagNames(rows: ParsedContactRow[]): string[] {
+  const byKey = new Map<string, string>();
+  for (const row of rows) {
+    for (const name of row.tagNames) {
+      const clean = name.trim();
+      if (!clean) continue;
+      const key = clean.toLowerCase();
+      if (!byKey.has(key)) byKey.set(key, clean);
+    }
+  }
+  return [...byKey.values()].sort((a, b) => a.localeCompare(b));
+}
+
 interface ImportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -140,6 +182,10 @@ export function ImportModal({
   const [tagColorByKey, setTagColorByKey] = useState<Map<string, string>>(
     new Map()
   );
+  const [importPlan, setImportPlan] = useState<ImportPlan | null>(null);
+  const [planLoading, setPlanLoading] = useState(false);
+  const [updateExisting, setUpdateExisting] = useState(true);
+  const [createMissingTags, setCreateMissingTags] = useState(canEditSettings);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<{
     imported: number;
@@ -149,12 +195,20 @@ export function ImportModal({
     tagsAssigned: number;
   } | null>(null);
 
+  useEffect(() => {
+    if (canEditSettings) setCreateMissingTags(true);
+  }, [canEditSettings]);
+
   function reset() {
     setFile(null);
     setParsedRows([]);
     setHasTagsColumn(false);
     setHasCompanyColumn(false);
     setTagColorByKey(new Map());
+    setImportPlan(null);
+    setPlanLoading(false);
+    setUpdateExisting(true);
+    setCreateMissingTags(canEditSettings);
     setResult(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
@@ -170,6 +224,8 @@ export function ImportModal({
 
     setFile(selected);
     setResult(null);
+    setImportPlan(null);
+    setPlanLoading(true);
 
     const text = decodeContactCsv(await selected.arrayBuffer());
     const {
@@ -184,6 +240,8 @@ export function ImportModal({
       setHasTagsColumn(false);
       setHasCompanyColumn(false);
       setTagColorByKey(new Map());
+      setImportPlan(null);
+      setPlanLoading(false);
       return;
     }
 
@@ -191,20 +249,52 @@ export function ImportModal({
     setHasTagsColumn(csvHasTags);
     setHasCompanyColumn(csvHasCompany);
 
-    if (csvHasTags && accountId) {
-      const { data: tags } = await supabase
-        .from('tags')
-        .select('name, color')
-        .eq('account_id', accountId);
+    try {
+      const { unique, duplicates } = dedupeByPhone(rows);
+      const parsedPhoneKeys = new Set(
+        unique.map((row) => normalizeKey(row.phone)).filter(Boolean)
+      );
 
-      const colors = new Map<string, string>();
-      for (const tag of tags ?? []) {
-        const key = tag.name.trim().toLowerCase();
-        if (!colors.has(key)) colors.set(key, tag.color);
+      let existing = 0;
+      if (accountId && parsedPhoneKeys.size > 0) {
+        const { data: existingRows } = await supabase
+          .from('contacts')
+          .select('phone_normalized')
+          .eq('account_id', accountId);
+
+        for (const row of existingRows ?? []) {
+          const key = (row as { phone_normalized: string | null })
+            .phone_normalized;
+          if (key && parsedPhoneKeys.has(key)) existing++;
+        }
       }
-      setTagColorByKey(colors);
-    } else {
-      setTagColorByKey(new Map());
+
+      setImportPlan({
+        total: rows.length,
+        unique: unique.length,
+        duplicatePhones: duplicates,
+        existing,
+        newRows: Math.max(unique.length - existing, 0),
+        tagNames: uniqueTagNames(rows),
+      });
+
+      if (csvHasTags && accountId) {
+        const { data: tags } = await supabase
+          .from('tags')
+          .select('name, color')
+          .eq('account_id', accountId);
+
+        const colors = new Map<string, string>();
+        for (const tag of tags ?? []) {
+          const key = tag.name.trim().toLowerCase();
+          if (!colors.has(key)) colors.set(key, tag.color);
+        }
+        setTagColorByKey(colors);
+      } else {
+        setTagColorByKey(new Map());
+      }
+    } finally {
+      setPlanLoading(false);
     }
   }
 
@@ -243,12 +333,14 @@ export function ImportModal({
         if (key) existingByPhone.set(key, row.id);
       }
 
-      const toUpdate = unique.filter((row) =>
+      const existingRowsToImport = unique.filter((row) =>
         existingByPhone.has(normalizeKey(row.phone))
       );
+      const toUpdate = updateExisting ? existingRowsToImport : [];
       const toInsert = unique.filter(
         (row) => !existingByPhone.has(normalizeKey(row.phone))
       );
+      if (!updateExisting) skipped += existingRowsToImport.length;
 
       // 3) Resolve tag names → ids (admin+ may auto-create missing tags).
       //    Skip the round-trip when the import carries no tag names.
@@ -260,7 +352,7 @@ export function ImportModal({
           accountId,
           userId: user.id,
           tagNames: allTagNames,
-          canCreateTags: canEditSettings,
+          canCreateTags: canEditSettings && createMissingTags,
         }));
       }
 
@@ -452,6 +544,17 @@ export function ImportModal({
             />
           </DialogHeader>
 
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={downloadCsvTemplate}
+            className="border-border text-muted-foreground hover:bg-muted w-fit"
+          >
+            <Download className="size-4" />
+            {t('downloadTemplate')}
+          </Button>
+
           <div
             role="button"
             tabIndex={0}
@@ -509,6 +612,105 @@ export function ImportModal({
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           {preview.length > 0 && !result && (
             <div className="space-y-3">
+              <div className="border-border bg-background/55 rounded-xl border p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-popover-foreground text-sm font-medium">
+                    {t('planTitle')}
+                  </p>
+                  {planLoading && (
+                    <span className="text-muted-foreground inline-flex items-center gap-1.5 text-xs">
+                      <RefreshCw className="size-3.5 animate-spin" />
+                      {t('planLoading')}
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                  <div className="bg-muted/50 rounded-lg px-3 py-2">
+                    <p className="text-muted-foreground text-[11px]">
+                      {t('planTotal')}
+                    </p>
+                    <p className="text-popover-foreground text-lg font-semibold">
+                      {importPlan?.total ?? parsedRows.length}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg px-3 py-2">
+                    <p className="text-muted-foreground text-[11px]">
+                      {t('planNew')}
+                    </p>
+                    <p className="text-primary text-lg font-semibold">
+                      {importPlan?.newRows ?? '—'}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg px-3 py-2">
+                    <p className="text-muted-foreground text-[11px]">
+                      {t('planExisting')}
+                    </p>
+                    <p className="text-emerald-500 text-lg font-semibold">
+                      {importPlan?.existing ?? '—'}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg px-3 py-2">
+                    <p className="text-muted-foreground text-[11px]">
+                      {t('planDuplicates')}
+                    </p>
+                    <p className="text-amber-400 text-lg font-semibold">
+                      {importPlan?.duplicatePhones ?? '—'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  <label className="flex cursor-pointer items-start gap-2 text-sm">
+                    <Checkbox
+                      checked={updateExisting}
+                      onCheckedChange={(checked) =>
+                        setUpdateExisting(Boolean(checked))
+                      }
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="text-popover-foreground block font-medium">
+                        {t('updateExistingLabel')}
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        {t('updateExistingHelp')}
+                      </span>
+                    </span>
+                  </label>
+
+                  {hasTagsColumn && (
+                    <label
+                      className={cn(
+                        'flex items-start gap-2 text-sm',
+                        canEditSettings
+                          ? 'cursor-pointer'
+                          : 'cursor-not-allowed opacity-70'
+                      )}
+                    >
+                      <Checkbox
+                        checked={canEditSettings && createMissingTags}
+                        disabled={!canEditSettings}
+                        onCheckedChange={(checked) =>
+                          setCreateMissingTags(Boolean(checked))
+                        }
+                        className="mt-0.5"
+                      />
+                      <span>
+                        <span className="text-popover-foreground block font-medium">
+                          {t('createTagsLabel')}
+                        </span>
+                        <span className="text-muted-foreground text-xs">
+                          {canEditSettings
+                            ? t('createTagsHelp')
+                            : t('createTagsNoPermission')}
+                        </span>
+                      </span>
+                    </label>
+                  )}
+                </div>
+              </div>
+
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-muted-foreground text-[11px] font-semibold tracking-[0.14em] uppercase">
                   {t('preview', { count: preview.length })}
