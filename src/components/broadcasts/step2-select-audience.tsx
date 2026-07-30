@@ -4,6 +4,9 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { CustomField, Tag } from '@/types';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useAuth } from '@/hooks/use-auth';
+import { toast } from 'sonner';
 import {
   Users,
   Tags,
@@ -13,6 +16,8 @@ import {
   ArrowRight,
   ArrowLeft,
   X,
+  Bookmark,
+  Save,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -33,6 +38,13 @@ interface AudienceConfig {
   excludeTagIds?: string[];
 }
 
+interface SavedSegment {
+  id: string;
+  name: string;
+  description?: string | null;
+  config: AudienceConfig;
+}
+
 interface Step2Props {
   audience: AudienceConfig;
   onUpdate: (audience: AudienceConfig) => void;
@@ -47,6 +59,7 @@ export function Step2SelectAudience({
   onBack,
 }: Step2Props) {
   const t = useTranslations('Broadcasts.wizard');
+  const { accountId } = useAuth();
 
   const OPERATOR_OPTIONS = useMemo<
     { value: CustomFieldOperator; label: string }[]
@@ -99,6 +112,10 @@ export function Step2SelectAudience({
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
   const [loadingFields, setLoadingFields] = useState(false);
+  const [savedSegments, setSavedSegments] = useState<SavedSegment[]>([]);
+  const [loadingSegments, setLoadingSegments] = useState(false);
+  const [segmentName, setSegmentName] = useState('');
+  const [savingSegment, setSavingSegment] = useState(false);
   const [estimatedCount, setEstimatedCount] = useState<number | null>(null);
   const [loadingCount, setLoadingCount] = useState(false);
 
@@ -117,6 +134,29 @@ export function Step2SelectAudience({
     }
     fetchTags();
   }, []);
+
+  const fetchSavedSegments = useCallback(async () => {
+    if (!accountId) return;
+    setLoadingSegments(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('contact_segments')
+        .select('id, name, description, config')
+        .eq('account_id', accountId)
+        .order('name');
+      if (error) throw error;
+      setSavedSegments((data ?? []) as SavedSegment[]);
+    } catch (err) {
+      console.error('[broadcast audience] load segments failed:', err);
+    } finally {
+      setLoadingSegments(false);
+    }
+  }, [accountId]);
+
+  useEffect(() => {
+    fetchSavedSegments();
+  }, [fetchSavedSegments]);
 
   // Lazy-load custom fields only when that audience type is active.
   useEffect(() => {
@@ -248,6 +288,64 @@ export function Step2SelectAudience({
     onUpdate({ ...audience, customField: { ...prev, ...patch } });
   }
 
+  function applySavedSegment(segment: SavedSegment) {
+    onUpdate({
+      ...segment.config,
+      csvContacts: undefined,
+    });
+    toast.success(t('selectAudience.savedApplied', { name: segment.name }));
+  }
+
+  async function saveCurrentSegment() {
+    const name = segmentName.trim();
+    if (!name) {
+      toast.error(t('selectAudience.savedNameRequired'));
+      return;
+    }
+    if (!accountId) {
+      toast.error(t('selectAudience.savedNoAccount'));
+      return;
+    }
+    if (audience.type === 'csv') {
+      toast.error(t('selectAudience.savedCsvUnsupported'));
+      return;
+    }
+
+    setSavingSegment(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (!user) throw new Error(t('selectAudience.savedNotSignedIn'));
+
+      const config: AudienceConfig = {
+        type: audience.type,
+        tagIds: audience.tagIds,
+        customField: audience.customField,
+        excludeTagIds: audience.excludeTagIds,
+      };
+
+      const { error } = await supabase.from('contact_segments').insert({
+        account_id: accountId,
+        user_id: user.id,
+        name,
+        config,
+      });
+      if (error) throw error;
+      toast.success(t('selectAudience.savedCreated', { name }));
+      setSegmentName('');
+      fetchSavedSegments();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : t('selectAudience.savedFailed');
+      toast.error(message);
+    } finally {
+      setSavingSegment(false);
+    }
+  }
+
   const isValid =
     audience.type === 'all' ||
     (audience.type === 'tags' &&
@@ -269,6 +367,70 @@ export function Step2SelectAudience({
         <p className="text-muted-foreground mt-1 text-sm">
           {t('selectAudience.subtitle')}
         </p>
+      </div>
+
+      <div className="border-border bg-card/50 rounded-xl border p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <Bookmark className="text-primary h-4 w-4" />
+          <p className="text-foreground text-sm font-medium">
+            {t('selectAudience.savedTitle')}
+          </p>
+        </div>
+
+        {loadingSegments ? (
+          <div className="flex items-center gap-2">
+            <Loader2 className="text-primary h-4 w-4 animate-spin" />
+            <span className="text-muted-foreground text-xs">
+              {t('selectAudience.savedLoading')}
+            </span>
+          </div>
+        ) : savedSegments.length > 0 ? (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {savedSegments.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => applySavedSegment(item)}
+                className="border-border bg-muted text-muted-foreground hover:border-primary/40 hover:text-foreground inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all"
+              >
+                <Bookmark className="size-3" />
+                {item.name}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="text-muted-foreground mb-3 text-xs">
+            {t('selectAudience.savedEmpty')}
+          </p>
+        )}
+
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <Input
+            value={segmentName}
+            onChange={(e) => setSegmentName(e.target.value)}
+            placeholder={t('selectAudience.savedPlaceholder')}
+            disabled={audience.type === 'csv'}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={saveCurrentSegment}
+            disabled={savingSegment || audience.type === 'csv'}
+            className="border-border text-muted-foreground hover:bg-muted"
+          >
+            {savingSegment ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            {t('selectAudience.savedSave')}
+          </Button>
+        </div>
+        {audience.type === 'csv' && (
+          <p className="text-muted-foreground mt-2 text-xs">
+            {t('selectAudience.savedCsvHelp')}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
