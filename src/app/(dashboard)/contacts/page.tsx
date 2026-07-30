@@ -41,6 +41,7 @@ import {
   Search,
   Plus,
   Upload,
+  FileDown,
   MoreHorizontal,
   Pencil,
   Trash2,
@@ -162,6 +163,7 @@ export default function ContactsPage() {
   // Modals
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [customFieldsOpen, setCustomFieldsOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
@@ -752,6 +754,172 @@ export default function ContactsPage() {
     }
   }
 
+  function csvCell(value: unknown) {
+    const text = value == null ? '' : String(value);
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+
+  function downloadCsv(filename: string, rows: ContactWithTags[]) {
+    const headers = [
+      'id',
+      'referencia',
+      'nome',
+      'telefone',
+      'email',
+      'empresa',
+      'nif',
+      'genero',
+      'data_nascimento',
+      'morada',
+      'codigo_postal',
+      'cidade',
+      'pais',
+      'origem',
+      'contacto_preferido',
+      'consentimento_marketing',
+      'consentimento_whatsapp',
+      'tags',
+      'criado_em',
+      'atualizado_em',
+    ];
+    const body = rows.map((contact) =>
+      [
+        contact.id,
+        contact.client_reference,
+        contact.name,
+        contact.phone,
+        contact.email,
+        contact.company,
+        contact.tax_id,
+        contact.gender,
+        contact.birth_date,
+        contact.address_line,
+        contact.postal_code,
+        contact.city,
+        contact.country,
+        contact.source,
+        contact.preferred_contact,
+        contact.marketing_consent ? 'sim' : 'não',
+        contact.whatsapp_consent ? 'sim' : 'não',
+        contact.tags?.map((tag) => tag.name).join(', '),
+        contact.created_at,
+        contact.updated_at,
+      ]
+        .map(csvCell)
+        .join(',')
+    );
+    const csv = `\uFEFF${headers.join(',')}\n${body.join('\n')}`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function enrichExportRows(rows: Contact[]): Promise<ContactWithTags[]> {
+    if (rows.length === 0) return [];
+    const tagsByContact: Record<string, Tag[]> = {};
+    const ids = rows.map((contact) => contact.id);
+    for (let index = 0; index < ids.length; index += 500) {
+      const chunk = ids.slice(index, index + 500);
+      const { data } = await supabase
+        .from('contact_tags')
+        .select('contact_id, tag:tags(*)')
+        .in('contact_id', chunk);
+      for (const row of data ?? []) {
+        const tagField = row.tag as Tag | Tag[] | null;
+        const tag = Array.isArray(tagField) ? tagField[0] : tagField;
+        if (!tag) continue;
+        if (!tagsByContact[row.contact_id]) tagsByContact[row.contact_id] = [];
+        tagsByContact[row.contact_id].push(tag);
+      }
+    }
+    return rows.map((contact) => ({
+      ...contact,
+      tags: tagsByContact[contact.id] ?? [],
+    }));
+  }
+
+  async function fetchContactsByIds(ids: string[]) {
+    const rows: Contact[] = [];
+    for (let index = 0; index < ids.length; index += 500) {
+      const chunk = ids.slice(index, index + 500);
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('*')
+        .in('id', chunk)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      rows.push(...((data ?? []) as Contact[]));
+    }
+    return rows;
+  }
+
+  async function fetchAllFilteredForExport() {
+    const limit = Math.min(totalCount || 0, 10_000);
+    if (limit === 0) return [];
+    if (totalCount > 10_000) {
+      toast.info('Exportando os primeiros 10.000 resultados filtrados.');
+    }
+
+    if (advancedFilterAvailable) {
+      const { data, error } = await supabase.rpc('filter_contacts_advanced', {
+        p_tag_ids: selectedTagIds,
+        p_search: search.trim() || null,
+        p_segment: segment,
+        p_limit: limit,
+        p_offset: 0,
+      });
+      if (!error) {
+        return ((data ?? []) as { contact: Contact }[]).map(
+          (row) => row.contact
+        );
+      }
+    }
+
+    const fallbackRows = await fetchFallbackRows(search.trim());
+    return fallbackRows.slice(0, limit);
+  }
+
+  async function exportContacts(scope: 'page' | 'selected' | 'filtered') {
+    setExporting(true);
+    try {
+      let rows: Contact[] = [];
+      let label = 'pagina';
+      if (scope === 'page') {
+        rows = contacts;
+      } else if (scope === 'selected') {
+        rows = await fetchContactsByIds(Array.from(selected));
+        label = 'selecionados';
+      } else {
+        rows = await fetchAllFilteredForExport();
+        label = 'filtrados';
+      }
+
+      const enriched = await enrichExportRows(rows);
+      if (enriched.length === 0) {
+        toast.info('Nenhum cliente para exportar.');
+        return;
+      }
+
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadCsv(`clientes-${label}-${stamp}.csv`, enriched);
+      toast.success(`${enriched.length} cliente(s) exportado(s).`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? `Não foi possível exportar: ${error.message}`
+          : 'Não foi possível exportar clientes.'
+      );
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const pageStats = useMemo(() => {
     const completed = contacts.filter(isContactComplete).length;
     const needsInfo = contacts.length - completed;
@@ -848,6 +1016,38 @@ export default function ContactsPage() {
               {t('customFieldsBtn')}
             </Button>
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              disabled={exporting || contacts.length === 0}
+              className="border-border text-muted-foreground hover:bg-muted inline-flex h-9 items-center justify-center gap-2 rounded-lg border bg-transparent px-3 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
+            >
+              {exporting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <FileDown className="size-4" />
+              )}
+              Exportar
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => exportContacts('page')}>
+                Página atual ({contacts.length})
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => exportContacts('filtered')}
+                disabled={totalCount === 0}
+              >
+                Resultados filtrados ({Math.min(totalCount, 10_000)})
+              </DropdownMenuItem>
+              {selected.size > 0 ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => exportContacts('selected')}>
+                    Selecionados ({selected.size})
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <GatedButton
             variant="outline"
             canAct={canEdit}
@@ -1119,6 +1319,19 @@ export default function ContactsPage() {
                 className="text-muted-foreground hover:text-foreground"
               >
                 {t('clearSelection')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportContacts('selected')}
+                disabled={exporting}
+              >
+                {exporting ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <FileDown className="size-3.5" />
+                )}
+                Exportar seleção
               </Button>
               <GatedButton
                 variant="destructive"
