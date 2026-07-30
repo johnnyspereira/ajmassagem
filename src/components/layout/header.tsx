@@ -45,6 +45,7 @@ const pageTitles: Record<string, string> = {
   '/referrals': 'referrals',
   '/pipelines': 'pipelines',
   '/broadcasts': 'broadcasts',
+  '/segments': 'segments',
   '/scheduled-messages': 'scheduledMessages',
   '/library': 'library',
   '/automations': 'automations',
@@ -75,7 +76,7 @@ const topbarGroupConfigs = [
   },
   {
     labelKey: 'groupMarketing',
-    hrefs: ['/broadcasts', '/scheduled-messages', '/library'],
+    hrefs: ['/broadcasts', '/segments', '/scheduled-messages', '/library'],
   },
   {
     labelKey: 'groupAutomation',

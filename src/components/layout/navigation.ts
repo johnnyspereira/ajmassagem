@@ -12,6 +12,7 @@ import {
   CircleHelp,
   Globe2,
   HeartHandshake,
+  ListFilter,
   Radio,
   Send,
   Settings,
@@ -75,6 +76,12 @@ export const navItems: NavItem[] = [
     labelKey: 'broadcasts',
     icon: Radio,
     newBadge: { key: 'saved-audience-segments', ...TODAY_NEW_BADGE },
+  },
+  {
+    href: '/segments',
+    labelKey: 'segments',
+    icon: ListFilter,
+    newBadge: { key: 'segments-page', ...TODAY_NEW_BADGE },
   },
   {
     href: '/scheduled-messages',

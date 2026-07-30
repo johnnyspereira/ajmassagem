@@ -18,6 +18,7 @@ import {
   Crown,
   GitBranch,
   HeartHandshake,
+  ListFilter,
   LibraryBig,
   LayoutDashboard,
   LogOut,
@@ -141,6 +142,12 @@ const navItems: NavItem[] = [
     newBadge: { key: 'saved-audience-segments', ...TODAY_NEW_BADGE },
   },
   {
+    href: '/segments',
+    labelKey: 'segments',
+    icon: ListFilter,
+    newBadge: { key: 'segments-page', ...TODAY_NEW_BADGE },
+  },
+  {
     href: '/scheduled-messages',
     labelKey: 'scheduledMessages',
     icon: Send,
@@ -182,7 +189,7 @@ const navSections = [
   },
   {
     labelKey: 'groupMarketing',
-    hrefs: ['/broadcasts', '/scheduled-messages', '/library'],
+    hrefs: ['/broadcasts', '/segments', '/scheduled-messages', '/library'],
   },
   {
     labelKey: 'groupAutomation',
