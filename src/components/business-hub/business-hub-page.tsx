@@ -131,6 +131,10 @@ export function BusinessHubPage() {
   const [paymentLinks, setPaymentLinks] = useState<PaymentLink[]>([]);
   const [products, setProducts] = useState<ProductWithStock[]>([]);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [stockDrafts, setStockDrafts] = useState<
+    Record<string, { quantity: string; reason: string }>
+  >({});
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
@@ -143,7 +147,7 @@ export function BusinessHubPage() {
           .eq('account_id', accountId),
         supabase
           .from('finance_sales')
-          .select('*, contact:contacts(id,name,phone), invoice_request:finance_invoice_requests(*)')
+          .select('*, contact:contacts(*), invoice_request:finance_invoice_requests(*)')
           .eq('account_id', accountId)
           .order('created_at', { ascending: false })
           .limit(60),
@@ -224,6 +228,93 @@ export function BusinessHubPage() {
     setSavingProvider(null);
     if (error) return toast.error(error.message);
     toast.success(`${displayName} ficou marcado como configurado.`);
+    await loadData();
+  }
+
+  async function createPaymentRequest(sale: FinanceSale) {
+    if (!accountId || !user?.id) return;
+    const amount = Number(sale.balance_due ?? 0);
+    if (amount <= 0) return toast.error('Esta venda não tem valor pendente.');
+
+    setBusyAction(`payment:${sale.id}`);
+    const { error } = await supabase.from('finance_payment_links').insert({
+      account_id: accountId,
+      sale_id: sale.id,
+      contact_id: sale.contact_id ?? null,
+      provider: 'manual',
+      status: 'pending',
+      amount,
+      currency: sale.currency || defaultCurrency,
+      description: `Cobrança da venda #${sale.sale_number}`,
+      external_reference: `sale-${sale.id}`,
+      created_by_user_id: user.id,
+    });
+    setBusyAction(null);
+
+    if (error) return toast.error(error.message);
+    toast.success('Cobrança criada. Pode ser conciliada quando o cliente pagar.');
+    await loadData();
+  }
+
+  async function createInvoiceRequest(sale: FinanceSale) {
+    if (!accountId || !user?.id) return;
+    const contact = sale.contact;
+    if (!sale.contact_id || !contact) {
+      return toast.error('Esta venda não tem cliente associado.');
+    }
+    if (!contact.name || !contact.email || !contact.tax_id) {
+      return toast.error('Complete nome, email e NIF na ficha do cliente antes de pedir fatura.');
+    }
+
+    setBusyAction(`invoice:${sale.id}`);
+    const { error } = await supabase.from('finance_invoice_requests').insert({
+      account_id: accountId,
+      sale_id: sale.id,
+      contact_id: sale.contact_id,
+      requested_by_auth_user_id: user.id,
+      status: 'pending',
+      fiscal_name: contact.name,
+      tax_id: contact.tax_id,
+      email: contact.email,
+      address_line: contact.address_line ?? null,
+      postal_code: contact.postal_code ?? null,
+      city: contact.city ?? null,
+      country: contact.country ?? 'Portugal',
+      client_notes: 'Pedido criado pela Central Gestão Zappy.',
+    });
+    setBusyAction(null);
+
+    if (error) return toast.error(error.message);
+    toast.success('Pedido de fatura criado.');
+    await loadData();
+  }
+
+  async function adjustStock(product: ProductWithStock, direction: 1 | -1) {
+    if (!canEditSettings) return;
+    const draft = stockDrafts[product.id] ?? { quantity: '', reason: '' };
+    const rawQuantity = Math.trunc(Number(draft.quantity));
+    if (!Number.isFinite(rawQuantity) || rawQuantity <= 0) {
+      return toast.error('Informe uma quantidade válida.');
+    }
+
+    const quantity = rawQuantity * direction;
+    setBusyAction(`stock:${product.id}`);
+    const { error } = await supabase.rpc('adjust_clinic_product_stock', {
+      p_product_id: product.id,
+      p_quantity: quantity,
+      p_movement_type: direction > 0 ? 'purchase' : 'adjustment',
+      p_reason:
+        draft.reason ||
+        (direction > 0 ? 'Entrada de stock pela Central Gestão Zappy' : 'Ajuste de stock pela Central Gestão Zappy'),
+    });
+    setBusyAction(null);
+
+    if (error) return toast.error(error.message);
+    toast.success(direction > 0 ? 'Entrada de stock registada.' : 'Ajuste de stock registado.');
+    setStockDrafts((current) => ({
+      ...current,
+      [product.id]: { quantity: '', reason: '' },
+    }));
     await loadData();
   }
 
@@ -376,6 +467,33 @@ export function BusinessHubPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {salesWithoutInvoice.length ? (
+              <div className="mb-4 divide-y rounded-xl border">
+                {salesWithoutInvoice.slice(0, 5).map((sale) => (
+                  <div key={sale.id} className="flex items-center justify-between gap-3 p-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">Venda #{sale.sale_number}</p>
+                      <p className="text-muted-foreground truncate text-sm">
+                        {sale.contact?.name || sale.contact?.phone || 'Cliente'} · emitir documento
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={busyAction === `invoice:${sale.id}`}
+                      onClick={() => createInvoiceRequest(sale)}
+                    >
+                      {busyAction === `invoice:${sale.id}` ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        <FileText />
+                      )}
+                      Pedir fatura
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             <DataList
               empty="Nenhuma venda recente sem fatura."
               rows={salesWithoutInvoice.slice(0, 8).map((sale) => ({
@@ -402,6 +520,34 @@ export function BusinessHubPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {unpaidSales.length ? (
+              <div className="mb-4 divide-y rounded-xl border">
+                {unpaidSales.slice(0, 5).map((sale) => (
+                  <div key={sale.id} className="flex items-center justify-between gap-3 p-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">Venda #{sale.sale_number}</p>
+                      <p className="text-muted-foreground truncate text-sm">
+                        {sale.contact?.name || sale.contact?.phone || 'Cliente'} ·{' '}
+                        {formatCurrency(Number(sale.balance_due), sale.currency)} por receber
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={busyAction === `payment:${sale.id}`}
+                      onClick={() => createPaymentRequest(sale)}
+                    >
+                      {busyAction === `payment:${sale.id}` ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        <Link2 />
+                      )}
+                      Criar cobrança
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             <DataList
               empty="Ainda não existem links de pagamento."
               rows={paymentLinks.slice(0, 8).map((link) => ({
@@ -456,6 +602,63 @@ export function BusinessHubPage() {
                       value={formatCurrency(Number(product.cost_price ?? 0), product.currency)}
                     />
                     <MiniStat label="Fornecedor" value={product.supplier_name || '—'} />
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    <div className="grid grid-cols-[110px_1fr] gap-2">
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="Qtd."
+                        value={stockDrafts[product.id]?.quantity ?? ''}
+                        disabled={!canEditSettings || busyAction === `stock:${product.id}`}
+                        onChange={(event) =>
+                          setStockDrafts((current) => ({
+                            ...current,
+                            [product.id]: {
+                              quantity: event.target.value,
+                              reason: current[product.id]?.reason ?? '',
+                            },
+                          }))
+                        }
+                      />
+                      <Input
+                        placeholder="Motivo / fornecedor"
+                        value={stockDrafts[product.id]?.reason ?? ''}
+                        disabled={!canEditSettings || busyAction === `stock:${product.id}`}
+                        onChange={(event) =>
+                          setStockDrafts((current) => ({
+                            ...current,
+                            [product.id]: {
+                              quantity: current[product.id]?.quantity ?? '',
+                              reason: event.target.value,
+                            },
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!canEditSettings || busyAction === `stock:${product.id}`}
+                        onClick={() => adjustStock(product, 1)}
+                      >
+                        {busyAction === `stock:${product.id}` ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          <Boxes />
+                        )}
+                        Entrada
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!canEditSettings || busyAction === `stock:${product.id}`}
+                        onClick={() => adjustStock(product, -1)}
+                      >
+                        Ajustar saída
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
