@@ -845,6 +845,12 @@
       "namedRegex": "^/broadcasts/new(?:/)?$"
     },
     {
+      "page": "/business-hub",
+      "regex": "^/business\\-hub(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/business\\-hub(?:/)?$"
+    },
+    {
       "page": "/contacts",
       "regex": "^/contacts(?:/)?$",
       "routeKeys": {},
