@@ -43,6 +43,8 @@ type IntegrationSetting = {
 
 type PaymentLink = {
   id: string;
+  sale_id: string | null;
+  contact_id: string | null;
   provider: string;
   status: 'draft' | 'pending' | 'paid' | 'expired' | 'cancelled' | 'failed';
   amount: number;
@@ -50,6 +52,7 @@ type PaymentLink = {
   description: string | null;
   payment_url: string | null;
   created_at: string;
+  sale?: FinanceSale | null;
 };
 
 type ProductWithStock = ClinicProduct & {
@@ -135,6 +138,7 @@ export function BusinessHubPage() {
   const [stockDrafts, setStockDrafts] = useState<
     Record<string, { quantity: string; reason: string }>
   >({});
+  const [paymentMethodDrafts, setPaymentMethodDrafts] = useState<Record<string, string>>({});
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
@@ -159,7 +163,7 @@ export function BusinessHubPage() {
           .limit(30),
         supabase
           .from('finance_payment_links')
-          .select('*')
+          .select('*, sale:finance_sales(*, contact:contacts(*))')
           .eq('account_id', accountId)
           .order('created_at', { ascending: false })
           .limit(30),
@@ -315,6 +319,56 @@ export function BusinessHubPage() {
       ...current,
       [product.id]: { quantity: '', reason: '' },
     }));
+    await loadData();
+  }
+
+  async function copyPaymentMessage(link: PaymentLink) {
+    const sale = link.sale;
+    const client = sale?.contact?.name || sale?.contact?.phone || 'cliente';
+    const text = [
+      `Olá ${client}, segue a cobrança ${link.description || ''}`.trim(),
+      `Valor: ${formatCurrency(Number(link.amount), link.currency)}`,
+      link.payment_url
+        ? `Link: ${link.payment_url}`
+        : 'Pode efetuar o pagamento pelo método combinado e enviar o comprovativo por aqui.',
+      `Referência interna: ${link.id}`,
+    ].join('\n');
+
+    await navigator.clipboard.writeText(text);
+    toast.success('Mensagem de cobrança copiada.');
+  }
+
+  async function confirmPaymentLink(link: PaymentLink) {
+    if (!link.sale_id) return toast.error('Esta cobrança não está associada a uma venda.');
+    const method = paymentMethodDrafts[link.id] || 'mb_way';
+
+    setBusyAction(`confirm-payment:${link.id}`);
+    const { error: paymentError } = await supabase.rpc('add_finance_payment_secure', {
+      p_sale_id: link.sale_id,
+      p_method: method,
+      p_amount: Number(link.amount),
+      p_cash_session_id: null,
+      p_reference_code: link.id,
+      p_pin_code: null,
+      p_notes: `Cobrança confirmada pela Central Gestão Zappy (${link.provider}).`,
+    });
+
+    if (paymentError) {
+      setBusyAction(null);
+      return toast.error(paymentError.message);
+    }
+
+    const { error: linkError } = await supabase
+      .from('finance_payment_links')
+      .update({
+        status: 'paid',
+        paid_at: new Date().toISOString(),
+      })
+      .eq('id', link.id);
+
+    setBusyAction(null);
+    if (linkError) return toast.error(linkError.message);
+    toast.success('Cobrança confirmada e venda conciliada.');
     await loadData();
   }
 
@@ -548,16 +602,64 @@ export function BusinessHubPage() {
                 ))}
               </div>
             ) : null}
-            <DataList
-              empty="Ainda não existem links de pagamento."
-              rows={paymentLinks.slice(0, 8).map((link) => ({
-                id: link.id,
-                title: link.description || `Link ${link.provider}`,
-                detail: `${link.status} · ${new Date(link.created_at).toLocaleDateString('pt-PT')}`,
-                amount: formatCurrency(Number(link.amount), link.currency),
-              }))}
-            />
-            <div className="mt-4 rounded-lg border border-dashed p-3 text-sm">
+            {paymentLinks.length ? (
+              <div className="divide-y rounded-xl border">
+                {paymentLinks.slice(0, 8).map((link) => (
+                  <div key={link.id} className="space-y-3 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">
+                          {link.description || `Cobrança ${link.provider}`}
+                        </p>
+                        <p className="text-muted-foreground truncate text-sm">
+                          {link.status} · {new Date(link.created_at).toLocaleDateString('pt-PT')}
+                        </p>
+                      </div>
+                      <strong className="shrink-0">
+                        {formatCurrency(Number(link.amount), link.currency)}
+                      </strong>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+                      <select
+                        value={paymentMethodDrafts[link.id] || 'mb_way'}
+                        onChange={(event) =>
+                          setPaymentMethodDrafts((current) => ({
+                            ...current,
+                            [link.id]: event.target.value,
+                          }))
+                        }
+                        disabled={link.status === 'paid' || busyAction === `confirm-payment:${link.id}`}
+                        className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+                      >
+                        <option value="mb_way">MB Way</option>
+                        <option value="bank_transfer">Transferência</option>
+                        <option value="card">Cartão</option>
+                        <option value="multibanco">Multibanco</option>
+                        <option value="other">Outro</option>
+                      </select>
+                      <Button variant="outline" size="sm" onClick={() => copyPaymentMessage(link)}>
+                        <Link2 />
+                        Copiar
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={link.status === 'paid' || busyAction === `confirm-payment:${link.id}`}
+                        onClick={() => confirmPaymentLink(link)}
+                      >
+                        {busyAction === `confirm-payment:${link.id}` ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          <CheckCircle2 />
+                        )}
+                        Confirmar pago
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState icon={CreditCard} text="Ainda não existem cobranças criadas." />
+            )}            <div className="mt-4 rounded-lg border border-dashed p-3 text-sm">
               <p className="font-medium">Preparado para integração</p>
               <p className="text-muted-foreground mt-1">
                 A tabela de links já está pronta para Easypay, Stripe ou outro fornecedor.
@@ -759,6 +861,21 @@ function DataList({
           <strong className="shrink-0">{row.amount}</strong>
         </div>
       ))}
+    </div>
+  );
+}
+
+function EmptyState({
+  icon: Icon,
+  text,
+}: {
+  icon: typeof Sparkles;
+  text: string;
+}) {
+  return (
+    <div className="flex min-h-32 flex-col items-center justify-center rounded-xl border border-dashed text-center">
+      <Icon className="text-muted-foreground mb-2 size-7" />
+      <p className="text-muted-foreground text-sm">{text}</p>
     </div>
   );
 }
