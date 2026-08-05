@@ -81,6 +81,7 @@ export async function middleware(request: NextRequest) {
     '/contacts',
     '/pipelines',
     '/finance',
+    '/business-hub',
     '/reports',
     '/referrals',
     '/broadcasts',

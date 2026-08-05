@@ -28,6 +28,7 @@ import {
   Send,
   Settings,
   Shield,
+  Sparkles,
   SquareCheckBig,
   User,
   UserCog,
@@ -133,6 +134,12 @@ const navItems: NavItem[] = [
     icon: BadgeEuro,
     newBadge: { key: 'retroactive-cash', ...TODAY_NEW_BADGE },
   },
+  {
+    href: '/business-hub',
+    labelKey: 'businessHub',
+    icon: Sparkles,
+    newBadge: { key: 'zappy-gap-hub', ...TODAY_NEW_BADGE },
+  },
   { href: '/reports', labelKey: 'reports', icon: BarChart3 },
   { href: '/referrals', labelKey: 'referrals', icon: HeartHandshake },
   {
@@ -185,7 +192,7 @@ const navSections = [
   },
   {
     labelKey: 'groupCommercial',
-    hrefs: ['/pipelines', '/finance', '/reports', '/referrals'],
+    hrefs: ['/pipelines', '/finance', '/business-hub', '/reports', '/referrals'],
   },
   {
     labelKey: 'groupMarketing',
