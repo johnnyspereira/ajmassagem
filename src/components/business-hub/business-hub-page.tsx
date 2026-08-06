@@ -12,6 +12,7 @@ import {
   FileText,
   Link2,
   Loader2,
+  MessageSquare,
   PlugZap,
   RefreshCw,
   Settings2,
@@ -323,9 +324,14 @@ export function BusinessHubPage() {
   }
 
   async function copyPaymentMessage(link: PaymentLink) {
+    await navigator.clipboard.writeText(paymentMessage(link));
+    toast.success('Mensagem de cobrança copiada.');
+  }
+
+  function paymentMessage(link: PaymentLink) {
     const sale = link.sale;
     const client = sale?.contact?.name || sale?.contact?.phone || 'cliente';
-    const text = [
+    return [
       `Olá ${client}, segue a cobrança ${link.description || ''}`.trim(),
       `Valor: ${formatCurrency(Number(link.amount), link.currency)}`,
       link.payment_url
@@ -333,9 +339,31 @@ export function BusinessHubPage() {
         : 'Pode efetuar o pagamento pelo método combinado e enviar o comprovativo por aqui.',
       `Referência interna: ${link.id}`,
     ].join('\n');
+  }
 
-    await navigator.clipboard.writeText(text);
-    toast.success('Mensagem de cobrança copiada.');
+  async function sendPaymentWhatsApp(link: PaymentLink) {
+    const contactId = link.contact_id || link.sale?.contact_id;
+    if (!contactId) {
+      return toast.error('Esta cobrança não tem cliente associado.');
+    }
+
+    setBusyAction(`send-payment:${link.id}`);
+    const response = await fetch('/api/whatsapp/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contact_id: contactId,
+        message_type: 'text',
+        content_text: paymentMessage(link),
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    setBusyAction(null);
+
+    if (!response.ok) {
+      return toast.error(payload.error || 'Não foi possível enviar a cobrança.');
+    }
+    toast.success('Cobrança enviada pelo WhatsApp.');
   }
 
   async function confirmPaymentLink(link: PaymentLink) {
@@ -619,7 +647,7 @@ export function BusinessHubPage() {
                         {formatCurrency(Number(link.amount), link.currency)}
                       </strong>
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+                    <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto]">
                       <select
                         value={paymentMethodDrafts[link.id] || 'mb_way'}
                         onChange={(event) =>
@@ -640,6 +668,19 @@ export function BusinessHubPage() {
                       <Button variant="outline" size="sm" onClick={() => copyPaymentMessage(link)}>
                         <Link2 />
                         Copiar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={busyAction === `send-payment:${link.id}`}
+                        onClick={() => sendPaymentWhatsApp(link)}
+                      >
+                        {busyAction === `send-payment:${link.id}` ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          <MessageSquare />
+                        )}
+                        WhatsApp
                       </Button>
                       <Button
                         size="sm"
