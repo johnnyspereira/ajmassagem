@@ -63,6 +63,24 @@ import {
   cashMovementSign,
 } from '@/lib/finance/register-balance';
 import { OwnerTreasury } from '@/components/finance/owner-treasury';
+import type {
+  CartItem,
+  CatalogItem,
+  OpeningPosition,
+  PaymentDraft,
+} from '@/components/finance/finance-types';
+import {
+  datetimeLocalValue,
+  invoiceRequestStatus,
+  isMissingFinanceSchema,
+  money,
+  paymentMethodLabel,
+  PAYMENT_METHODS,
+  randomId,
+  randomPin,
+  REGISTER_METHODS,
+  SALE_STATUS,
+} from '@/components/finance/finance-utils';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import type {
@@ -83,101 +101,6 @@ import type {
   FinanceVoucherTransferRequest,
   FinanceVoucher,
 } from '@/types';
-
-type CartItem = {
-  key: string;
-  itemType: FinanceItemType;
-  sourceId?: string;
-  name: string;
-  reference?: string;
-  quantity: number;
-  unitPrice: number;
-  discountAmount: number;
-  taxRate: number;
-  metadata?: Record<string, unknown>;
-};
-
-type PaymentDraft = {
-  id: string;
-  method: FinancePaymentMethod;
-  amount: number;
-  referenceCode: string;
-  pinCode: string;
-};
-
-type CatalogItem = {
-  id: string;
-  type: 'service' | 'product' | 'pack';
-  name: string;
-  reference?: string | null;
-  price: number;
-  detail: string;
-  available?: boolean;
-};
-
-type OpeningPosition = {
-  id?: string;
-  name: string;
-  accountType: FinanceFundAccount['account_type'];
-  institution: string;
-  amount: number;
-};
-
-const PAYMENT_METHODS: Array<{ value: FinancePaymentMethod; label: string }> = [
-  { value: 'cash', label: 'Dinheiro' },
-  { value: 'card', label: 'Cartão' },
-  { value: 'mb_way', label: 'MB Way' },
-  { value: 'multibanco', label: 'Multibanco' },
-  { value: 'bank_transfer', label: 'Transferência' },
-  { value: 'voucher', label: 'Voucher' },
-  { value: 'client_credit', label: 'Crédito do cliente' },
-  { value: 'other', label: 'Outro' },
-];
-
-const REGISTER_METHODS = PAYMENT_METHODS.filter(
-  (method) => !['voucher', 'client_credit'].includes(method.value)
-);
-
-function paymentMethodLabel(method: string) {
-  return PAYMENT_METHODS.find((item) => item.value === method)?.label || method;
-}
-
-const SALE_STATUS: Record<string, string> = {
-  open: 'Pendente',
-  partially_paid: 'Parcial',
-  paid: 'Paga',
-  voided: 'Anulada',
-  refunded: 'Reembolsada',
-};
-
-function money(value: number, currency: string) {
-  return formatCurrency(Number(value || 0), currency);
-}
-
-function datetimeLocalValue(value = new Date()) {
-  const date = value instanceof Date ? value : new Date(value);
-  const offsetMs = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
-}
-
-function randomId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-function randomPin() {
-  return String(
-    crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000
-  ).padStart(6, '0');
-}
-
-function isMissingFinanceSchema(error: { code?: string; message?: string }) {
-  return (
-    error.code === '42P01' ||
-    error.code === 'PGRST205' ||
-    error.message?.includes('finance_') ||
-    error.message?.includes('create_finance_sale')
-  );
-}
 
 export function FinancePage({
   initialContactId = '',
@@ -3434,16 +3357,6 @@ function InvoiceRequestsView({
       </Dialog>
     </section>
   );
-}
-
-function invoiceRequestStatus(status: FinanceInvoiceRequest['status']) {
-  return {
-    pending: 'Pendente',
-    processing: 'Em processamento',
-    issued: 'Emitida',
-    rejected: 'Rejeitada',
-    cancelled: 'Cancelada',
-  }[status];
 }
 
 function SalesView({
