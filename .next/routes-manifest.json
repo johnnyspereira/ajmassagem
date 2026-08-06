@@ -635,6 +635,18 @@
       "namedRegex": "^/api/clinic/appointments/reminders(?:/)?$"
     },
     {
+      "page": "/api/finance/payment-links/stripe",
+      "regex": "^/api/finance/payment\\-links/stripe(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/finance/payment\\-links/stripe(?:/)?$"
+    },
+    {
+      "page": "/api/finance/webhooks/stripe",
+      "regex": "^/api/finance/webhooks/stripe(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/finance/webhooks/stripe(?:/)?$"
+    },
+    {
       "page": "/api/flows",
       "regex": "^/api/flows(?:/)?$",
       "routeKeys": {},
