@@ -52,6 +52,8 @@ type PaymentLink = {
   currency: string;
   description: string | null;
   payment_url: string | null;
+  external_session_id?: string | null;
+  external_payment_intent_id?: string | null;
   created_at: string;
   sale?: FinanceSale | null;
 };
@@ -265,9 +267,34 @@ export function BusinessHubPage() {
   async function createPaymentRequest(sale: FinanceSale) {
     if (!accountId || !user?.id) return;
     const amount = Number(sale.balance_due ?? 0);
-    if (amount <= 0) return toast.error('Esta venda não tem valor pendente.');
+    if (amount <= 0) return toast.error('Esta venda nÃ£o tem valor pendente.');
 
     setBusyAction(`payment:${sale.id}`);
+    const stripeSetting = providerMap.get('payments:stripe');
+    if (
+      stripeSetting &&
+      ['configured', 'active'].includes(stripeSetting.status)
+    ) {
+      const response = await fetch('/api/finance/payment-links/stripe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ saleId: sale.id }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      setBusyAction(null);
+
+      if (!response.ok) {
+        return toast.error(
+          payload.error ||
+            'NÃ£o foi possÃ­vel criar o checkout Stripe. Verifique as chaves.'
+        );
+      }
+
+      toast.success('Link Stripe criado. Pode enviar ao cliente por WhatsApp.');
+      await loadData();
+      return;
+    }
+
     const { error } = await supabase.from('finance_payment_links').insert({
       account_id: accountId,
       sale_id: sale.id,
@@ -276,17 +303,16 @@ export function BusinessHubPage() {
       status: 'pending',
       amount,
       currency: sale.currency || defaultCurrency,
-      description: `Cobrança da venda #${sale.sale_number}`,
+      description: `CobranÃ§a da venda #${sale.sale_number}`,
       external_reference: `sale-${sale.id}`,
       created_by_user_id: user.id,
     });
     setBusyAction(null);
 
     if (error) return toast.error(error.message);
-    toast.success('Cobrança criada. Pode ser conciliada quando o cliente pagar.');
+    toast.success('CobranÃ§a criada. Pode ser conciliada quando o cliente pagar.');
     await loadData();
   }
-
   async function createInvoiceRequest(sale: FinanceSale) {
     if (!accountId || !user?.id) return;
     const contact = sale.contact;
@@ -673,7 +699,7 @@ export function BusinessHubPage() {
                         {formatCurrency(Number(link.amount), link.currency)}
                       </strong>
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto]">
+                    <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto_auto]">
                       <select
                         value={paymentMethodDrafts[link.id] || 'mb_way'}
                         onChange={(event) =>
@@ -695,6 +721,16 @@ export function BusinessHubPage() {
                         <Link2 />
                         Copiar
                       </Button>
+                      {link.payment_url ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(link.payment_url || '', '_blank')}
+                        >
+                          <CreditCard />
+                          Abrir link
+                        </Button>
+                      ) : null}
                       <Button
                         variant="outline"
                         size="sm"
