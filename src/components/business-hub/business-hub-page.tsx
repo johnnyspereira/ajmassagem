@@ -63,6 +63,17 @@ type ProductWithStock = ClinicProduct & {
   cost_price?: number;
 };
 
+type StockMovement = {
+  id: string;
+  product_id: string;
+  movement_type: 'sale' | 'return' | 'adjustment' | 'purchase';
+  quantity: number;
+  stock_after: number;
+  notes: string | null;
+  created_at: string;
+  product?: Pick<ClinicProduct, 'id' | 'name' | 'sku'> | null;
+};
+
 const PROVIDERS = [
   {
     category: 'fiscal',
@@ -134,6 +145,7 @@ export function BusinessHubPage() {
   const [invoiceRequests, setInvoiceRequests] = useState<FinanceInvoiceRequest[]>([]);
   const [paymentLinks, setPaymentLinks] = useState<PaymentLink[]>([]);
   const [products, setProducts] = useState<ProductWithStock[]>([]);
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [stockDrafts, setStockDrafts] = useState<
@@ -144,7 +156,14 @@ export function BusinessHubPage() {
   const loadData = useCallback(async () => {
     if (!accountId) return;
     setLoading(true);
-    const [integrationsRes, salesRes, invoiceRequestsRes, linksRes, productsRes] =
+    const [
+      integrationsRes,
+      salesRes,
+      invoiceRequestsRes,
+      linksRes,
+      productsRes,
+      stockMovementsRes,
+    ] =
       await Promise.all([
         supabase
           .from('business_integration_settings')
@@ -175,6 +194,12 @@ export function BusinessHubPage() {
           .eq('is_active', true)
           .order('stock_quantity', { ascending: true })
           .limit(80),
+        supabase
+          .from('finance_stock_movements')
+          .select('id, product_id, movement_type, quantity, stock_after, notes, created_at, product:clinic_products(id,name,sku)')
+          .eq('account_id', accountId)
+          .order('created_at', { ascending: false })
+          .limit(20),
       ]);
 
     if (integrationsRes.error && integrationsRes.error.code !== '42P01') {
@@ -185,6 +210,7 @@ export function BusinessHubPage() {
     setInvoiceRequests((invoiceRequestsRes.data as FinanceInvoiceRequest[] | null) ?? []);
     setPaymentLinks((linksRes.data as PaymentLink[] | null) ?? []);
     setProducts((productsRes.data as ProductWithStock[] | null) ?? []);
+    setStockMovements((stockMovementsRes.data as StockMovement[] | null) ?? []);
     setLoading(false);
   }, [accountId, supabase]);
 
@@ -817,8 +843,77 @@ export function BusinessHubPage() {
           )}
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Boxes /> Movimentos recentes de stock
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {stockMovements.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-left text-sm">
+                <thead className="text-muted-foreground border-b text-xs">
+                  <tr>
+                    <th className="py-2 font-medium">Produto</th>
+                    <th className="py-2 font-medium">Tipo</th>
+                    <th className="py-2 text-right font-medium">Qtd.</th>
+                    <th className="py-2 text-right font-medium">Stock após</th>
+                    <th className="py-2 font-medium">Notas</th>
+                    <th className="py-2 text-right font-medium">Data</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {stockMovements.map((movement) => (
+                    <tr key={movement.id}>
+                      <td className="py-2">
+                        <p className="font-medium">
+                          {movement.product?.name || 'Produto'}
+                        </p>
+                        <p className="text-muted-foreground text-xs">
+                          {movement.product?.sku || 'Sem SKU'}
+                        </p>
+                      </td>
+                      <td className="py-2">{stockMovementLabel(movement.movement_type)}</td>
+                      <td
+                        className={
+                          Number(movement.quantity) >= 0
+                            ? 'py-2 text-right font-medium text-emerald-600'
+                            : 'py-2 text-right font-medium text-red-600'
+                        }
+                      >
+                        {Number(movement.quantity) >= 0 ? '+' : ''}
+                        {movement.quantity}
+                      </td>
+                      <td className="py-2 text-right">{movement.stock_after}</td>
+                      <td className="text-muted-foreground max-w-[220px] truncate py-2">
+                        {movement.notes || '—'}
+                      </td>
+                      <td className="text-muted-foreground py-2 text-right">
+                        {new Date(movement.created_at).toLocaleString('pt-PT')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState icon={Boxes} text="Ainda não existem movimentos de stock." />
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
+}
+
+function stockMovementLabel(type: StockMovement['movement_type']) {
+  return {
+    sale: 'Venda',
+    return: 'Devolução',
+    adjustment: 'Ajuste',
+    purchase: 'Entrada',
+  }[type];
 }
 
 function KpiCard({
