@@ -1,6 +1,7 @@
 {
   "version": 1,
   "functions": {
+    "/api/finance/invoice-requests/[id]/issue-fiscal": {},
     "/api/finance/payment-links/stripe": {},
     "/api/finance/webhooks/stripe": {},
     "/api/v1/broadcasts": {

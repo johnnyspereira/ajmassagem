@@ -188,6 +188,14 @@
       "namedRegex": "^/api/finance/invoice\\-requests/(?<nxtPid>[^/]+?)/document(?:/)?$"
     },
     {
+      "page": "/api/finance/invoice-requests/[id]/issue-fiscal",
+      "regex": "^/api/finance/invoice\\-requests/([^/]+?)/issue\\-fiscal(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/finance/invoice\\-requests/(?<nxtPid>[^/]+?)/issue\\-fiscal(?:/)?$"
+    },
+    {
       "page": "/api/flows/[id]",
       "regex": "^/api/flows/([^/]+?)(?:/)?$",
       "routeKeys": {
