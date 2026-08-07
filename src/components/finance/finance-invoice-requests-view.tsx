@@ -43,6 +43,7 @@ export function InvoiceRequestsView({
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [issuingFiscalId, setIssuingFiscalId] = useState<string | null>(null);
   const filtered = requests.filter((item) => {
     const term = query.trim().toLowerCase();
     const matchesStatus =
@@ -138,6 +139,33 @@ export function InvoiceRequestsView({
     setSelected(null);
     await onRefresh();
   }
+
+  async function issueFiscal(item: FinanceInvoiceRequest) {
+    if (!canManage) return;
+    setIssuingFiscalId(item.id);
+    const response = await fetch(
+      `/api/finance/invoice-requests/${item.id}/issue-fiscal`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: item.fiscal_provider || undefined }),
+      }
+    );
+    const payload = await response.json().catch(() => ({}));
+    setIssuingFiscalId(null);
+
+    if (!response.ok) {
+      return toast.error(payload.error || 'Não foi possível emitir a fatura fiscal.');
+    }
+
+    toast.success(
+      payload.status === 'issued'
+        ? `Fatura fiscal emitida (${payload.documentNumber}).`
+        : 'Fatura enviada para emissão fiscal.'
+    );
+    await onRefresh();
+  }
+
   return (
     <section className="border-border bg-card overflow-hidden rounded-lg border">
       <div className="border-border flex flex-wrap items-start justify-between gap-3 border-b p-4">
@@ -253,6 +281,15 @@ export function InvoiceRequestsView({
                       ? `Fatura ${item.invoice_number}`
                       : item.admin_notes || 'Aguardando equipa'}
                   </p>
+                  {item.fiscal_provider || item.fiscal_status ? (
+                    <p className="text-muted-foreground mt-1">
+                      Fiscal: {item.fiscal_provider || 'sem fornecedor'} ·{' '}
+                      {item.fiscal_status || 'not_sent'}
+                    </p>
+                  ) : null}
+                  {item.fiscal_error ? (
+                    <p className="mt-1 text-red-500">{item.fiscal_error}</p>
+                  ) : null}
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap justify-end gap-2">
@@ -302,6 +339,19 @@ export function InvoiceRequestsView({
                 )}
                 {['pending', 'processing'].includes(item.status) && (
                   <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!canManage || issuingFiscalId === item.id}
+                      onClick={() => void issueFiscal(item)}
+                    >
+                      {issuingFiscalId === item.id ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        <FileCheck2 />
+                      )}
+                      Emitir fiscal
+                    </Button>
                     <Button
                       size="sm"
                       disabled={!canManage}

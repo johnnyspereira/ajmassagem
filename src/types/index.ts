@@ -680,6 +680,20 @@ export interface FinanceInvoiceRequest {
   invoice_file_name?: string | null;
   invoice_file_size?: number | null;
   invoice_uploaded_at?: string | null;
+  fiscal_provider?: string | null;
+  fiscal_document_id?: string | null;
+  fiscal_document_type?: string | null;
+  fiscal_status?:
+    | 'not_sent'
+    | 'queued'
+    | 'sent'
+    | 'issued'
+    | 'failed'
+    | 'cancelled';
+  fiscal_error?: string | null;
+  fiscal_payload?: Record<string, unknown> | null;
+  fiscal_sent_at?: string | null;
+  fiscal_issued_at?: string | null;
   admin_notes?: string | null;
   handled_by_user_id?: string | null;
   requested_at: string;
