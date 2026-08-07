@@ -166,7 +166,7 @@ function statusClass(status: IntegrationSetting['status']) {
   return 'border-muted bg-muted text-muted-foreground';
 }
 
-export function BusinessHubPage() {
+export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
   const supabase = useMemo(() => createClient(), []);
   const { accountId, user, defaultCurrency, canEditSettings } = useAuth();
 
@@ -696,7 +696,7 @@ export function BusinessHubPage() {
         />
       </div>
 
-      <Card>
+      <Card id="financial-goals" className={focus === 'goals' ? 'ring-primary/30 ring-2' : undefined}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Target /> Metas financeiras

@@ -41,6 +41,7 @@ const pageTitles: Record<string, string> = {
   '/agenda': 'agenda',
   '/contacts': 'contacts',
   '/finance': 'finance',
+  '/business-hub/goals': 'financialGoals',
   '/business-hub': 'businessHub',
   '/reports': 'reports',
   '/referrals': 'referrals',
@@ -73,7 +74,7 @@ const topbarGroupConfigs = [
   },
   {
     labelKey: 'groupCommercial',
-    hrefs: ['/pipelines', '/finance', '/business-hub', '/reports', '/referrals'],
+    hrefs: ['/pipelines', '/finance', '/business-hub', '/business-hub/goals', '/reports', '/referrals'],
   },
   {
     labelKey: 'groupMarketing',
@@ -94,6 +95,7 @@ const headerLabelFallbacks = {
     flows: 'Fluxos',
     aiAgents: 'Agentes de IA',
     businessHub: 'Gestao Zappy',
+    financialGoals: 'Metas financeiras',
     reports: 'Relatórios',
     referrals: 'Indicações',
     groupOperation: 'Operacao',
@@ -106,6 +108,7 @@ const headerLabelFallbacks = {
     flows: 'Flows',
     aiAgents: 'AI Agents',
     businessHub: 'Zappy Hub',
+    financialGoals: 'Financial goals',
     reports: 'Reports',
     referrals: 'Referrals',
     groupOperation: 'Operation',
