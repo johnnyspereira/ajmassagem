@@ -871,6 +871,12 @@
       "namedRegex": "^/business\\-hub(?:/)?$"
     },
     {
+      "page": "/business-hub/goals",
+      "regex": "^/business\\-hub/goals(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/business\\-hub/goals(?:/)?$"
+    },
+    {
       "page": "/contacts",
       "regex": "^/contacts(?:/)?$",
       "routeKeys": {},
