@@ -93,6 +93,20 @@ type FinanceGoal = {
   alert_threshold_percent: number;
   notes: string | null;
   created_at: string;
+  entries?: FinanceGoalEntry[];
+  ledger_amount?: number;
+  entries_count?: number;
+  last_entry_on?: string | null;
+};
+
+type FinanceGoalEntry = {
+  id: string;
+  goal_id: string;
+  entry_type: 'contribution' | 'withdrawal' | 'adjustment';
+  amount: number;
+  occurred_on: string;
+  notes: string | null;
+  created_at: string;
 };
 
 const GOAL_CATEGORIES: Record<FinanceGoal['category'], string> = {
@@ -190,6 +204,9 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
     periodEnd: '',
     notes: '',
   });
+  const [goalEntryDrafts, setGoalEntryDrafts] = useState<
+    Record<string, { amount: string; notes: string }>
+  >({});
   const [stockDrafts, setStockDrafts] = useState<
     Record<string, { quantity: string; reason: string }>
   >({});
@@ -244,8 +261,8 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
           .order('created_at', { ascending: false })
           .limit(20),
         supabase
-          .from('finance_goals')
-          .select('*')
+          .from('finance_goal_progress')
+          .select('*, entries:finance_goal_entries(id,goal_id,entry_type,amount,occurred_on,notes,created_at)')
           .eq('account_id', accountId)
           .eq('status', 'active')
           .order('period_end', { ascending: true, nullsFirst: false })
@@ -286,7 +303,8 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
     (product) => Number(product.stock_quantity ?? 0) <= 0
   );
   const goalsWithProgress = goals.map((goal) => {
-    const current =
+    const ledgerAmount = Number(goal.ledger_amount ?? goal.current_amount ?? 0);
+    const automaticRevenue =
       goal.goal_type === 'revenue_paid'
         ? sales
             .filter((sale) => {
@@ -303,7 +321,11 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
               );
             })
             .reduce((sum, sale) => sum + Number(sale.paid_amount ?? 0), 0)
-        : Number(goal.current_amount ?? 0);
+        : 0;
+    const current =
+      goal.goal_type === 'revenue_paid'
+        ? automaticRevenue + ledgerAmount
+        : ledgerAmount;
     const target = Number(goal.target_amount ?? 0);
     const percent = target > 0 ? Math.min(100, (current / target) * 100) : 0;
     const remaining = Math.max(target - current, 0);
@@ -313,7 +335,16 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
             86_400_000
         )
       : null;
-    return { ...goal, current, target, percent, remaining, daysLeft };
+    return {
+      ...goal,
+      current,
+      target,
+      percent,
+      remaining,
+      daysLeft,
+      automaticRevenue,
+      ledgerAmount,
+    };
   });
   const activeGoalTotal = goalsWithProgress.reduce(
     (sum, goal) => sum + goal.target,
@@ -393,19 +424,29 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
     await loadData();
   }
 
-  async function updateGoalAmount(goal: FinanceGoal, amount: number) {
-    if (!canEditSettings || goal.goal_type !== 'manual') return;
-    if (!Number.isFinite(amount) || amount < 0) {
-      return toast.error('Informe um valor válido.');
+  async function addGoalEntry(goal: FinanceGoal, entryType: 'contribution' | 'withdrawal' = 'contribution') {
+    if (!accountId || !user?.id || !canEditSettings) return;
+    const draft = goalEntryDrafts[goal.id] ?? { amount: '', notes: '' };
+    const amount = Number(draft.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return toast.error('Informe um valor válido para lançar na meta.');
     }
     setBusyAction(`goal:${goal.id}`);
-    const { error } = await supabase
-      .from('finance_goals')
-      .update({ current_amount: amount })
-      .eq('id', goal.id);
+    const { error } = await supabase.from('finance_goal_entries').insert({
+      account_id: accountId,
+      goal_id: goal.id,
+      entry_type: entryType,
+      amount,
+      notes: draft.notes.trim() || null,
+      created_by_user_id: user.id,
+    });
     setBusyAction(null);
     if (error) return toast.error(error.message);
-    toast.success('Meta atualizada.');
+    toast.success(entryType === 'withdrawal' ? 'Retirada registada.' : 'Valor lançado na meta.');
+    setGoalEntryDrafts((current) => ({
+      ...current,
+      [goal.id]: { amount: '', notes: '' },
+    }));
     await loadData();
   }
 
@@ -789,27 +830,70 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
                       <MiniStat label="Falta" value={formatCurrency(goal.remaining, goal.currency)} />
                       <MiniStat label="Prazo" value={goal.period_end ? `${Math.max(goal.daysLeft ?? 0, 0)} dia(s)` : 'Sem prazo'} />
                     </div>
-                    {goal.goal_type === 'manual' ? (
-                      <div className="mt-3 flex gap-2">
-                        <Input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          defaultValue={String(goal.current_amount ?? 0)}
-                          disabled={!canEditSettings || busyAction === `goal:${goal.id}`}
-                          onBlur={(event) => void updateGoalAmount(goal, Number(event.target.value))}
-                        />
-                        <Button variant="outline" disabled={!canEditSettings || busyAction === `goal:${goal.id}`} onClick={() => void completeGoal(goal)}>
-                          <CheckCircle2 /> Concluir
-                        </Button>
+                    {goal.goal_type === 'revenue_paid' ? (
+                      <p className="text-muted-foreground mt-3 text-xs">
+                        Vendas pagas no período: {formatCurrency(goal.automaticRevenue, goal.currency)} · lançamentos manuais: {formatCurrency(goal.ledgerAmount, goal.currency)}
+                      </p>
+                    ) : null}
+                    <div className="mt-3 grid gap-2 md:grid-cols-[140px_1fr_auto_auto_auto]">
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder="Valor"
+                        value={goalEntryDrafts[goal.id]?.amount ?? ''}
+                        disabled={!canEditSettings || busyAction === `goal:${goal.id}`}
+                        onChange={(event) =>
+                          setGoalEntryDrafts((current) => ({
+                            ...current,
+                            [goal.id]: {
+                              amount: event.target.value,
+                              notes: current[goal.id]?.notes ?? '',
+                            },
+                          }))
+                        }
+                      />
+                      <Input
+                        placeholder="Nota: pago, reservado, entrada..."
+                        value={goalEntryDrafts[goal.id]?.notes ?? ''}
+                        disabled={!canEditSettings || busyAction === `goal:${goal.id}`}
+                        onChange={(event) =>
+                          setGoalEntryDrafts((current) => ({
+                            ...current,
+                            [goal.id]: {
+                              amount: current[goal.id]?.amount ?? '',
+                              notes: event.target.value,
+                            },
+                          }))
+                        }
+                      />
+                      <Button variant="outline" disabled={!canEditSettings || busyAction === `goal:${goal.id}`} onClick={() => void addGoalEntry(goal, 'contribution')}>
+                        <Target /> Somar
+                      </Button>
+                      <Button variant="outline" disabled={!canEditSettings || busyAction === `goal:${goal.id}`} onClick={() => void addGoalEntry(goal, 'withdrawal')}>
+                        Retirar
+                      </Button>
+                      <Button variant="outline" disabled={!canEditSettings || busyAction === `goal:${goal.id}`} onClick={() => void completeGoal(goal)}>
+                        <CheckCircle2 /> Concluir
+                      </Button>
+                    </div>
+                    {(goal.entries ?? []).length ? (
+                      <div className="mt-3 rounded-lg border p-2">
+                        <p className="text-muted-foreground mb-1 text-xs font-medium">
+                          Últimos lançamentos
+                        </p>
+                        {(goal.entries ?? []).slice(0, 3).map((entry) => (
+                          <div key={entry.id} className="flex items-center justify-between gap-3 py-1 text-xs">
+                            <span className="truncate">
+                              {entry.notes || (entry.entry_type === 'withdrawal' ? 'Retirada' : 'Entrada')} · {new Date(entry.occurred_on).toLocaleDateString('pt-PT')}
+                            </span>
+                            <strong className={entry.entry_type === 'withdrawal' ? 'text-red-500' : 'text-emerald-600'}>
+                              {entry.entry_type === 'withdrawal' ? '-' : '+'}{formatCurrency(Number(entry.amount), goal.currency)}
+                            </strong>
+                          </div>
+                        ))}
                       </div>
-                    ) : (
-                      <div className="mt-3 flex justify-end">
-                        <Button variant="outline" disabled={!canEditSettings || busyAction === `goal:${goal.id}`} onClick={() => void completeGoal(goal)}>
-                          <CheckCircle2 /> Concluir
-                        </Button>
-                      </div>
-                    )}
+                    ) : null}
                   </div>
                 );
               })}
