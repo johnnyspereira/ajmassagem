@@ -264,10 +264,13 @@ export function BusinessHubPage() {
     await loadData();
   }
 
-  async function createPaymentRequest(sale: FinanceSale) {
-    if (!accountId || !user?.id) return;
+  async function createPaymentRequest(sale: FinanceSale): Promise<PaymentLink | null> {
+    if (!accountId || !user?.id) return null;
     const amount = Number(sale.balance_due ?? 0);
-    if (amount <= 0) return toast.error('Esta venda nÃ£o tem valor pendente.');
+    if (amount <= 0) {
+      toast.error('Esta venda não tem valor pendente.');
+      return null;
+    }
 
     setBusyAction(`payment:${sale.id}`);
     const stripeSetting = providerMap.get('payments:stripe');
@@ -284,34 +287,66 @@ export function BusinessHubPage() {
       setBusyAction(null);
 
       if (!response.ok) {
-        return toast.error(
+        toast.error(
           payload.error ||
-            'NÃ£o foi possÃ­vel criar o checkout Stripe. Verifique as chaves.'
+            'Não foi possível criar o checkout Stripe. Verifique as chaves.'
         );
+        return null;
       }
 
       toast.success('Link Stripe criado. Pode enviar ao cliente por WhatsApp.');
       await loadData();
+      return {
+        ...(payload.paymentLink as PaymentLink),
+        sale,
+      };
+    }
+
+    const { data, error } = await supabase
+      .from('finance_payment_links')
+      .insert({
+        account_id: accountId,
+        sale_id: sale.id,
+        contact_id: sale.contact_id ?? null,
+        provider: 'manual',
+        status: 'pending',
+        amount,
+        currency: sale.currency || defaultCurrency,
+        description: `Cobrança da venda #${sale.sale_number}`,
+        external_reference: `sale-${sale.id}`,
+        created_by_user_id: user.id,
+      })
+      .select('*')
+      .single();
+    setBusyAction(null);
+
+    if (error || !data) {
+      toast.error(error?.message || 'Não foi possível criar a cobrança.');
+      return null;
+    }
+
+    toast.success('Cobrança criada. Pode ser conciliada quando o cliente pagar.');
+    await loadData();
+    return {
+      ...(data as PaymentLink),
+      sale,
+    };
+  }
+
+  async function createAndSendPaymentRequest(sale: FinanceSale) {
+    const contactId = sale.contact_id;
+    if (!contactId) {
+      return toast.error('Esta venda não tem cliente associado.');
+    }
+
+    setBusyAction(`payment-send:${sale.id}`);
+    const link = await createPaymentRequest(sale);
+    if (!link) {
+      setBusyAction(null);
       return;
     }
 
-    const { error } = await supabase.from('finance_payment_links').insert({
-      account_id: accountId,
-      sale_id: sale.id,
-      contact_id: sale.contact_id ?? null,
-      provider: 'manual',
-      status: 'pending',
-      amount,
-      currency: sale.currency || defaultCurrency,
-      description: `CobranÃ§a da venda #${sale.sale_number}`,
-      external_reference: `sale-${sale.id}`,
-      created_by_user_id: user.id,
-    });
-    setBusyAction(null);
-
-    if (error) return toast.error(error.message);
-    toast.success('CobranÃ§a criada. Pode ser conciliada quando o cliente pagar.');
-    await loadData();
+    await sendPaymentWhatsApp(link, `payment-send:${sale.id}`);
   }
   async function createInvoiceRequest(sale: FinanceSale) {
     if (!accountId || !user?.id) return;
@@ -393,13 +428,16 @@ export function BusinessHubPage() {
     ].join('\n');
   }
 
-  async function sendPaymentWhatsApp(link: PaymentLink) {
+  async function sendPaymentWhatsApp(
+    link: PaymentLink,
+    busyKey = `send-payment:${link.id}`
+  ) {
     const contactId = link.contact_id || link.sale?.contact_id;
     if (!contactId) {
       return toast.error('Esta cobrança não tem cliente associado.');
     }
 
-    setBusyAction(`send-payment:${link.id}`);
+    setBusyAction(busyKey);
     const response = await fetch('/api/whatsapp/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -417,7 +455,6 @@ export function BusinessHubPage() {
     }
     toast.success('Cobrança enviada pelo WhatsApp.');
   }
-
   async function confirmPaymentLink(link: PaymentLink) {
     if (!link.sale_id) return toast.error('Esta cobrança não está associada a uma venda.');
     const method = paymentMethodDrafts[link.id] || 'mb_way';
@@ -665,19 +702,33 @@ export function BusinessHubPage() {
                         {formatCurrency(Number(sale.balance_due), sale.currency)} por receber
                       </p>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={busyAction === `payment:${sale.id}`}
-                      onClick={() => createPaymentRequest(sale)}
-                    >
-                      {busyAction === `payment:${sale.id}` ? (
-                        <Loader2 className="animate-spin" />
-                      ) : (
-                        <Link2 />
-                      )}
-                      Criar cobrança
-                    </Button>
+                    <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={busyAction === `payment:${sale.id}`}
+                        onClick={() => void createPaymentRequest(sale)}
+                      >
+                        {busyAction === `payment:${sale.id}` ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          <Link2 />
+                        )}
+                        Criar link
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={busyAction === `payment-send:${sale.id}`}
+                        onClick={() => void createAndSendPaymentRequest(sale)}
+                      >
+                        {busyAction === `payment-send:${sale.id}` ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          <MessageSquare />
+                        )}
+                        Criar e enviar
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
