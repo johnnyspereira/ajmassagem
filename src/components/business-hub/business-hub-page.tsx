@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   BadgeCheck,
   Banknote,
+  BarChart3,
   Boxes,
   Building2,
   CheckCircle2,
@@ -17,6 +18,7 @@ import {
   RefreshCw,
   Settings2,
   Sparkles,
+  Target,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -74,6 +76,34 @@ type StockMovement = {
   notes: string | null;
   created_at: string;
   product?: Pick<ClinicProduct, 'id' | 'name' | 'sku'> | null;
+};
+
+type FinanceGoal = {
+  id: string;
+  account_id: string;
+  title: string;
+  category: 'revenue' | 'rent' | 'car' | 'salary' | 'supplier' | 'tax' | 'savings' | 'other';
+  goal_type: 'manual' | 'revenue_paid';
+  target_amount: number;
+  current_amount: number;
+  currency: string;
+  period_start: string;
+  period_end: string | null;
+  status: 'active' | 'paused' | 'completed' | 'cancelled';
+  alert_threshold_percent: number;
+  notes: string | null;
+  created_at: string;
+};
+
+const GOAL_CATEGORIES: Record<FinanceGoal['category'], string> = {
+  revenue: 'Receita',
+  rent: 'Aluguel',
+  car: 'Carro',
+  salary: 'Salários',
+  supplier: 'Fornecedores',
+  tax: 'Impostos',
+  savings: 'Reserva',
+  other: 'Outro',
 };
 
 const PROVIDERS = [
@@ -148,8 +178,18 @@ export function BusinessHubPage() {
   const [paymentLinks, setPaymentLinks] = useState<PaymentLink[]>([]);
   const [products, setProducts] = useState<ProductWithStock[]>([]);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
+  const [goals, setGoals] = useState<FinanceGoal[]>([]);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [goalDraft, setGoalDraft] = useState({
+    title: '',
+    category: 'revenue' as FinanceGoal['category'],
+    goalType: 'revenue_paid' as FinanceGoal['goal_type'],
+    targetAmount: '',
+    currentAmount: '',
+    periodEnd: '',
+    notes: '',
+  });
   const [stockDrafts, setStockDrafts] = useState<
     Record<string, { quantity: string; reason: string }>
   >({});
@@ -165,6 +205,7 @@ export function BusinessHubPage() {
       linksRes,
       productsRes,
       stockMovementsRes,
+      goalsRes,
     ] =
       await Promise.all([
         supabase
@@ -202,6 +243,14 @@ export function BusinessHubPage() {
           .eq('account_id', accountId)
           .order('created_at', { ascending: false })
           .limit(20),
+        supabase
+          .from('finance_goals')
+          .select('*')
+          .eq('account_id', accountId)
+          .eq('status', 'active')
+          .order('period_end', { ascending: true, nullsFirst: false })
+          .order('created_at', { ascending: false })
+          .limit(20),
       ]);
 
     if (integrationsRes.error && integrationsRes.error.code !== '42P01') {
@@ -213,6 +262,7 @@ export function BusinessHubPage() {
     setPaymentLinks((linksRes.data as PaymentLink[] | null) ?? []);
     setProducts((productsRes.data as ProductWithStock[] | null) ?? []);
     setStockMovements((stockMovementsRes.data as StockMovement[] | null) ?? []);
+    setGoals((goalsRes.data as FinanceGoal[] | null) ?? []);
     setLoading(false);
   }, [accountId, supabase]);
 
@@ -234,6 +284,44 @@ export function BusinessHubPage() {
   );
   const outOfStockProducts = products.filter(
     (product) => Number(product.stock_quantity ?? 0) <= 0
+  );
+  const goalsWithProgress = goals.map((goal) => {
+    const current =
+      goal.goal_type === 'revenue_paid'
+        ? sales
+            .filter((sale) => {
+              const paidAt = sale.completed_at || sale.created_at;
+              const timestamp = new Date(paidAt).getTime();
+              const start = new Date(goal.period_start).getTime();
+              const end = goal.period_end
+                ? new Date(`${goal.period_end}T23:59:59`).getTime()
+                : Number.POSITIVE_INFINITY;
+              return (
+                sale.status === 'paid' &&
+                timestamp >= start &&
+                timestamp <= end
+              );
+            })
+            .reduce((sum, sale) => sum + Number(sale.paid_amount ?? 0), 0)
+        : Number(goal.current_amount ?? 0);
+    const target = Number(goal.target_amount ?? 0);
+    const percent = target > 0 ? Math.min(100, (current / target) * 100) : 0;
+    const remaining = Math.max(target - current, 0);
+    const daysLeft = goal.period_end
+      ? Math.ceil(
+          (new Date(`${goal.period_end}T23:59:59`).getTime() - Date.now()) /
+            86_400_000
+        )
+      : null;
+    return { ...goal, current, target, percent, remaining, daysLeft };
+  });
+  const activeGoalTotal = goalsWithProgress.reduce(
+    (sum, goal) => sum + goal.target,
+    0
+  );
+  const activeGoalDone = goalsWithProgress.reduce(
+    (sum, goal) => sum + goal.current,
+    0
   );
 
   async function configureProvider(
@@ -261,6 +349,76 @@ export function BusinessHubPage() {
     setSavingProvider(null);
     if (error) return toast.error(error.message);
     toast.success(`${displayName} ficou marcado como configurado.`);
+    await loadData();
+  }
+
+  async function createGoal() {
+    if (!accountId || !user?.id || !canEditSettings) return;
+    const targetAmount = Number(goalDraft.targetAmount);
+    const currentAmount = Number(goalDraft.currentAmount || 0);
+    if (!goalDraft.title.trim() || !Number.isFinite(targetAmount) || targetAmount <= 0) {
+      return toast.error('Informe o nome da meta e um valor alvo válido.');
+    }
+
+    setBusyAction('goal:create');
+    const { error } = await supabase.from('finance_goals').insert({
+      account_id: accountId,
+      title: goalDraft.title.trim(),
+      category: goalDraft.category,
+      goal_type: goalDraft.goalType,
+      target_amount: targetAmount,
+      current_amount:
+        goalDraft.goalType === 'manual' && Number.isFinite(currentAmount)
+          ? Math.max(currentAmount, 0)
+          : 0,
+      currency: defaultCurrency,
+      period_start: new Date().toISOString().slice(0, 10),
+      period_end: goalDraft.periodEnd || null,
+      notes: goalDraft.notes.trim() || null,
+      created_by_user_id: user.id,
+    });
+    setBusyAction(null);
+
+    if (error) return toast.error(error.message);
+    toast.success('Meta criada.');
+    setGoalDraft({
+      title: '',
+      category: 'revenue',
+      goalType: 'revenue_paid',
+      targetAmount: '',
+      currentAmount: '',
+      periodEnd: '',
+      notes: '',
+    });
+    await loadData();
+  }
+
+  async function updateGoalAmount(goal: FinanceGoal, amount: number) {
+    if (!canEditSettings || goal.goal_type !== 'manual') return;
+    if (!Number.isFinite(amount) || amount < 0) {
+      return toast.error('Informe um valor válido.');
+    }
+    setBusyAction(`goal:${goal.id}`);
+    const { error } = await supabase
+      .from('finance_goals')
+      .update({ current_amount: amount })
+      .eq('id', goal.id);
+    setBusyAction(null);
+    if (error) return toast.error(error.message);
+    toast.success('Meta atualizada.');
+    await loadData();
+  }
+
+  async function completeGoal(goal: FinanceGoal) {
+    if (!canEditSettings) return;
+    setBusyAction(`goal:${goal.id}`);
+    const { error } = await supabase
+      .from('finance_goals')
+      .update({ status: 'completed' })
+      .eq('id', goal.id);
+    setBusyAction(null);
+    if (error) return toast.error(error.message);
+    toast.success('Meta concluída.');
     await loadData();
   }
 
@@ -538,6 +696,129 @@ export function BusinessHubPage() {
         />
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target /> Metas financeiras
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <MiniStat label="Alvo total" value={formatCurrency(activeGoalTotal, defaultCurrency)} />
+            <MiniStat label="Realizado" value={formatCurrency(activeGoalDone, defaultCurrency)} />
+            <MiniStat label="Falta" value={formatCurrency(Math.max(activeGoalTotal - activeGoalDone, 0), defaultCurrency)} />
+            <MiniStat label="Metas ativas" value={String(goalsWithProgress.length)} />
+          </div>
+
+          <div className="grid gap-3 rounded-xl border p-3 lg:grid-cols-[1.2fr_150px_150px_140px_1fr_auto]">
+            <Input
+              placeholder="Ex.: Aluguel, pagar carro, meta mensal..."
+              value={goalDraft.title}
+              disabled={!canEditSettings || busyAction === 'goal:create'}
+              onChange={(event) => setGoalDraft((current) => ({ ...current, title: event.target.value }))}
+            />
+            <select
+              value={goalDraft.category}
+              disabled={!canEditSettings || busyAction === 'goal:create'}
+              className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+              onChange={(event) => {
+                const category = event.target.value as FinanceGoal['category'];
+                setGoalDraft((current) => ({
+                  ...current,
+                  category,
+                  goalType: category === 'revenue' ? 'revenue_paid' : 'manual',
+                }));
+              }}
+            >
+              {Object.entries(GOAL_CATEGORIES).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder="Valor alvo"
+              value={goalDraft.targetAmount}
+              disabled={!canEditSettings || busyAction === 'goal:create'}
+              onChange={(event) => setGoalDraft((current) => ({ ...current, targetAmount: event.target.value }))}
+            />
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder="Atual"
+              value={goalDraft.currentAmount}
+              disabled={!canEditSettings || busyAction === 'goal:create' || goalDraft.goalType === 'revenue_paid'}
+              onChange={(event) => setGoalDraft((current) => ({ ...current, currentAmount: event.target.value }))}
+            />
+            <Input
+              type="date"
+              value={goalDraft.periodEnd}
+              disabled={!canEditSettings || busyAction === 'goal:create'}
+              onChange={(event) => setGoalDraft((current) => ({ ...current, periodEnd: event.target.value }))}
+            />
+            <Button disabled={!canEditSettings || busyAction === 'goal:create'} onClick={() => void createGoal()}>
+              {busyAction === 'goal:create' ? <Loader2 className="animate-spin" /> : <Target />}
+              Criar meta
+            </Button>
+          </div>
+
+          {goalsWithProgress.length ? (
+            <div className="grid gap-3 xl:grid-cols-2">
+              {goalsWithProgress.map((goal) => {
+                const behind = goal.percent < Number(goal.alert_threshold_percent ?? 75) && (goal.daysLeft === null || goal.daysLeft <= 7);
+                return (
+                  <div key={goal.id} className="rounded-xl border p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold">{goal.title}</p>
+                        <p className="text-muted-foreground text-sm">
+                          {GOAL_CATEGORIES[goal.category]} · {goal.goal_type === 'revenue_paid' ? 'automática por vendas pagas' : 'manual'}
+                        </p>
+                      </div>
+                      <Badge variant={behind ? 'destructive' : 'secondary'}>
+                        {behind ? 'Atenção' : `${Math.round(goal.percent)}%`}
+                      </Badge>
+                    </div>
+                    <div className="bg-muted mt-4 h-3 overflow-hidden rounded-full">
+                      <div className={behind ? 'h-full bg-red-500' : 'bg-primary h-full'} style={{ width: `${Math.min(goal.percent, 100)}%` }} />
+                    </div>
+                    <div className="mt-3 grid gap-2 text-sm md:grid-cols-3">
+                      <MiniStat label="Realizado" value={formatCurrency(goal.current, goal.currency)} />
+                      <MiniStat label="Falta" value={formatCurrency(goal.remaining, goal.currency)} />
+                      <MiniStat label="Prazo" value={goal.period_end ? `${Math.max(goal.daysLeft ?? 0, 0)} dia(s)` : 'Sem prazo'} />
+                    </div>
+                    {goal.goal_type === 'manual' ? (
+                      <div className="mt-3 flex gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          defaultValue={String(goal.current_amount ?? 0)}
+                          disabled={!canEditSettings || busyAction === `goal:${goal.id}`}
+                          onBlur={(event) => void updateGoalAmount(goal, Number(event.target.value))}
+                        />
+                        <Button variant="outline" disabled={!canEditSettings || busyAction === `goal:${goal.id}`} onClick={() => void completeGoal(goal)}>
+                          <CheckCircle2 /> Concluir
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="mt-3 flex justify-end">
+                        <Button variant="outline" disabled={!canEditSettings || busyAction === `goal:${goal.id}`} onClick={() => void completeGoal(goal)}>
+                          <CheckCircle2 /> Concluir
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState icon={BarChart3} text="Ainda não existem metas. Crie uma pauta como aluguel, carro ou receita mensal." />
+          )}
+        </CardContent>
+      </Card>
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <Card>
           <CardHeader>
