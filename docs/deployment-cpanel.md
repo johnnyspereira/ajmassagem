@@ -122,10 +122,11 @@ curl -fsS -H "x-cron-secret: SEU_SEGREDO" https://crm.seudominio.pt/api/automati
 curl -fsS -H "x-cron-secret: SEU_SEGREDO" https://crm.seudominio.pt/api/flows/cron
 curl -fsS -H "x-cron-secret: SEU_SEGREDO" https://crm.seudominio.pt/api/clinic/appointments/reminders
 curl -fsS -H "x-cron-secret: SEU_SEGREDO" https://crm.seudominio.pt/api/whatsapp/scheduled/process
+curl -fsS -H "x-cron-secret: SEU_SEGREDO" https://crm.seudominio.pt/api/finance/reminders/process
 ```
 
 Automacoes, fluxos e mensagens agendadas podem rodar a cada minuto. Lembretes
-de agenda podem rodar a cada 5 minutos.
+de agenda e financeiros podem rodar a cada 5 minutos.
 
 ## 7. Atualizar pelo Git
 

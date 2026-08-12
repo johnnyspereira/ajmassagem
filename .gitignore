@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+**/node_modules/
 /baileys_auth
 /baileys_auth_standard
 /baileys_auth_test

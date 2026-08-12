@@ -40,6 +40,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { ContactSearchSelect } from '@/components/contacts/contact-search-select';
+import { FinanceReminderSettings } from '@/components/finance/finance-reminder-settings';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
 import { createClient } from '@/lib/supabase/client';
@@ -652,6 +653,7 @@ export function OwnerTreasury() {
           </Button>
         </div>
       </div>
+      {accountId ? <FinanceReminderSettings accountId={accountId} /> : null}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <Metric
           label="A pagar"
