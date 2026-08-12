@@ -18,6 +18,8 @@ type Settings = {
   cash_open_time: string;
   cash_close_time: string;
   close_repeat_minutes: number;
+  whatsapp_enabled: boolean;
+  whatsapp_phone: string;
 };
 const defaults: Settings = {
   payables_enabled: true,
@@ -28,6 +30,8 @@ const defaults: Settings = {
   cash_open_time: '09:00',
   cash_close_time: '22:00',
   close_repeat_minutes: 30,
+  whatsapp_enabled: true,
+  whatsapp_phone: '+351935864343',
 };
 
 export function FinanceReminderSettings({ accountId }: { accountId: string }) {
@@ -62,6 +66,13 @@ export function FinanceReminderSettings({ accountId }: { accountId: string }) {
   async function save() {
     if (!value.payable_days_before.length)
       return toast.error('Escolha pelo menos um aviso antecipado.');
+    if (
+      value.whatsapp_enabled &&
+      !/^\+?[1-9]\d{6,14}$/.test(value.whatsapp_phone)
+    )
+      return toast.error(
+        'Informe o WhatsApp no formato internacional, por exemplo +351935864343.'
+      );
     setSaving(true);
     const { error } = await supabase
       .from('finance_reminder_settings')
@@ -223,7 +234,32 @@ export function FinanceReminderSettings({ accountId }: { accountId: string }) {
             caixa fechado.
           </p>
         </section>
-        <div className="flex justify-end xl:col-span-2">
+        <div className="flex flex-wrap items-center gap-3 xl:col-span-2">
+          <div className="bg-background/70 flex min-w-0 flex-1 items-center gap-3 rounded-xl border p-4">
+            <Switch
+              checked={value.whatsapp_enabled}
+              onCheckedChange={(checked) =>
+                setValue({ ...value, whatsapp_enabled: checked })
+              }
+            />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">Enviar tambÃ©m por WhatsApp</p>
+              <p className="text-muted-foreground text-xs">
+                Usa a sessÃ£o conectada e regista cada entrega.
+              </p>
+            </div>
+            <Input
+              className="max-w-52"
+              placeholder="+351935864343"
+              value={value.whatsapp_phone}
+              onChange={(event) =>
+                setValue({
+                  ...value,
+                  whatsapp_phone: event.target.value.replace(/[\s()-]/g, ''),
+                })
+              }
+            />
+          </div>
           <Button onClick={save} disabled={saving}>
             {saving ? <Loader2 className="animate-spin" /> : <Save />}Guardar e
             ativar
