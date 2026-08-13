@@ -49,6 +49,7 @@ const pageTitles: Record<string, string> = {
   '/broadcasts': 'broadcasts',
   '/segments': 'segments',
   '/scheduled-messages': 'scheduledMessages',
+  '/social-planner': 'socialPlanner',
   '/library': 'library',
   '/automations': 'automations',
   '/settings': 'settings',
@@ -78,7 +79,7 @@ const topbarGroupConfigs = [
   },
   {
     labelKey: 'groupMarketing',
-    hrefs: ['/broadcasts', '/segments', '/scheduled-messages', '/library'],
+    hrefs: ['/broadcasts', '/segments', '/scheduled-messages', '/social-planner', '/library'],
   },
   {
     labelKey: 'groupAutomation',
@@ -96,6 +97,7 @@ const headerLabelFallbacks = {
     aiAgents: 'Agentes de IA',
     businessHub: 'Gestao Zappy',
     financialGoals: 'Metas financeiras',
+    socialPlanner: 'Publicações',
     reports: 'Relatórios',
     referrals: 'Indicações',
     groupOperation: 'Operacao',
@@ -109,6 +111,7 @@ const headerLabelFallbacks = {
     aiAgents: 'AI Agents',
     businessHub: 'Zappy Hub',
     financialGoals: 'Financial goals',
+    socialPlanner: 'Social planner',
     reports: 'Reports',
     referrals: 'Referrals',
     groupOperation: 'Operation',

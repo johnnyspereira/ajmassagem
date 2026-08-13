@@ -4,6 +4,7 @@ import {
   BarChart3,
   Bot,
   CalendarDays,
+  Clapperboard,
   GitBranch,
   LibraryBig,
   LayoutDashboard,
@@ -102,6 +103,12 @@ export const navItems: NavItem[] = [
     labelKey: 'scheduledMessages',
     icon: Send,
     newBadge: { key: 'scheduled-whatsapp', ...TODAY_NEW_BADGE },
+  },
+  {
+    href: '/social-planner',
+    labelKey: 'socialPlanner',
+    icon: Clapperboard,
+    newBadge: { key: 'social-planner', ...TODAY_NEW_BADGE },
   },
   {
     href: '/library',

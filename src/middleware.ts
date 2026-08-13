@@ -85,6 +85,7 @@ export async function middleware(request: NextRequest) {
     '/reports',
     '/referrals',
     '/broadcasts',
+    '/social-planner',
     '/automations',
     '/settings',
     '/website',

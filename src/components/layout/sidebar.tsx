@@ -15,6 +15,7 @@ import {
   CircleHelp,
   Globe2,
   CalendarDays,
+  Clapperboard,
   Crown,
   GitBranch,
   HeartHandshake,
@@ -168,6 +169,12 @@ const navItems: NavItem[] = [
     newBadge: { key: 'scheduled-whatsapp', ...TODAY_NEW_BADGE },
   },
   {
+    href: '/social-planner',
+    labelKey: 'socialPlanner',
+    icon: Clapperboard,
+    newBadge: { key: 'social-planner', ...TODAY_NEW_BADGE },
+  },
+  {
     href: '/library',
     labelKey: 'library',
     icon: LibraryBig,
@@ -203,7 +210,7 @@ const navSections = [
   },
   {
     labelKey: 'groupMarketing',
-    hrefs: ['/broadcasts', '/segments', '/scheduled-messages', '/library'],
+    hrefs: ['/broadcasts', '/segments', '/scheduled-messages', '/social-planner', '/library'],
   },
   {
     labelKey: 'groupAutomation',

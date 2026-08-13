@@ -18,6 +18,7 @@ const ROUTE_TITLE_KEYS: Array<[string, string]> = [
   ['/referrals', 'referrals'],
   ['/pipelines', 'pipelines'],
   ['/broadcasts', 'broadcasts'],
+  ['/social-planner', 'socialPlanner'],
   ['/automations', 'automations'],
   ['/flows', 'flows'],
   ['/agents', 'aiAgents'],
