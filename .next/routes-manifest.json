@@ -1015,6 +1015,12 @@
       "namedRegex": "^/site(?:/)?$"
     },
     {
+      "page": "/social-planner",
+      "regex": "^/social\\-planner(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/social\\-planner(?:/)?$"
+    },
+    {
       "page": "/support",
       "regex": "^/support(?:/)?$",
       "routeKeys": {},
