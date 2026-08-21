@@ -655,6 +655,12 @@
       "namedRegex": "^/api/finance/reminders/process(?:/)?$"
     },
     {
+      "page": "/api/finance/treasury/import",
+      "regex": "^/api/finance/treasury/import(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/finance/treasury/import(?:/)?$"
+    },
+    {
       "page": "/api/finance/webhooks/stripe",
       "regex": "^/api/finance/webhooks/stripe(?:/)?$",
       "routeKeys": {},

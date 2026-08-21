@@ -3,6 +3,7 @@
   "functions": {
     "/api/finance/invoice-requests/[id]/issue-fiscal": {},
     "/api/finance/payment-links/stripe": {},
+    "/api/finance/treasury/import": {},
     "/api/finance/webhooks/stripe": {},
     "/api/v1/broadcasts": {
       "maxDuration": 60
