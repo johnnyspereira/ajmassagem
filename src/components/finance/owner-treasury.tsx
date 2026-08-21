@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  FileUp,
   ExternalLink,
   Filter,
   Loader2,
@@ -41,6 +42,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { ContactSearchSelect } from '@/components/contacts/contact-search-select';
 import { FinanceReminderSettings } from '@/components/finance/finance-reminder-settings';
+import { TreasuryImportDialog } from '@/components/finance/treasury-import-dialog';
+import type { TreasuryImportRow } from '@/lib/finance/import-types';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
 import { createClient } from '@/lib/supabase/client';
@@ -193,6 +196,7 @@ export function OwnerTreasury() {
   const [saving, setSaving] = useState(false);
   const [schemaMissing, setSchemaMissing] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<{
     kind: Draft['kind'];
     id: string;
@@ -615,6 +619,61 @@ export function OwnerTreasury() {
     URL.revokeObjectURL(url);
   }
 
+  async function confirmImport(rows: TreasuryImportRow[], filename: string) {
+    if (!accountId || !user) return;
+    const payablesToInsert = rows
+      .filter((row) => row.kind === 'payable')
+      .map((row) => ({
+        account_id: accountId,
+        description: row.description.trim(),
+        supplier: row.counterparty.trim() || null,
+        category: row.category || 'Outros',
+        amount: row.amount,
+        currency: row.currency || defaultCurrency,
+        due_date: row.date,
+        status: row.settled ? 'paid' : 'pending',
+        paid_at: row.settled ? `${row.date}T12:00:00Z` : null,
+        payment_method: row.settled ? 'bank_transfer' : null,
+        notes: `Importado automaticamente de ${filename}. Confiança: ${Math.round(row.confidence * 100)}%.`,
+        document_reference: row.reference || filename,
+        created_by_user_id: user.id,
+        source: 'manual',
+      }));
+    const receivablesToInsert = rows
+      .filter((row) => row.kind === 'receivable')
+      .map((row) => ({
+        account_id: accountId,
+        description: row.description.trim(),
+        amount: row.amount,
+        currency: row.currency || defaultCurrency,
+        due_date: row.date,
+        status: row.settled ? 'received' : 'pending',
+        received_at: row.settled ? `${row.date}T12:00:00Z` : null,
+        payment_method: row.settled ? 'bank_transfer' : null,
+        notes: `Importado automaticamente de ${filename}. Entidade: ${row.counterparty || 'não identificada'}. Confiança: ${Math.round(row.confidence * 100)}%.`,
+        document_reference: row.reference || filename,
+        created_by_user_id: user.id,
+        source: 'manual',
+      }));
+    const [payableResult, receivableResult] = await Promise.all([
+      payablesToInsert.length
+        ? supabase.from('finance_payables').insert(payablesToInsert)
+        : Promise.resolve({ error: null }),
+      receivablesToInsert.length
+        ? supabase
+            .from('finance_receivable_schedules')
+            .insert(receivablesToInsert)
+        : Promise.resolve({ error: null }),
+    ]);
+    const error = payableResult.error || receivableResult.error;
+    if (error) {
+      toast.error(error.message);
+      throw error;
+    }
+    toast.success(`${rows.length} movimento(s) importado(s).`);
+    await load();
+  }
+
   if (!isOwner) return null;
   if (loading)
     return (
@@ -645,6 +704,9 @@ export function OwnerTreasury() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <FileUp /> Importar documento
+          </Button>
           <Button variant="outline" onClick={downloadReport}>
             <Download /> Relatório CSV
           </Button>
@@ -653,6 +715,25 @@ export function OwnerTreasury() {
           </Button>
         </div>
       </div>
+      <TreasuryImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        existing={[
+          ...payables.map((item) => ({
+            kind: 'payable' as const,
+            amount: Number(item.amount),
+            date: item.due_date,
+            description: item.description,
+          })),
+          ...receivables.map((item) => ({
+            kind: 'receivable' as const,
+            amount: Number(item.amount),
+            date: item.due_date,
+            description: item.description,
+          })),
+        ]}
+        onConfirm={confirmImport}
+      />
       {accountId ? <FinanceReminderSettings accountId={accountId} /> : null}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <Metric
