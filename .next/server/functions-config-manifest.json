@@ -1,16 +1,29 @@
 {
   "version": 1,
   "functions": {
+    "/_middleware": {
+      "runtime": "nodejs",
+      "matchers": [
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?(?:\\/((?!_next\\/static|_next\\/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*))(\\.json|\\.rsc|\\.segments\\/.+\\.segment\\.rsc)?[\\/#\\?]?$",
+          "originalSource": "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"
+        }
+      ]
+    },
     "/api/finance/invoice-requests/[id]/issue-fiscal": {},
     "/api/finance/payment-links/stripe": {},
     "/api/finance/treasury/import": {},
     "/api/finance/webhooks/stripe": {},
+    "/api/mysql/query": {},
+    "/api/mysql/rpc": {},
+    "/api/storage/[bucket]": {},
     "/api/v1/broadcasts": {
       "maxDuration": 60
     },
     "/api/whatsapp/webhook": {
       "maxDuration": 60
     },
-    "/icon": {}
+    "/icon": {},
+    "/uploads/[bucket]/[...path]": {}
   }
 }

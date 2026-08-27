@@ -70,7 +70,7 @@
         },
         {
           "key": "Content-Security-Policy-Report-Only",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https://*.supabase.co; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         }
       ],
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
@@ -244,6 +244,14 @@
       "namedRegex": "^/api/portal/(?<nxtPslug>[^/]+?)/appointments(?:/)?$"
     },
     {
+      "page": "/api/portal/[slug]/campaigns",
+      "regex": "^/api/portal/([^/]+?)/campaigns(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/api/portal/(?<nxtPslug>[^/]+?)/campaigns(?:/)?$"
+    },
+    {
       "page": "/api/portal/[slug]/claim",
       "regex": "^/api/portal/([^/]+?)/claim(?:/)?$",
       "routeKeys": {
@@ -355,6 +363,14 @@
         "nxtPslug": "nxtPslug"
       },
       "namedRegex": "^/api/site/(?<nxtPslug>[^/]+?)/contact(?:/)?$"
+    },
+    {
+      "page": "/api/storage/[bucket]",
+      "regex": "^/api/storage/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPbucket": "nxtPbucket"
+      },
+      "namedRegex": "^/api/storage/(?<nxtPbucket>[^/]+?)(?:/)?$"
     },
     {
       "page": "/api/v1/broadcasts/[id]",
@@ -501,6 +517,15 @@
       "namedRegex": "^/site/(?<nxtPslug>[^/]+?)(?:/)?$"
     },
     {
+      "page": "/uploads/[bucket]/[...path]",
+      "regex": "^/uploads/([^/]+?)/(.+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPbucket": "nxtPbucket",
+        "nxtPpath": "nxtPpath"
+      },
+      "namedRegex": "^/uploads/(?<nxtPbucket>[^/]+?)/(?<nxtPpath>.+?)(?:/)?$"
+    },
+    {
       "page": "/voucher/[id]",
       "regex": "^/voucher/([^/]+?)(?:/)?$",
       "routeKeys": {
@@ -619,6 +644,42 @@
       "namedRegex": "^/api/ai/usage(?:/)?$"
     },
     {
+      "page": "/api/auth/login",
+      "regex": "^/api/auth/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/login(?:/)?$"
+    },
+    {
+      "page": "/api/auth/logout",
+      "regex": "^/api/auth/logout(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/logout(?:/)?$"
+    },
+    {
+      "page": "/api/auth/password/reset",
+      "regex": "^/api/auth/password/reset(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/password/reset(?:/)?$"
+    },
+    {
+      "page": "/api/auth/session",
+      "regex": "^/api/auth/session(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/session(?:/)?$"
+    },
+    {
+      "page": "/api/auth/signup",
+      "regex": "^/api/auth/signup(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/signup(?:/)?$"
+    },
+    {
+      "page": "/api/auth/user",
+      "regex": "^/api/auth/user(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/user(?:/)?$"
+    },
+    {
       "page": "/api/automations",
       "regex": "^/api/automations(?:/)?$",
       "routeKeys": {},
@@ -701,6 +762,18 @@
       "regex": "^/api/message\\-library/usage(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/message\\-library/usage(?:/)?$"
+    },
+    {
+      "page": "/api/mysql/query",
+      "regex": "^/api/mysql/query(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/mysql/query(?:/)?$"
+    },
+    {
+      "page": "/api/mysql/rpc",
+      "regex": "^/api/mysql/rpc(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/mysql/rpc(?:/)?$"
     },
     {
       "page": "/api/push/dispatch",
@@ -965,6 +1038,12 @@
       "regex": "^/pipelines(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/pipelines(?:/)?$"
+    },
+    {
+      "page": "/portal-campaigns",
+      "regex": "^/portal\\-campaigns(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/portal\\-campaigns(?:/)?$"
     },
     {
       "page": "/referrals",

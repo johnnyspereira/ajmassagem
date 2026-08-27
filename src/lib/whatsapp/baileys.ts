@@ -337,13 +337,6 @@ async function inferSingleAccountSessionContext(): Promise<{
   userId: string;
 } | null> {
   try {
-    if (
-      !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-      !process.env.SUPABASE_SERVICE_ROLE_KEY
-    ) {
-      return null;
-    }
-
     const db = supabaseAdmin();
     const { data, error } = await db
       .from('profiles')
