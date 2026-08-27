@@ -9,6 +9,7 @@ import {
   LibraryBig,
   LayoutDashboard,
   MessageSquare,
+  Megaphone,
   LifeBuoy,
   CircleHelp,
   Globe2,
@@ -109,6 +110,12 @@ export const navItems: NavItem[] = [
     labelKey: 'socialPlanner',
     icon: Clapperboard,
     newBadge: { key: 'social-planner', ...TODAY_NEW_BADGE },
+  },
+  {
+    href: '/portal-campaigns',
+    labelKey: 'portalCampaigns',
+    icon: Megaphone,
+    newBadge: { key: 'portal-campaigns', ...TODAY_NEW_BADGE },
   },
   {
     href: '/library',

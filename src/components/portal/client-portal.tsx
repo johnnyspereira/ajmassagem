@@ -40,6 +40,7 @@ import {
   UserPlus,
   UserRound,
   WalletCards,
+  Megaphone,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -69,6 +70,7 @@ type PortalTab =
   | 'appointments'
   | 'anamnesis'
   | 'benefits'
+  | 'campaigns'
   | 'referrals'
   | 'finance'
   | 'support'
@@ -380,6 +382,21 @@ type PortalData = {
       }>;
     }>;
   };
+  campaigns: Array<{
+    id: string;
+    title: string;
+    summary: string;
+    description: string;
+    image_url: string | null;
+    badge_text: string | null;
+    benefit_text: string | null;
+    terms: string | null;
+    starts_at: string;
+    ends_at: string | null;
+    capacity: number | null;
+    enrollmentCount: number;
+    enrollment: null | { status: string; joined_at: string };
+  }>;
 };
 
 type Relation<T> = T | T[] | null;
@@ -750,6 +767,9 @@ export function ClientPortal({ slug }: { slug: string }) {
           {tab === 'referrals' && (
             <ReferralsView data={data} onRefresh={refreshData} />
           )}
+          {tab === 'campaigns' && (
+            <CampaignsView data={data} onRefresh={refreshData} />
+          )}
           {tab === 'finance' && (
             <FinanceView data={data} onRefresh={refreshData} />
           )}
@@ -809,6 +829,12 @@ export function ClientPortal({ slug }: { slug: string }) {
             onClick={() => setTab('referrals')}
           />
         )}
+        <MobileNav
+          icon={Megaphone}
+          label="Campanhas"
+          active={tab === 'campaigns'}
+          onClick={() => setTab('campaigns')}
+        />
         {data.settings.financialEnabled && (
           <MobileNav
             icon={ReceiptText}
@@ -1163,6 +1189,7 @@ function PortalNav({
     { id: 'appointments', label: 'As minhas marcações', icon: CalendarDays },
     { id: 'anamnesis', label: 'Fichas de anamnese', icon: ClipboardList },
     { id: 'benefits', label: 'Benefícios e saldo', icon: Gift },
+    { id: 'campaigns', label: 'Campanhas exclusivas', icon: Megaphone },
     { id: 'referrals', label: 'Indique um amigo', icon: Share2 },
     { id: 'finance', label: 'Pagamentos e faturas', icon: ReceiptText },
     { id: 'support', label: 'Meus pedidos', icon: LifeBuoy },
@@ -1204,6 +1231,7 @@ function portalTabLabel(tab: PortalTab) {
     appointments: 'As minhas marcações',
     anamnesis: 'Fichas de anamnese',
     benefits: 'Benefícios e saldo',
+    campaigns: 'Campanhas exclusivas',
     referrals: 'Indique um amigo',
     finance: 'Pagamentos e faturas',
     support: 'Meus pedidos',
@@ -2521,6 +2549,137 @@ function InvoiceRequestDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function CampaignsView({
+  data,
+  onRefresh,
+}: {
+  data: PortalData;
+  onRefresh: () => Promise<void>;
+}) {
+  const [joining, setJoining] = useState<string | null>(null);
+
+  async function join(campaignId: string) {
+    setJoining(campaignId);
+    const response = await fetch(
+      `/api/portal/${encodeURIComponent(data.settings.slug)}/campaigns`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId }),
+      }
+    );
+    const payload = await response.json().catch(() => null);
+    setJoining(null);
+    if (!response.ok)
+      return toast.error(payload?.error || 'Não foi possível aderir.');
+    toast.success('Adesão registada. Entraremos em contacto consigo.');
+    await onRefresh();
+  }
+
+  if (!data.campaigns.length)
+    return (
+      <EmptyState
+        icon={Megaphone}
+        title="Sem campanhas neste momento"
+        detail="As campanhas exclusivas publicadas para clientes aparecerão aqui."
+      />
+    );
+
+  return (
+    <div className="space-y-6">
+      <PageHeading
+        title="Campanhas exclusivas"
+        detail="Condições especiais reservadas aos clientes do Portal 360."
+      />
+      <div className="grid gap-5 lg:grid-cols-2">
+        {data.campaigns.map((campaign) => {
+          const joined =
+            campaign.enrollment && campaign.enrollment.status !== 'cancelled';
+          const full =
+            campaign.capacity !== null &&
+            campaign.enrollmentCount >= campaign.capacity;
+          return (
+            <article
+              key={campaign.id}
+              className="border-border bg-background overflow-hidden rounded-xl border shadow-sm"
+            >
+              {campaign.image_url && (
+                <img
+                  src={campaign.image_url}
+                  alt=""
+                  className="h-52 w-full object-cover"
+                />
+              )}
+              <div className="space-y-4 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    {campaign.badge_text && (
+                      <Badge className="mb-2">{campaign.badge_text}</Badge>
+                    )}
+                    <h2 className="text-xl font-semibold">{campaign.title}</h2>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      {campaign.summary}
+                    </p>
+                  </div>
+                  <Megaphone className="text-primary size-6 shrink-0" />
+                </div>
+                {campaign.benefit_text && (
+                  <div className="border-primary/25 bg-primary/[0.06] text-primary rounded-lg border p-3 font-semibold">
+                    {campaign.benefit_text}
+                  </div>
+                )}
+                <p className="text-sm leading-6 whitespace-pre-line">
+                  {campaign.description}
+                </p>
+                <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                  {campaign.ends_at && (
+                    <span>Válida até {formatPortalDate(campaign.ends_at)}</span>
+                  )}
+                  {campaign.capacity && (
+                    <span>
+                      {Math.max(
+                        0,
+                        campaign.capacity - campaign.enrollmentCount
+                      )}{' '}
+                      vaga(s) disponível(is)
+                    </span>
+                  )}
+                </div>
+                {campaign.terms && (
+                  <details className="text-muted-foreground text-xs">
+                    <summary className="cursor-pointer font-medium">
+                      Termos e condições
+                    </summary>
+                    <p className="mt-2 whitespace-pre-line">{campaign.terms}</p>
+                  </details>
+                )}
+                <Button
+                  className="w-full"
+                  disabled={Boolean(joined || full || joining)}
+                  onClick={() => void join(campaign.id)}
+                >
+                  {joining === campaign.id ? (
+                    <Loader2 className="animate-spin" />
+                  ) : joined ? (
+                    <Check />
+                  ) : (
+                    <Sparkles />
+                  )}
+                  {joined
+                    ? 'Já aderiu'
+                    : full
+                      ? 'Campanha esgotada'
+                      : 'Quero aderir'}
+                </Button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

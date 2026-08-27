@@ -19,6 +19,7 @@ const ROUTE_TITLE_KEYS: Array<[string, string]> = [
   ['/pipelines', 'pipelines'],
   ['/broadcasts', 'broadcasts'],
   ['/social-planner', 'socialPlanner'],
+  ['/portal-campaigns', 'portalCampaigns'],
   ['/automations', 'automations'],
   ['/flows', 'flows'],
   ['/agents', 'aiAgents'],

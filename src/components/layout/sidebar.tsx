@@ -24,6 +24,7 @@ import {
   LayoutDashboard,
   LogOut,
   MessageSquare,
+  Megaphone,
   LifeBuoy,
   Radio,
   Send,
@@ -175,6 +176,12 @@ const navItems: NavItem[] = [
     newBadge: { key: 'social-planner', ...TODAY_NEW_BADGE },
   },
   {
+    href: '/portal-campaigns',
+    labelKey: 'portalCampaigns',
+    icon: Megaphone,
+    newBadge: { key: 'portal-campaigns', ...TODAY_NEW_BADGE },
+  },
+  {
     href: '/library',
     labelKey: 'library',
     icon: LibraryBig,
@@ -206,11 +213,25 @@ const navSections = [
   },
   {
     labelKey: 'groupCommercial',
-    hrefs: ['/pipelines', '/finance', '/business-hub', '/business-hub/goals', '/reports', '/referrals'],
+    hrefs: [
+      '/pipelines',
+      '/finance',
+      '/business-hub',
+      '/business-hub/goals',
+      '/reports',
+      '/referrals',
+    ],
   },
   {
     labelKey: 'groupMarketing',
-    hrefs: ['/broadcasts', '/segments', '/scheduled-messages', '/social-planner', '/library'],
+    hrefs: [
+      '/broadcasts',
+      '/segments',
+      '/scheduled-messages',
+      '/social-planner',
+      '/portal-campaigns',
+      '/library',
+    ],
   },
   {
     labelKey: 'groupAutomation',
@@ -347,71 +368,77 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     {t(section.labelKey)}
                   </p>
                   <ul className="flex flex-col gap-1">
-            {items.map((item) => {
-              const isActive =
-                pathname === item.href ||
-                (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                    {items.map((item) => {
+                      const isActive =
+                        pathname === item.href ||
+                        (item.href !== '/dashboard' &&
+                          pathname.startsWith(item.href));
 
-              const showUnreadDot =
-                item.href === '/inbox' && totalUnread > 0 && !isActive;
+                      const showUnreadDot =
+                        item.href === '/inbox' && totalUnread > 0 && !isActive;
 
-              // Unlike the inbox dot, the notifications count stays visible
-              // even while the page is active — it reflects unread state
-              // (cleared by marking notifications read), not "currently
-              // viewing this section".
-              const showNotificationBadge =
-                item.href === '/notifications' && unreadNotifications > 0;
+                      // Unlike the inbox dot, the notifications count stays visible
+                      // even while the page is active — it reflects unread state
+                      // (cleared by marking notifications read), not "currently
+                      // viewing this section".
+                      const showNotificationBadge =
+                        item.href === '/notifications' &&
+                        unreadNotifications > 0;
 
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      // Taller on mobile so fingers can hit the row reliably (≥44px).
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
-                      isActive
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                    )}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    <span className="flex-1">{t(item.labelKey as string)}</span>
-                    {item.beta && (
-                      <span
-                        aria-label={t('beta')}
-                        className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-amber-300 uppercase"
-                      >
-                        {t('beta')}
-                      </span>
-                    )}
-                    {item.newBadge && (
-                      <NewFeatureBadge badge={item.newBadge} />
-                    )}
-                    {showUnreadDot && (
-                      <span
-                        aria-label={t('unreadConversations', {
-                          count: totalUnread,
-                        })}
-                        className="relative flex h-2 w-2"
-                      >
-                        <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
-                        <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
-                      </span>
-                    )}
-                    {showNotificationBadge && (
-                      <span
-                        aria-label={t('unreadNotifications', {
-                          count: unreadNotifications,
-                        })}
-                        className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold"
-                      >
-                        {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
+                      return (
+                        <li key={item.href}>
+                          <Link
+                            href={item.href}
+                            className={cn(
+                              // Taller on mobile so fingers can hit the row reliably (≥44px).
+                              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
+                              isActive
+                                ? 'bg-primary/10 text-primary'
+                                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                            )}
+                          >
+                            <item.icon className="h-4 w-4" />
+                            <span className="flex-1">
+                              {t(item.labelKey as string)}
+                            </span>
+                            {item.beta && (
+                              <span
+                                aria-label={t('beta')}
+                                className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-amber-300 uppercase"
+                              >
+                                {t('beta')}
+                              </span>
+                            )}
+                            {item.newBadge && (
+                              <NewFeatureBadge badge={item.newBadge} />
+                            )}
+                            {showUnreadDot && (
+                              <span
+                                aria-label={t('unreadConversations', {
+                                  count: totalUnread,
+                                })}
+                                className="relative flex h-2 w-2"
+                              >
+                                <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
+                                <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
+                              </span>
+                            )}
+                            {showNotificationBadge && (
+                              <span
+                                aria-label={t('unreadNotifications', {
+                                  count: unreadNotifications,
+                                })}
+                                className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold"
+                              >
+                                {unreadNotifications > 9
+                                  ? '9+'
+                                  : unreadNotifications}
+                              </span>
+                            )}
+                          </Link>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               );
@@ -422,27 +449,27 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 {t('groupSystem')}
               </p>
 
-          <ul className="mt-1.5 flex flex-col gap-1">
-            {systemItems.map((item) => {
-              const isActive = pathname.startsWith(item.href);
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
-                      isActive
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                    )}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    {t(item.labelKey as string)}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+              <ul className="mt-1.5 flex flex-col gap-1">
+                {systemItems.map((item) => {
+                  const isActive = pathname.startsWith(item.href);
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
+                          isActive
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        )}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {t(item.labelKey as string)}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           </div>
         </nav>

@@ -201,31 +201,51 @@ export async function GET(
     ]
       .filter(Boolean)
       .join(',');
-    const [benefitLogs, walletTransactions] = await Promise.all([
-      benefitFilter
-        ? admin
-            .from('finance_benefit_logs')
-            .select(
-              'id,voucher_id,client_pack_id,appointment_id,action,amount,sessions,performed_by_name,approved_by_name,notes,metadata,created_at'
-            )
-            .eq('account_id', access.account_id)
-            .or(benefitFilter)
-            .order('created_at', { ascending: false })
-            .limit(300)
-        : Promise.resolve({ data: [], error: null }),
-      wallet.data
-        ? admin
-            .from('finance_wallet_transactions')
-            .select(
-              'id,transaction_type,amount,balance_after,referral_reward_id,sale_id,description,metadata,created_at'
-            )
-            .eq('wallet_id', wallet.data.id)
-            .order('created_at', { ascending: false })
-            .limit(200)
-        : Promise.resolve({ data: [], error: null }),
-    ]);
+    const [benefitLogs, walletTransactions, campaigns, campaignEnrollments] =
+      await Promise.all([
+        benefitFilter
+          ? admin
+              .from('finance_benefit_logs')
+              .select(
+                'id,voucher_id,client_pack_id,appointment_id,action,amount,sessions,performed_by_name,approved_by_name,notes,metadata,created_at'
+              )
+              .eq('account_id', access.account_id)
+              .or(benefitFilter)
+              .order('created_at', { ascending: false })
+              .limit(300)
+          : Promise.resolve({ data: [], error: null }),
+        wallet.data
+          ? admin
+              .from('finance_wallet_transactions')
+              .select(
+                'id,transaction_type,amount,balance_after,referral_reward_id,sale_id,description,metadata,created_at'
+              )
+              .eq('wallet_id', wallet.data.id)
+              .order('created_at', { ascending: false })
+              .limit(200)
+          : Promise.resolve({ data: [], error: null }),
+        admin
+          .from('portal_campaigns')
+          .select('*,enrollments:portal_campaign_enrollments(count)')
+          .eq('account_id', access.account_id)
+          .eq('status', 'published')
+          .lte('starts_at', now)
+          .or(`ends_at.is.null,ends_at.gte.${now}`)
+          .order('starts_at', { ascending: false }),
+        admin
+          .from('portal_campaign_enrollments')
+          .select('campaign_id,status,joined_at')
+          .eq('account_id', access.account_id)
+          .eq('contact_id', access.contact_id),
+      ]);
     if (benefitLogs.error) throw benefitLogs.error;
     if (walletTransactions.error) throw walletTransactions.error;
+    const campaignSchemaMissing = [campaigns.error, campaignEnrollments.error]
+      .filter(Boolean)
+      .some((error) => error?.code === '42P01' || error?.code === 'PGRST205');
+    if (campaigns.error && !campaignSchemaMissing) throw campaigns.error;
+    if (campaignEnrollments.error && !campaignSchemaMissing)
+      throw campaignEnrollments.error;
 
     return Response.json({
       settings: {
@@ -289,6 +309,17 @@ export async function GET(
         code: referralCode.data,
         items: referrals.data ?? [],
       },
+      campaigns: (campaignSchemaMissing ? [] : (campaigns.data ?? [])).map(
+        (campaign) => ({
+          ...campaign,
+          enrollmentCount: Number(campaign.enrollments?.[0]?.count ?? 0),
+          enrollment:
+            (campaignEnrollments.data ?? []).find(
+              (entry) => entry.campaign_id === campaign.id
+            ) ?? null,
+          enrollments: undefined,
+        })
+      ),
     });
   } catch (error) {
     return portalErrorResponse(error);

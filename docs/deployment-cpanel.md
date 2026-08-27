@@ -1,154 +1,73 @@
-# Instalar o CRM por Git no cPanel
+# Instalar o CRM com MySQL no cPanel
 
-Este projeto precisa de um servidor Node.js. Nao o publique como um site
-estatico nem copie apenas a pasta `public`.
+Esta versao roda integralmente no cPanel: aplicacao Node.js, banco MySQL/MariaDB,
+autenticacao, ficheiros e sessao WhatsApp. Nao requer Supabase nem banco cloud.
 
-## Requisitos do alojamento
+## Aplicacao Node.js
 
-- Node.js 20 ou 22.
-- Aplicacao Node ativa continuamente, sem suspensao por inatividade.
-- Acesso SSH/Terminal e Git.
-- Ligacoes HTTPS e WebSocket de saida.
-- Cron com execucao pelo menos a cada minuto.
+No **Setup Node.js App**, use Node.js 22, modo `Production`, application root
+`repositories/ajmassagem`, URL `jpmassagem.pt` e startup file `server.cjs`.
 
-O WhatsApp QR deve rodar no **WhatsApp Bridge** quando o CRM estiver em cPanel
-partilhado. Assim o cPanel nao precisa de Chromium/Puppeteer nem da pasta
-`whatsapp_auth`.
-
-## 1. Publicar no Git
-
-Crie um repositorio privado no GitHub, GitLab ou Bitbucket e envie este projeto.
-O `.env.local`, as sessoes WhatsApp e os logs estao ignorados e nao devem ser
-adicionados manualmente.
+No Terminal do cPanel, dentro do repositorio:
 
 ```bash
-git remote add origin URL_DO_REPOSITORIO_PRIVADO
-git branch -M main
-git push -u origin main
+npm ci
+npm run db:migrate:mysql
+npm run build:cpanel
 ```
 
-## 2. Clonar no cPanel
+Depois clique em **Restart Application**. Nas atualizacoes, execute `git pull`,
+os tres comandos acima e o restart, nessa ordem.
 
-Em **Git Version Control**, clone a branch `main`. Para repositorios privados,
-cadastre a chave SSH apresentada pelo cPanel no provedor Git.
+## Banco local
 
-Use a pasta clonada como **Application root** em **Setup Node.js App**.
-
-## 3. Configurar a aplicacao Node
-
-Configure:
-
-- Node.js version: `20` ou `22`.
-- Application mode: `Production`.
-- Application startup file: `server.js` se estiver usando a branch
-  `cpanel-runtime`.
-- Application URL: o dominio ou subdominio do CRM.
-
-O cPanel partilhado pode nao conseguir executar `next build` por limite LVE de
-memoria. Para esse caso, use a branch pre-compilada:
-
-```text
-main            codigo-fonte
-cpanel-runtime  app ja compilado pelo GitHub Actions
-```
-
-No cPanel, mude o repositorio para a branch `cpanel-runtime`, use
-`server.js` como startup file e clique apenas em **Restart Application** apos
-cada pull. Nao execute **Run NPM Install** nem **Run JS script > build** nessa
-branch.
-
-Para gerar/atualizar a branch `cpanel-runtime`, configure os secrets do GitHub:
-
-```text
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY
-NEXT_PUBLIC_APP_URL
-```
-
-Depois execute a Action **Build cPanel runtime** ou faca push na branch `main`.
-
-## 4. Variaveis de ambiente
+Em **MySQL Databases**, crie banco e utilizador e conceda **ALL PRIVILEGES**.
+O phpMyAdmin serve para inspecionar/importar dados; a aplicacao conecta ao MySQL.
 
 Cadastre no painel da aplicacao, nunca no Git:
 
 ```dotenv
 NODE_ENV=production
-NEXT_PUBLIC_SUPABASE_URL=https://SEU-PROJETO.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=SUA_CHAVE_ANON
-SUPABASE_SERVICE_ROLE_KEY=SUA_CHAVE_SERVICE_ROLE
-ENCRYPTION_KEY=64_CARACTERES_HEXADECIMAIS
-META_APP_SECRET=SEGREDO_META
-NEXT_PUBLIC_SITE_URL=https://crm.seudominio.pt
-NEXT_PUBLIC_APP_URL=https://crm.seudominio.pt
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=PREFIXO_jpmassagem
+DB_USER=PREFIXO_jpmassagem_app
+DB_PASSWORD=SENHA_DO_BANCO
+DB_CONNECTION_LIMIT=10
+AUTH_SECRET=SEGREDO_ALEATORIO_DE_64_CARACTERES
+NEXT_PUBLIC_SITE_URL=https://jpmassagem.pt
+NEXT_PUBLIC_APP_URL=https://jpmassagem.pt
 NEXT_PUBLIC_APP_LOCALE=pt
-ALLOWED_INVITE_HOSTS=crm.seudominio.pt
-AUTOMATION_CRON_SECRET=SEGREDO_LONGO_E_ALEATORIO
-WHATSAPP_MODE=remote_worker
-WHATSAPP_WORKER_URL=https://wa-worker.seudominio.pt
-WHATSAPP_WORKER_SECRET=SEGREDO_IGUAL_AO_WORKER
-PUPPETEER_SKIP_DOWNLOAD=true
+ALLOWED_INVITE_HOSTS=jpmassagem.pt,www.jpmassagem.pt
+LOCAL_UPLOAD_DIR=/home/USUARIO/data/whatsappcrm/uploads
+ENCRYPTION_KEY=64_CARACTERES_HEXADECIMAIS
+AUTOMATION_CRON_SECRET=OUTRO_SEGREDO_LONGO
 ```
 
-As variaveis `NEXT_PUBLIC_*` sao incorporadas durante o build. Se forem
-alteradas, execute `npm run build` novamente e reinicie a aplicacao.
+SMTP e Meta/WhatsApp sao opcionais e constam em `.env.local.example`. Nao
+configure variaveis `SUPABASE_*`.
 
-## 5. WhatsApp QR pelo computador
+## WhatsApp no proprio cPanel
 
-No cPanel use:
+Nao defina `WHATSAPP_WORKER_URL`: o conector QR usara a sessao local. Garanta
+permissao de escrita para `LOCAL_UPLOAD_DIR` e para a pasta da sessao WhatsApp.
 
-```dotenv
-WHATSAPP_MODE=remote_worker
-WHATSAPP_WORKER_URL=https://wa-worker.seudominio.pt
-WHATSAPP_WORKER_SECRET=SEGREDO_IGUAL_AO_WORKER
-```
+## Cron
 
-No computador que fica ligado 24h, rode o worker em:
-
-```text
-workers/whatsapp-bridge
-```
-
-Veja `workers/whatsapp-bridge/README.md`.
-
-O CRM continua usando as mesmas telas de Inbox/Settings. A diferenca e que as
-rotas `/api/whatsapp/baileys/*` e `/api/whatsapp/send` chamam o worker remoto.
-
-## 6. Configurar os agendamentos Cron
-
-Crie chamadas protegidas pelo mesmo valor de `AUTOMATION_CRON_SECRET`:
+Execute a cada minuto com `AUTOMATION_CRON_SECRET` no cabecalho:
 
 ```bash
-curl -fsS -H "x-cron-secret: SEU_SEGREDO" https://crm.seudominio.pt/api/automations/cron
-curl -fsS -H "x-cron-secret: SEU_SEGREDO" https://crm.seudominio.pt/api/flows/cron
-curl -fsS -H "x-cron-secret: SEU_SEGREDO" https://crm.seudominio.pt/api/clinic/appointments/reminders
-curl -fsS -H "x-cron-secret: SEU_SEGREDO" https://crm.seudominio.pt/api/whatsapp/scheduled/process
-curl -fsS -H "x-cron-secret: SEU_SEGREDO" https://crm.seudominio.pt/api/finance/reminders/process
+curl -fsS -H "x-cron-secret: SEGREDO" https://jpmassagem.pt/api/automations/cron
+curl -fsS -H "x-cron-secret: SEGREDO" https://jpmassagem.pt/api/flows/cron
+curl -fsS -H "x-cron-secret: SEGREDO" https://jpmassagem.pt/api/whatsapp/scheduled/process
 ```
 
-Automacoes, fluxos e mensagens agendadas podem rodar a cada minuto. Lembretes
-de agenda e financeiros podem rodar a cada 5 minutos.
-
-## 7. Atualizar pelo Git
-
-Antes de atualizar, confirme que `whatsapp_auth` esta fora de qualquer limpeza
-do deploy. Depois:
+Lembretes podem rodar a cada cinco minutos:
 
 ```bash
-git pull origin main
-npm ci
-npm run build
+curl -fsS -H "x-cron-secret: SEGREDO" https://jpmassagem.pt/api/clinic/appointments/reminders
+curl -fsS -H "x-cron-secret: SEGREDO" https://jpmassagem.pt/api/finance/reminders/process
 ```
 
-Reinicie a aplicacao no cPanel e valide `/login`, `/inbox`, `/agenda` e a pagina
-de conexao WhatsApp. As migrations do Supabase devem ser aplicadas separadamente
-e na ordem numerica; nunca sao executadas automaticamente pelo deploy.
-
-## Diagnostico rapido
-
-- `npm run build` falha: confira Node 20/22 e as variaveis `NEXT_PUBLIC_*`.
-- Aplicacao retorna 503: confira `server.cjs`, `PORT` e o log do Passenger.
-- QR nao aparece: confira se o worker local esta ligado e se
-  `WHATSAPP_WORKER_URL` responde `/status`.
-- QR desconecta apos deploy: a sessao fica no PC, nao no cPanel; confira se o
-  PC reiniciou, suspendeu ou se o tunnel caiu.
-- Automacoes nao executam: confira Cron, URL HTTPS e o segredo Bearer.
+Valide `/login`, `/inbox`, `/agenda`, upload, recuperacao de senha e a ligacao
+WhatsApp. Em erro 503, confira Passenger log, `PORT`, `DB_*` e `server.cjs`.

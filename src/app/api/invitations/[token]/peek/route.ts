@@ -29,7 +29,8 @@ import {
   rateLimitResponse,
   RATE_LIMITS,
 } from '@/lib/rate-limit';
-import { createClient } from '@/lib/supabase/server';
+import type { RowDataPacket } from 'mysql2';
+import { selectRows } from '@/lib/mysql/db';
 
 /**
  * Best-effort client IP. The `x-forwarded-for` header is what
@@ -68,18 +69,12 @@ export async function GET(
     );
   }
 
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc('peek_invitation', {
-    p_token_hash: hashInviteToken(token),
-  });
-
-  if (error) {
-    console.error('[peek] rpc error:', error);
-    return NextResponse.json(
-      { ok: false, reason: 'server_error' },
-      { status: 500 }
-    );
-  }
+  const rows = await selectRows<(RowDataPacket & { account_name: string; role: string; expires_at: Date; accepted_at: Date | null })[]>(
+    `SELECT a.name account_name,i.role,i.expires_at,i.accepted_at FROM account_invitations i JOIN accounts a ON a.id=i.account_id WHERE i.token_hash=? LIMIT 1`,
+    [hashInviteToken(token)]
+  );
+  const invite = rows[0];
+  const data = !invite ? { ok: false, reason: 'not_found' } : invite.accepted_at ? { ok: false, reason: 'used' } : invite.expires_at <= new Date() ? { ok: false, reason: 'expired' } : { ok: true, account_name: invite.account_name, role: invite.role, expires_at: invite.expires_at };
 
   // The RPC always returns a json object — either ok:true with
   // metadata or ok:false with a reason. Forward verbatim.

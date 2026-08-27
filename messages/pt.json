@@ -32,6 +32,7 @@
     "segments": "Segmentos",
     "scheduledMessages": "Mensagens agendadas",
     "socialPlanner": "Publicações",
+    "portalCampaigns": "Campanhas exclusivas",
     "library": "Biblioteca",
     "automations": "Automatizações",
     "flows": "Fluxos",
@@ -76,6 +77,7 @@
     "segments": "Segmentos",
     "scheduledMessages": "Mensagens agendadas",
     "socialPlanner": "Publicações",
+    "portalCampaigns": "Campanhas exclusivas",
     "library": "Biblioteca",
     "automations": "Automatizações",
     "flows": "Fluxos",
@@ -2805,4 +2807,3 @@
     }
   }
 }
-

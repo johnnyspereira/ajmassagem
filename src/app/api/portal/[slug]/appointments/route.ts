@@ -27,7 +27,7 @@ export async function POST(
     try {
       const communication = await sendAppointmentCommunication({
         db: admin,
-        appointmentId: data,
+        appointmentId: String(data),
         origin: new URL(request.url).origin,
       });
       messageSkipped = communication.skipped;

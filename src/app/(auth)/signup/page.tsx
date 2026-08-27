@@ -3,7 +3,6 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { MessageSquare, CheckCircle, UsersRound } from 'lucide-react';
+import { MessageSquare, UsersRound } from 'lucide-react';
 
 // `useSearchParams` opts the component out of static prerendering
 // unless wrapped in Suspense — same pattern as /login.
@@ -28,11 +27,8 @@ export default function SignupPage() {
 
 function SignupPageInner() {
   const searchParams = useSearchParams();
-  // When the user lands here from `/join/<token>` we carry the
-  // invite token in the query so it survives the signup → email
-  // verification → redirect round-trip. `emailRedirectTo` below
-  // points back at /join/<token> so the user lands on the redeem
-  // step after verifying instead of being dropped on /dashboard.
+  // Carry an invitation through account creation so the new local
+  // session can redeem it immediately afterwards.
   const inviteToken = searchParams.get('invite');
 
   const [fullName, setFullName] = useState('');
@@ -41,8 +37,6 @@ function SignupPageInner() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const supabase = createClient();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,79 +47,30 @@ function SignupPageInner() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('A senha deve ter pelo menos 6 caracteres');
+    if (password.length < 8) {
+      setError('A senha deve ter pelo menos 8 caracteres');
       return;
     }
 
     setLoading(true);
 
-    // If we have an invite token, point Supabase's verification
-    // email back at the join page so the user can accept after
-    // verifying. Without a token, Supabase uses its default
-    // redirect (the app root).
-    const emailRedirectTo = inviteToken
-      ? `${window.location.origin}/join/${encodeURIComponent(inviteToken)}`
-      : undefined;
-
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
-        ...(emailRedirectTo ? { emailRedirectTo } : {}),
-      },
+    const response = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, fullName }),
     });
 
-    if (error) {
-      setError(error.message);
+    const result = (await response.json()) as { error?: string };
+    if (!response.ok) {
+      setError(result.error ?? 'Não foi possível criar a conta.');
       setLoading(false);
       return;
     }
 
-    setSuccess(true);
-    setLoading(false);
+    window.location.href = inviteToken
+      ? `/join/${encodeURIComponent(inviteToken)}`
+      : '/dashboard';
   };
-
-  if (success) {
-    return (
-      <div className="bg-background flex min-h-screen items-center justify-center px-4">
-        <Card className="border-border bg-card w-full max-w-md">
-          <CardHeader className="items-center text-center">
-            <div className="bg-primary/10 mb-2 flex h-12 w-12 items-center justify-center rounded-xl">
-              <CheckCircle className="text-primary h-6 w-6" />
-            </div>
-            <CardTitle className="text-foreground text-xl">
-              Verifique seu e-mail
-            </CardTitle>
-            <CardDescription className="text-muted-foreground">
-              Enviamos um link de confirmação para{' '}
-              <span className="text-foreground">{email}</span>. Verifique sua
-              caixa de entrada e clique no link para verificar sua conta.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link
-              href={
-                inviteToken
-                  ? `/login?invite=${encodeURIComponent(inviteToken)}`
-                  : '/login'
-              }
-            >
-              <Button
-                variant="outline"
-                className="border-border text-muted-foreground hover:bg-muted hover:text-foreground w-full"
-              >
-                Voltar para entrar
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="bg-background flex min-h-screen items-center justify-center px-4">
@@ -143,7 +88,7 @@ function SignupPageInner() {
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             {inviteToken
-              ? 'Verifique seu e-mail e aceite o convite para entrar na equipe.'
+              ? 'Crie sua conta para aceitar o convite e entrar na equipe.'
               : 'Comece a usar o CRM para WhatsApp'}
           </CardDescription>
         </CardHeader>
