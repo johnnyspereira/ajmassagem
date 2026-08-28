@@ -54,6 +54,28 @@ jobs:
           cp -a .next/standalone/. cpanel-runtime/
           cp -a .next/static cpanel-runtime/.next/static
           cp -a public cpanel-runtime/public
+          mkdir -p cpanel-runtime/mysql cpanel-runtime/scripts
+          cp -a mysql/migrations cpanel-runtime/mysql/migrations
+          cp scripts/mysql-migrate.mjs cpanel-runtime/scripts/mysql-migrate.mjs
+          mv cpanel-runtime/server.js cpanel-runtime/next-server.js
+          cat > cpanel-runtime/server.js <<'EOF'
+          const { execFileSync } = require('node:child_process');
+          const path = require('node:path');
+
+          try {
+            console.log('cPanel: applying pending MySQL migrations...');
+            execFileSync(process.execPath, [path.join(__dirname, 'scripts/mysql-migrate.mjs')], {
+              cwd: __dirname,
+              env: process.env,
+              stdio: 'inherit',
+            });
+          } catch (error) {
+            console.error('cPanel: MySQL migration failed. Application was not started.');
+            process.exit(typeof error.status === 'number' ? error.status : 1);
+          }
+
+          require('./next-server.js');
+          EOF
           cat > cpanel-runtime/README.md <<'EOF'
           # AJ Massagem CRM cPanel runtime
 
@@ -64,6 +86,7 @@ jobs:
           - Application startup file: server.js
           - Nao execute `npm install`
           - Nao execute `npm run build`
+          - As migrations MySQL pendentes sao aplicadas automaticamente no arranque
           - Configure as variaveis de ambiente no Setup Node.js App
           - Use Restart Application apos cada pull
           EOF
