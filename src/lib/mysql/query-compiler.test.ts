@@ -53,6 +53,19 @@ describe('MySQL query compiler', () => {
     expect(query.insertedIds).toHaveLength(1);
   });
 
+  it('does not invent an id for account-keyed settings tables', () => {
+    const query = compileQuery(
+      {
+        table: 'clinic_communication_settings',
+        operation: 'upsert',
+        values: { account_id: 'account-1', clinic_address: 'Lisboa' },
+      },
+      context
+    );
+    expect(query.sql).not.toContain('`id`');
+    expect(query.insertedIds).toEqual([]);
+  });
+
   it('rejects identifier injection', () => {
     expect(() =>
       compileQuery(

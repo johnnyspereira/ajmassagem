@@ -6,6 +6,14 @@ import { getTablePolicy } from '@/lib/mysql/table-policy';
 import type { MysqlQueryRequest, QueryFilter } from '@/lib/mysql/query-types';
 
 const identifierPattern = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const TABLES_WITHOUT_ID = new Set([
+  'clinic_communication_settings',
+  'member_presence',
+  'client_portal_settings',
+  'public_site_settings',
+  'referral_program_settings',
+  'finance_reminder_settings',
+]);
 
 export interface CompiledQuery {
   sql: string;
@@ -157,7 +165,9 @@ function rowsWithOwnership(
     : [request.values ?? {}];
   return source.map((value) => ({
     ...value,
-    id: value.id ?? randomUUID(),
+    ...(!TABLES_WITHOUT_ID.has(request.table)
+      ? { id: value.id ?? randomUUID() }
+      : {}),
     ...(!bypassTenant && policy.accountColumn && policy.accountColumn !== 'id'
       ? { [policy.accountColumn]: accountId }
       : {}),
@@ -241,7 +251,10 @@ export function compileQuery(
       (column) =>
         column !== 'id' && column !== 'account_id' && column !== 'user_id'
     );
-    if (request.ignoreDuplicates) sql += ' ON DUPLICATE KEY UPDATE id = id';
+    if (request.ignoreDuplicates) {
+      const unchangedColumn = columns[0];
+      sql += ` ON DUPLICATE KEY UPDATE ${identifier(unchangedColumn)} = ${identifier(unchangedColumn)}`;
+    }
     else if (updateColumns.length) {
       sql += ` ON DUPLICATE KEY UPDATE ${updateColumns
         .map(
@@ -254,6 +267,8 @@ export function compileQuery(
     sql,
     values,
     operation: request.operation,
-    insertedIds: rows.map((row) => String(row.id)),
+    insertedIds: rows.flatMap((row) =>
+      row.id == null ? [] : [String(row.id)]
+    ),
   };
 }
