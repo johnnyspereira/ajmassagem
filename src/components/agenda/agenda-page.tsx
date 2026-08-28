@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -13,6 +14,7 @@ import {
   BellRing,
   CalendarCheck,
   CalendarClock,
+  CalendarSync,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -143,6 +145,14 @@ type AppointmentRow = Omit<
 type TimeBlockRow = Omit<ClinicTimeBlock, 'professional'> & {
   room?: ClinicRoom | null;
   professional?: TeamMember | null;
+};
+
+type ExternalCalendarFeed = {
+  id: string;
+  name: string;
+  professional_profile_id: string | null;
+  last_synced_at: string | null;
+  last_sync_error: string | null;
 };
 
 type AppointmentDraft = {
@@ -600,6 +610,16 @@ export function AgendaPage({
   const [loading, setLoading] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [schemaMissing, setSchemaMissing] = useState(false);
+  const [calendarFeedsOpen, setCalendarFeedsOpen] = useState(false);
+  const [calendarFeeds, setCalendarFeeds] = useState<ExternalCalendarFeed[]>(
+    []
+  );
+  const [calendarFeedName, setCalendarFeedName] = useState('Zappy');
+  const [calendarFeedUrl, setCalendarFeedUrl] = useState('');
+  const [calendarFeedProfessionalId, setCalendarFeedProfessionalId] =
+    useState('');
+  const [calendarFeedBusy, setCalendarFeedBusy] = useState(false);
+  const calendarAutoSyncStarted = useRef(false);
 
   const [appointmentOpen, setAppointmentOpen] = useState(false);
   const [appointmentReferralId, setAppointmentReferralId] = useState<
@@ -950,6 +970,18 @@ export function AgendaPage({
     }, 0);
     return () => window.clearTimeout(timer);
   }, [loadAgenda, profileLoading]);
+
+  useEffect(() => {
+    if (!accountId || profileLoading || calendarAutoSyncStarted.current) return;
+    calendarAutoSyncStarted.current = true;
+    fetch('/api/clinic/external-calendars', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+      .then((response) => (response.ok ? loadAgenda() : undefined))
+      .catch(() => undefined);
+  }, [accountId, loadAgenda, profileLoading]);
 
   useEffect(() => {
     if (!accountId) return;
@@ -2613,6 +2645,114 @@ export function AgendaPage({
 
   const step = view === 'week' ? 7 : 1;
 
+  async function loadCalendarFeeds() {
+    const response = await fetch('/api/clinic/external-calendars', {
+      cache: 'no-store',
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw new Error(
+        payload.error || 'Não foi possível carregar os calendários.'
+      );
+    setCalendarFeeds(payload.feeds ?? []);
+  }
+
+  async function openCalendarFeeds() {
+    setCalendarFeedsOpen(true);
+    try {
+      await loadCalendarFeeds();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Falha ao carregar calendários.'
+      );
+    }
+  }
+
+  async function addCalendarFeed() {
+    if (!calendarFeedUrl.trim())
+      return toast.error('Cole o endereço iCal/ICS.');
+    setCalendarFeedBusy(true);
+    try {
+      const response = await fetch('/api/clinic/external-calendars', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: calendarFeedName.trim() || 'Calendário externo',
+          url: calendarFeedUrl.trim(),
+          professionalProfileId: calendarFeedProfessionalId || null,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(payload.error || 'Falha ao importar calendário.');
+      toast.success(`${payload.imported ?? 0} compromissos recebidos.`);
+      setCalendarFeedUrl('');
+      await Promise.all([loadCalendarFeeds(), loadAgenda()]);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Falha ao importar calendário.'
+      );
+    } finally {
+      setCalendarFeedBusy(false);
+    }
+  }
+
+  async function syncCalendarFeeds(id?: string) {
+    setCalendarFeedBusy(true);
+    try {
+      const response = await fetch('/api/clinic/external-calendars', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(payload.error || 'Falha ao sincronizar calendário.');
+      const imported = (payload.results ?? []).reduce(
+        (sum: number, item: { imported?: number }) =>
+          sum + Number(item.imported ?? 0),
+        0
+      );
+      toast.success(`${imported} compromissos sincronizados.`);
+      await Promise.all([loadCalendarFeeds(), loadAgenda()]);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Falha ao sincronizar calendário.'
+      );
+    } finally {
+      setCalendarFeedBusy(false);
+    }
+  }
+
+  async function removeCalendarFeed(id: string) {
+    if (
+      !window.confirm('Remover este calendário e os seus bloqueios da agenda?')
+    )
+      return;
+    setCalendarFeedBusy(true);
+    try {
+      const response = await fetch(
+        `/api/clinic/external-calendars?id=${encodeURIComponent(id)}`,
+        { method: 'DELETE' }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(payload.error || 'Falha ao remover calendário.');
+      await Promise.all([loadCalendarFeeds(), loadAgenda()]);
+      toast.success('Calendário removido.');
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Falha ao remover calendário.'
+      );
+    } finally {
+      setCalendarFeedBusy(false);
+    }
+  }
+
   return (
     <section className="space-y-5">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
@@ -2668,6 +2808,13 @@ export function AgendaPage({
           </Link>
           {canOperate ? (
             <>
+              <Button
+                variant="outline"
+                onClick={() => void openCalendarFeeds()}
+              >
+                <CalendarSync className="size-4" />
+                Calendários externos
+              </Button>
               <Button variant="outline" onClick={openTimeBlockDialog}>
                 <Lock className="size-4" />
                 Bloquear horário
@@ -2680,6 +2827,143 @@ export function AgendaPage({
           ) : null}
         </div>
       </div>
+
+      <Dialog open={calendarFeedsOpen} onOpenChange={setCalendarFeedsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Calendários externos</DialogTitle>
+            <DialogDescription>
+              Receba compromissos de um endereço iCal/ICS e bloqueie esses
+              horários na agenda do profissional selecionado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid gap-3 rounded-lg border p-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Nome</label>
+                <Input
+                  value={calendarFeedName}
+                  onChange={(event) => setCalendarFeedName(event.target.value)}
+                  placeholder="Ex.: Agenda Zappy"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Profissional</label>
+                <NativeSelect
+                  value={calendarFeedProfessionalId}
+                  onChange={setCalendarFeedProfessionalId}
+                >
+                  <option value="">Agenda geral</option>
+                  {visibleProfessionals.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {professionalName(member)}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-sm font-medium">Endereço iCal/ICS</label>
+                <Input
+                  type="password"
+                  autoComplete="off"
+                  value={calendarFeedUrl}
+                  onChange={(event) => setCalendarFeedUrl(event.target.value)}
+                  placeholder="https://.../calendar.ics?key=..."
+                />
+                <p className="text-muted-foreground text-xs">
+                  O endereço é guardado como credencial privada e não aparece
+                  para clientes.
+                </p>
+              </div>
+              <div className="md:col-span-2">
+                <Button
+                  onClick={() => void addCalendarFeed()}
+                  disabled={calendarFeedBusy || !calendarFeedUrl.trim()}
+                >
+                  {calendarFeedBusy ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    <CalendarSync />
+                  )}
+                  Guardar e receber compromissos
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {calendarFeeds.length === 0 ? (
+                <p className="text-muted-foreground rounded-lg border border-dashed p-4 text-sm">
+                  Nenhum calendário externo configurado.
+                </p>
+              ) : (
+                calendarFeeds.map((feed) => {
+                  const professional = visibleProfessionals.find(
+                    (member) => member.id === feed.professional_profile_id
+                  );
+                  return (
+                    <div
+                      key={feed.id}
+                      className="flex items-center justify-between gap-3 rounded-lg border p-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium">{feed.name}</p>
+                        <p className="text-muted-foreground text-xs">
+                          {professional
+                            ? professionalName(professional)
+                            : 'Agenda geral'}
+                          {' · '}
+                          {feed.last_sync_error
+                            ? `Erro: ${feed.last_sync_error}`
+                            : feed.last_synced_at
+                              ? `Atualizado em ${new Date(feed.last_synced_at).toLocaleString('pt-PT')}`
+                              : 'Ainda não sincronizado'}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title="Sincronizar agora"
+                          disabled={calendarFeedBusy}
+                          onClick={() => void syncCalendarFeeds(feed.id)}
+                        >
+                          <RefreshCw />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title="Remover calendário"
+                          disabled={calendarFeedBusy}
+                          onClick={() => void removeCalendarFeed(feed.id)}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            {calendarFeeds.length ? (
+              <Button
+                variant="outline"
+                disabled={calendarFeedBusy}
+                onClick={() => void syncCalendarFeeds()}
+              >
+                <RefreshCw /> Sincronizar todos
+              </Button>
+            ) : null}
+            <Button
+              variant="secondary"
+              onClick={() => setCalendarFeedsOpen(false)}
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card className="rounded-lg">
         <CardContent className="space-y-3 p-4">
@@ -4824,7 +5108,11 @@ function CalendarTimeGrid({
                 <TimeBlockCard
                   key={block.id}
                   block={block}
-                  onSelect={() => onSelectBlock(block)}
+                  onSelect={() =>
+                    block.external_calendar_feed_id
+                      ? undefined
+                      : onSelectBlock(block)
+                  }
                 />
               ))}
               {dayAppointments.map((appointment) => (

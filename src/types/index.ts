@@ -684,12 +684,7 @@ export interface FinanceInvoiceRequest {
   fiscal_document_id?: string | null;
   fiscal_document_type?: string | null;
   fiscal_status?:
-    | 'not_sent'
-    | 'queued'
-    | 'sent'
-    | 'issued'
-    | 'failed'
-    | 'cancelled';
+    'not_sent' | 'queued' | 'sent' | 'issued' | 'failed' | 'cancelled';
   fiscal_error?: string | null;
   fiscal_payload?: Record<string, unknown> | null;
   fiscal_sent_at?: string | null;
@@ -932,6 +927,8 @@ export interface ClinicTimeBlock {
   ends_at: string;
   reason?: string | null;
   is_online_block: boolean;
+  external_calendar_feed_id?: string | null;
+  external_uid?: string | null;
   created_at: string;
   updated_at: string;
   room?: ClinicRoom | null;
