@@ -7,5 +7,6 @@ No cPanel:
 - Application startup file: server.js
 - Nao execute `npm install`
 - Nao execute `npm run build`
+- As migrations MySQL pendentes sao aplicadas automaticamente no arranque
 - Configure as variaveis de ambiente no Setup Node.js App
 - Use Restart Application apos cada pull
