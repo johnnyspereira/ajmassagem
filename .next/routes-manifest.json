@@ -752,6 +752,12 @@
       "namedRegex": "^/api/inbox/conversations/clear(?:/)?$"
     },
     {
+      "page": "/api/install",
+      "regex": "^/api/install(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/install(?:/)?$"
+    },
+    {
       "page": "/api/marketing/automation-rules/process",
       "regex": "^/api/marketing/automation\\-rules/process(?:/)?$",
       "routeKeys": {},
@@ -1014,6 +1020,12 @@
       "regex": "^/inbox(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/inbox(?:/)?$"
+    },
+    {
+      "page": "/install",
+      "regex": "^/install(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/install(?:/)?$"
     },
     {
       "page": "/library",
