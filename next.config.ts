@@ -65,6 +65,7 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  serverExternalPackages: ['mysql2'],
   allowedDevOrigins: ['192.168.1.17'],
 
   /**

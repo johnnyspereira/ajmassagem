@@ -441,6 +441,7 @@ export function ClientPortal({ slug }: { slug: string }) {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [supportRequestKey, setSupportRequestKey] = useState(0);
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [guestBookingOpen, setGuestBookingOpen] = useState(false);
 
   const loadPortal = useCallback(async () => {
     const publicResponse = await fetch(
@@ -610,17 +611,26 @@ export function ClientPortal({ slug }: { slug: string }) {
   if (!publicPortal) return <PortalUnavailable />;
   if (!data) {
     return (
-      <PortalLogin
-        portal={publicPortal}
-        email={email}
-        setEmail={setEmail}
-        password={password}
-        setPassword={setPassword}
-        passwordSent={passwordSent}
-        loading={claiming}
-        onSubmit={signIn}
-        onRequestPassword={requestPassword}
-      />
+      <>
+        <PortalLogin
+          portal={publicPortal}
+          email={email}
+          setEmail={setEmail}
+          password={password}
+          setPassword={setPassword}
+          passwordSent={passwordSent}
+          loading={claiming}
+          onSubmit={signIn}
+          onRequestPassword={requestPassword}
+          onGuestBooking={() => setGuestBookingOpen(true)}
+        />
+        <GuestBookingDialog
+          open={guestBookingOpen}
+          onOpenChange={setGuestBookingOpen}
+          slug={slug}
+          businessName={publicPortal.business.name}
+        />
+      </>
     );
   }
 
@@ -907,6 +917,7 @@ function PortalLogin({
   loading,
   onSubmit,
   onRequestPassword,
+  onGuestBooking,
 }: {
   portal: PublicPortal;
   email: string;
@@ -917,6 +928,7 @@ function PortalLogin({
   loading: boolean;
   onSubmit: (event: React.FormEvent) => void;
   onRequestPassword: (delivery?: 'email' | 'whatsapp') => void;
+  onGuestBooking: () => void;
 }) {
   return (
     <main className="grid min-h-screen bg-[#f6f7f9] text-[#17191c] [--background:#ffffff] [--border:#dde1e7] [--card:#ffffff] [--foreground:#17191c] [--input:#d0d5dd] [--muted-foreground:#667085] [--muted:#f1f3f5] [--popover-foreground:#17191c] [--popover:#ffffff] lg:grid-cols-[minmax(340px,0.82fr)_minmax(520px,1.18fr)]">
@@ -1027,6 +1039,22 @@ function PortalLogin({
             >
               Receber pelo WhatsApp
             </Button>
+            {portal.features.booking ? (
+              <div className="border-border mt-5 border-t pt-5">
+                <p className="text-muted-foreground mb-3 text-center text-sm">
+                  Ainda não é cliente?
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                  onClick={onGuestBooking}
+                >
+                  <CalendarDays /> Agendar como convidado
+                </Button>
+              </div>
+            ) : null}
           </form>
           <div className="border-border mt-8 flex items-start gap-3 border-t pt-5">
             <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" />
@@ -1039,6 +1067,258 @@ function PortalLogin({
         </div>
       </section>
     </main>
+  );
+}
+
+type GuestCatalog = {
+  services: Array<{
+    id: string;
+    name: string;
+    duration_minutes: number;
+    price: number;
+    currency: string;
+  }>;
+  professionals: Array<{
+    id: string;
+    full_name: string | null;
+    professional_title: string | null;
+  }>;
+  bookingAdvanceDays: number;
+};
+
+function GuestBookingDialog({
+  open,
+  onOpenChange,
+  slug,
+  businessName,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  slug: string;
+  businessName: string;
+}) {
+  const [catalog, setCatalog] = useState<GuestCatalog | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [serviceId, setServiceId] = useState('');
+  const [professionalId, setProfessionalId] = useState('');
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('09:00');
+  const [notes, setNotes] = useState('');
+  const [consent, setConsent] = useState(false);
+
+  useEffect(() => {
+    if (!open || catalog) return;
+    setLoading(true);
+    fetch(`/api/portal/${encodeURIComponent(slug)}/guest-booking`, {
+      cache: 'no-store',
+    })
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error);
+        setCatalog(payload as GuestCatalog);
+        setServiceId(payload.services?.[0]?.id || '');
+        setProfessionalId(payload.professionals?.[0]?.id || '');
+      })
+      .catch((error) =>
+        toast.error(
+          error instanceof Error ? error.message : 'Agendamento indisponível.'
+        )
+      )
+      .finally(() => setLoading(false));
+  }, [catalog, open, slug]);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!consent)
+      return toast.error('Confirme o consentimento para criar a ficha.');
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `/api/portal/${encodeURIComponent(slug)}/guest-booking`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            email,
+            phone,
+            serviceId,
+            professionalId,
+            scheduledStart: new Date(`${date}T${time}:00`).toISOString(),
+            notes,
+          }),
+        }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(payload.error || 'Não foi possível agendar.');
+      toast.success('Sessão agendada. A sua ficha de cliente foi criada.');
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Não foi possível agendar.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const minDate = new Date().toISOString().slice(0, 10);
+  const maxDate = new Date(
+    Date.now() + Number(catalog?.bookingAdvanceDays ?? 90) * 86_400_000
+  )
+    .toISOString()
+    .slice(0, 10);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Agendar como convidado</DialogTitle>
+          <DialogDescription>
+            Crie a sua ficha na {businessName} e marque a primeira sessão. Não
+            precisa de palavra-passe para concluir este agendamento.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="guest-name">Nome completo</Label>
+            <Input
+              id="guest-name"
+              required
+              minLength={2}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="guest-email">Email</Label>
+            <Input
+              id="guest-email"
+              type="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="guest-phone">Telemóvel</Label>
+            <Input
+              id="guest-phone"
+              type="tel"
+              required
+              placeholder="+351 912 345 678"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="guest-service">Serviço</Label>
+            <select
+              id="guest-service"
+              required
+              value={serviceId}
+              onChange={(event) => setServiceId(event.target.value)}
+              className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+            >
+              {(catalog?.services ?? []).map((service) => (
+                <option key={service.id} value={service.id}>
+                  {service.name} · {service.duration_minutes} min ·{' '}
+                  {formatCurrency(Number(service.price), service.currency)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="guest-professional">Profissional</Label>
+            <select
+              id="guest-professional"
+              required
+              value={professionalId}
+              onChange={(event) => setProfessionalId(event.target.value)}
+              className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+            >
+              {(catalog?.professionals ?? []).map((professional) => (
+                <option key={professional.id} value={professional.id}>
+                  {professional.full_name ||
+                    professional.professional_title ||
+                    'Profissional'}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="guest-date">Data</Label>
+            <Input
+              id="guest-date"
+              type="date"
+              required
+              min={minDate}
+              max={maxDate}
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="guest-time">Hora</Label>
+            <Input
+              id="guest-time"
+              type="time"
+              required
+              step={900}
+              value={time}
+              onChange={(event) => setTime(event.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="guest-notes">Observações (opcional)</Label>
+            <Input
+              id="guest-notes"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Indique alguma preferência ou necessidade."
+            />
+          </div>
+          <label className="text-muted-foreground flex items-start gap-3 text-xs leading-5 sm:col-span-2">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={consent}
+              onChange={(event) => setConsent(event.target.checked)}
+            />
+            Autorizo a criação da minha ficha de cliente e o tratamento destes
+            dados para gerir o agendamento e respetivas comunicações.
+          </label>
+          <DialogFooter className="sm:col-span-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={
+                loading ||
+                !catalog?.services.length ||
+                !catalog?.professionals.length
+              }
+            >
+              {loading ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <CalendarCheck />
+              )}
+              Confirmar agendamento
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

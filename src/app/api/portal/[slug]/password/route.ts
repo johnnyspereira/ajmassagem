@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { supabaseAdmin } from '@/lib/flows/admin-client';
 import { resolveAuditUserId } from '@/lib/api/v1/contacts';
 import { sendLocalEmail } from '@/lib/email/smtp';
+import { portalAccessEmail } from '@/lib/email/templates';
 import { portalAuthEmail } from '@/lib/portal/identity';
 import { portalErrorResponse, requirePortalAccess } from '@/lib/portal/server';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
@@ -241,11 +242,20 @@ export async function POST(
     const recipientName = contact.name ? `, ${contact.name.split(' ')[0]}` : '';
     const accessText = `Olá${recipientName}. O seu acesso seguro ao Portal 360 está pronto. Entre diretamente em ${portalUrl.toString()} ou use o seu email e a palavra-passe temporária ${password}. O link é pessoal, de utilização única e expira por segurança. No primeiro acesso, defina uma nova palavra-passe.`;
     if (delivery === 'email') {
+      const { data: account } = await admin
+        .from('accounts')
+        .select('name')
+        .eq('id', settings.account_id)
+        .maybeSingle();
+      const template = portalAccessEmail({
+        businessName: account?.name || 'JP Massagem',
+        clientName: contact.name,
+        portalUrl: portalUrl.toString(),
+        password,
+      });
       await sendLocalEmail({
         to: email,
-        subject: 'Acesso ao Portal 360',
-        text: accessText,
-        html: `<p>Olá${recipientName}.</p><p>O seu acesso seguro ao Portal 360 está pronto.</p><p><a href="${portalUrl.toString()}">Entrar diretamente no portal</a></p><p>Para entrar manualmente, use o seu email e esta palavra-passe temporária:</p><p><strong>${password}</strong></p><p>O link é pessoal, de utilização única e expira por segurança. No primeiro acesso, defina uma nova palavra-passe.</p>`,
+        ...template,
       });
     } else if (remoteWhatsAppWorker.enabled()) {
       await remoteWhatsAppWorker.send({
