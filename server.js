@@ -9,8 +9,7 @@ try {
     stdio: 'inherit',
   });
 } catch (error) {
-  console.error('cPanel: MySQL migration failed. Application was not started.');
-  process.exit(typeof error.status === 'number' ? error.status : 1);
+  console.error('cPanel: MySQL migration failed. Starting the application with the existing schema.');
 }
 
 require('./next-server.js');
