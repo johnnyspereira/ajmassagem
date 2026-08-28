@@ -1,5 +1,8 @@
 import { spawn } from 'node:child_process';
+import path from 'node:path';
 import process from 'node:process';
+
+const applicationRoot = path.resolve(process.env.INIT_CWD || process.cwd());
 
 if (process.env.CPANEL_DEPLOY !== 'true') {
   console.log('skip cPanel deployment (CPANEL_DEPLOY is not true)');
@@ -11,6 +14,7 @@ function run(command, args) {
     const child = spawn(command, args, {
       stdio: 'inherit',
       env: process.env,
+      cwd: applicationRoot,
       shell: process.platform === 'win32',
     });
     child.once('error', reject);
@@ -22,11 +26,11 @@ function run(command, args) {
 }
 
 console.log('cPanel: applying MySQL migrations...');
-await run(process.execPath, ['scripts/mysql-migrate.mjs']);
+await run(process.execPath, [path.join(applicationRoot, 'scripts/mysql-migrate.mjs')]);
 
 console.log('cPanel: building the Next.js production application...');
 await run(process.execPath, [
-  'node_modules/next/dist/bin/next',
+  path.join(applicationRoot, 'node_modules/next/dist/bin/next'),
   'build',
   '--webpack',
 ]);
