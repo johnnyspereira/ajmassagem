@@ -98,15 +98,13 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   user_id CHAR(36) NULL,
   contact_id CHAR(36) NULL,
   endpoint TEXT NOT NULL,
-  endpoint_hash CHAR(64)
-    GENERATED ALWAYS AS (SHA2(endpoint, 256)) STORED,
   p256dh TEXT NOT NULL,
   auth TEXT NOT NULL,
   user_agent TEXT NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   last_used_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
-  UNIQUE KEY push_subscriptions_endpoint_hash_unique (endpoint_hash),
+  UNIQUE KEY push_subscriptions_endpoint_unique (endpoint(191)),
   KEY push_subscriptions_user_idx (user_id),
   KEY push_subscriptions_contact_idx (contact_id),
   CONSTRAINT push_subscriptions_account_id_fk

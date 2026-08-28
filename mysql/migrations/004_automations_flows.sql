@@ -154,16 +154,8 @@ CREATE TABLE IF NOT EXISTS flow_runs (
   last_advanced_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   ended_at DATETIME(3) NULL,
   end_reason TEXT NULL,
-  active_contact_key VARCHAR(73)
-    GENERATED ALWAYS AS (
-      CASE
-        WHEN status = 'active' AND contact_id IS NOT NULL
-          THEN CONCAT(account_id, ':', contact_id)
-        ELSE NULL
-      END
-    ) STORED,
   PRIMARY KEY (id),
-  UNIQUE KEY flow_runs_one_active_contact_unique (active_contact_key),
+  KEY flow_runs_active_contact_idx (account_id, contact_id, status),
   KEY flow_runs_account_active_idx (account_id, status, last_advanced_at),
   KEY flow_runs_flow_started_idx (flow_id, started_at),
   CONSTRAINT flow_runs_account_id_fk
@@ -196,4 +188,3 @@ CREATE TABLE IF NOT EXISTS flow_run_events (
   CONSTRAINT flow_run_events_flow_run_id_fk
     FOREIGN KEY (flow_run_id) REFERENCES flow_runs(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
