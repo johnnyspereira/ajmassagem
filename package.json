@@ -33,7 +33,7 @@
     "build:cpanel": "next build --webpack",
     "start": "next start",
     "start:cpanel": "node server.cjs",
-    "postinstall": "node scripts/cpanel-postinstall.mjs",
+    "postinstall": "node -e \"import(require('node:url').pathToFileURL(require('node:path').join(process.env.INIT_CWD||process.cwd(),'scripts/cpanel-postinstall.mjs')).href)\"",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
