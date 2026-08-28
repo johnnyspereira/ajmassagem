@@ -47,10 +47,13 @@ AUTOMATION_CRON_SECRET=OUTRO_SEGREDO_LONGO
 SMTP e Meta/WhatsApp sao opcionais e constam em `.env.local.example`. Nao
 configure variaveis `SUPABASE_*`.
 
-## WhatsApp no proprio cPanel
+## WhatsApp QR pelo computador
 
-Nao defina `WHATSAPP_WORKER_URL`: o conector QR usara a sessao local. Garanta
-permissao de escrita para `LOCAL_UPLOAD_DIR` e para a pasta da sessao WhatsApp.
+Para evitar Chromium no cPanel, execute `workers/whatsapp-bridge` no computador
+e exponha a porta 4100 por um tunel HTTPS. No cPanel configure
+`WHATSAPP_MODE=remote_worker`, `WHATSAPP_WORKER_URL` e
+`WHATSAPP_WORKER_SECRET`. O bridge usa esse mesmo segredo e grava os eventos no
+MySQL atraves da API protegida do CRM; nao usa Supabase.
 
 ## Cron
 
