@@ -60,12 +60,14 @@ export async function registerOwner(input: {
   email: string;
   password: string;
   fullName: string;
+  accountName?: string;
 }) {
   const email = input.email.trim().toLowerCase();
   const fullName = input.fullName.trim();
   if (!email || !email.includes('@')) throw new Error('Invalid email address.');
   if (!fullName) throw new Error('Full name is required.');
 
+  const accountName = input.accountName?.trim() || fullName;
   const passwordHash = await hashPassword(input.password);
   const userId = randomUUID();
   const accountId = randomUUID();
@@ -80,7 +82,7 @@ export async function registerOwner(input: {
     await connection.execute(
       `INSERT INTO accounts (id, name, owner_user_id)
        VALUES (?, ?, ?)`,
-      [accountId, fullName, userId]
+      [accountId, accountName, userId]
     );
     await connection.execute(
       `INSERT INTO profiles (
