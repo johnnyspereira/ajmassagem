@@ -860,6 +860,12 @@
       "namedRegex": "^/api/whatsapp/baileys/sync(?:/)?$"
     },
     {
+      "page": "/api/whatsapp/bridge",
+      "regex": "^/api/whatsapp/bridge(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/whatsapp/bridge(?:/)?$"
+    },
+    {
       "page": "/api/whatsapp/broadcast",
       "regex": "^/api/whatsapp/broadcast(?:/)?$",
       "routeKeys": {},
