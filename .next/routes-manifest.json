@@ -710,6 +710,12 @@
       "namedRegex": "^/api/clinic/appointments/reminders(?:/)?$"
     },
     {
+      "page": "/api/clinic/external-calendars",
+      "regex": "^/api/clinic/external\\-calendars(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/clinic/external\\-calendars(?:/)?$"
+    },
+    {
       "page": "/api/finance/payment-links/stripe",
       "regex": "^/api/finance/payment\\-links/stripe(?:/)?$",
       "routeKeys": {},
