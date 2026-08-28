@@ -3,6 +3,7 @@ import type { RowDataPacket } from 'mysql2';
 import { registerOwner } from '@/lib/auth/service';
 import { createSession } from '@/lib/auth/session';
 import { selectRows } from '@/lib/mysql/db';
+import { getPublicUrl } from '@/lib/public-url';
 
 type CountRow = RowDataPacket & { total: number };
 
@@ -47,11 +48,11 @@ export async function POST(request: Request) {
     }
     const user = await registerOwner({ fullName, accountName, email, password });
     await createSession(user.id);
-    if (isForm) return Response.redirect(new URL('/dashboard', request.url), 303);
+    if (isForm) return Response.redirect(getPublicUrl('/dashboard', new URL(request.url).origin), 303);
     return Response.json({ success: true, user }, { status: 201 });
   } catch (error) {
     if (isForm) {
-      const url = new URL('/install', request.url);
+      const url = new URL(getPublicUrl('/install', new URL(request.url).origin));
       url.searchParams.set('error', error instanceof Error ? error.message : 'Não foi possível concluir a instalação.');
       return Response.redirect(url, 303);
     }
