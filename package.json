@@ -42,7 +42,8 @@
     "worker:whatsapp:start": "npm start --prefix workers/whatsapp-bridge",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:migrate:mysql": "node scripts/mysql-migrate.mjs"
+    "db:migrate:mysql": "node scripts/mysql-migrate.mjs",
+    "db:audit:mysql": "node scripts/audit-mysql-schema.mjs"
   },
   "dependencies": {
     "@adiwajshing/keyed-db": "^0.2.4",
