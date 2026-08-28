@@ -5,9 +5,10 @@
  */
 export function getPublicUrl(path: string, browserOrigin: string): string {
   const configuredOrigin =
-    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    process.env.CANONICAL_APP_URL?.trim() ||
+    process.env.APP_URL?.trim() ||
     process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-    process.env.APP_URL?.trim();
+    process.env.NEXT_PUBLIC_SITE_URL?.trim();
   const origin = (configuredOrigin || browserOrigin).replace(/\/+$/, '');
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
 

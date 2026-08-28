@@ -17,8 +17,9 @@ jobs:
       WHATSAPP_MODE: remote_worker
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
-      NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+      NEXT_PUBLIC_APP_URL: https://jpmassagem.pt
+      NEXT_PUBLIC_SITE_URL: https://jpmassagem.pt
+      APP_URL: https://jpmassagem.pt
       NEXT_PUBLIC_APP_LOCALE: pt
 
     steps:
