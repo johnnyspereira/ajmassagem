@@ -63,9 +63,7 @@ export default async function PublicBusinessPage({
     site = await getPublicBusinessSite(slug);
   if (!site) notFound();
   const { settings, account, services, team, portal } = site;
-  const bookingUrl = portal?.booking_enabled
-    ? `/portal/${portal.slug}`
-    : '#contacto';
+  const bookingUrl = portal?.booking_enabled ? '/portal' : '#contacto';
   const whatsapp = settings.whatsapp_phone?.replace(/\D/g, '');
   const heroSlides = [
     ...(settings.hero_image_url
@@ -111,7 +109,7 @@ export default async function PublicBusinessPage({
           <div className="flex gap-2">
             {portal && (
               <Link
-                href={`/portal/${portal.slug}`}
+                href="/portal"
                 className="site-button site-button-secondary hidden rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium sm:block"
               >
                 Área do cliente

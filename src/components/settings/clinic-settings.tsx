@@ -1730,7 +1730,7 @@ function AnamnesisPanel({
   const publicUrl =
     typeof window === 'undefined' || !value.anamnesis_public_slug
       ? ''
-      : `${window.location.origin}/anamnese/public/${value.anamnesis_public_slug}`;
+      : `${window.location.origin}/anamnese`;
   function patch(next: Partial<CommunicationDraft>) {
     onChange({ ...value, ...next });
   }

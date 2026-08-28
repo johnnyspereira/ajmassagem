@@ -120,7 +120,7 @@ export function ClientPortalSettings() {
       typeof window !== 'undefined'
         ? window.location.origin
         : account?.public_url?.replace(/\/$/, '') || '';
-    return form.slug ? `${origin}/portal/${form.slug}` : '';
+    return form.slug ? `${origin}/portal` : '';
   }, [account?.public_url, form.slug]);
 
   function patch<K extends keyof PortalForm>(key: K, value: PortalForm[K]) {

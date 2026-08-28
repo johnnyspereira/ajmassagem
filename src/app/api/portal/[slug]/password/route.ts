@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 
 import { supabaseAdmin } from '@/lib/flows/admin-client';
 import { resolveAuditUserId } from '@/lib/api/v1/contacts';
+import { sendLocalEmail } from '@/lib/email/smtp';
 import { portalAuthEmail } from '@/lib/portal/identity';
 import { portalErrorResponse, requirePortalAccess } from '@/lib/portal/server';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
@@ -37,8 +38,10 @@ export async function POST(
 
   const body = (await request.json().catch(() => null)) as {
     email?: string;
+    delivery?: 'email' | 'whatsapp';
   } | null;
   const email = body?.email?.trim().toLowerCase() || '';
+  const delivery = body?.delivery === 'whatsapp' ? 'whatsapp' : 'email';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return Response.json(
       { error: 'Informe um email válido.' },
@@ -60,16 +63,19 @@ export async function POST(
   const generic = Response.json({
     ok: true,
     message:
-      'Se o email estiver associado a um cliente, o link de acesso e a senha temporária serão enviados para o WhatsApp cadastrado.',
+      delivery === 'email'
+        ? 'Se o email estiver associado a um cliente, enviaremos as instruções de acesso para esse endereço.'
+        : 'Se o email estiver associado a um cliente, enviaremos as instruções para o WhatsApp registado.',
   });
   const { data: contacts } = await admin
     .from('contacts')
-    .select('id,name,phone')
+    .select('id,name,phone,email')
     .eq('account_id', settings.account_id)
     .ilike('email', email)
     .limit(2);
-  if (!contacts || contacts.length !== 1 || !contacts[0].phone) return generic;
+  if (!contacts || contacts.length !== 1) return generic;
   const contact = contacts[0];
+  if (delivery === 'whatsapp' && !contact.phone) return generic;
 
   const { data: qrConfig } = await admin
     .from('whatsapp_config')
@@ -78,24 +84,26 @@ export async function POST(
     .maybeSingle();
   const auditUserId =
     qrConfig?.user_id || (await resolveAuditUserId(admin, settings.account_id));
-  let status = remoteWhatsAppWorker.enabled()
-    ? await remoteWhatsAppWorker.status({
-        accountId: settings.account_id,
-        userId: auditUserId,
-        autoStart: true,
-      })
-    : await getLocalQrStatus();
-  if (!status.connected && !remoteWhatsAppWorker.enabled()) {
-    status = await startLocalQrSession(settings.account_id, auditUserId);
-  }
-  if (!status.connected) {
-    return Response.json(
-      {
-        error:
-          'O WhatsApp da clínica está temporariamente indisponível. Tente novamente mais tarde.',
-      },
-      { status: 503 }
-    );
+  if (delivery === 'whatsapp') {
+    let status = remoteWhatsAppWorker.enabled()
+      ? await remoteWhatsAppWorker.status({
+          accountId: settings.account_id,
+          userId: auditUserId,
+          autoStart: true,
+        })
+      : await getLocalQrStatus();
+    if (!status.connected && !remoteWhatsAppWorker.enabled()) {
+      status = await startLocalQrSession(settings.account_id, auditUserId);
+    }
+    if (!status.connected) {
+      return Response.json(
+        {
+          error:
+            'O WhatsApp da clínica está temporariamente indisponível. Tente novamente mais tarde.',
+        },
+        { status: 503 }
+      );
+    }
   }
 
   let { data: access } = await admin
@@ -224,22 +232,27 @@ export async function POST(
         magicLinkError || new Error('Não foi possível criar o link de acesso.')
       );
     }
-    const portalUrl = new URL(
-      `/portal/${encodeURIComponent(slug)}`,
-      new URL(request.url).origin
-    );
+    const portalUrl = new URL('/portal', new URL(request.url).origin);
     portalUrl.searchParams.set(
       'portal_token',
       magicLink.properties.hashed_token
     );
 
-    const whatsappText = `Olá${contact.name ? `, ${contact.name.split(' ')[0]}` : ''}. ✨\n\nO seu acesso seguro ao *Portal 360* está pronto.\n\n👉 *Entrar automaticamente:*\n${portalUrl.toString()}\n\nSe preferir entrar manualmente, utilize o seu email e esta senha temporária:\n\n🔐 *${password}*\n\nO link é pessoal, de utilização única e expira por segurança. No primeiro acesso, poderá definir uma nova senha. Não partilhe estes dados.`;
-    if (remoteWhatsAppWorker.enabled()) {
+    const recipientName = contact.name ? `, ${contact.name.split(' ')[0]}` : '';
+    const accessText = `Olá${recipientName}. O seu acesso seguro ao Portal 360 está pronto. Entre diretamente em ${portalUrl.toString()} ou use o seu email e a palavra-passe temporária ${password}. O link é pessoal, de utilização única e expira por segurança. No primeiro acesso, defina uma nova palavra-passe.`;
+    if (delivery === 'email') {
+      await sendLocalEmail({
+        to: email,
+        subject: 'Acesso ao Portal 360',
+        text: accessText,
+        html: `<p>Olá${recipientName}.</p><p>O seu acesso seguro ao Portal 360 está pronto.</p><p><a href="${portalUrl.toString()}">Entrar diretamente no portal</a></p><p>Para entrar manualmente, use o seu email e esta palavra-passe temporária:</p><p><strong>${password}</strong></p><p>O link é pessoal, de utilização única e expira por segurança. No primeiro acesso, defina uma nova palavra-passe.</p>`,
+      });
+    } else if (remoteWhatsAppWorker.enabled()) {
       await remoteWhatsAppWorker.send({
         accountId: settings.account_id,
         conversationId: conversation.id,
         message: {
-          text: whatsappText,
+          text: accessText,
           contentType: 'text',
           senderType: 'bot',
         },
@@ -248,7 +261,7 @@ export async function POST(
       await sendTextViaLocalQr(
         settings.account_id,
         conversation.id,
-        whatsappText,
+        accessText,
         { senderType: 'bot' }
       );
     }
@@ -271,11 +284,13 @@ export async function POST(
       }
       await admin.auth.admin.deleteUser(createdUserId);
     }
-    console.error('[portal-password] WhatsApp delivery failed:', error);
+    console.error(`[portal-password] ${delivery} delivery failed:`, error);
     return Response.json(
       {
         error:
-          'Não foi possível enviar o link e a senha pelo WhatsApp neste momento.',
+          delivery === 'email'
+            ? 'Não foi possível enviar o email neste momento. Confirme a configuração SMTP.'
+            : 'Não foi possível enviar o link e a senha pelo WhatsApp neste momento.',
       },
       { status: 502 }
     );

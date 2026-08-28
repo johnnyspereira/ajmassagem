@@ -568,7 +568,7 @@ export function ClientPortal({ slug }: { slug: string }) {
     }
   }
 
-  async function requestPassword() {
+  async function requestPassword(delivery: 'email' | 'whatsapp' = 'email') {
     if (!email.trim()) return toast.error('Informe primeiro o seu email.');
     setClaiming(true);
     const response = await fetch(
@@ -576,7 +576,7 @@ export function ClientPortal({ slug }: { slug: string }) {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: email.trim(), delivery }),
       }
     );
     const payload = await response.json().catch(() => ({}));
@@ -584,7 +584,7 @@ export function ClientPortal({ slug }: { slug: string }) {
     if (!response.ok)
       return toast.error(payload.error || 'Não foi possível enviar a senha.');
     setPasswordSent(true);
-    toast.success(payload.message || 'Consulte o seu WhatsApp.');
+    toast.success(payload.message || 'Consulte o seu email.');
   }
 
   async function signOut() {
@@ -916,7 +916,7 @@ function PortalLogin({
   passwordSent: boolean;
   loading: boolean;
   onSubmit: (event: React.FormEvent) => void;
-  onRequestPassword: () => void;
+  onRequestPassword: (delivery?: 'email' | 'whatsapp') => void;
 }) {
   return (
     <main className="grid min-h-screen bg-[#f6f7f9] text-[#17191c] [--background:#ffffff] [--border:#dde1e7] [--card:#ffffff] [--foreground:#17191c] [--input:#d0d5dd] [--muted-foreground:#667085] [--muted:#f1f3f5] [--popover-foreground:#17191c] [--popover:#ffffff] lg:grid-cols-[minmax(340px,0.82fr)_minmax(520px,1.18fr)]">
@@ -997,7 +997,7 @@ function PortalLogin({
               <div className="flex gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs leading-5 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">
                 <Check className="mt-0.5 size-4 shrink-0" />
                 Se o email estiver registado, enviámos um link de entrada direta
-                e uma senha temporária para o WhatsApp associado ao cliente.
+                e uma palavra-passe temporária pelo meio escolhido.
               </div>
             )}
             <Button
@@ -1014,17 +1014,26 @@ function PortalLogin({
               variant="ghost"
               className="w-full"
               disabled={loading}
-              onClick={onRequestPassword}
+              onClick={() => onRequestPassword('email')}
             >
-              <Send /> Receber link e senha no WhatsApp
+              <Send /> Recuperar acesso por email
+            </Button>
+            <Button
+              type="button"
+              variant="link"
+              className="w-full"
+              disabled={loading}
+              onClick={() => onRequestPassword('whatsapp')}
+            >
+              Receber pelo WhatsApp
             </Button>
           </form>
           <div className="border-border mt-8 flex items-start gap-3 border-t pt-5">
             <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" />
             <p className="text-muted-foreground text-xs leading-5">
-              O acesso é enviado apenas para o número de WhatsApp já confirmado
-              na sua ficha. O link é pessoal, de utilização única, e a equipa
-              nunca solicitará estes dados.
+              O acesso só é enviado para o email ou WhatsApp confirmado na sua
+              ficha. O link é pessoal, de utilização única, e a equipa nunca
+              solicitará estes dados.
             </p>
           </div>
         </div>
@@ -1604,11 +1613,7 @@ function AnamnesisView({ data }: { data: PortalData }) {
             <Button
               variant="outline"
               onClick={() =>
-                window.open(
-                  `/anamnese/public/${data.settings.anamnesisPublicSlug}`,
-                  '_blank',
-                  'noopener,noreferrer'
-                )
+                window.open('/anamnese', '_blank', 'noopener,noreferrer')
               }
             >
               <ClipboardList /> Preencher ficha geral
