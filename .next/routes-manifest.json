@@ -566,6 +566,12 @@
       "namedRegex": "^/agents(?:/)?$"
     },
     {
+      "page": "/anamnese",
+      "regex": "^/anamnese(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/anamnese(?:/)?$"
+    },
+    {
       "page": "/api/account",
       "regex": "^/api/account(?:/)?$",
       "routeKeys": {},
@@ -1056,6 +1062,12 @@
       "regex": "^/pipelines(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/pipelines(?:/)?$"
+    },
+    {
+      "page": "/portal",
+      "regex": "^/portal(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/portal(?:/)?$"
     },
     {
       "page": "/portal-campaigns",
