@@ -6,6 +6,7 @@ import { sendLocalEmail } from '@/lib/email/smtp';
 import { portalAccessEmail } from '@/lib/email/templates';
 import { portalAuthEmail } from '@/lib/portal/identity';
 import { portalErrorResponse, requirePortalAccess } from '@/lib/portal/server';
+import { getPublicUrl } from '@/lib/public-url';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 
@@ -233,7 +234,9 @@ export async function POST(
         magicLinkError || new Error('Não foi possível criar o link de acesso.')
       );
     }
-    const portalUrl = new URL('/portal', new URL(request.url).origin);
+    const portalUrl = new URL(
+      getPublicUrl('/portal', new URL(request.url).origin)
+    );
     portalUrl.searchParams.set(
       'portal_token',
       magicLink.properties.hashed_token
