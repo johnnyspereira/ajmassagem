@@ -87,7 +87,7 @@ const emptyDraft = (): Draft => ({
 
 export function PortalCampaignsPage() {
   const supabase = useMemo(() => createClient(), []);
-  const { accountId, user, canSendMessages } = useAuth();
+  const { accountId, profile, canSendMessages } = useAuth();
   const [items, setItems] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -139,7 +139,7 @@ export function PortalCampaignsPage() {
     setOpen(true);
   }
   async function save() {
-    if (!accountId || !user || !draft.title.trim())
+    if (!accountId || !profile || !draft.title.trim())
       return toast.error('Indique o título da campanha.');
     setSaving(true);
     const row = {
@@ -154,7 +154,7 @@ export function PortalCampaignsPage() {
       starts_at: new Date(draft.startsAt).toISOString(),
       ends_at: draft.endsAt ? new Date(draft.endsAt).toISOString() : null,
       capacity: Number(draft.capacity) > 0 ? Number(draft.capacity) : null,
-      created_by: user.id,
+      created_by: profile.id,
     };
     const result = editing
       ? await supabase.from('portal_campaigns').update(row).eq('id', editing)

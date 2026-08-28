@@ -164,7 +164,9 @@ function hashtagText(tags: string[]) {
 }
 
 function platformForType(type: SocialPostType): SocialPlatform {
-  return POST_TYPES.find((item) => item.value === type)?.platform ?? 'instagram';
+  return (
+    POST_TYPES.find((item) => item.value === type)?.platform ?? 'instagram'
+  );
 }
 
 function nextDefaultDate() {
@@ -173,7 +175,7 @@ function nextDefaultDate() {
 
 export function SocialPlannerPage() {
   const supabase = useMemo(() => createClient(), []);
-  const { accountId, user } = useAuth();
+  const { accountId, profile } = useAuth();
   const canSend = useCan('send-messages');
 
   const [posts, setPosts] = useState<SocialPost[]>([]);
@@ -210,13 +212,17 @@ export function SocialPlannerPage() {
     ]);
 
     if (postsResult.error) {
-      toast.error(`Não foi possível carregar publicações: ${postsResult.error.message}`);
+      toast.error(
+        `Não foi possível carregar publicações: ${postsResult.error.message}`
+      );
     } else {
       setPosts((postsResult.data ?? []) as SocialPost[]);
     }
 
     if (segmentsResult.error) {
-      toast.error(`Não foi possível carregar segmentos: ${segmentsResult.error.message}`);
+      toast.error(
+        `Não foi possível carregar segmentos: ${segmentsResult.error.message}`
+      );
     } else {
       setSegments((segmentsResult.data ?? []) as ContactSegment[]);
     }
@@ -224,11 +230,13 @@ export function SocialPlannerPage() {
   }, [accountId, supabase]);
 
   useEffect(() => {
-    loadData();
+    // Loading follows the authenticated account becoming available.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadData();
   }, [loadData]);
 
   async function createPost() {
-    if (!accountId || !user?.id || !canSend) return;
+    if (!accountId || !profile?.id || !canSend) return;
     if (!title.trim()) return toast.error('Dê um título à publicação.');
     if (!caption.trim()) return toast.error('Escreva a legenda ou mensagem.');
 
@@ -246,7 +254,7 @@ export function SocialPlannerPage() {
     const platform = platformForType(postType);
     const { error } = await supabase.from('social_scheduled_posts').insert({
       account_id: accountId,
-      created_by: user.id,
+      created_by: profile.id,
       platform,
       post_type: postType,
       status,
@@ -276,11 +284,17 @@ export function SocialPlannerPage() {
     await loadData();
   }
 
-  async function updatePostStatus(post: SocialPost, nextStatus: SocialPostStatus) {
+  async function updatePostStatus(
+    post: SocialPost,
+    nextStatus: SocialPostStatus
+  ) {
     if (!canSend) return;
     const patch: Partial<SocialPost> = {
       status: nextStatus,
-      published_at: nextStatus === 'published' ? new Date().toISOString() : post.published_at,
+      published_at:
+        nextStatus === 'published'
+          ? new Date().toISOString()
+          : post.published_at,
     };
     const { error } = await supabase
       .from('social_scheduled_posts')
@@ -289,16 +303,18 @@ export function SocialPlannerPage() {
       .eq('account_id', accountId);
 
     if (error) return toast.error(error.message);
-    toast.success(`Publicação marcada como ${STATUS_LABELS[nextStatus].toLowerCase()}.`);
+    toast.success(
+      `Publicação marcada como ${STATUS_LABELS[nextStatus].toLowerCase()}.`
+    );
     await loadData();
   }
 
   async function duplicatePost(post: SocialPost) {
-    if (!accountId || !user?.id || !canSend) return;
+    if (!accountId || !profile?.id || !canSend) return;
     const nextDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     const { error } = await supabase.from('social_scheduled_posts').insert({
       account_id: accountId,
-      created_by: user.id,
+      created_by: profile.id,
       platform: post.platform,
       post_type: post.post_type,
       status: 'draft',
@@ -353,7 +369,8 @@ export function SocialPlannerPage() {
             Publicações programadas
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Planeie Stories, Reels, posts e campanhas num calendário único de marketing.
+            Planeie Stories, Reels, posts e campanhas num calendário único de
+            marketing.
           </p>
         </div>
         <Button variant="outline" onClick={loadData} disabled={loading}>
@@ -363,20 +380,35 @@ export function SocialPlannerPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <MetricCard label="Próximos conteúdos" value={scheduledPosts.length} icon={CalendarClock} />
-        <MetricCard label="Instagram em fila" value={instagramCount} icon={Camera} />
-        <MetricCard label="WhatsApp preparado" value={whatsappCount} icon={MessageCircle} />
+        <MetricCard
+          label="Próximos conteúdos"
+          value={scheduledPosts.length}
+          icon={CalendarClock}
+        />
+        <MetricCard
+          label="Instagram em fila"
+          value={instagramCount}
+          icon={Camera}
+        />
+        <MetricCard
+          label="WhatsApp preparado"
+          value={whatsappCount}
+          icon={MessageCircle}
+        />
       </div>
 
       <Card className="border-amber-500/20 bg-amber-500/5">
         <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-start">
           <ShieldAlert className="mt-0.5 size-5 shrink-0 text-amber-400" />
           <div className="space-y-1 text-sm">
-            <p className="font-medium text-amber-300">Regra de segurança do módulo</p>
+            <p className="font-medium text-amber-300">
+              Regra de segurança do módulo
+            </p>
             <p className="text-muted-foreground">
-              Instagram Feed/Reels/Stories fica preparado para a API oficial da Meta.
-              WhatsApp Status não tem publicação automática oficial; por isso o CRM
-              agenda o conteúdo e deixa tudo pronto para copiar/publicar com segurança.
+              Instagram Feed/Reels/Stories fica preparado para a API oficial da
+              Meta. WhatsApp Status não tem publicação automática oficial; por
+              isso o CRM agenda o conteúdo e deixa tudo pronto para
+              copiar/publicar com segurança.
             </p>
           </div>
         </CardContent>
@@ -424,7 +456,9 @@ export function SocialPlannerPage() {
               </label>
               <select
                 value={status}
-                onChange={(event) => setStatus(event.target.value as SocialPostStatus)}
+                onChange={(event) =>
+                  setStatus(event.target.value as SocialPostStatus)
+                }
                 disabled={!canSend || saving}
                 className="border-input bg-background ring-offset-background w-full rounded-md border px-3 py-2 text-sm"
               >
@@ -470,7 +504,8 @@ export function SocialPlannerPage() {
                 disabled={!canSend || saving}
               />
               <p className="text-muted-foreground mt-1 text-xs">
-                Upload direto pode entrar na próxima camada; agora aceita link público.
+                Upload direto pode entrar na próxima camada; agora aceita link
+                público.
               </p>
             </div>
 
@@ -641,10 +676,13 @@ function PostList({
                       ) : (
                         <MessageCircle className="size-4 text-emerald-400" />
                       )}
-                      <h3 className="text-foreground font-semibold">{post.title}</h3>
+                      <h3 className="text-foreground font-semibold">
+                        {post.title}
+                      </h3>
                     </div>
                     <p className="text-muted-foreground mt-1 text-xs">
-                      {formatPostType(post.post_type)} · {formatDateTime(post.scheduled_at)}
+                      {formatPostType(post.post_type)} ·{' '}
+                      {formatDateTime(post.scheduled_at)}
                     </p>
                   </div>
                   <Badge className={cn('border', STATUS_BADGES[post.status])}>
@@ -661,7 +699,9 @@ function PostList({
                   {post.caption}
                 </p>
                 {post.hashtags.length > 0 ? (
-                  <p className="text-primary text-xs">{hashtagText(post.hashtags)}</p>
+                  <p className="text-primary text-xs">
+                    {hashtagText(post.hashtags)}
+                  </p>
                 ) : null}
                 {post.media_url ? (
                   <a
@@ -679,21 +719,34 @@ function PostList({
                   </p>
                 ) : null}
                 {post.last_error ? (
-                  <Badge variant="destructive" className="h-auto whitespace-normal">
+                  <Badge
+                    variant="destructive"
+                    className="h-auto whitespace-normal"
+                  >
                     {post.last_error}
                   </Badge>
                 ) : null}
 
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" onClick={() => onCopy(post)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onCopy(post)}
+                  >
                     <Copy className="size-3.5" />
                     Copiar
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => onDuplicate(post)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onDuplicate(post)}
+                  >
                     <Repeat2 className="size-3.5" />
                     Duplicar
                   </Button>
-                  {['draft', 'scheduled', 'ready', 'failed'].includes(post.status) ? (
+                  {['draft', 'scheduled', 'ready', 'failed'].includes(
+                    post.status
+                  ) ? (
                     <Button
                       variant="outline"
                       size="sm"
@@ -723,7 +776,5 @@ function PostList({
 }
 
 function formatPostType(type: SocialPostType) {
-  return (
-    POST_TYPES.find((item) => item.value === type)?.label ?? 'Publicação'
-  );
+  return POST_TYPES.find((item) => item.value === type)?.label ?? 'Publicação';
 }
