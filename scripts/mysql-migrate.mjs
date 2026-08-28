@@ -74,7 +74,15 @@ try {
         .filter(Boolean);
       for (const statement of statements) {
         try {
-          await connection.query(statement);
+          // Some cPanel databases still default to latin1. A child table whose
+          // CHAR(36) columns inherit that default cannot reference our utf8mb4
+          // identifiers in MariaDB. Normalize every InnoDB CREATE TABLE even
+          // when an older migration omitted the explicit charset clause.
+          const compatibleStatement = statement.replace(
+            /\)\s+ENGINE=InnoDB(?!\s+DEFAULT\s+CHARSET)/i,
+            ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+          );
+          await connection.query(compatibleStatement);
         } catch (error) {
           const resumableDdlErrors = new Set([
             'ER_TABLE_EXISTS_ERROR',
