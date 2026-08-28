@@ -1,5 +1,5 @@
 ALTER TABLE contacts ADD COLUMN phone_normalized VARCHAR(50) NULL AFTER phone, ADD INDEX contacts_phone_normalized(account_id,phone_normalized);
-ALTER TABLE ai_configs ADD COLUMN embeddings_api_key TEXT NULL AFTER api_key_encrypted;
+ALTER TABLE ai_configs ADD COLUMN embeddings_api_key TEXT NULL AFTER api_key;
 ALTER TABLE referrals ADD COLUMN rejection_code VARCHAR(64) NULL AFTER rejection_reason;
 ALTER TABLE referral_program_settings
  ADD COLUMN new_clients_only BOOLEAN NOT NULL DEFAULT TRUE,
