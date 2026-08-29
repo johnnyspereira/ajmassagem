@@ -228,6 +228,25 @@ type ProfileRow = {
   is_professional: boolean | null;
 };
 
+type DeliveryState = {
+  sent?: boolean;
+  skipped?: boolean;
+  error?: string | null;
+};
+
+type CommunicationEventRow = {
+  id: string;
+  entity_id: string;
+  reason: string | null;
+  created_at: string;
+  metadata: {
+    message_action?: string;
+    status?: string | null;
+    recipient?: { name?: string; phone?: string; email?: string };
+    deliveries?: { whatsapp?: DeliveryState; email?: DeliveryState };
+  } | null;
+};
+
 type ReportData = {
   sales: SaleRow[];
   payments: FinancePayment[];
@@ -247,11 +266,19 @@ type ReportData = {
   packs: FinanceClientPack[];
   benefitLogs: FinanceBenefitLog[];
   wallets: WalletRow[];
+  communicationEvents: CommunicationEventRow[];
   warnings: string[];
 };
 
 type ReportTab =
-  'overview' | 'finance' | 'agenda' | 'clients' | 'inbox' | 'growth' | 'team';
+  | 'overview'
+  | 'finance'
+  | 'agenda'
+  | 'communications'
+  | 'clients'
+  | 'inbox'
+  | 'growth'
+  | 'team';
 
 const EMPTY_DATA: ReportData = {
   sales: [],
@@ -272,6 +299,7 @@ const EMPTY_DATA: ReportData = {
   packs: [],
   benefitLogs: [],
   wallets: [],
+  communicationEvents: [],
   warnings: [],
 };
 
@@ -570,6 +598,16 @@ export function ReportsPage() {
         .eq('account_id', accountId)
         .order('balance', { ascending: false })
         .limit(5000),
+      supabase
+        .from('clinic_agenda_events')
+        .select('id,entity_id,reason,metadata,created_at')
+        .eq('account_id', accountId)
+        .eq('entity_type', 'appointment')
+        .eq('action', 'message_sent')
+        .gte('created_at', range.currentStart)
+        .lte('created_at', range.currentEnd)
+        .order('created_at', { ascending: false })
+        .limit(5000),
     ] as const;
 
     const results = await Promise.all(queries);
@@ -592,6 +630,7 @@ export function ReportsPage() {
       'packs',
       'benefícios',
       'cartão-saldo',
+      'comunicações',
     ];
     const warnings = results.flatMap((result, index) =>
       result.error ? [`${labels[index]}: ${result.error.message}`] : []
@@ -616,6 +655,7 @@ export function ReportsPage() {
       packs: (results[15].data ?? []) as unknown as FinanceClientPack[],
       benefitLogs: (results[16].data ?? []) as unknown as FinanceBenefitLog[],
       wallets: (results[17].data ?? []) as unknown as WalletRow[],
+      communicationEvents: (results[18].data ?? []) as CommunicationEventRow[],
       warnings,
     });
     if (warnings.length) {
@@ -1040,6 +1080,16 @@ export function ReportsPage() {
     };
   }, [data, from, range, to]);
 
+  const communicationRows = useMemo(
+    () =>
+      data.communicationEvents.map((event) => ({
+        ...event,
+        whatsapp: event.metadata?.deliveries?.whatsapp,
+        email: event.metadata?.deliveries?.email,
+      })),
+    [data.communicationEvents]
+  );
+
   function applyPreset(key: 'today' | '7d' | '30d' | 'month' | 'quarter') {
     const preset = reportPreset(key);
     setFrom(preset.from);
@@ -1137,6 +1187,9 @@ export function ReportsPage() {
             </TabsTrigger>
             <TabsTrigger value="agenda">
               <CalendarDays /> Agenda
+            </TabsTrigger>
+            <TabsTrigger value="communications">
+              <MessageSquare /> Comunicações
             </TabsTrigger>
             <TabsTrigger value="clients">
               <Users /> Clientes
@@ -1726,6 +1779,74 @@ export function ReportsPage() {
                     appointment.currency
                   ),
                   <StatusBadge key="status" status={appointment.status} />,
+                ];
+              })}
+            />
+          </TabsContent>
+
+          <TabsContent value="communications" className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricCard
+                icon={MessageSquare}
+                label="WhatsApp enviados"
+                value={String(
+                  communicationRows.filter((row) => row.whatsapp?.sent).length
+                )}
+                detail="Envios confirmados no período"
+                tone="emerald"
+              />
+              <MetricCard
+                icon={Inbox}
+                label="Emails enviados"
+                value={String(
+                  communicationRows.filter((row) => row.email?.sent).length
+                )}
+                detail="Envios confirmados no período"
+                tone="blue"
+              />
+              <MetricCard
+                icon={CircleAlert}
+                label="Falhas"
+                value={String(
+                  communicationRows.filter(
+                    (row) => row.whatsapp?.error || row.email?.error
+                  ).length
+                )}
+                detail="Comunicações que exigem revisão"
+                tone="rose"
+              />
+              <MetricCard
+                icon={Activity}
+                label="Total"
+                value={String(communicationRows.length)}
+                detail="Eventos de comunicação da agenda"
+                tone="violet"
+              />
+            </div>
+            <ReportTable
+              title="Histórico de comunicações"
+              description="Quem recebeu, por qual canal e o motivo das falhas."
+              headers={[
+                'Data',
+                'Cliente',
+                'Destino',
+                'Tipo',
+                'WhatsApp',
+                'Email',
+                'Detalhes',
+              ]}
+              rows={communicationRows.map((row) => {
+                const recipient = row.metadata?.recipient;
+                return [
+                  formatDateTime(row.created_at),
+                  recipient?.name || 'Cliente',
+                  [recipient?.phone, recipient?.email]
+                    .filter(Boolean)
+                    .join(' · ') || 'Sem contacto',
+                  communicationActionLabel(row.metadata?.message_action),
+                  <DeliveryBadge key="whatsapp" delivery={row.whatsapp} />,
+                  <DeliveryBadge key="email" delivery={row.email} />,
+                  row.whatsapp?.error || row.email?.error || row.reason || '—',
                 ];
               })}
             />
@@ -2955,6 +3076,34 @@ function exportRows(
         statusLabel(item.status),
       ]),
     ];
+  if (tab === 'communications')
+    return [
+      [
+        'Data',
+        'Cliente',
+        'Telefone',
+        'Email',
+        'Tipo',
+        'WhatsApp',
+        'Email',
+        'Detalhes',
+      ],
+      ...data.communicationEvents.map((event) => {
+        const recipient = event.metadata?.recipient;
+        const whatsapp = event.metadata?.deliveries?.whatsapp;
+        const email = event.metadata?.deliveries?.email;
+        return [
+          event.created_at,
+          recipient?.name || '',
+          recipient?.phone || '',
+          recipient?.email || '',
+          communicationActionLabel(event.metadata?.message_action),
+          deliveryLabel(whatsapp),
+          deliveryLabel(email),
+          whatsapp?.error || email?.error || event.reason || '',
+        ];
+      }),
+    ];
   if (tab === 'clients')
     return [
       ['Cliente', 'Telefone', 'Vendas', 'Recebido', 'Visitas'],
@@ -3013,4 +3162,12 @@ function exportRows(
     ['Saldo de benefícios', analytics.voucherBalance + analytics.walletBalance],
     ['Moeda', currency],
   ];
+}
+
+function deliveryLabel(delivery?: DeliveryState) {
+  if (!delivery) return 'Sem registo';
+  if (delivery.error) return 'Falhou';
+  if (delivery.skipped) return 'Ignorado';
+  if (delivery.sent) return 'Enviado';
+  return 'Pendente';
 }

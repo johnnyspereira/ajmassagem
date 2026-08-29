@@ -241,7 +241,16 @@ function errorMessage(error: unknown, fallback: string) {
 
 async function logDelivery(
   db: SupabaseClient,
-  appointment: { account_id: string; id: string; contact_id: string },
+  appointment: {
+    account_id: string;
+    id: string;
+    contact_id: string;
+    contact?: {
+      name?: string | null;
+      phone?: string | null;
+      email?: string | null;
+    } | null;
+  },
   action: AppointmentMessageAction | 'status_changed',
   deliveries: AppointmentDeliveries,
   status?: AppointmentStatus
@@ -259,6 +268,11 @@ async function logDelivery(
       message_action: action,
       status: status ?? null,
       contact_id: appointment.contact_id,
+      recipient: {
+        name: appointment.contact?.name ?? null,
+        phone: appointment.contact?.phone ?? null,
+        email: appointment.contact?.email ?? null,
+      },
       deliveries,
     },
   });
