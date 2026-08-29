@@ -51,4 +51,20 @@ describe('getPublicUrl', () => {
       'https://jpmassagem.pt/portal'
     );
   });
+
+  it('normalizes a configured domain without a protocol', () => {
+    process.env.CANONICAL_APP_URL = 'jpmassagem.pt/';
+
+    expect(getPublicUrl('/portal', 'http://localhost:3000')).toBe(
+      'https://jpmassagem.pt/portal'
+    );
+  });
+
+  it('falls back to the request origin when configuration is malformed', () => {
+    process.env.CANONICAL_APP_URL = 'https://';
+
+    expect(getPublicUrl('/portal', 'https://jpmassagem.pt')).toBe(
+      'https://jpmassagem.pt/portal'
+    );
+  });
 });
