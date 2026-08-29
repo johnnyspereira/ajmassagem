@@ -97,6 +97,7 @@ describe('parseContactCsv', () => {
     expect(result.rows).toEqual([
       {
         phone: '+351935864343',
+        clientReference: '1',
         name: 'Johnny Pereira',
         email: 'johnny@example.com',
         birthDate: '1994-12-23',
@@ -121,5 +122,25 @@ describe('parseContactCsv', () => {
         tagNames: [],
       })
     ).toEqual({ phone: '+351935864343', name: 'Johnny' });
+  });
+
+  it('maps nr and common reference headers to the client reference', () => {
+    const aliases = [
+      'nr',
+      'ref',
+      'referência',
+      'client_reference',
+      'numero_cliente',
+    ];
+
+    for (const header of aliases) {
+      const result = parseContactCsv(
+        `${header},mobile,name\n0042,+351935864343,Johnny`
+      );
+      expect(result.rows[0]?.clientReference).toBe('0042');
+      expect(contactImportValues(result.rows[0]!)).toMatchObject({
+        client_reference: '0042',
+      });
+    }
   });
 });

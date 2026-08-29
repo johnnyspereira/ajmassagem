@@ -2,6 +2,7 @@
 
 export interface ParsedContactRow {
   phone: string;
+  clientReference?: string;
   name?: string;
   email?: string;
   company?: string;
@@ -28,6 +29,17 @@ export interface ParseContactCsvResult {
 type HeaderMap = Map<string, number>;
 
 const PHONE_HEADERS = ['phone', 'mobile', 'telefone', 'telemovel', 'celular'];
+const CLIENT_REFERENCE_HEADERS = [
+  'client_reference',
+  'customer_reference',
+  'reference',
+  'referencia',
+  'ref',
+  'nr',
+  'numero',
+  'numero_cliente',
+  'n_cliente',
+];
 const NAME_HEADERS = ['name', 'full_name', 'nome', 'cliente'];
 const EMAIL_HEADERS = ['email', 'e_mail', 'correio'];
 const COMPANY_HEADERS = ['company', 'empresa', 'organization', 'organizacao'];
@@ -111,6 +123,11 @@ export function parseContactCsv(text: string): ParseContactCsvResult {
     rows.push(
       compactRow({
         phone,
+        clientReference: valueByHeader(
+          record,
+          headers,
+          CLIENT_REFERENCE_HEADERS
+        ),
         name: valueByHeader(record, headers, NAME_HEADERS),
         email: valueByHeader(record, headers, EMAIL_HEADERS),
         company: valueByHeader(record, headers, COMPANY_HEADERS),
@@ -159,6 +176,7 @@ export function parseContactCsv(text: string): ParseContactCsvResult {
 export function contactImportValues(row: ParsedContactRow) {
   return removeUndefined({
     phone: row.phone,
+    client_reference: row.clientReference,
     name: row.name,
     email: row.email,
     company: row.company,
