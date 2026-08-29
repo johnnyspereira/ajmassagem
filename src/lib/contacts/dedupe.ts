@@ -74,7 +74,8 @@ export function isExactMatch(
  */
 export function isUniqueViolation(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
-  return (error as { code?: string }).code === '23505';
+  const code = (error as { code?: string }).code;
+  return code === '23505' || code === 'ER_DUP_ENTRY' || code === '1062';
 }
 
 /**
@@ -85,24 +86,27 @@ export function isUniqueViolation(error: unknown): boolean {
  */
 export function dedupeByPhone<T extends { phone: string }>(
   rows: T[]
-): { unique: T[]; duplicates: number } {
+): { unique: T[]; duplicates: number; duplicateRows: T[] } {
   const seen = new Set<string>();
   const unique: T[] = [];
+  const duplicateRows: T[] = [];
   let duplicates = 0;
 
   for (const row of rows) {
     const key = normalizeKey(row.phone);
     if (!key) {
       duplicates++;
+      duplicateRows.push(row);
       continue;
     }
     if (seen.has(key)) {
       duplicates++;
+      duplicateRows.push(row);
       continue;
     }
     seen.add(key);
     unique.push(row);
   }
 
-  return { unique, duplicates };
+  return { unique, duplicates, duplicateRows };
 }

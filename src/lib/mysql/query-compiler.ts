@@ -4,6 +4,7 @@ import type { ExecuteValues } from 'mysql2';
 
 import { getTablePolicy } from '@/lib/mysql/table-policy';
 import type { MysqlQueryRequest, QueryFilter } from '@/lib/mysql/query-types';
+import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 
 const identifierPattern = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const TABLES_WITHOUT_ID = new Set([
@@ -129,25 +130,47 @@ function whereClause(
   values: ExecuteValues[],
   bypassTenant = false
 ): string {
-  const clauses = bypassTenant ? [] : [tenantPredicate(request.table, accountId, values)];
+  const clauses = bypassTenant
+    ? []
+    : [tenantPredicate(request.table, accountId, values)];
   for (const filter of request.filters ?? [])
     clauses.push(compileFilter(filter, values));
   if (request.or) clauses.push(compileOrExpression(request.or, values));
   return clauses.length ? ` WHERE ${clauses.join(' AND ')}` : '';
 }
 
-function compileOrExpression(expression: string, values: ExecuteValues[]): string {
-  const terms = expression.split(',').map((term) => term.trim()).filter(Boolean);
+function compileOrExpression(
+  expression: string,
+  values: ExecuteValues[]
+): string {
+  const terms = expression
+    .split(',')
+    .map((term) => term.trim())
+    .filter(Boolean);
   if (!terms.length) throw new Error('Empty OR expression.');
   const compiled = terms.map((term) => {
     const [column, operator, ...raw] = term.split('.');
-    if (!column || !operator || raw.length === 0) throw new Error('Invalid OR expression.');
+    if (!column || !operator || raw.length === 0)
+      throw new Error('Invalid OR expression.');
     const value = raw.join('.');
-    const supported: Record<string, QueryFilter['operator']> = { eq: 'eq', neq: 'neq', gt: 'gt', gte: 'gte', lt: 'lt', lte: 'lte', like: 'like', ilike: 'ilike', is: 'is' };
+    const supported: Record<string, QueryFilter['operator']> = {
+      eq: 'eq',
+      neq: 'neq',
+      gt: 'gt',
+      gte: 'gte',
+      lt: 'lt',
+      lte: 'lte',
+      like: 'like',
+      ilike: 'ilike',
+      is: 'is',
+    };
     const mapped = supported[operator];
     if (!mapped) throw new Error(`Unsupported OR operator: ${operator}`);
     const normalized = operator === 'is' && value === 'null' ? null : value;
-    return compileFilter({ column, operator: mapped, value: normalized }, values);
+    return compileFilter(
+      { column, operator: mapped, value: normalized },
+      values
+    );
   });
   return `(${compiled.join(' OR ')})`;
 }
@@ -165,13 +188,18 @@ function rowsWithOwnership(
     : [request.values ?? {}];
   return source.map((value) => ({
     ...value,
+    ...(request.table === 'contacts' && typeof value.phone === 'string'
+      ? { phone_normalized: normalizePhone(value.phone) }
+      : {}),
     ...(!TABLES_WITHOUT_ID.has(request.table)
       ? { id: value.id ?? randomUUID() }
       : {}),
     ...(!bypassTenant && policy.accountColumn && policy.accountColumn !== 'id'
       ? { [policy.accountColumn]: accountId }
       : {}),
-    ...(!bypassTenant && policy.userColumn ? { [policy.userColumn]: userId } : {}),
+    ...(!bypassTenant && policy.userColumn
+      ? { [policy.userColumn]: userId }
+      : {}),
   }));
 }
 
@@ -184,7 +212,12 @@ export function compileQuery(
 
   if (request.operation === 'select') {
     let sql = `SELECT ${selection(request.columns)} FROM ${table}`;
-    sql += whereClause(request, context.accountId, values, context.bypassTenant);
+    sql += whereClause(
+      request,
+      context.accountId,
+      values,
+      context.bypassTenant
+    );
     if (request.orders?.length) {
       sql += ` ORDER BY ${request.orders
         .map(
@@ -213,9 +246,13 @@ export function compileQuery(
   }
 
   if (request.operation === 'update') {
-    const row = Array.isArray(request.values)
+    const sourceRow = Array.isArray(request.values)
       ? request.values[0]
       : request.values;
+    const row =
+      request.table === 'contacts' && typeof sourceRow?.phone === 'string'
+        ? { ...sourceRow, phone_normalized: normalizePhone(sourceRow.phone) }
+        : sourceRow;
     if (!row || Object.keys(row).length === 0)
       throw new Error('Update values are required.');
     const policy = getTablePolicy(request.table);
@@ -237,7 +274,12 @@ export function compileQuery(
     };
   }
 
-  const rows = rowsWithOwnership(request, context.accountId, context.userId, context.bypassTenant);
+  const rows = rowsWithOwnership(
+    request,
+    context.accountId,
+    context.userId,
+    context.bypassTenant
+  );
   const columns = [...new Set(rows.flatMap((row) => Object.keys(row)))];
   if (!columns.length) throw new Error('Insert values are required.');
   for (const row of rows) {
@@ -254,8 +296,7 @@ export function compileQuery(
     if (request.ignoreDuplicates) {
       const unchangedColumn = columns[0];
       sql += ` ON DUPLICATE KEY UPDATE ${identifier(unchangedColumn)} = ${identifier(unchangedColumn)}`;
-    }
-    else if (updateColumns.length) {
+    } else if (updateColumns.length) {
       sql += ` ON DUPLICATE KEY UPDATE ${updateColumns
         .map(
           (column) => `${identifier(column)} = VALUES(${identifier(column)})`

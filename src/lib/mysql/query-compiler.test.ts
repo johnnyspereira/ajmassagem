@@ -53,6 +53,31 @@ describe('MySQL query compiler', () => {
     expect(query.insertedIds).toHaveLength(1);
   });
 
+  it('keeps the MySQL contact phone normalization column in sync', () => {
+    const insert = compileQuery(
+      {
+        table: 'contacts',
+        operation: 'insert',
+        values: { phone: '+351 935 864 343' },
+      },
+      context
+    );
+    expect(insert.sql).toContain('`phone_normalized`');
+    expect(insert.values).toContain('351935864343');
+
+    const update = compileQuery(
+      {
+        table: 'contacts',
+        operation: 'update',
+        values: { phone: '+351 935 864 343' },
+        filters: [{ column: 'id', operator: 'eq', value: 'contact-1' }],
+      },
+      context
+    );
+    expect(update.sql).toContain('`phone_normalized` = ?');
+    expect(update.values).toContain('351935864343');
+  });
+
   it('does not invent an id for account-keyed settings tables', () => {
     const query = compileQuery(
       {

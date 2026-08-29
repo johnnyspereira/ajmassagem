@@ -38,6 +38,10 @@ describe('isUniqueViolation', () => {
   it('detects Postgres 23505', () => {
     expect(isUniqueViolation({ code: '23505' })).toBe(true);
   });
+  it('detects MySQL duplicate-entry errors', () => {
+    expect(isUniqueViolation({ code: 'ER_DUP_ENTRY' })).toBe(true);
+    expect(isUniqueViolation({ code: '1062' })).toBe(true);
+  });
   it('is false for other errors / non-objects', () => {
     expect(isUniqueViolation({ code: '23502' })).toBe(false);
     expect(isUniqueViolation(null)).toBe(false);

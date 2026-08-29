@@ -59,6 +59,60 @@ type ImportPlan = {
   tagNames: string[];
 };
 
+type ImportIssue = {
+  line: number;
+  status: 'ignored' | 'failed';
+  phone: string;
+  name: string;
+  reference: string;
+  reason: string;
+};
+
+function importErrorMessage(error: unknown): string {
+  if (!error || typeof error !== 'object') return 'Erro desconhecido.';
+  const value = error as { message?: string; code?: string };
+  const code = value.code ? `[${value.code}] ` : '';
+  return `${code}${value.message || 'Erro desconhecido.'}`;
+}
+
+function csvCell(value: string | number): string {
+  return `"${String(value).replace(/"/g, '""')}"`;
+}
+
+function downloadImportReport(issues: ImportIssue[]) {
+  const header = [
+    'linha',
+    'estado',
+    'referencia',
+    'nome',
+    'telefone',
+    'motivo',
+  ];
+  const rows = issues.map((issue) =>
+    [
+      issue.line,
+      issue.status,
+      issue.reference,
+      issue.name,
+      issue.phone,
+      issue.reason,
+    ]
+      .map(csvCell)
+      .join(';')
+  );
+  const blob = new Blob([`\uFEFF${header.join(';')}\n${rows.join('\n')}`], {
+    type: 'text/csv;charset=utf-8',
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `relatorio-importacao-clientes-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function truncateFilename(name: string, max = 48): string {
   if (name.length <= max) return name;
   const ext = name.includes('.') ? name.slice(name.lastIndexOf('.')) : '';
@@ -193,6 +247,7 @@ export function ImportModal({
     skipped: number;
     failed: number;
     tagsAssigned: number;
+    issues: ImportIssue[];
   } | null>(null);
 
   useEffect(() => {
@@ -259,12 +314,15 @@ export function ImportModal({
       if (accountId && parsedPhoneKeys.size > 0) {
         const { data: existingRows } = await supabase
           .from('contacts')
-          .select('phone_normalized')
+          .select('phone, phone_normalized')
           .eq('account_id', accountId);
 
         for (const row of existingRows ?? []) {
-          const key = (row as { phone_normalized: string | null })
-            .phone_normalized;
+          const contact = row as {
+            phone: string;
+            phone_normalized: string | null;
+          };
+          const key = normalizeKey(contact.phone_normalized || contact.phone);
           if (key && parsedPhoneKeys.has(key)) existing++;
         }
       }
@@ -315,21 +373,47 @@ export function ImportModal({
       let updated = 0;
       let skipped = 0;
       let failed = 0;
+      const issues: ImportIssue[] = [];
+      const issueFor = (
+        row: ParsedContactRow,
+        status: ImportIssue['status'],
+        reason: string
+      ) => ({
+        line: Math.max(parsedRows.indexOf(row) + 2, 2),
+        status,
+        phone: row.phone,
+        name: row.name ?? '',
+        reference: row.clientReference ?? '',
+        reason,
+      });
 
       // 1) De-dupe within the file by normalized phone (keep first).
-      const { unique, duplicates: inFileDupes } = dedupeByPhone(parsedRows);
+      const {
+        unique,
+        duplicates: inFileDupes,
+        duplicateRows,
+      } = dedupeByPhone(parsedRows);
       skipped += inFileDupes;
+      for (const row of duplicateRows) {
+        issues.push(
+          issueFor(row, 'ignored', 'Telefone duplicado dentro do ficheiro.')
+        );
+      }
 
       // 2) Skip numbers already in this account. One read of the
       //    generated `phone_normalized` column (migration 022) → Set.
       const { data: existingRows } = await supabase
         .from('contacts')
-        .select('id, phone_normalized')
+        .select('id, phone, phone_normalized')
         .eq('account_id', accountId);
       const existingByPhone = new Map<string, string>();
       for (const row of existingRows ?? []) {
-        const key = (row as { phone_normalized: string | null })
-          .phone_normalized;
+        const contact = row as {
+          id: string;
+          phone: string;
+          phone_normalized: string | null;
+        };
+        const key = normalizeKey(contact.phone_normalized || contact.phone);
         if (key) existingByPhone.set(key, row.id);
       }
 
@@ -340,7 +424,18 @@ export function ImportModal({
       const toInsert = unique.filter(
         (row) => !existingByPhone.has(normalizeKey(row.phone))
       );
-      if (!updateExisting) skipped += existingRowsToImport.length;
+      if (!updateExisting) {
+        skipped += existingRowsToImport.length;
+        for (const row of existingRowsToImport) {
+          issues.push(
+            issueFor(
+              row,
+              'ignored',
+              'O telefone já existe e a atualização de clientes estava desativada.'
+            )
+          );
+        }
+      }
 
       // 3) Resolve tag names → ids (admin+ may auto-create missing tags).
       //    Skip the round-trip when the import carries no tag names.
@@ -364,19 +459,28 @@ export function ImportModal({
         const results = await Promise.all(
           chunk.map(async (row) => {
             const contactId = existingByPhone.get(normalizeKey(row.phone));
-            if (!contactId) return { row, contactId: null, error: true };
+            if (!contactId) {
+              return {
+                row,
+                contactId: null,
+                error: { message: 'Contacto existente não localizado.' },
+              };
+            }
             const { error } = await supabase
               .from('contacts')
               .update(contactImportValues(row))
               .eq('id', contactId)
               .eq('account_id', accountId);
-            return { row, contactId, error: Boolean(error) };
+            return { row, contactId, error };
           })
         );
 
         for (const item of results) {
           if (item.error || !item.contactId) {
             failed++;
+            issues.push(
+              issueFor(item.row, 'failed', importErrorMessage(item.error))
+            );
             continue;
           }
           updated++;
@@ -429,8 +533,18 @@ export function ImportModal({
               }
             } else if (isUniqueViolation(singleErr)) {
               skipped++;
+              issues.push(
+                issueFor(
+                  source,
+                  'ignored',
+                  `Registo duplicado: ${importErrorMessage(singleErr)}`
+                )
+              );
             } else {
               failed++;
+              issues.push(
+                issueFor(source, 'failed', importErrorMessage(singleErr))
+              );
             }
           }
         } else {
@@ -463,7 +577,14 @@ export function ImportModal({
         toast.warning(t('toastTagsWarning'));
       }
 
-      setResult({ imported, updated, skipped, failed, tagsAssigned });
+      setResult({
+        imported,
+        updated,
+        skipped,
+        failed,
+        tagsAssigned,
+        issues,
+      });
       if (imported > 0) {
         toast.success(t('toastImported', { count: imported }));
       }
@@ -646,7 +767,7 @@ export function ImportModal({
                     <p className="text-muted-foreground text-[11px]">
                       {t('planExisting')}
                     </p>
-                    <p className="text-emerald-500 text-lg font-semibold">
+                    <p className="text-lg font-semibold text-emerald-500">
                       {importPlan?.existing ?? '—'}
                     </p>
                   </div>
@@ -654,7 +775,7 @@ export function ImportModal({
                     <p className="text-muted-foreground text-[11px]">
                       {t('planDuplicates')}
                     </p>
-                    <p className="text-amber-400 text-lg font-semibold">
+                    <p className="text-lg font-semibold text-amber-400">
                       {importPlan?.duplicatePhones ?? '—'}
                     </p>
                   </div>
@@ -847,6 +968,82 @@ export function ImportModal({
                   </div>
                 )}
               </div>
+              {result.issues.length > 0 && (
+                <div className="border-border/80 mt-4 space-y-3 border-t pt-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-popover-foreground text-sm font-medium">
+                        {t('reportTitle')}
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        {t('reportHelp', { count: result.issues.length })}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadImportReport(result.issues)}
+                    >
+                      <Download className="size-4" />
+                      {t('downloadReport')}
+                    </Button>
+                  </div>
+                  <div className="border-border max-h-48 overflow-auto rounded-lg border">
+                    <table className="w-full min-w-[34rem] text-xs">
+                      <thead className="bg-muted/70 sticky top-0">
+                        <tr>
+                          <th className="px-2 py-2 text-left font-medium">
+                            {t('reportLine')}
+                          </th>
+                          <th className="px-2 py-2 text-left font-medium">
+                            {t('reportContact')}
+                          </th>
+                          <th className="px-2 py-2 text-left font-medium">
+                            {t('reportReason')}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-border divide-y">
+                        {result.issues.slice(0, 100).map((issue, index) => (
+                          <tr key={`${issue.line}-${index}`}>
+                            <td className="px-2 py-2 align-top font-mono">
+                              {issue.line}
+                            </td>
+                            <td className="px-2 py-2 align-top">
+                              <p className="font-medium">
+                                {issue.name || issue.phone}
+                              </p>
+                              <p className="text-muted-foreground">
+                                {[issue.reference, issue.phone]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </p>
+                            </td>
+                            <td
+                              className={cn(
+                                'px-2 py-2 align-top',
+                                issue.status === 'failed'
+                                  ? 'text-red-500'
+                                  : 'text-amber-500'
+                              )}
+                            >
+                              {issue.reason}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {result.issues.length > 100 && (
+                    <p className="text-muted-foreground text-xs">
+                      {t('reportLimited', {
+                        count: result.issues.length - 100,
+                      })}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
