@@ -167,8 +167,15 @@ async function importWhatsAppWeb(): Promise<WhatsAppWebModule> {
   const dynamicImport = new Function(
     'specifier',
     'return import(specifier)'
-  ) as (specifier: string) => Promise<WhatsAppWebModule>;
-  return dynamicImport('whatsapp-web.js');
+  ) as (specifier: string) => Promise<any>;
+  const module = await dynamicImport('whatsapp-web.js');
+  
+  // Handle different export patterns
+  return {
+    Client: module.Client || module.default?.Client || module,
+    LocalAuth: module.LocalAuth || module.default?.LocalAuth || class LocalAuth {},
+    MessageMedia: module.MessageMedia || module.default?.MessageMedia,
+  };
 }
 
 async function runtimeImport<T>(specifier: string): Promise<T> {
