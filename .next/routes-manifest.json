@@ -180,6 +180,14 @@
       "namedRegex": "^/api/clinic/appointments/(?<nxtPid>[^/]+?)/confirmation(?:/)?$"
     },
     {
+      "page": "/api/clinic/appointments/[id]/status-notification",
+      "regex": "^/api/clinic/appointments/([^/]+?)/status\\-notification(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/clinic/appointments/(?<nxtPid>[^/]+?)/status\\-notification(?:/)?$"
+    },
+    {
       "page": "/api/finance/invoice-requests/[id]/document",
       "regex": "^/api/finance/invoice\\-requests/([^/]+?)/document(?:/)?$",
       "routeKeys": {
