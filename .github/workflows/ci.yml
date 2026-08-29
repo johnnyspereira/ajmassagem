@@ -25,6 +25,7 @@ jobs:
     # empty placeholder works as long as it stays consistent with
     # vitest.config.ts.
     env:
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
       NEXT_PUBLIC_SUPABASE_URL: https://ci.example.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-dummy-anon-key
       ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
@@ -34,7 +35,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
