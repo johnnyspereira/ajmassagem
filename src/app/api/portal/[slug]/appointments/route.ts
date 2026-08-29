@@ -1,5 +1,8 @@
 import { portalErrorResponse, requirePortalAccess } from '@/lib/portal/server';
-import { sendAppointmentCommunication } from '@/lib/clinic/appointment-communication';
+import {
+  sendAppointmentCommunication,
+  sendAppointmentStatusCommunication,
+} from '@/lib/clinic/appointment-communication';
 
 export async function POST(
   request: Request,
@@ -52,7 +55,7 @@ export async function PATCH(
 ) {
   try {
     const { slug } = await params;
-    const { sessionClient } = await requirePortalAccess(slug);
+    const { sessionClient, admin } = await requirePortalAccess(slug);
     const body = (await request.json()) as { appointmentId?: string };
     if (!body.appointmentId)
       return Response.json(
@@ -64,7 +67,20 @@ export async function PATCH(
       p_appointment_id: body.appointmentId,
     });
     if (error) return Response.json({ error: error.message }, { status: 400 });
-    return Response.json({ ok: true });
+    let notificationWarning: string | null = null;
+    try {
+      await sendAppointmentStatusCommunication({
+        db: admin,
+        appointmentId: body.appointmentId,
+        status: 'cancelled',
+      });
+    } catch (notificationError) {
+      notificationWarning =
+        notificationError instanceof Error
+          ? notificationError.message
+          : 'Falha na notificação.';
+    }
+    return Response.json({ ok: true, notificationWarning });
   } catch (error) {
     return portalErrorResponse(error);
   }

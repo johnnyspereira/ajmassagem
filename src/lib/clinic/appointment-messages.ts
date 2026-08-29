@@ -16,7 +16,7 @@ export type AppointmentMessageRow = Omit<
   ClinicAppointment,
   'contact' | 'service' | 'professional'
 > & {
-  contact?: Pick<Contact, 'id' | 'name' | 'phone'> | null;
+  contact?: Pick<Contact, 'id' | 'name' | 'phone' | 'email'> | null;
   service?: Pick<ClinicService, 'name'> | null;
   professional?: {
     full_name?: string | null;

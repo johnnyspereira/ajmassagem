@@ -1287,6 +1287,7 @@ export function AgendaPage({
     }
     let confirmationWarning: string | null = null;
     let confirmationSkipped = false;
+    let confirmationChannels = '';
     if (data?.id) {
       const confirmationResponse = await fetch(
         `/api/clinic/appointments/${data.id}/confirmation`,
@@ -1297,10 +1298,28 @@ export function AgendaPage({
           .json()
           .catch(() => ({}));
         confirmationWarning =
-          confirmationPayload.error || 'Não foi possível enviar o WhatsApp.';
+          confirmationPayload.error || 'Não foi possível enviar a confirmação.';
       } else {
-        const confirmationPayload = await confirmationResponse.json();
+        const confirmationPayload = (await confirmationResponse.json()) as {
+          skipped?: boolean;
+          deliveries?: {
+            whatsapp?: { sent?: boolean; error?: string | null };
+            email?: { sent?: boolean; error?: string | null };
+          };
+        };
         confirmationSkipped = Boolean(confirmationPayload.skipped);
+        confirmationChannels = [
+          confirmationPayload.deliveries?.whatsapp?.sent ? 'WhatsApp' : null,
+          confirmationPayload.deliveries?.email?.sent ? 'email' : null,
+        ]
+          .filter(Boolean)
+          .join(' e ');
+        const failures = [
+          confirmationPayload.deliveries?.whatsapp?.error,
+          confirmationPayload.deliveries?.email?.error,
+        ].filter(Boolean);
+        if (!confirmationChannels && failures.length)
+          confirmationWarning = failures.join(' | ');
       }
     }
     setSavingAppointment(false);
@@ -1315,7 +1334,7 @@ export function AgendaPage({
       toast.success(
         Number(data?.referral_discount_amount ?? 0) > 0
           ? `Agendamento criado com ${formatCurrency(Number(data?.referral_discount_amount), selectedService.currency || defaultCurrency)} de desconto da indicação e confirmação enviada.`
-          : 'Agendamento criado e confirmação enviada pelo WhatsApp.'
+          : `Agendamento criado${confirmationChannels ? ` e confirmação enviada por ${confirmationChannels}` : ''}.`
       );
     }
     if (data?.id) {
@@ -2610,6 +2629,40 @@ export function AgendaPage({
               : null,
         },
       });
+
+      try {
+        const response = await fetch(
+          `/api/clinic/appointments/${selectedAppointment.id}/status-notification`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: editDraft.status }),
+          }
+        );
+        const result = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          deliveries?: {
+            whatsapp?: { error?: string | null };
+            email?: { error?: string | null };
+          };
+        };
+        if (!response.ok)
+          throw new Error(result.error || 'Falha na notificação.');
+        const failedChannels = [
+          result.deliveries?.whatsapp?.error ? 'WhatsApp' : null,
+          result.deliveries?.email?.error ? 'email' : null,
+        ].filter(Boolean);
+        if (failedChannels.length)
+          toast.warning(
+            `Estado guardado, mas houve falha no envio por ${failedChannels.join(' e ')}.`
+          );
+      } catch (notificationError) {
+        toast.warning(
+          notificationError instanceof Error
+            ? `Estado guardado, mas a notificação falhou: ${notificationError.message}`
+            : 'Estado guardado, mas a notificação falhou.'
+        );
+      }
     }
 
     if (benefitType !== 'direct') {
