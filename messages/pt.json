@@ -519,7 +519,7 @@
         "with_conversations": "Com conversa",
         "with_deals": "Com negócio"
       },
-      "searchPlaceholder": "Pesquisar por nome, telefone ou email...",
+      "searchPlaceholder": "Pesquisar por referência, nome, telefone ou email...",
       "filterByTags": "Filtrar por etiquetas",
       "savedSegments": {
         "filter": "Segmentos",

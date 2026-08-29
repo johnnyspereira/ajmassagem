@@ -51,7 +51,7 @@ export async function executeMysqlRpc(name: string, args: Record<string, unknown
       case 'filter_contacts_by_tags':
       case 'filter_contacts_advanced': {
         const tags=Array.isArray(args.p_tag_ids)?args.p_tag_ids.map(String):[];const search=String(args.p_search??'').trim();const segment=name==='filter_contacts_advanced'?String(args.p_segment??'all'):'all';const conditions=['c.account_id=?'];const values:(string|number)[]=[context.accountId];
-        if(search){conditions.push('(c.name LIKE ? OR c.phone LIKE ? OR c.email LIKE ? OR c.company LIKE ?)');for(let i=0;i<4;i++)values.push(`%${search}%`);}
+        if(search){conditions.push('(c.client_reference LIKE ? OR c.name LIKE ? OR c.phone LIKE ? OR c.email LIKE ? OR c.company LIKE ?)');for(let i=0;i<5;i++)values.push(`%${search}%`);}
         if(tags.length){conditions.push(`EXISTS(SELECT 1 FROM contact_tags ct WHERE ct.contact_id=c.id AND ct.tag_id IN (${tags.map(()=>'?').join(',')}))`);values.push(...tags);}
         const tagged='EXISTS(SELECT 1 FROM contact_tags ct WHERE ct.contact_id=c.id)';
         if(segment==='needs_info')conditions.push(`(NULLIF(TRIM(COALESCE(c.name,'')),'') IS NULL OR NULLIF(TRIM(COALESCE(c.email,'')),'') IS NULL OR NULLIF(TRIM(COALESCE(c.company,'')),'') IS NULL OR NOT ${tagged})`);
