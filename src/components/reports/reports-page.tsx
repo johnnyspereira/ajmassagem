@@ -352,6 +352,25 @@ function statusLabel(status: string) {
   return labels[status] ?? status;
 }
 
+function communicationActionLabel(action?: string) {
+  const labels: Record<string, string> = {
+    reminder: 'Lembrança',
+    confirmation: 'Confirmação',
+    schedule_change_confirmation: 'Confirmação de mudança',
+    appointment_completed: 'Marcação concluída',
+    feedback_request: 'Pedido de feedback',
+  };
+  return labels[action ?? ''] ?? action ?? '—';
+}
+
+function DeliveryBadge({ delivery }: { delivery?: DeliveryState }) {
+  if (!delivery) return '—';
+  if (delivery.error) return `Erro: ${delivery.error}`;
+  if (delivery.skipped) return 'Ignorada';
+  if (delivery.sent) return 'Enviada';
+  return '—';
+}
+
 function formatMinutes(value: number) {
   if (!Number.isFinite(value) || value <= 0) return '0 min';
   if (value < 60) return `${Math.round(value)} min`;

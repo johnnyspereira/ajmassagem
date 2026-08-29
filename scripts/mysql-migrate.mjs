@@ -1,8 +1,13 @@
+import 'dotenv/config.js';
+import { config } from 'dotenv';
 import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import mysql from 'mysql2/promise';
+
+// Load .env.local explicitly
+config({ path: '.env.local' });
 
 const migrationsDirectory = path.resolve('mysql/migrations');
 const databaseUrl = process.env.DATABASE_URL;
