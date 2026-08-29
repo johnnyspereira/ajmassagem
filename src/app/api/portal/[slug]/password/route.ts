@@ -28,6 +28,41 @@ function temporaryPassword() {
   return `WA-${token.slice(0, 5)}-${token.slice(5)}`;
 }
 
+function smtpErrorForUser(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  if (
+    normalized.includes('eauth') ||
+    normalized.includes('invalid login') ||
+    normalized.includes('authentication') ||
+    normalized.includes('535')
+  )
+    return 'O servidor recusou o utilizador ou a senha SMTP. Confirme SMTP_USER e SMTP_PASSWORD.';
+  if (
+    normalized.includes('certificate') ||
+    normalized.includes('self signed') ||
+    normalized.includes('tls')
+  )
+    return 'A ligação SMTP falhou na validação do certificado TLS.';
+  if (
+    normalized.includes('econnrefused') ||
+    normalized.includes('etimedout') ||
+    normalized.includes('timeout') ||
+    normalized.includes('enotfound')
+  )
+    return 'Não foi possível ligar ao servidor SMTP. Confirme o host e a porta.';
+  if (
+    normalized.includes('sender') ||
+    normalized.includes('from') ||
+    normalized.includes('eenvelope') ||
+    normalized.includes('553')
+  )
+    return 'O servidor recusou o remetente. Use no SMTP_FROM a mesma conta do SMTP_USER.';
+  if (normalized.includes('quota') || normalized.includes('mailbox is full'))
+    return 'A caixa de email atingiu o limite de armazenamento.';
+  return `Falha SMTP: ${message.slice(0, 280)}`;
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
@@ -302,7 +337,7 @@ export async function POST(
       {
         error:
           delivery === 'email'
-            ? 'Não foi possível enviar o email neste momento. Confirme a configuração SMTP.'
+            ? smtpErrorForUser(error)
             : 'Não foi possível enviar o link e a senha pelo WhatsApp neste momento.',
       },
       { status: 502 }
