@@ -7,6 +7,7 @@ import {
   toErrorResponse,
 } from '@/lib/auth/account';
 import { supabaseAdmin } from '@/lib/flows/admin-client';
+import { isMissingSchemaError } from '@/lib/mysql/schema-errors';
 
 const CONFIRM_TEXT = 'ZERAR TESTE';
 
@@ -82,14 +83,19 @@ const CATALOG_DEPENDENCIES: ModuleKey[] = [
   'marketing',
 ];
 
-function isMissingSchemaError(error: { code?: string; message?: string }) {
-  return (
-    error.code === '42P01' ||
-    error.code === '42703' ||
-    error.code === 'PGRST204' ||
-    error.message?.toLowerCase().includes('schema cache') ||
-    error.message?.toLowerCase().includes('does not exist')
-  );
+class CleanupTableError extends Error {
+  constructor(
+    readonly table: string,
+    readonly operation: 'consultar' | 'limpar',
+    cause: unknown
+  ) {
+    const detail =
+      cause && typeof cause === 'object' && 'message' in cause
+        ? String(cause.message)
+        : 'erro desconhecido';
+    super(`Não foi possível ${operation} a tabela ${table}: ${detail}`);
+    this.name = 'CleanupTableError';
+  }
 }
 
 function parseModules(value: unknown): ModuleKey[] {
@@ -148,7 +154,7 @@ async function fetchAccountIds(
 
     if (error) {
       if (isMissingSchemaError(error)) return [];
-      throw error;
+      throw new CleanupTableError(table, 'consultar', error);
     }
 
     const rows = (data ?? []) as Array<{ id: string | null }>;
@@ -175,7 +181,7 @@ async function fetchChildIds(
 
     if (error) {
       if (isMissingSchemaError(error)) continue;
-      throw error;
+      throw new CleanupTableError(table, 'consultar', error);
     }
 
     ids.push(
@@ -239,7 +245,7 @@ async function deleteAccountTable(
   const { count, error } = await query;
   if (error) {
     if (isMissingSchemaError(error)) return 0;
-    throw error;
+    throw new CleanupTableError(table, execute ? 'limpar' : 'consultar', error);
   }
   return count ?? 0;
 }
@@ -266,7 +272,11 @@ async function deleteChildRows(
     const { count, error } = await query;
     if (error) {
       if (isMissingSchemaError(error)) continue;
-      throw error;
+      throw new CleanupTableError(
+        table,
+        execute ? 'limpar' : 'consultar',
+        error
+      );
     }
     total += count ?? 0;
   }
@@ -449,6 +459,14 @@ export async function POST(request: Request) {
       confirmText: CONFIRM_TEXT,
     });
   } catch (err) {
+    if (err instanceof CleanupTableError) {
+      console.error('[data-cleanup]', {
+        table: err.table,
+        operation: err.operation,
+        message: err.message,
+      });
+      return NextResponse.json({ error: err.message }, { status: 500 });
+    }
     return toErrorResponse(err);
   }
 }
