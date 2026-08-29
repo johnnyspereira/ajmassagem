@@ -155,6 +155,8 @@ export function FollowUpCommandCenter() {
   }, []);
 
   useEffect(() => {
+    // Initial remote-data synchronization for this client view.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 

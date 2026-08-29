@@ -167,14 +167,34 @@ async function importWhatsAppWeb(): Promise<WhatsAppWebModule> {
   const dynamicImport = new Function(
     'specifier',
     'return import(specifier)'
-  ) as (specifier: string) => Promise<any>;
-  const module = await dynamicImport('whatsapp-web.js');
+  ) as (specifier: string) => Promise<unknown>;
+  const importedModule = (await dynamicImport('whatsapp-web.js')) as {
+    Client?: WhatsAppWebModule['Client'];
+    LocalAuth?: WhatsAppWebModule['LocalAuth'];
+    MessageMedia?: WhatsAppWebModule['MessageMedia'];
+    default?: Partial<WhatsAppWebModule>;
+  };
   
   // Handle different export patterns
+  const Client =
+    importedModule.Client ||
+    importedModule.default?.Client ||
+    (importedModule as unknown as WhatsAppWebModule['Client']);
+  const LocalAuth =
+    importedModule.LocalAuth ||
+    importedModule.default?.LocalAuth ||
+    class LocalAuth {};
+  const MessageMedia =
+    importedModule.MessageMedia || importedModule.default?.MessageMedia;
+
+  if (!Client || !MessageMedia) {
+    throw new Error('whatsapp-web.js exports are incomplete');
+  }
+
   return {
-    Client: module.Client || module.default?.Client || module,
-    LocalAuth: module.LocalAuth || module.default?.LocalAuth || class LocalAuth {},
-    MessageMedia: module.MessageMedia || module.default?.MessageMedia,
+    Client,
+    LocalAuth,
+    MessageMedia,
   };
 }
 

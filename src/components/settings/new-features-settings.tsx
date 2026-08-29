@@ -50,6 +50,8 @@ export function NewFeaturesSettings() {
   );
 
   useEffect(() => {
+    // Hydrate browser-persisted preferences after the component mounts.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSettings(readNewFeatureBadgeSettings());
     setHidden(readHidden());
   }, []);

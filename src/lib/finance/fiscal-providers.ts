@@ -5,8 +5,12 @@ type FiscalProvider = 'vendus' | 'moloni' | 'invoicexpress' | 'manual_fiscal';
 export type FiscalIssueInput = {
   provider: FiscalProvider;
   invoiceRequest: FinanceInvoiceRequest;
-  sale: Record<string, any>;
+  sale: FiscalSale;
   config: Record<string, unknown>;
+};
+
+type FiscalSale = Record<string, unknown> & {
+  items?: Array<Record<string, unknown>>;
 };
 
 export type FiscalIssueResult = {
@@ -77,7 +81,7 @@ export async function issueFiscalDocument({
 
 function buildFiscalPayload(
   invoiceRequest: FinanceInvoiceRequest,
-  sale: Record<string, any>
+  sale: FiscalSale
 ) {
   return {
     document_type: invoiceRequest.fiscal_document_type || 'invoice',
@@ -100,7 +104,7 @@ function buildFiscalPayload(
       total_amount: Number(sale.total_amount ?? 0),
       paid_amount: Number(sale.paid_amount ?? 0),
     },
-    items: (sale.items ?? []).map((item: Record<string, any>) => ({
+    items: (sale.items ?? []).map((item) => ({
       name: item.name_snapshot,
       quantity: Number(item.quantity ?? 1),
       unit_price: Number(item.unit_price ?? 0),

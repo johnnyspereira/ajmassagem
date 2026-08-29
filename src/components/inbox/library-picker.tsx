@@ -111,6 +111,8 @@ export function LibraryPicker({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
+    // Loading state belongs to the dialog's open lifecycle.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     void (async () => {
       const supabase = createClient();

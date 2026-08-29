@@ -84,6 +84,8 @@ export function NewFeatureBadge({ badge, compact }: NewFeatureBadgeProps) {
   );
 
   useEffect(() => {
+    // Hydrate browser-persisted preferences after the component mounts.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHidden(readHiddenBadges().includes(badge.key));
     setSettings(readNewFeatureBadgeSettings());
 
