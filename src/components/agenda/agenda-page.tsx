@@ -70,6 +70,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactSearchSelect } from '@/components/contacts/contact-search-select';
+import { AppointmentHistoryImportModal } from '@/components/agenda/appointment-history-import-modal';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import {
@@ -611,6 +612,7 @@ export function AgendaPage({
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [schemaMissing, setSchemaMissing] = useState(false);
   const [calendarFeedsOpen, setCalendarFeedsOpen] = useState(false);
+  const [historyImportOpen, setHistoryImportOpen] = useState(false);
   const [calendarFeeds, setCalendarFeeds] = useState<ExternalCalendarFeed[]>(
     []
   );
@@ -2819,6 +2821,13 @@ export function AgendaPage({
                 <Lock className="size-4" />
                 Bloquear horário
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => setHistoryImportOpen(true)}
+              >
+                <History className="size-4" />
+                Importar histórico
+              </Button>
               <Button onClick={() => openAppointmentDialog()}>
                 <Plus className="size-4" />
                 Agendamento
@@ -2827,6 +2836,12 @@ export function AgendaPage({
           ) : null}
         </div>
       </div>
+
+      <AppointmentHistoryImportModal
+        open={historyImportOpen}
+        onOpenChange={setHistoryImportOpen}
+        onImported={() => void loadAgenda()}
+      />
 
       <Dialog open={calendarFeedsOpen} onOpenChange={setCalendarFeedsOpen}>
         <DialogContent className="max-w-2xl">
