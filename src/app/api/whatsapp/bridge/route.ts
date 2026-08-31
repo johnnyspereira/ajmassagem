@@ -38,6 +38,206 @@ export async function POST(request: Request) {
     const accountId = String(body.accountId ?? '');
     if (!accountId) throw new Error('accountId is required.');
 
+    if (action === 'heartbeat') {
+      await mutate(
+        `INSERT INTO whatsapp_worker_health(
+          account_id,worker_id,connected,state,qr,user_jid,has_saved_auth,
+          connected_at,last_activity_at,last_error,last_seen_at
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,UTC_TIMESTAMP(3))
+        ON DUPLICATE KEY UPDATE worker_id=VALUES(worker_id),connected=VALUES(connected),
+          state=VALUES(state),qr=VALUES(qr),user_jid=VALUES(user_jid),
+          has_saved_auth=VALUES(has_saved_auth),connected_at=VALUES(connected_at),
+          last_activity_at=VALUES(last_activity_at),last_error=VALUES(last_error),
+          last_seen_at=UTC_TIMESTAMP(3)`,
+        [
+          accountId,
+          String(body.workerId ?? 'local-worker'),
+          body.connected ? 1 : 0,
+          String(body.state ?? 'offline').slice(0, 32),
+          body.qr ? String(body.qr) : null,
+          body.userJid ? String(body.userJid) : null,
+          body.hasSavedAuth ? 1 : 0,
+          body.connectedAt ? new Date(String(body.connectedAt)) : null,
+          body.lastActivityAt ? new Date(String(body.lastActivityAt)) : null,
+          body.lastError ? String(body.lastError) : null,
+        ]
+      );
+      return Response.json({ success: true });
+    }
+
+    if (action === 'claim_command') {
+      const workerId = String(body.workerId ?? 'local-worker').slice(0, 100);
+      const command = await transaction(async (connection) => {
+        const [rows] = await connection.execute<
+          (RowDataPacket & {
+            id: string;
+            command_type: string;
+            payload: string | Record<string, unknown> | null;
+          })[]
+        >(
+          `SELECT id,command_type,payload FROM whatsapp_worker_commands
+           WHERE account_id=? AND status='pending'
+           ORDER BY created_at ASC LIMIT 1 FOR UPDATE`,
+          [accountId]
+        );
+        const row = rows[0];
+        if (!row) return null;
+        await connection.execute(
+          `UPDATE whatsapp_worker_commands SET status='processing',worker_id=?,
+           updated_at=UTC_TIMESTAMP(3) WHERE id=?`,
+          [workerId, row.id]
+        );
+        return {
+          ...row,
+          payload:
+            typeof row.payload === 'string'
+              ? JSON.parse(row.payload)
+              : row.payload,
+        };
+      });
+      return Response.json({ command });
+    }
+
+    if (action === 'complete_command') {
+      const failed = Boolean(body.error);
+      await mutate(
+        `UPDATE whatsapp_worker_commands SET status=?,last_error=?,
+         completed_at=UTC_TIMESTAMP(3),updated_at=UTC_TIMESTAMP(3)
+         WHERE id=? AND account_id=?`,
+        [
+          failed ? 'failed' : 'done',
+          failed ? String(body.error) : null,
+          String(body.commandId),
+          accountId,
+        ]
+      );
+      return Response.json({ success: true });
+    }
+
+    if (action === 'claim_outbox') {
+      const workerId = String(body.workerId ?? 'local-worker').slice(0, 100);
+      const job = await transaction(async (connection) => {
+        const [rows] = await connection.execute<
+          (RowDataPacket & {
+            id: string;
+            conversation_id: string;
+            message_id: string;
+            phone: string;
+            payload: string | Record<string, unknown>;
+            attempts: number;
+          })[]
+        >(
+          `SELECT id,conversation_id,message_id,phone,payload,attempts
+           FROM whatsapp_outbox
+           WHERE account_id=? AND (
+             (status IN ('pending','failed') AND available_at<=UTC_TIMESTAMP(3))
+             OR (status='processing' AND lease_until<UTC_TIMESTAMP(3))
+           )
+           ORDER BY created_at ASC LIMIT 1 FOR UPDATE`,
+          [accountId]
+        );
+        const row = rows[0];
+        if (!row) return null;
+        await connection.execute(
+          `UPDATE whatsapp_outbox SET status='processing',attempts=attempts+1,
+           worker_id=?,lease_until=DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 90 SECOND),
+           updated_at=UTC_TIMESTAMP(3) WHERE id=?`,
+          [workerId, row.id]
+        );
+        return {
+          ...row,
+          attempts: Number(row.attempts) + 1,
+          payload:
+            typeof row.payload === 'string'
+              ? JSON.parse(row.payload)
+              : row.payload,
+        };
+      });
+      return Response.json({ job });
+    }
+
+    if (action === 'complete_outbox') {
+      const providerMessageId = String(body.providerMessageId ?? '');
+      if (!providerMessageId) throw new Error('providerMessageId is required.');
+      const result = await transaction(async (connection) => {
+        const [rows] = await connection.execute<
+          (RowDataPacket & {
+            id: string;
+            conversation_id: string;
+            message_id: string;
+          })[]
+        >(
+          `SELECT id,conversation_id,message_id FROM whatsapp_outbox
+           WHERE id=? AND account_id=? LIMIT 1 FOR UPDATE`,
+          [String(body.jobId), accountId]
+        );
+        const job = rows[0];
+        if (!job) throw new Error('Outbox job not found.');
+        const dedupeKey = messageDedupeKey(
+          job.conversation_id,
+          providerMessageId
+        );
+        await connection.execute(
+          'DELETE FROM messages WHERE dedupe_key=? AND id<>?',
+          [dedupeKey, job.message_id]
+        );
+        await connection.execute(
+          `UPDATE messages SET message_id=?,dedupe_key=?,status='sent'
+           WHERE id=? AND conversation_id=?`,
+          [providerMessageId, dedupeKey, job.message_id, job.conversation_id]
+        );
+        await connection.execute(
+          `UPDATE whatsapp_outbox SET status='sent',provider_message_id=?,sent_at=UTC_TIMESTAMP(3),
+           lease_until=NULL,last_error=NULL,updated_at=UTC_TIMESTAMP(3) WHERE id=?`,
+          [providerMessageId, job.id]
+        );
+        return { messageId: job.message_id };
+      });
+      return Response.json({ success: true, ...result });
+    }
+
+    if (action === 'fail_outbox') {
+      const result = await transaction(async (connection) => {
+        const [rows] = await connection.execute<
+          (RowDataPacket & {
+            id: string;
+            message_id: string;
+            attempts: number;
+          })[]
+        >(
+          `SELECT id,message_id,attempts FROM whatsapp_outbox
+           WHERE id=? AND account_id=? LIMIT 1 FOR UPDATE`,
+          [String(body.jobId), accountId]
+        );
+        const job = rows[0];
+        if (!job) throw new Error('Outbox job not found.');
+        const dead = Number(job.attempts) >= 5;
+        const delaySeconds = Math.min(
+          300,
+          5 * 2 ** Math.max(0, Number(job.attempts) - 1)
+        );
+        const availableAt = new Date(Date.now() + delaySeconds * 1000);
+        await connection.execute(
+          `UPDATE whatsapp_outbox SET status=?,available_at=?,lease_until=NULL,last_error=?,
+           updated_at=UTC_TIMESTAMP(3) WHERE id=?`,
+          [
+            dead ? 'dead' : 'failed',
+            availableAt,
+            String(body.error ?? 'Send failed'),
+            job.id,
+          ]
+        );
+        if (dead) {
+          await connection.execute(
+            "UPDATE messages SET status='failed' WHERE id=?",
+            [job.message_id]
+          );
+        }
+        return { dead, retryInSeconds: dead ? null : delaySeconds };
+      });
+      return Response.json({ success: true, ...result });
+    }
+
     if (action === 'resolve_conversation') {
       const rows = await selectRows<(RowDataPacket & { phone: string })[]>(
         `SELECT c.phone FROM conversations v JOIN contacts c ON c.id=v.contact_id
@@ -112,6 +312,16 @@ export async function POST(request: Request) {
             [accountId, normalizedKey]
           );
           contactId = winner[0]?.contact_id ?? contactId;
+        }
+        const profilePicUrl = String(body.profilePicUrl ?? '');
+        if (
+          /^https:\/\//i.test(profilePicUrl) &&
+          profilePicUrl.length <= 4096
+        ) {
+          await connection.execute(
+            'UPDATE contacts SET avatar_url=?,updated_at=UTC_TIMESTAMP(3) WHERE id=? AND account_id=?',
+            [profilePicUrl, contactId, accountId]
+          );
         }
         const [conversations] = await connection.execute<
           (RowDataPacket & { id: string })[]

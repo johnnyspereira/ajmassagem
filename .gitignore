@@ -8,6 +8,8 @@
 /baileys_auth_test
 /whatsapp_auth
 /.wwebjs_cache
+**/whatsapp_auth/
+**/.wwebjs_cache/
 /.pnp
 .pnp.*
 .yarn/*

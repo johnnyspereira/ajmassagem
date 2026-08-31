@@ -1,12 +1,19 @@
 import { NextResponse } from 'next/server';
 import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account';
 import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
+import {
+  getPollingWorkerStatus,
+  isPollingWorkerMode,
+} from '@/lib/whatsapp/polling-worker';
 
 export async function GET(request: Request) {
   try {
     const ctx = await getCurrentAccount();
     const { searchParams } = new URL(request.url);
     const autoStart = searchParams.get('autostart') !== 'false';
+    if (isPollingWorkerMode()) {
+      return NextResponse.json(await getPollingWorkerStatus(ctx.accountId));
+    }
     if (remoteWhatsAppWorker.enabled()) {
       const status = await remoteWhatsAppWorker.status({
         accountId: ctx.accountId,

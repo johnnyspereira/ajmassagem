@@ -11,6 +11,7 @@ const SECRET = process.env.WORKER_SECRET;
 const CRM_URL = String(process.env.CRM_URL || '').replace(/\/+$/, '');
 const AUTH_DIR = path.resolve(process.env.WHATSAPP_AUTH_DIR || 'whatsapp_auth');
 const CLIENT_ID = 'jpmassagem';
+const WORKER_ID = process.env.WORKER_ID || `jpmassagem-${process.platform}`;
 if (!SECRET || !CRM_URL) {
   console.error('Configure WORKER_SECRET and CRM_URL in .env.');
   process.exit(1);
@@ -75,8 +76,9 @@ async function persist(message) {
   const contact=await message.getContact().catch(()=>null);
   const resolvedPhone=String(jid||'').endsWith('@lid') ? normalize(contact?.number) : jidPhone(jid);
   if(!resolvedPhone)return null;
+  const profilePicUrl=await contact?.getProfilePicUrl?.().catch(()=>null);
   const timestamp=new Date(Number(message.timestamp||Date.now()/1000)*1000).toISOString();
-  const result=await crm('persist_message',{...bind(),messageId:id,fromMe:Boolean(message.fromMe),phone:resolvedPhone,name:contact?.pushname||contact?.name||contact?.shortName||resolvedPhone,contentType:message.type==='chat'?'text':message.type,text:message.body||message.caption||'',timestamp});
+  const result=await crm('persist_message',{...bind(),messageId:id,fromMe:Boolean(message.fromMe),phone:resolvedPhone,name:contact?.pushname||contact?.name||contact?.shortName||resolvedPhone,profilePicUrl:profilePicUrl||null,contentType:message.type==='chat'?'text':message.type,text:message.body||message.caption||'',timestamp});
   return result?.duplicate ? null : result;
 }
 function wire(instance) {
@@ -106,8 +108,59 @@ async function send(input) {
   const stored=await crm('persist_outgoing',{...context,conversationId,messageId:whatsappMessageId,senderType:message.senderType||'agent',contentType:type,text,mediaUrl:message.mediaUrl||null,templateName:message.templateName||null,interactivePayload:message.interactivePayload||null,replyToMessageId:message.replyToMessageId||null});
   return {messageId:stored.messageId,whatsappMessageId};
 }
+async function sendOutboxJob(job){
+  if(!client||!status().connected)throw new Error('WhatsApp QR is not connected.');
+  const message=job.payload||{};const digits=normalize(job.phone).replace(/\D/g,'');
+  if(!digits)throw new Error('Invalid recipient phone.');
+  const registered=await client.getNumberId(digits).catch(()=>null);
+  if(!registered)throw new Error('Recipient is not registered on WhatsApp.');
+  const jid=registered._serialized||`${digits}@c.us`;const type=message.contentType||'text';
+  const text=String(message.text||'');let content=text;const options={};
+  if(['image','video','document','audio'].includes(type)){
+    if(!message.mediaUrl)throw new Error('mediaUrl is required.');
+    content=await MessageMedia.fromUrl(message.mediaUrl,{unsafeMime:true,filename:message.filename||undefined});
+    if(text&&type!=='audio')options.caption=text;if(type==='audio')options.sendAudioAsVoice=true;
+    if(type==='document')options.sendMediaAsDocument=true;
+  }
+  const sent=await client.sendMessage(jid,content,options);const providerMessageId=externalId(sent);
+  if(!providerMessageId)throw new Error('WhatsApp did not return a message id.');
+  await crm('complete_outbox',{...context,jobId:job.id,providerMessageId,workerId:WORKER_ID});
+}
+let polling=false;
+async function processCommand(command){
+  const payload=command.payload||{};
+  if(command.command_type==='restart'){await stop(false);await start(context);return;}
+  if(command.command_type==='logout'){await stop(true);return;}
+  if(command.command_type==='sync'){await sync({...context,...payload});return;}
+  throw new Error(`Unsupported worker command: ${command.command_type}`);
+}
+async function pollOutbox(){
+  if(polling||!context.accountId||!context.userId)return;
+  polling=true;
+  try{
+    const current=status();
+    await crm('heartbeat',{...context,workerId:WORKER_ID,connected:current.connected,state:current.state,qr:current.qr,userJid:current.userJid,hasSavedAuth:current.hasSavedAuth,connectedAt:current.connectedAt,lastActivityAt:current.lastActivityAt,lastError:current.lastError});
+    const claimedCommand=await crm('claim_command',{...context,workerId:WORKER_ID});
+    if(claimedCommand?.command){
+      try{await processCommand(claimedCommand.command);await crm('complete_command',{...context,commandId:claimedCommand.command.id,workerId:WORKER_ID});}
+      catch(error){await crm('complete_command',{...context,commandId:claimedCommand.command.id,workerId:WORKER_ID,error:error?.message||String(error)}).catch(()=>{});}
+    }
+    if(!status().connected)return;
+    for(let count=0;count<10;count++){
+      const claimed=await crm('claim_outbox',{...context,workerId:WORKER_ID});
+      if(!claimed?.job)break;
+      try{await sendOutboxJob(claimed.job);}
+      catch(error){await crm('fail_outbox',{...context,jobId:claimed.job.id,workerId:WORKER_ID,error:error?.message||String(error)}).catch(()=>{});}
+    }
+  }catch(error){lastError=error?.message||String(error);}
+  finally{polling=false;}
+}
 async function sync(input){bind(input);await start(input,true);if(!client||!status().connected)throw new Error('WhatsApp QR is not connected.');const chats=await client.getChats();let chatsScanned=0,messagesScanned=0,messagesPersisted=0;for(const chat of chats.slice(0,Number(input.chatLimit||50))){if(!/@(c\.us|lid)$/.test(String(chat?.id?._serialized||'')))continue;chatsScanned++;for(const message of await chat.fetchMessages({limit:Number(input.messageLimit||25)})){messagesScanned++;if(await persist(message))messagesPersisted++;}}return {chatsScanned,messagesScanned,messagesPersisted};}
 
 const server=http.createServer(async(req,res)=>{try{auth(req);const url=new URL(req.url,`http://${req.headers.host||'localhost'}`);if(req.method==='GET'&&url.pathname==='/status'){const input=Object.fromEntries(url.searchParams.entries());bind(input);if(url.searchParams.get('autostart')!=='false')await start(input);return reply(res,200,status());}const input=req.method==='POST'?await body(req):{};if(req.method==='POST'&&url.pathname==='/send')return reply(res,200,await send(input));if(req.method==='POST'&&url.pathname==='/restart'){await stop(false);return reply(res,200,{success:true,status:await start(input)});}if(req.method==='POST'&&url.pathname==='/logout'){bind(input);await stop(true);return reply(res,200,{success:true});}if(req.method==='POST'&&url.pathname==='/sync')return reply(res,200,{success:true,...await sync(input)});return reply(res,404,{error:'Not found'});}catch(e){console.error('[bridge]',e);return reply(res,e.status||500,{error:e.message||String(e)});}});
-server.listen(PORT,'127.0.0.1',()=>console.log(`[bridge] http://127.0.0.1:${PORT}`));
+server.listen(PORT,'127.0.0.1',()=>{
+  console.log(`[bridge] http://127.0.0.1:${PORT}`);
+  if(context.accountId&&context.userId)void start(context,true);
+  setInterval(()=>void pollOutbox(),2000);
+});
 process.on('SIGINT',()=>stop(false).finally(()=>process.exit(0)));

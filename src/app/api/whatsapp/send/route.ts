@@ -15,6 +15,7 @@ import {
   type InteractiveMessagePayload,
 } from '@/lib/whatsapp/interactive';
 import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
+import { enqueueWhatsAppMessage } from '@/lib/whatsapp/outbox';
 import type { MessageTemplate } from '@/types';
 
 function qrSendErrorMessage(error: unknown): string {
@@ -105,6 +106,7 @@ export async function POST(request: Request) {
       template_message_params,
       interactive_payload,
       reply_to_message_id,
+      client_request_id,
     } = body;
 
     if ((!conversationIdInput && !contact_id) || !message_type) {
@@ -198,6 +200,47 @@ export async function POST(request: Request) {
       );
     }
 
+    if (process.env.WHATSAPP_MODE === 'polling_worker') {
+      const requestKey =
+        typeof client_request_id === 'string' && client_request_id.trim()
+          ? client_request_id.trim().slice(0, 100)
+          : crypto.randomUUID();
+      try {
+        const queued = await enqueueWhatsAppMessage({
+          accountId,
+          userId: user.id,
+          conversationId,
+          requestKey,
+          payload: {
+            contentType: message_type,
+            text:
+              message_type === 'interactive'
+                ? interactivePayloadToText(interactive_payload)
+                : content_text || '',
+            mediaUrl: media_url || null,
+            filename: filename || null,
+            templateName: template_name || null,
+            interactivePayload: interactive_payload || null,
+            replyToMessageId: reply_to_message_id || null,
+            senderType: 'agent',
+          },
+        });
+        return NextResponse.json({
+          success: true,
+          queued: true,
+          duplicate: queued.duplicate,
+          message_id: queued.messageId,
+          queue_status: queued.status,
+        });
+      } catch (error) {
+        console.error('[whatsapp/send] enqueue failed:', error);
+        return NextResponse.json(
+          { error: 'Não foi possível colocar a mensagem na fila.' },
+          { status: 500 }
+        );
+      }
+    }
+
     const qrCapableTypes = [
       'text',
       'interactive',
@@ -273,9 +316,14 @@ export async function POST(request: Request) {
                 },
               })
             : message_type === 'text'
-              ? await sendTextViaLocalQr(accountId, conversationId, textToSend, {
-                  replyToMessageId: reply_to_message_id,
-                })
+              ? await sendTextViaLocalQr(
+                  accountId,
+                  conversationId,
+                  textToSend,
+                  {
+                    replyToMessageId: reply_to_message_id,
+                  }
+                )
               : await sendMessageViaLocalQr(accountId, conversationId, {
                   text: textToSend,
                   contentType: message_type,
@@ -363,9 +411,8 @@ async function waitForQrConnection(
   userId: string,
   options: { autoStart?: boolean; timeoutMs?: number } = {}
 ) {
-  const { getBaileysSessionStatus, startBaileysSession } = await import(
-    '@/lib/whatsapp/baileys'
-  );
+  const { getBaileysSessionStatus, startBaileysSession } =
+    await import('@/lib/whatsapp/baileys');
   const autoStart = options.autoStart ?? true;
   const timeoutMs = options.timeoutMs ?? 25000;
   let status = await startBaileysSession({

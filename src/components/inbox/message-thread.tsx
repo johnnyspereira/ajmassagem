@@ -618,7 +618,9 @@ export function MessageThread({
 
   const markOptimisticMessageSent = useCallback(
     (tempId: string, payload: Record<string, unknown>) => {
-      const updates: Partial<Message> = { status: 'sent' };
+      const updates: Partial<Message> = {
+        status: payload.queued === true ? 'sending' : 'sent',
+      };
       if (typeof payload.message_id === 'string') {
         updates.id = payload.message_id;
       }
@@ -634,7 +636,7 @@ export function MessageThread({
     async (text: string, replyToId?: string) => {
       if (!conversation) return;
 
-      const tempId = `temp-${Date.now()}`;
+      const tempId = `temp-${crypto.randomUUID()}`;
 
       // Optimistic update — shows the message immediately with "sending" status
       const optimisticMsg: Message = {
@@ -659,6 +661,7 @@ export function MessageThread({
             message_type: 'text',
             content_text: text,
             reply_to_message_id: replyToId,
+            client_request_id: tempId,
           }),
         });
 
@@ -699,7 +702,7 @@ export function MessageThread({
           ? payload.caption || payload.filename || 'Document'
           : payload.caption;
 
-      const tempId = `temp-${Date.now()}`;
+      const tempId = `temp-${crypto.randomUUID()}`;
       const optimisticMsg: Message = {
         id: tempId,
         conversation_id: conversation.id,
@@ -725,6 +728,7 @@ export function MessageThread({
             content_text: contentText,
             filename: payload.filename,
             reply_to_message_id: payload.replyToId,
+            client_request_id: tempId,
           }),
         });
 
@@ -766,7 +770,7 @@ export function MessageThread({
     async (payload: InteractiveMessagePayload, replyToId?: string) => {
       if (!conversation) return;
 
-      const tempId = `temp-${Date.now()}`;
+      const tempId = `temp-${crypto.randomUUID()}`;
       // Optimistic bubble — renders the buttons/list immediately via the
       // interactive_payload, same as the persisted row will.
       const optimisticMsg: Message = {
@@ -791,6 +795,7 @@ export function MessageThread({
             message_type: 'interactive',
             interactive_payload: payload,
             reply_to_message_id: replyToId,
+            client_request_id: tempId,
           }),
         });
 
@@ -846,7 +851,7 @@ export function MessageThread({
       if (!conversation) return;
 
       const renderedBody = renderTemplateBody(template.body_text, values.body);
-      const tempId = `temp-${Date.now()}`;
+      const tempId = `temp-${crypto.randomUUID()}`;
 
       const optimisticMsg: Message = {
         id: tempId,
@@ -880,6 +885,7 @@ export function MessageThread({
             },
             template_params: values.body,
             content_text: renderedBody,
+            client_request_id: tempId,
           }),
         });
 
