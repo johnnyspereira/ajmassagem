@@ -4,6 +4,7 @@ import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption';
 import { getMediaUrl } from '@/lib/whatsapp/meta-api';
 import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
+import { messageDedupeKey } from '@/lib/whatsapp/message-dedupe';
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { dispatchInboundToFlows } from '@/lib/flows/engine';
@@ -698,6 +699,7 @@ async function processMessage(
       content_text: contentText,
       media_url: mediaUrl,
       message_id: message.id,
+      dedupe_key: messageDedupeKey(conversation.id, message.id),
       status: 'delivered',
       created_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
       reply_to_message_id: replyToInternalId,

@@ -53,10 +53,19 @@ function ackStatus(ack) { return ack>=3?'read':ack===2?'delivered':ack===1?'sent
 async function body(req) { const chunks=[]; for await(const chunk of req) chunks.push(chunk); const raw=Buffer.concat(chunks).toString('utf8'); return raw ? JSON.parse(raw) : {}; }
 function auth(req) { if(req.headers.authorization !== `Bearer ${SECRET}`) { const e=new Error('Unauthorized'); e.status=401; throw e; } }
 async function crm(action, data) {
-  const response = await fetch(`${CRM_URL}/api/whatsapp/bridge`, { method:'POST', headers:{'content-type':'application/json',authorization:`Bearer ${SECRET}`}, body:JSON.stringify({action,...data}) });
-  const payload = await response.json().catch(()=>({}));
-  if(!response.ok) throw new Error(payload.error || `CRM returned HTTP ${response.status}`);
-  return payload;
+  let lastError;
+  for(let attempt=1;attempt<=3;attempt++){
+    try{
+      const response = await fetch(`${CRM_URL}/api/whatsapp/bridge`, { method:'POST', headers:{'content-type':'application/json',authorization:`Bearer ${SECRET}`}, body:JSON.stringify({action,...data}), signal:AbortSignal.timeout(15000) });
+      const payload = await response.json().catch(()=>({}));
+      if(response.ok)return payload;
+      const error=new Error(payload.error || `CRM returned HTTP ${response.status}`);
+      if(![408,429,500,502,503,504].includes(response.status))throw error;
+      lastError=error;
+    }catch(error){lastError=error;if(attempt===3)break;}
+    await new Promise(resolve=>setTimeout(resolve,250*2**(attempt-1)));
+  }
+  throw lastError || new Error('CRM request failed.');
 }
 
 async function persist(message) {
@@ -64,8 +73,11 @@ async function persist(message) {
   const jid=message.fromMe ? message.to : message.from;
   if(!/@(c\.us|lid)$/.test(String(jid||'')) || String(jid).includes('-')) return null;
   const contact=await message.getContact().catch(()=>null);
+  const resolvedPhone=String(jid||'').endsWith('@lid') ? normalize(contact?.number) : jidPhone(jid);
+  if(!resolvedPhone)return null;
   const timestamp=new Date(Number(message.timestamp||Date.now()/1000)*1000).toISOString();
-  return crm('persist_message',{...bind(),messageId:id,fromMe:Boolean(message.fromMe),phone:jidPhone(jid),name:contact?.pushname||contact?.name||contact?.shortName||jidPhone(jid),contentType:message.type==='chat'?'text':message.type,text:message.body||message.caption||'',timestamp});
+  const result=await crm('persist_message',{...bind(),messageId:id,fromMe:Boolean(message.fromMe),phone:resolvedPhone,name:contact?.pushname||contact?.name||contact?.shortName||resolvedPhone,contentType:message.type==='chat'?'text':message.type,text:message.body||message.caption||'',timestamp});
+  return result?.duplicate ? null : result;
 }
 function wire(instance) {
   instance.on('qr', value=>{qr=value;state='qr';lastError=null;touch();qrcode.generate(value,{small:true});console.log('[bridge] Leia o QR no WhatsApp.');});

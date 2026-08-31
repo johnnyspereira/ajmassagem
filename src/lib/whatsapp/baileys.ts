@@ -17,6 +17,7 @@ import {
 } from '@/lib/whatsapp/phone-utils';
 import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive';
 import type { AutomationTriggerType } from '@/types';
+import { messageDedupeKey } from '@/lib/whatsapp/message-dedupe';
 
 export type BaileysSessionStatus = {
   connected: boolean;
@@ -174,7 +175,7 @@ async function importWhatsAppWeb(): Promise<WhatsAppWebModule> {
     MessageMedia?: WhatsAppWebModule['MessageMedia'];
     default?: Partial<WhatsAppWebModule>;
   };
-  
+
   // Handle different export patterns
   const Client =
     importedModule.Client ||
@@ -1206,9 +1207,10 @@ async function runQrFlows(input: {
   messageId: string;
   isFirstInboundMessage: boolean;
 }): Promise<boolean> {
-  const { dispatchInboundToFlows } = await runtimeImport<
-    typeof import('@/lib/flows/engine')
-  >('@/lib/flows/engine');
+  const { dispatchInboundToFlows } =
+    await runtimeImport<typeof import('@/lib/flows/engine')>(
+      '@/lib/flows/engine'
+    );
   const result = await dispatchInboundToFlows({
     accountId: input.accountId,
     userId: input.userId,
@@ -1488,6 +1490,7 @@ async function persistMessage(
     content_type: contentType,
     content_text: contentText,
     message_id: messageId,
+    dedupe_key: messageDedupeKey(conversation.id, messageId),
     status: initialStatus,
     created_at: createdAt,
   });
@@ -1629,7 +1632,9 @@ async function fetchChatMessages(
     );
     if (!chat) return [];
     const chatWithMessages = chat as {
-      fetchMessages: (input: { limit: number }) => Promise<WhatsAppMessageLike[]>;
+      fetchMessages: (input: {
+        limit: number;
+      }) => Promise<WhatsAppMessageLike[]>;
     };
     return await withTimeout(
       chatWithMessages.fetchMessages({ limit }),
@@ -2361,6 +2366,7 @@ export async function sendMessageViaBaileys(
       interactive_payload:
         contentType === 'interactive' ? input.interactivePayload : null,
       message_id: whatsappMessageId || null,
+      dedupe_key: messageDedupeKey(conversationId, whatsappMessageId),
       status: 'sent',
       reply_to_message_id: input.replyToMessageId || null,
     })

@@ -111,8 +111,8 @@ interface MediaDraft {
 interface MessageComposerProps {
   conversationId: string;
   sessionExpired: boolean;
-  onSend: (text: string, replyToId?: string) => void;
-  onSendMedia: (payload: SendMediaPayload) => void;
+  onSend: (text: string, replyToId?: string) => Promise<void> | void;
+  onSendMedia: (payload: SendMediaPayload) => Promise<void> | void;
   onOpenTemplates: () => void;
   replyTo?: ReplyDraft | null;
   onClearReply?: () => void;
@@ -227,7 +227,7 @@ export function MessageComposer({
 
     setSending(true);
     try {
-      onSend(trimmed, replyTo?.id);
+      await onSend(trimmed, replyTo?.id);
       setText('');
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
@@ -413,7 +413,9 @@ export function MessageComposer({
         return;
       }
       if (item.item_type === 'link') {
-        appendText([item.content_text, item.asset_url].filter(Boolean).join('\n'));
+        appendText(
+          [item.content_text, item.asset_url].filter(Boolean).join('\n')
+        );
         return;
       }
       if (!item.asset_url) {
@@ -585,23 +587,30 @@ export function MessageComposer({
 
   // ---- Draft send / discard -----------------------------------------
 
-  const sendDraft = useCallback(() => {
-    if (!draft || busy) return;
-    onSendMedia({
-      kind: draft.kind,
-      mediaUrl: draft.mediaUrl,
-      path: draft.path,
-      // Audio takes no caption (Meta rejects it). Everything else: the
-      // trimmed caption, or undefined when blank.
-      caption:
-        draft.kind === 'audio' ? undefined : draft.caption.trim() || undefined,
-      filename: draft.kind === 'document' ? draft.filename : undefined,
-      replyToId: replyTo?.id,
-    });
-    // The object is now owned by the sent message — clear without GC.
-    setDraft(null);
-    onClearReply?.();
-  }, [draft, busy, onSendMedia, replyTo?.id, onClearReply]);
+  const sendDraft = useCallback(async () => {
+    if (!draft || busy || sending) return;
+    setSending(true);
+    try {
+      await onSendMedia({
+        kind: draft.kind,
+        mediaUrl: draft.mediaUrl,
+        path: draft.path,
+        // Audio takes no caption (Meta rejects it). Everything else: the
+        // trimmed caption, or undefined when blank.
+        caption:
+          draft.kind === 'audio'
+            ? undefined
+            : draft.caption.trim() || undefined,
+        filename: draft.kind === 'document' ? draft.filename : undefined,
+        replyToId: replyTo?.id,
+      });
+      // The object is now owned by the sent message — clear without GC.
+      setDraft(null);
+      onClearReply?.();
+    } finally {
+      setSending(false);
+    }
+  }, [draft, busy, sending, onSendMedia, replyTo?.id, onClearReply]);
 
   // Discard GCs the staged object — it was uploaded but never sent.
   const discardDraft = useCallback(() => {

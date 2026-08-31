@@ -43,6 +43,7 @@ import {
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils';
 import type { MessageTemplate } from '@/types';
+import { messageDedupeKey } from '@/lib/whatsapp/message-dedupe';
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
 
 export const MEDIA_KINDS = ['image', 'video', 'document', 'audio'] as const;
@@ -465,6 +466,7 @@ export async function sendMessageToConversation(
       interactive_payload:
         messageType === 'interactive' ? interactivePayload : null,
       message_id: waMessageId,
+      dedupe_key: messageDedupeKey(conversationId, waMessageId),
       status: 'sent',
       reply_to_message_id: replyToMessageId || null,
     })
