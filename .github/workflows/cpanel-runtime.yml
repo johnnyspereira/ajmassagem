@@ -65,6 +65,11 @@ jobs:
           node <<'EOF'
           const fs = require('node:fs');
           const source = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const dependencies = { ...source.dependencies };
+          // The browser-based WhatsApp client runs exclusively on the local
+          // worker. Installing it on shared cPanel also pulls Puppeteer and can
+          // exceed the hosting memory limit during npm install.
+          delete dependencies['whatsapp-web.js'];
           const runtime = {
             name: source.name,
             version: source.version,
@@ -74,7 +79,7 @@ jobs:
               start: 'node server.js',
               postinstall: 'node scripts/mysql-migrate.mjs',
             },
-            dependencies: source.dependencies,
+            dependencies,
             overrides: source.overrides,
           };
           fs.writeFileSync(
@@ -82,6 +87,14 @@ jobs:
             `${JSON.stringify(runtime, null, 2)}\n`,
           );
           EOF
+          (
+            cd cpanel-runtime
+            npm install --package-lock-only --omit=dev --ignore-scripts
+          )
+          if grep -q 'node_modules/puppeteer' cpanel-runtime/package-lock.json; then
+            echo 'Runtime lockfile must not contain Puppeteer.' >&2
+            exit 1
+          fi
           if find cpanel-runtime -type d -name node_modules -print -quit | grep -q .; then
             echo 'Runtime must not contain a node_modules directory.' >&2
             exit 1
