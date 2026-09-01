@@ -63,7 +63,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           href="/finance?tab=pos"
           aria-label="Abrir ponto de venda"
           title="Abrir POS"
-          className="bg-primary text-primary-foreground hover:bg-primary-hover fixed right-5 bottom-20 z-40 flex size-12 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-offset-2 sm:right-6 sm:bottom-6"
+          className="bg-primary text-primary-foreground hover:bg-primary-hover fixed right-5 bottom-20 z-40 flex size-12 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-offset-2 sm:right-5 sm:bottom-5"
         >
           <ShoppingCart className="size-5" />
           <span className="sr-only">Abrir POS</span>
@@ -79,7 +79,9 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
             navigationLayout={navigationLayout}
           />
           {/* Thinner horizontal padding on mobile so cards have room to breathe. */}
-          <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
+          <main className="flex-1 overflow-y-auto p-4 pb-28 sm:p-6 sm:pb-28">
+            {children}
+          </main>
         </div>
       </div>
     </WorkTimeProvider>

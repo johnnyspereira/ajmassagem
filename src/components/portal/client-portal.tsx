@@ -1614,6 +1614,54 @@ function HomeView({
           </Button>
         )}
       </section>
+      {data.settings.referralsEnabled && data.referrals.program && (
+        <section className="relative overflow-hidden rounded-xl bg-gradient-to-r from-amber-50 via-orange-50 to-emerald-50 p-6 ring-1 ring-amber-200/80 dark:from-amber-950/30 dark:via-orange-950/20 dark:to-emerald-950/20 dark:ring-amber-800/50">
+          <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex max-w-3xl items-start gap-4">
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-sm">
+                <UserPlus className="size-6" />
+              </span>
+              <div>
+                <span className="text-xs font-semibold tracking-wide text-amber-700 uppercase dark:text-amber-300">
+                  Campanha promocional
+                </span>
+                <h2 className="mt-1 text-xl font-semibold">
+                  {data.referrals.program.headline}
+                </h2>
+                <p className="text-muted-foreground mt-1 text-sm leading-6">
+                  {data.referrals.program.description}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium">
+                  <span className="rounded-full bg-white/80 px-3 py-1.5 text-amber-800 ring-1 ring-amber-200 dark:bg-black/20 dark:text-amber-200 dark:ring-amber-800">
+                    Ganha{' '}
+                    {referralRewardLabel(
+                      data.referrals.program.referrer_reward_type,
+                      Number(data.referrals.program.referrer_reward_value),
+                      data.business.default_currency
+                    )}
+                  </span>
+                  <span className="rounded-full bg-white/80 px-3 py-1.5 text-emerald-800 ring-1 ring-emerald-200 dark:bg-black/20 dark:text-emerald-200 dark:ring-emerald-800">
+                    O amigo recebe{' '}
+                    {referralRewardLabel(
+                      data.referrals.program.friend_reward_type,
+                      Number(data.referrals.program.friend_reward_value),
+                      data.business.default_currency
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <Button
+              size="lg"
+              className="shrink-0 bg-amber-600 text-white hover:bg-amber-700"
+              onClick={() => onNavigate('referrals')}
+            >
+              <Share2 /> Começar a indicar
+            </Button>
+          </div>
+          <Gift className="absolute -right-8 -bottom-10 size-40 rotate-12 text-amber-500/10" />
+        </section>
+      )}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <PortalMetric
           icon={CalendarDays}
@@ -1714,32 +1762,6 @@ function HomeView({
         </section>
       </div>
 
-      {data.settings.referralsEnabled && (
-        <button
-          type="button"
-          onClick={() => onNavigate('referrals')}
-          className="border-border bg-background group grid w-full gap-4 rounded-lg border p-5 text-left transition-colors hover:border-amber-300 sm:grid-cols-[auto_1fr_auto] sm:items-center"
-        >
-          <span className="flex size-11 items-center justify-center rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
-            <UserPlus className="size-5" />
-          </span>
-          <span>
-            <strong className="block">
-              Indique amigos e acompanhe as recompensas
-            </strong>
-            <span className="text-muted-foreground mt-1 block text-sm">
-              {data.referrals.items.length} indicações ·{' '}
-              {
-                data.referrals.items.filter((item) =>
-                  ['qualified', 'rewarded'].includes(item.status)
-                ).length
-              }{' '}
-              qualificadas
-            </span>
-          </span>
-          <ChevronRight className="text-muted-foreground transition-transform group-hover:translate-x-1" />
-        </button>
-      )}
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold">Acesso rápido</h2>

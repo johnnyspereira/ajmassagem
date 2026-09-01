@@ -200,6 +200,47 @@ export async function GET(
       }
     }
 
+    let effectiveReferralCode = referralCode;
+    if (
+      referralProgram.data &&
+      referralCode.data &&
+      !databaseBoolean(referralCode.data.is_active)
+    ) {
+      const reactivatedCode = await admin
+        .from('referral_codes')
+        .update({ is_active: true })
+        .eq('id', referralCode.data.id)
+        .select('id,code,is_active,created_at')
+        .maybeSingle();
+      if (!reactivatedCode.error) effectiveReferralCode = reactivatedCode;
+    } else if (referralProgram.data && !referralCode.data) {
+      const generatedCode = `REF-${access.contact_id
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .slice(0, 12)
+        .toUpperCase()}`;
+      const createdCode = await admin
+        .from('referral_codes')
+        .upsert(
+          {
+            account_id: access.account_id,
+            contact_id: access.contact_id,
+            code: generatedCode,
+            is_active: true,
+          },
+          { onConflict: 'account_id,contact_id' }
+        )
+        .select('id,code,is_active,created_at')
+        .maybeSingle();
+      if (createdCode.error) {
+        console.warn(
+          '[client-portal] referral code could not be created:',
+          createdCode.error
+        );
+      } else {
+        effectiveReferralCode = createdCode;
+      }
+    }
+
     const voucherIds = (vouchers.data ?? []).map((item) => item.id);
     const packIds = (packs.data ?? []).map((item) => item.id);
     const benefitFilter = [
@@ -325,7 +366,7 @@ export async function GET(
       },
       referrals: {
         program: referralProgram.data,
-        code: referralCode.data,
+        code: effectiveReferralCode.data,
         items: referrals.data ?? [],
       },
       campaigns: (campaignsUnavailable ? [] : (campaigns.data ?? [])).map(

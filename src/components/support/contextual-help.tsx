@@ -25,7 +25,7 @@ export function ContextualHelp() {
     <Link
       href={article ? `/help?article=${article.id}` : '/help'}
       title={article?.label ?? 'Abrir Central de Ajuda'}
-      className="bg-card text-foreground hover:bg-muted fixed right-5 bottom-5 z-40 hidden items-center gap-2 rounded-full border px-4 py-3 text-sm font-medium shadow-lg transition hover:-translate-y-0.5 lg:flex"
+      className="bg-card text-foreground hover:bg-muted fixed right-20 bottom-5 z-40 hidden items-center gap-2 rounded-full border px-4 py-3 text-sm font-medium shadow-lg transition hover:-translate-y-0.5 lg:flex"
     >
       <CircleHelp className="text-primary size-5" />
       {article?.label ?? 'Precisa de ajuda?'}
