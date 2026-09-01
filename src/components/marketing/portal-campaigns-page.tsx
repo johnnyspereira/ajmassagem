@@ -3,14 +3,20 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
   Archive,
   CalendarDays,
+  CheckCircle2,
+  ExternalLink,
+  Mail,
+  MessageCircle,
   Loader2,
   Megaphone,
   Pencil,
   Plus,
   Send,
+  UserRound,
   Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -91,19 +97,28 @@ export function PortalCampaignsPage() {
   const [items, setItems] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [portalSlug, setPortalSlug] = useState('');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const load = useCallback(async () => {
     if (!accountId) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from('portal_campaigns')
-      .select(
-        '*,enrollments:portal_campaign_enrollments(id,status,joined_at,contact:contacts(id,name,phone,email))'
-      )
-      .eq('account_id', accountId)
-      .order('created_at', { ascending: false });
+    const [{ data, error }, { data: portal }] = await Promise.all([
+      supabase
+        .from('portal_campaigns')
+        .select(
+          '*,enrollments:portal_campaign_enrollments(id,status,joined_at,contact:contacts(id,name,phone,email))'
+        )
+        .eq('account_id', accountId)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('client_portal_settings')
+        .select('slug')
+        .eq('account_id', accountId)
+        .maybeSingle(),
+    ]);
+    setPortalSlug(portal?.slug || '');
     if (error)
       toast.error(
         error.code === '42P01'
@@ -180,6 +195,12 @@ export function PortalCampaignsPage() {
     );
     await load();
   }
+  const activeEnrollments = items.flatMap((item) =>
+    item.enrollments.filter((entry) => entry.status !== 'cancelled')
+  );
+  const converted = activeEnrollments.filter(
+    (entry) => entry.status === 'converted'
+  ).length;
   if (loading)
     return (
       <div className="flex min-h-64 items-center justify-center">
@@ -197,11 +218,43 @@ export function PortalCampaignsPage() {
             Publique ofertas no Portal 360 e acompanhe as adesões dos clientes.
           </p>
         </div>
-        {canSendMessages && (
-          <Button onClick={() => edit()}>
-            <Plus /> Nova campanha
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {portalSlug && (
+            <Button
+              variant="outline"
+              render={<Link href={`/portal/${portalSlug}`} target="_blank" />}
+            >
+              <ExternalLink /> Abrir Portal 360
+            </Button>
+          )}
+          {canSendMessages && (
+            <Button onClick={() => edit()}>
+              <Plus /> Nova campanha
+            </Button>
+          )}
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <CampaignMetric
+          icon={Megaphone}
+          label="Campanhas"
+          value={items.length}
+        />
+        <CampaignMetric
+          icon={Send}
+          label="Publicadas"
+          value={items.filter((item) => item.status === 'published').length}
+        />
+        <CampaignMetric
+          icon={Users}
+          label="Adesões"
+          value={activeEnrollments.length}
+        />
+        <CampaignMetric
+          icon={CheckCircle2}
+          label="Convertidos"
+          value={converted}
+        />
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
         {items.length ? (
@@ -261,27 +314,93 @@ export function PortalCampaignsPage() {
                   </div>
                 </div>
                 {item.enrollments.length > 0 && (
-                  <div className="space-y-1">
-                    <p className="text-xs font-semibold uppercase">
-                      Clientes aderentes
-                    </p>
+                  <div className="overflow-hidden rounded-xl border">
+                    <div className="bg-muted/50 flex items-center justify-between px-3 py-2">
+                      <p className="text-xs font-semibold tracking-wide uppercase">
+                        Clientes aderentes
+                      </p>
+                      <span className="text-muted-foreground text-xs">
+                        Contacto e ficha 360
+                      </span>
+                    </div>
                     {item.enrollments.slice(0, 6).map((entry) => (
                       <div
                         key={entry.id}
-                        className="flex justify-between border-t py-2 text-sm"
+                        className="flex flex-wrap items-center justify-between gap-3 border-t px-3 py-3 text-sm first:border-t-0"
                       >
-                        <span>
-                          {entry.contact?.name ||
-                            entry.contact?.phone ||
-                            'Cliente'}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {new Date(entry.joined_at).toLocaleDateString(
-                            'pt-PT'
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-full font-semibold">
+                            {(entry.contact?.name || 'C')
+                              .slice(0, 1)
+                              .toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">
+                              {entry.contact?.name ||
+                                entry.contact?.phone ||
+                                'Cliente'}
+                            </p>
+                            <p className="text-muted-foreground truncate text-xs">
+                              {[entry.contact?.phone, entry.contact?.email]
+                                .filter(Boolean)
+                                .join(' · ') || 'Sem contacto'}
+                            </p>
+                            <p className="text-muted-foreground text-xs">
+                              Aderiu em{' '}
+                              {new Date(entry.joined_at).toLocaleDateString(
+                                'pt-PT'
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {entry.contact?.id && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              render={
+                                <Link href={`/contacts/${entry.contact.id}`} />
+                              }
+                            >
+                              <UserRound /> Ficha
+                            </Button>
                           )}
-                        </span>
+                          {entry.contact?.email && (
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              aria-label="Enviar email"
+                              render={
+                                <a href={`mailto:${entry.contact.email}`} />
+                              }
+                            >
+                              <Mail />
+                            </Button>
+                          )}
+                          {entry.contact?.phone && (
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              aria-label="Abrir WhatsApp"
+                              render={
+                                <a
+                                  href={`https://wa.me/${entry.contact.phone.replace(/\D/g, '')}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                />
+                              }
+                            >
+                              <MessageCircle />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ))}
+                    {item.enrollments.length > 6 && (
+                      <p className="text-muted-foreground border-t px-3 py-2 text-xs">
+                        + {item.enrollments.length - 6} outros clientes
+                      </p>
+                    )}
                   </div>
                 )}
                 <div className="flex flex-wrap gap-2">
@@ -413,5 +532,29 @@ export function PortalCampaignsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function CampaignMetric({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Megaphone;
+  label: string;
+  value: number;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex items-center gap-3 p-4">
+        <div className="bg-primary/10 text-primary flex size-10 items-center justify-center rounded-xl">
+          <Icon className="size-5" />
+        </div>
+        <div>
+          <p className="text-2xl leading-none font-semibold">{value}</p>
+          <p className="text-muted-foreground mt-1 text-xs">{label}</p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -1,6 +1,48 @@
 import { supabaseAdmin } from '@/lib/flows/admin-client';
 import { createPortalAuthClient } from '@/lib/portal/auth';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { notifyAccountEvent } from '@/lib/notifications/account-events';
+
+async function registerPortalAccess(input: {
+  admin: ReturnType<typeof supabaseAdmin>;
+  accountId: string;
+  accessId: string;
+  contactId: string;
+}) {
+  await input.admin
+    .from('client_portal_access')
+    .update({ last_login_at: new Date().toISOString() })
+    .eq('id', input.accessId);
+  const { data: contact } = await input.admin
+    .from('contacts')
+    .select('name,email,phone')
+    .eq('id', input.contactId)
+    .maybeSingle();
+  const name =
+    contact?.name || contact?.email || contact?.phone || 'Um cliente';
+  await notifyAccountEvent({
+    accountId: input.accountId,
+    type: 'portal_first_access',
+    category: 'clients',
+    title: 'Novo acesso ao Portal 360',
+    body: `${name} entrou no Portal 360 pela primeira vez.`,
+    actionUrl: `/contacts/${input.contactId}`,
+    contactId: input.contactId,
+    dedupeKey: `portal-first-access:${input.contactId}`,
+    metadata: { contact_id: input.contactId },
+    whatsappText: [
+      '🔔 *Novo acesso ao Portal 360*',
+      '',
+      `Cliente: *${name}*`,
+      contact?.phone ? `Telemóvel: ${contact.phone}` : '',
+      contact?.email ? `Email: ${contact.email}` : '',
+      '',
+      `${process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://jpmassagem.pt'}/contacts/${input.contactId}`,
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  });
+}
 
 function clientIp(request: Request) {
   return (
@@ -52,7 +94,7 @@ export async function PUT(
 
   const { data: access } = await admin
     .from('client_portal_access')
-    .select('portal_auth_email')
+    .select('id,contact_id,portal_auth_email')
     .eq('account_id', settings.account_id)
     .eq('contact_id', contacts[0].id)
     .maybeSingle();
@@ -73,6 +115,12 @@ export async function PUT(
     password,
   });
   if (error) return invalid;
+  await registerPortalAccess({
+    admin,
+    accountId: settings!.account_id,
+    accessId: access.id,
+    contactId: access.contact_id,
+  });
   return Response.json({ ok: true });
 }
 
@@ -123,7 +171,7 @@ export async function POST(
   const { data: access } = settings
     ? await admin
         .from('client_portal_access')
-        .select('id,portal_auth_email')
+        .select('id,contact_id,portal_auth_email')
         .eq('account_id', settings.account_id)
         .eq('auth_user_id', data.user.id)
         .maybeSingle()
@@ -138,6 +186,12 @@ export async function POST(
       { status: 403 }
     );
   }
+  await registerPortalAccess({
+    admin,
+    accountId: settings!.account_id,
+    accessId: access.id,
+    contactId: access.contact_id,
+  });
   return Response.json({ ok: true });
 }
 
