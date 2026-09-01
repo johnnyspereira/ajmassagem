@@ -8,6 +8,12 @@ on:
 permissions:
   contents: write
 
+# Only one generated runtime may publish this shared branch at a time.
+# A newer source push remains queued instead of racing an older build.
+concurrency:
+  group: cpanel-runtime-publish
+  cancel-in-progress: false
+
 jobs:
   build-runtime:
     runs-on: ubuntu-latest
