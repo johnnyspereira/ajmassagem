@@ -14,6 +14,7 @@ import { WorkTimePanel } from '@/components/settings/work-time-panel';
 import { ClinicSettings } from '@/components/settings/clinic-settings';
 import { ClientPortalSettings } from '@/components/settings/client-portal-settings';
 import { SecurityPanel } from '@/components/settings/security-panel';
+import { PrivacyCompliancePanel } from '@/components/settings/privacy-compliance-panel';
 import { AppearancePanel } from '@/components/settings/appearance-panel';
 import { WhatsAppConfig } from '@/components/settings/whatsapp-config';
 import { TemplateManager } from '@/components/settings/template-manager';
@@ -90,6 +91,7 @@ export default function SettingsPage() {
     clinic: <ClinicSettings />,
     portal: <ClientPortalSettings />,
     security: <SecurityPanel />,
+    privacy: <PrivacyCompliancePanel />,
     appearance: <AppearancePanel />,
     whatsapp: <WhatsAppConfig />,
     templates: <TemplateManager />,

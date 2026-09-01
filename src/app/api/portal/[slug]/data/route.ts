@@ -40,7 +40,7 @@ export async function GET(
       admin
         .from('contacts')
         .select(
-          'id,name,email,phone,company,avatar_url,client_reference,birth_date,tax_id,gender,address_line,postal_code,city,country,source,preferred_contact,marketing_consent,whatsapp_consent,created_at,updated_at'
+          'id,name,email,phone,company,avatar_url,client_reference,birth_date,tax_id,gender,address_line,postal_code,city,country,source,preferred_contact,marketing_consent,marketing_whatsapp_consent,whatsapp_consent,created_at,updated_at'
         )
         .eq('id', access.contact_id)
         .single(),

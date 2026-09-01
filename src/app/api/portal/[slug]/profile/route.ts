@@ -6,6 +6,10 @@ import {
   requirePortalAccess,
 } from '@/lib/portal/server';
 import { isValidE164 } from '@/lib/whatsapp/phone-utils';
+import {
+  privacyNoticeVersion,
+  requestConsentEvidence,
+} from '@/lib/privacy/consent-evidence';
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const AVATAR_TYPES = new Set([
@@ -36,6 +40,12 @@ export async function PATCH(
       throw new PortalError('A edição do perfil está desativada.', 403);
     }
     const body = (await request.json()) as Record<string, unknown>;
+    const { data: previousConsent } = await admin
+      .from('contacts')
+      .select('marketing_consent,marketing_whatsapp_consent,whatsapp_consent')
+      .eq('account_id', access.account_id)
+      .eq('id', access.contact_id)
+      .maybeSingle();
     const name = text(body.name, 120);
     const phone = text(body.phone, 30);
     if (!name) throw new PortalError('Informe o seu nome.', 400);
@@ -80,13 +90,14 @@ export async function PATCH(
         country: text(body.country, 80) || 'Portugal',
         preferred_contact: preferredContact || 'whatsapp',
         marketing_consent: boolean(body.marketingConsent),
+        marketing_whatsapp_consent: boolean(body.marketingWhatsappConsent),
         whatsapp_consent: boolean(body.whatsappConsent),
         updated_at: new Date().toISOString(),
       })
       .eq('account_id', access.account_id)
       .eq('id', access.contact_id)
       .select(
-        'id,name,email,phone,company,avatar_url,client_reference,birth_date,tax_id,gender,address_line,postal_code,city,country,preferred_contact,marketing_consent,whatsapp_consent'
+        'id,name,email,phone,company,avatar_url,client_reference,birth_date,tax_id,gender,address_line,postal_code,city,country,preferred_contact,marketing_consent,marketing_whatsapp_consent,whatsapp_consent'
       )
       .single();
     if (error) {
@@ -94,6 +105,48 @@ export async function PATCH(
         throw new PortalError('Este telefone já pertence a outra ficha.', 409);
       }
       throw error;
+    }
+    const nextMarketing = boolean(body.marketingConsent);
+    const nextMarketingWhatsapp = boolean(body.marketingWhatsappConsent);
+    const nextWhatsapp = boolean(body.whatsappConsent);
+    const changes = [
+      previousConsent?.marketing_consent !== nextMarketing
+        ? {
+            purpose: 'marketing_email',
+            status: nextMarketing ? 'granted' : 'withdrawn',
+          }
+        : null,
+      previousConsent?.whatsapp_consent !== nextWhatsapp
+        ? {
+            purpose: 'operational_whatsapp',
+            status: nextWhatsapp ? 'granted' : 'withdrawn',
+          }
+        : null,
+      previousConsent?.marketing_whatsapp_consent !== nextMarketingWhatsapp
+        ? {
+            purpose: 'marketing_whatsapp',
+            status: nextMarketingWhatsapp ? 'granted' : 'withdrawn',
+          }
+        : null,
+    ].filter(Boolean) as Array<{ purpose: string; status: string }>;
+    if (changes.length) {
+      const [version, evidence] = await Promise.all([
+        privacyNoticeVersion(admin, access.account_id),
+        requestConsentEvidence(request),
+      ]);
+      await admin.from('privacy_consent_events').insert(
+        changes.map((change) => ({
+          id: crypto.randomUUID(),
+          account_id: access.account_id,
+          contact_id: access.contact_id,
+          purpose: change.purpose,
+          status: change.status,
+          legal_basis: 'consent',
+          policy_version: version,
+          source: 'client_portal',
+          evidence,
+        }))
+      );
     }
     return Response.json({ client: data });
   } catch (error) {

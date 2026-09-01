@@ -132,6 +132,7 @@ type PortalData = {
     source: string | null;
     preferred_contact: string | null;
     marketing_consent: boolean;
+    marketing_whatsapp_consent: boolean;
     whatsapp_consent: boolean;
     created_at: string;
     updated_at: string;
@@ -3643,7 +3644,7 @@ function ProfileView({
             />
           </Field>
         </div>
-        <div className="border-border mt-6 grid gap-3 border-t pt-5 md:grid-cols-2">
+        <div className="border-border mt-6 grid gap-3 border-t pt-5 md:grid-cols-3">
           <ConsentToggle
             label="Comunicações por WhatsApp"
             detail="Permito contactos operacionais e lembretes pelo WhatsApp."
@@ -3652,10 +3653,19 @@ function ProfileView({
             disabled={!data.settings.profileEditEnabled}
           />
           <ConsentToggle
-            label="Marketing e novidades"
-            detail="Aceito receber campanhas, novidades e ofertas da clínica."
+            label="Marketing por email"
+            detail="Aceito campanhas, novidades e ofertas por email."
             checked={form.marketingConsent}
             onChange={(value) => patchProfile('marketingConsent', value)}
+            disabled={!data.settings.profileEditEnabled}
+          />
+          <ConsentToggle
+            label="Marketing por WhatsApp"
+            detail="Aceito campanhas e ofertas por WhatsApp. Posso retirar a autorização a qualquer momento."
+            checked={form.marketingWhatsappConsent}
+            onChange={(value) =>
+              patchProfile('marketingWhatsappConsent', value)
+            }
             disabled={!data.settings.profileEditEnabled}
           />
         </div>
@@ -3672,6 +3682,97 @@ function ProfileView({
           )}
         </div>
       </form>
+      <PrivacyRightsCard slug={data.settings.slug} />
+    </div>
+  );
+}
+
+function PrivacyRightsCard({ slug }: { slug: string }) {
+  const [requestType, setRequestType] = useState('access');
+  const [details, setDetails] = useState('');
+  const [sending, setSending] = useState(false);
+  async function submit() {
+    setSending(true);
+    try {
+      const response = await fetch(
+        `/api/portal/${encodeURIComponent(slug)}/privacy`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ requestType, details }),
+        }
+      );
+      const result = await response.json();
+      if (!response.ok)
+        throw new Error(result.error || 'Não foi possível enviar o pedido.');
+      setDetails('');
+      toast.success(
+        'Pedido de privacidade registado. A clínica responderá dentro do prazo aplicável.'
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Erro ao enviar pedido.'
+      );
+    } finally {
+      setSending(false);
+    }
+  }
+  return (
+    <div className="border-border mt-5 rounded-xl border p-5">
+      <div className="flex items-start gap-3">
+        <ShieldCheck className="text-primary mt-0.5 size-5" />
+        <div>
+          <h3 className="font-semibold">Os seus direitos de privacidade</h3>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Peça acesso, correção, portabilidade, limitação ou apagamento dos
+            seus dados. A identidade será confirmada antes da entrega ou
+            eliminação.
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-[220px_1fr_auto]">
+        <select
+          className="border-input bg-background h-9 rounded-lg border px-3 text-sm"
+          value={requestType}
+          onChange={(e) => setRequestType(e.target.value)}
+        >
+          <option value="access">Acesso aos dados</option>
+          <option value="rectification">Retificação</option>
+          <option value="portability">Portabilidade</option>
+          <option value="erasure">Apagamento</option>
+          <option value="restriction">Limitação</option>
+          <option value="objection">Oposição</option>
+          <option value="withdraw_consent">Retirar consentimento</option>
+        </select>
+        <Input
+          value={details}
+          onChange={(e) => setDetails(e.target.value)}
+          placeholder="Explique o pedido (opcional)"
+        />
+        <Button type="button" onClick={submit} disabled={sending}>
+          {sending ? <Loader2 className="animate-spin" /> : <Send />}Enviar
+          pedido
+        </Button>
+      </div>
+      <div className="border-border mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+        <p className="text-muted-foreground text-xs">
+          Descarregue uma cópia estruturada dos dados atualmente associados à
+          sua ficha.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() =>
+            window.open(
+              `/api/portal/${encodeURIComponent(slug)}/privacy/export`,
+              '_blank',
+              'noopener,noreferrer'
+            )
+          }
+        >
+          <Download /> Descarregar os meus dados
+        </Button>
+      </div>
     </div>
   );
 }
@@ -3690,6 +3791,7 @@ function profileFormFromClient(client: PortalData['client']) {
     country: client.country || 'Portugal',
     preferredContact: client.preferred_contact || 'whatsapp',
     marketingConsent: Boolean(client.marketing_consent),
+    marketingWhatsappConsent: Boolean(client.marketing_whatsapp_consent),
     whatsappConsent: Boolean(client.whatsapp_consent),
   };
 }

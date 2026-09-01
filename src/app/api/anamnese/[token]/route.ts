@@ -5,6 +5,10 @@ import {
 } from '@/lib/clinic/anamnesis-config';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { notifyAccountEvent } from '@/lib/notifications/account-events';
+import {
+  privacyNoticeVersion,
+  requestConsentEvidence,
+} from '@/lib/privacy/consent-evidence';
 
 function tokenValid(token: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -124,6 +128,10 @@ export async function POST(
     : null;
   const selectedModalities =
     appointmentModalities || body.selectedModalities || [];
+  const [noticeVersion, evidence] = await Promise.all([
+    privacyNoticeVersion(db, existing.account_id),
+    requestConsentEvidence(request),
+  ]);
   const missingQuestion = findMissingRequiredQuestion(
     mergeAnamnesisConfig(settings?.anamnesis_form_config),
     selectedModalities,
@@ -148,11 +156,39 @@ export async function POST(
       answers: body.answers || {},
       health_consent: true,
       privacy_consent: true,
+      consent_recorded_at: new Date().toISOString(),
+      privacy_notice_version: noticeVersion,
+      consent_evidence: evidence,
       signature_name: body.signatureName.trim().slice(0, 160),
       submitted_at: new Date().toISOString(),
     })
     .eq('id', existing.id);
   if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  await db.from('privacy_consent_events').insert([
+    {
+      id: crypto.randomUUID(),
+      account_id: existing.account_id,
+      contact_id: existing.contact_id,
+      purpose: 'health_anamnesis',
+      status: 'granted',
+      legal_basis: 'consent',
+      policy_version: noticeVersion,
+      source: 'anamnesis_form',
+      evidence,
+    },
+    {
+      id: crypto.randomUUID(),
+      account_id: existing.account_id,
+      contact_id: existing.contact_id,
+      purpose: 'privacy_notice',
+      status: 'granted',
+      legal_basis: 'consent',
+      policy_version: noticeVersion,
+      source: 'anamnesis_form',
+      evidence,
+    },
+  ]);
 
   // Keep the client master record in sync with the identification supplied in
   // the clinical form. Previously the date only lived on the form, which made

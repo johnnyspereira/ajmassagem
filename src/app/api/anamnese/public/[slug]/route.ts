@@ -4,6 +4,10 @@ import {
   mergeAnamnesisConfig,
 } from '@/lib/clinic/anamnesis-config';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import {
+  privacyNoticeVersion,
+  requestConsentEvidence,
+} from '@/lib/privacy/consent-evidence';
 
 function clientIp(request: Request) {
   return (
@@ -108,6 +112,11 @@ export async function POST(
     );
   }
 
+  const [noticeVersion, evidence] = await Promise.all([
+    privacyNoticeVersion(db, settings.account_id),
+    requestConsentEvidence(request),
+  ]);
+
   let contactId: string | null = null;
   const email = body.clientEmail?.trim().toLowerCase();
   if (email) {
@@ -134,11 +143,38 @@ export async function POST(
       answers: body.answers || {},
       health_consent: true,
       privacy_consent: true,
+      consent_recorded_at: new Date().toISOString(),
+      privacy_notice_version: noticeVersion,
+      consent_evidence: evidence,
       signature_name: body.signatureName.trim().slice(0, 160),
       submitted_at: new Date().toISOString(),
     })
     .select('id')
     .single();
   if (error) return Response.json({ error: error.message }, { status: 500 });
+  await db.from('privacy_consent_events').insert([
+    {
+      id: crypto.randomUUID(),
+      account_id: settings.account_id,
+      contact_id: contactId,
+      purpose: 'health_anamnesis',
+      status: 'granted',
+      legal_basis: 'consent',
+      policy_version: noticeVersion,
+      source: 'public_anamnesis',
+      evidence,
+    },
+    {
+      id: crypto.randomUUID(),
+      account_id: settings.account_id,
+      contact_id: contactId,
+      purpose: 'privacy_notice',
+      status: 'granted',
+      legal_basis: 'consent',
+      policy_version: noticeVersion,
+      source: 'public_anamnesis',
+      evidence,
+    },
+  ]);
   return Response.json({ ok: true, formId: form.id }, { status: 201 });
 }
