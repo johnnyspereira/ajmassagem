@@ -633,6 +633,12 @@ export function AgendaPage({
   const [appointmentReferralId, setAppointmentReferralId] = useState<
     string | null
   >(initialReferralId);
+  const [referralQuote, setReferralQuote] = useState<{
+    rewardType: string;
+    rewardValue: number;
+    discount: number;
+    total: number;
+  } | null>(null);
   const [appointmentDraft, setAppointmentDraft] = useState<AppointmentDraft>(
     () => defaultAppointmentDraft(profile?.id)
   );
@@ -717,6 +723,47 @@ export function AgendaPage({
   const selectedNewContact =
     contacts.find((contact) => contact.id === appointmentDraft.contactId) ??
     null;
+  useEffect(() => {
+    if (!appointmentReferralId || !selectedService || !accountId) {
+      setReferralQuote(null);
+      return;
+    }
+    let cancelled = false;
+    void supabase
+      .from('referral_program_settings')
+      .select('friend_reward_type,friend_reward_value,friend_service_id')
+      .eq('account_id', accountId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const price = Number(selectedService.price ?? 0);
+        const rewardType = String(data?.friend_reward_type ?? 'none');
+        const rewardValue = Number(data?.friend_reward_value ?? 0);
+        const compatible =
+          !data?.friend_service_id ||
+          data.friend_service_id === selectedService.id;
+        const rawDiscount = !compatible
+          ? 0
+          : rewardType === 'percentage'
+            ? (price * rewardValue) / 100
+            : rewardType === 'fixed_credit'
+              ? rewardValue
+              : 0;
+        const discount = Math.max(
+          0,
+          Math.min(price, Math.round(rawDiscount * 100) / 100)
+        );
+        setReferralQuote({
+          rewardType,
+          rewardValue,
+          discount,
+          total: price - discount,
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, appointmentReferralId, selectedService, supabase]);
   const selectedNewPack = availablePacks.find(
     (pack) => pack.id === newBenefitSourceId
   );
@@ -773,6 +820,11 @@ export function AgendaPage({
               rooms.find((room) => room.id === appointmentDraft.roomId) ?? null,
             scheduled_start: newAppointmentStart.toISOString(),
             scheduled_end: newAppointmentEnd.toISOString(),
+            currency: selectedService.currency || defaultCurrency,
+            original_price: Number(selectedService.price ?? 0),
+            referral_discount_amount: referralQuote?.discount ?? 0,
+            price:
+              referralQuote?.total ?? Number(selectedService.price ?? 0),
           } as AppointmentRow,
           'confirmation',
           account?.name ?? 'nossa clínica'
@@ -4921,8 +4973,11 @@ export function AgendaPage({
                     Agendamento do Indique & Ganhe
                   </p>
                   <p className="text-muted-foreground text-xs">
-                    O benefício configurado para o novo cliente será aplicado
-                    automaticamente ao preço e seguirá para o POS.
+                    {referralQuote
+                      ? referralQuote.discount > 0
+                        ? `${formatCurrency(Number(selectedService?.price ?? 0), selectedService?.currency || defaultCurrency)} − ${formatCurrency(referralQuote.discount, selectedService?.currency || defaultCurrency)} de benefício = ${formatCurrency(referralQuote.total, selectedService?.currency || defaultCurrency)} a pagar.`
+                        : 'A regra atual não concede desconto a este procedimento. Reveja a configuração antes de confirmar.'
+                      : 'A calcular o benefício configurado para o novo cliente…'}
                   </p>
                 </div>
               </div>
@@ -5252,6 +5307,7 @@ export function AgendaPage({
                     icon={Mail}
                     label="Email"
                     available={Boolean(selectedNewContact?.email)}
+                    availableLabel="Preparado para envio"
                   />
                   <CommunicationChannel
                     icon={MessageCircle}
@@ -5260,12 +5316,13 @@ export function AgendaPage({
                       selectedNewContact?.phone ||
                       selectedNewContact?.phone_normalized
                     )}
+                    availableLabel="Preparado para envio"
                   />
                   <CommunicationChannel
                     icon={ClipboardList}
                     label="Anamnese"
                     available={Boolean(selectedService)}
-                    availableLabel="Será criada e enviada"
+                    availableLabel="Será criada; o link seguirá nos canais disponíveis"
                   />
                 </div>
                 {appointmentPreviewOpen && newAppointmentPreview ? (

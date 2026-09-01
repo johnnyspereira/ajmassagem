@@ -101,6 +101,17 @@ export function buildAppointmentMessage(
     style: 'currency',
     currency: appointment.currency || 'EUR',
   }).format(Number(appointment.price ?? 0));
+  const referralDiscount = Number(
+    appointment.referral_discount_amount ?? 0
+  );
+  const originalPrice = new Intl.NumberFormat('pt-PT', {
+    style: 'currency',
+    currency: appointment.currency || 'EUR',
+  }).format(Number(appointment.original_price ?? appointment.price ?? 0));
+  const discountLabel = new Intl.NumberFormat('pt-PT', {
+    style: 'currency',
+    currency: appointment.currency || 'EUR',
+  }).format(referralDiscount);
 
   if (action === 'pending_confirmation') {
     return [
@@ -122,7 +133,11 @@ export function buildAppointmentMessage(
     `💆 Serviço: ${service}`,
     `📅 Data: ${date}`,
     `🕕 Horário: ${time}`,
-    `💵 Valor: ${price}`,
+    referralDiscount > 0 ? `🏷️ Valor original: ${originalPrice}` : null,
+    referralDiscount > 0
+      ? `🎁 Benefício Indique & Ganhe: -${discountLabel}`
+      : null,
+    `💵 Total da sessão: ${price}`,
     `🙎🏻‍♂️ Profissional: ${professional}`,
     options.clinicAddress ? `📍 Morada: ${options.clinicAddress}` : null,
     '',
