@@ -1,4 +1,4 @@
-export type AnamnesisQuestionType = 'text' | 'textarea' | 'yes_no';
+export type AnamnesisQuestionType = 'text' | 'textarea' | 'yes_no' | 'body_map';
 
 export type AnamnesisQuestion = {
   id: string;
@@ -42,6 +42,17 @@ const long = (
   required,
 });
 
+const bodyMap = (
+  id: string,
+  label: string,
+  required = false
+): AnamnesisQuestion => ({
+  id,
+  label,
+  type: 'body_map',
+  required,
+});
+
 export const DEFAULT_ANAMNESIS_CONFIG: AnamnesisFormConfig = {
   modalities: [
     {
@@ -76,7 +87,7 @@ export const DEFAULT_ANAMNESIS_CONFIG: AnamnesisFormConfig = {
           'relaxing_pressure',
           'Que pressão prefere: suave, média ou intensa?'
         ),
-        long(
+        bodyMap(
           'relaxing_avoid',
           'Existem zonas dolorosas, sensíveis ou que devem ser evitadas?'
         ),
@@ -388,8 +399,15 @@ export function mergeAnamnesisConfig(
   const defaults = DEFAULT_ANAMNESIS_CONFIG.modalities.map((fallback) => ({
     ...fallback,
     ...(storedById.get(fallback.id) || {}),
-    questions:
-      storedById.get(fallback.id)?.questions || fallback.questions || [],
+    questions: (
+      storedById.get(fallback.id)?.questions ||
+      fallback.questions ||
+      []
+    ).map((question) =>
+      question.id === 'relaxing_avoid'
+        ? { ...question, type: 'body_map' as const }
+        : question
+    ),
   }));
   const defaultIds = new Set(defaults.map((modality) => modality.id));
 

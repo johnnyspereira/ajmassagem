@@ -1953,6 +1953,7 @@ function AnamnesisPanel({
                       <option value="textarea">Longa</option>
                       <option value="text">Curta</option>
                       <option value="yes_no">Sim/não</option>
+                      <option value="body_map">Mapa corporal</option>
                     </select>
                     <label className="flex items-center gap-2 text-xs">
                       <input
@@ -2075,6 +2076,7 @@ function AnamnesisPanel({
                   <option value="textarea">Resposta longa</option>
                   <option value="text">Resposta curta</option>
                   <option value="yes_no">Sim ou não</option>
+                  <option value="body_map">Mapa corporal</option>
                 </select>
                 <label className="flex items-center gap-2 px-2 text-sm">
                   <input

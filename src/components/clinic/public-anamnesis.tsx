@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { BodyPainMap } from '@/components/clinic/body-pain-map';
 import {
   DEFAULT_ANAMNESIS_CONFIG,
   findMissingRequiredQuestion,
@@ -398,38 +399,12 @@ export function PublicAnamnesis({
             >
               <div className="grid gap-4 sm:grid-cols-2">
                 {customQuestions.map((question) => (
-                  <Field
+                  <QuestionField
                     key={question.id}
-                    label={`${question.label}${question.required ? ' *' : ''}`}
-                  >
-                    {question.type === 'yes_no' ? (
-                      <select
-                        className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
-                        value={String(answers[`custom_${question.id}`] || '')}
-                        onChange={(event) =>
-                          answer(`custom_${question.id}`, event.target.value)
-                        }
-                      >
-                        <option value="">Selecionar</option>
-                        <option value="Sim">Sim</option>
-                        <option value="Não">Não</option>
-                      </select>
-                    ) : question.type === 'text' ? (
-                      <Input
-                        value={String(answers[`custom_${question.id}`] || '')}
-                        onChange={(event) =>
-                          answer(`custom_${question.id}`, event.target.value)
-                        }
-                      />
-                    ) : (
-                      <Textarea
-                        value={String(answers[`custom_${question.id}`] || '')}
-                        onChange={(event) =>
-                          answer(`custom_${question.id}`, event.target.value)
-                        }
-                      />
-                    )}
-                  </Field>
+                    question={question}
+                    value={String(answers[`custom_${question.id}`] || '')}
+                    onChange={(value) => answer(`custom_${question.id}`, value)}
+                  />
                 ))}
               </div>
             </FormSection>
@@ -526,29 +501,33 @@ function QuestionField({
   onChange: (value: string) => void;
 }) {
   return (
-    <Field label={`${question.label}${question.required ? ' *' : ''}`}>
-      {question.type === 'yes_no' ? (
-        <select
-          className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-        >
-          <option value="">Selecionar</option>
-          <option value="Sim">Sim</option>
-          <option value="Não">Não</option>
-        </select>
-      ) : question.type === 'text' ? (
-        <Input
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-        />
-      ) : (
-        <Textarea
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-        />
-      )}
-    </Field>
+    <div className={question.type === 'body_map' ? 'sm:col-span-2' : undefined}>
+      <Field label={`${question.label}${question.required ? ' *' : ''}`}>
+        {question.type === 'body_map' ? (
+          <BodyPainMap value={value} onChange={onChange} />
+        ) : question.type === 'yes_no' ? (
+          <select
+            className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+          >
+            <option value="">Selecionar</option>
+            <option value="Sim">Sim</option>
+            <option value="Não">Não</option>
+          </select>
+        ) : question.type === 'text' ? (
+          <Input
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        ) : (
+          <Textarea
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        )}
+      </Field>
+    </div>
   );
 }
 function Conditional({
