@@ -41,6 +41,24 @@ describe('appointment email templates', () => {
     expect(email.text).toContain('Massagem terapêutica');
   });
 
+  it('shows the configured logo, business signature and reserved benefit', () => {
+    const email = appointmentConfirmationEmail({
+      appointment,
+      businessName: 'JP Massagem',
+      logoUrl: 'https://jpmassagem.pt/logo.png',
+      benefit: {
+        type: 'pack',
+        label: 'Pack Relaxamento 2x1',
+        detail: '1 sessão reservada no pack',
+      },
+    });
+    expect(email.html).toContain('https://jpmassagem.pt/logo.png');
+    expect(email.html).toContain('Pack Relaxamento 2x1');
+    expect(email.html).toContain('1 sessão reservada no pack');
+    expect(email.html).not.toContain('Equipa JP Massagem');
+    expect(email.text).toContain('Benefício: Pack Relaxamento 2x1');
+  });
+
   it('builds matching WhatsApp and email content for status changes', () => {
     const whatsapp = appointmentStatusMessage({
       appointment,

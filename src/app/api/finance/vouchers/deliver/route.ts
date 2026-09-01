@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { sendLocalEmail } from '@/lib/email/smtp';
 import { voucherDeliveryEmail } from '@/lib/email/templates';
+import { createVoucherEmailPdf } from '@/lib/finance/voucher-email-pdf';
 import { notifyAccountEvent } from '@/lib/notifications/account-events';
 import { getPublicUrl } from '@/lib/public-url';
 import { createClient } from '@/lib/supabase/server';
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
   const [{ data: account }, { data: vouchers, error }] = await Promise.all([
     db
       .from('accounts')
-      .select('name')
+      .select('name,logo_url,public_url')
       .eq('id', profile.account_id)
       .maybeSingle(),
     db
@@ -75,10 +76,22 @@ export async function POST(request: Request) {
       new URL(request.url).origin
     );
     try {
+      const pdf = await createVoucherEmailPdf({
+        businessName: account?.name || 'JP Massagem',
+        logoUrl: account?.logo_url,
+        voucherUrl,
+        code: voucher.code,
+        pin: voucher.pin_code || '',
+        benefit,
+        recipientName: voucher.recipient_name || owner.name || 'Cliente',
+        expiresAt: voucher.expires_at,
+        message: voucher.message,
+      });
       await sendLocalEmail({
         to: owner.email,
         ...voucherDeliveryEmail({
           businessName: account?.name || 'JP Massagem',
+          logoUrl: account?.logo_url,
           clientName: owner.name,
           recipientName: voucher.recipient_name,
           voucherUrl,
@@ -88,6 +101,13 @@ export async function POST(request: Request) {
           expiresAt: voucher.expires_at,
           message: voucher.message,
         }),
+        attachments: [
+          {
+            filename: `voucher-${voucher.code}.pdf`,
+            content: pdf,
+            contentType: 'application/pdf',
+          },
+        ],
       });
       sent += 1;
     } catch (cause) {

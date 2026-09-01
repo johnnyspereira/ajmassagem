@@ -282,11 +282,12 @@ export async function POST(
     if (delivery === 'email') {
       const { data: account } = await admin
         .from('accounts')
-        .select('name')
+        .select('name,logo_url')
         .eq('id', settings.account_id)
         .maybeSingle();
       const template = portalAccessEmail({
         businessName: account?.name || 'JP Massagem',
+        logoUrl: account?.logo_url,
         clientName: contact.name,
         portalUrl: portalUrl.toString(),
         password,

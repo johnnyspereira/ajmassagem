@@ -9,6 +9,12 @@ export type AppointmentStatus =
   | 'cancelled'
   | 'no_show';
 
+export type AppointmentBenefitEmailInfo = {
+  type: 'voucher' | 'pack' | 'referral' | 'wallet' | 'direct';
+  label: string;
+  detail: string;
+};
+
 function dateLabel(value: string) {
   return new Intl.DateTimeFormat('pt-PT', {
     weekday: 'long',
@@ -51,6 +57,10 @@ const STATUS_COPY: Record<
 };
 
 function appointmentDetails(appointment: AppointmentMessageRow) {
+  const amount = new Intl.NumberFormat('pt-PT', {
+    style: 'currency',
+    currency: appointment.currency || 'EUR',
+  }).format(Number(appointment.price || 0));
   return {
     client: appointment.contact?.name?.trim() || 'Cliente',
     service: appointment.service?.name || 'Atendimento',
@@ -59,6 +69,7 @@ function appointmentDetails(appointment: AppointmentMessageRow) {
       appointment.professional?.email ||
       'Equipa da clínica',
     date: dateLabel(appointment.scheduled_start),
+    amount,
   };
 }
 
@@ -71,22 +82,36 @@ function emailShell(input: {
   appointment: AppointmentMessageRow;
   actionUrl?: string | null;
   actionLabel?: string;
+  logoUrl?: string | null;
+  benefit?: AppointmentBenefitEmailInfo | null;
 }) {
   const details = appointmentDetails(input.appointment);
   const brand = input.businessName.trim() || 'Clínica';
+  const benefitDetails = input.benefit
+    ? [
+        { label: 'Forma de utilização', value: input.benefit.label },
+        { label: 'Benefício reservado', value: input.benefit.detail },
+      ]
+    : [];
   const text = [
     input.greeting,
     input.message,
     `Serviço: ${details.service}`,
     `Data e hora: ${details.date}`,
     `Profissional: ${details.professional}`,
+    `Valor: ${details.amount}`,
+    input.benefit
+      ? `Benefício: ${input.benefit.label} — ${input.benefit.detail}`
+      : null,
     input.actionUrl ? `${input.actionLabel}: ${input.actionUrl}` : null,
-    `Equipa ${brand}`,
+    brand,
   ]
     .filter(Boolean)
     .join('\n\n');
   const html = brandedEmail({
     businessName: brand,
+    logoUrl: input.logoUrl,
+    signOffName: brand,
     preheader: input.preheader,
     eyebrow: 'Agenda',
     title: input.title,
@@ -96,6 +121,8 @@ function emailShell(input: {
       { label: 'Serviço', value: details.service },
       { label: 'Data e hora', value: details.date },
       { label: 'Profissional', value: details.professional },
+      { label: 'Valor da sessão', value: details.amount },
+      ...benefitDetails,
     ],
     action: input.actionUrl
       ? { label: input.actionLabel || 'Abrir', url: input.actionUrl }
@@ -110,7 +137,9 @@ function emailShell(input: {
 export function appointmentConfirmationEmail(input: {
   appointment: AppointmentMessageRow;
   businessName: string;
+  logoUrl?: string | null;
   anamnesisUrl?: string | null;
+  benefit?: AppointmentBenefitEmailInfo | null;
 }) {
   const name = input.appointment.contact?.name?.trim();
   return emailShell({
@@ -121,6 +150,8 @@ export function appointmentConfirmationEmail(input: {
     message:
       'Recebemos o seu agendamento. Para confirmar a presença ou pedir outro horário, responda ao WhatsApp da clínica.',
     appointment: input.appointment,
+    logoUrl: input.logoUrl,
+    benefit: input.benefit,
     actionUrl: input.anamnesisUrl,
     actionLabel: 'Preencher ficha de anamnese',
   });
@@ -151,6 +182,7 @@ export function appointmentStatusMessage(input: {
 export function appointmentStatusEmail(input: {
   appointment: AppointmentMessageRow;
   businessName: string;
+  logoUrl?: string | null;
   status: AppointmentStatus;
 }) {
   const copy = STATUS_COPY[input.status];
@@ -162,5 +194,6 @@ export function appointmentStatusEmail(input: {
     greeting: name ? `Olá, ${name}.` : 'Olá.',
     message: copy.message,
     appointment: input.appointment,
+    logoUrl: input.logoUrl,
   });
 }

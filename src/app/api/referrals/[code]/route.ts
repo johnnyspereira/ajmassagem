@@ -292,6 +292,7 @@ export async function POST(
           to: email,
           ...referralInvitationEmail({
             businessName,
+            logoUrl: account?.logo_url,
             friendName: name,
             referrerName: referrer?.name,
             bookingUrl,
@@ -356,7 +357,10 @@ export async function POST(
         whatsappText: `🎉 *Nova indicação recebida*\nNome: ${name}\nTelefone: ${phone}\nEmail: ${email || 'não informado'}\nIndicado por: ${referrer?.name || 'cliente'}\nConvite: email ${delivery.email === 'sent' ? '✅' : '⚠️'} · WhatsApp ${delivery.whatsapp === 'sent' ? '✅' : '⚠️'}`,
       });
     } catch (notificationError) {
-      console.error('[referrals] admin notification failed:', notificationError);
+      console.error(
+        '[referrals] admin notification failed:',
+        notificationError
+      );
     }
 
     return NextResponse.json({

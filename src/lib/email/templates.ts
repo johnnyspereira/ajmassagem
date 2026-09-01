@@ -9,6 +9,8 @@ function escapeHtml(value: string) {
 
 export function brandedEmail(input: {
   businessName: string;
+  logoUrl?: string | null;
+  signOffName?: string | null;
   preheader: string;
   eyebrow: string;
   title: string;
@@ -20,6 +22,17 @@ export function brandedEmail(input: {
   notice?: string;
 }) {
   const brand = input.businessName.trim() || 'JP Massagem';
+  const initials =
+    brand
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join('') || 'JP';
+  const brandMark = input.logoUrl
+    ? `<img src="${escapeHtml(input.logoUrl)}" width="48" height="48" alt="${escapeHtml(brand)}" style="display:block;width:48px;height:48px;object-fit:contain;border-radius:12px;background:#fff">`
+    : `<div style="display:inline-block;padding:9px 11px;border-radius:10px;background:#12a594;color:#fff;font-size:14px;font-weight:800">${escapeHtml(initials)}</div>`;
+  const signature = input.signOffName?.trim() || brand;
   const details = input.details?.length
     ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:26px 0;background:#f5f8f6;border:1px solid #e1e9e4;border-radius:14px">${input.details.map(({ label, value }, index) => `<tr><td style="padding:${index ? '0 20px 15px' : '18px 20px 15px'}"><div style="font-size:11px;line-height:16px;letter-spacing:.08em;text-transform:uppercase;color:#738078">${escapeHtml(label)}</div><div style="margin-top:3px;font-size:15px;line-height:22px;font-weight:600;color:#183025">${escapeHtml(value)}</div></td></tr>`).join('')}</table>`
     : '';
@@ -32,11 +45,12 @@ export function brandedEmail(input: {
   const notice = input.notice
     ? `<div style="margin-top:24px;padding:14px 16px;border-left:3px solid #d9a441;background:#fffaf0;color:#655430;font-size:13px;line-height:20px">${escapeHtml(input.notice)}</div>`
     : '';
-  return `<!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(input.title)}</title></head><body style="margin:0;background:#eef3f0;font-family:Arial,Helvetica,sans-serif;color:#183025"><div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(input.preheader)}</div><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef3f0;padding:30px 12px"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#fff;border:1px solid #dce7e0;border-radius:20px;overflow:hidden;box-shadow:0 10px 35px rgba(18,55,38,.08)"><tr><td style="padding:27px 32px;background:#112d20;color:#fff"><table role="presentation" width="100%"><tr><td><div style="display:inline-block;padding:8px 10px;border-radius:9px;background:#12a594;color:#fff;font-size:14px;font-weight:800">JP</div><span style="margin-left:10px;font-size:18px;font-weight:700">${escapeHtml(brand)}</span></td><td align="right" style="font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:#b6d2c2">${escapeHtml(input.eyebrow)}</td></tr></table></td></tr><tr><td style="padding:36px 32px"><p style="margin:0 0 10px;font-size:16px;line-height:24px;color:#4f6258">${escapeHtml(input.greeting)}</p><h1 style="margin:0 0 16px;font-size:28px;line-height:35px;color:#112d20">${escapeHtml(input.title)}</h1><p style="margin:0;font-size:16px;line-height:26px;color:#4f6258">${escapeHtml(input.message)}</p>${details}${highlight}${action}${notice}<p style="margin:30px 0 0;font-size:14px;line-height:22px;color:#617269">Com os melhores cumprimentos,<br><strong style="color:#183025">Equipa ${escapeHtml(brand)}</strong></p></td></tr><tr><td style="padding:18px 32px;background:#f7faf8;border-top:1px solid #e7ede9;font-size:11px;line-height:17px;color:#7a887f">Mensagem automática e confidencial enviada pela ${escapeHtml(brand)}. Por favor, não partilhe links pessoais ou palavras-passe.</td></tr></table></td></tr></table></body></html>`;
+  return `<!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(input.title)}</title></head><body style="margin:0;background:#edf2ef;font-family:Inter,Arial,Helvetica,sans-serif;color:#183025"><div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(input.preheader)}</div><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#edf2ef;padding:32px 12px"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#fff;border:1px solid #d8e4dd;border-radius:22px;overflow:hidden;box-shadow:0 16px 44px rgba(18,55,38,.09)"><tr><td style="padding:24px 32px;background:#102f21;color:#fff"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td width="58" valign="middle">${brandMark}</td><td valign="middle"><div style="font-size:18px;font-weight:800;line-height:23px">${escapeHtml(brand)}</div><div style="font-size:11px;line-height:17px;color:#b9d4c5">Cuidado, bem-estar e acompanhamento</div></td><td align="right" style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#b6d2c2">${escapeHtml(input.eyebrow)}</td></tr></table></td></tr><tr><td style="padding:38px 34px"><p style="margin:0 0 10px;font-size:16px;line-height:24px;color:#4f6258">${escapeHtml(input.greeting)}</p><h1 style="margin:0 0 16px;font-size:29px;line-height:36px;color:#102f21">${escapeHtml(input.title)}</h1><p style="margin:0;font-size:16px;line-height:26px;color:#4f6258">${escapeHtml(input.message)}</p>${details}${highlight}${action}${notice}<p style="margin:30px 0 0;font-size:14px;line-height:22px;color:#617269">Com os melhores cumprimentos,<br><strong style="color:#183025">${escapeHtml(signature)}</strong></p></td></tr><tr><td style="padding:18px 34px;background:#f7faf8;border-top:1px solid #e7ede9;font-size:11px;line-height:17px;color:#7a887f">Mensagem automática e confidencial enviada por ${escapeHtml(brand)}. Por favor, não partilhe links pessoais, códigos ou palavras-passe.</td></tr></table></td></tr></table></body></html>`;
 }
 
 export function portalAccessEmail(input: {
   businessName: string;
+  logoUrl?: string | null;
   clientName?: string | null;
   portalUrl: string;
   password: string;
@@ -48,6 +62,8 @@ export function portalAccessEmail(input: {
     text: `Olá, ${firstName}. O seu acesso ao Portal 360 da ${business} está pronto. Entre em ${input.portalUrl} e utilize a palavra-passe temporária ${input.password}. No primeiro acesso, defina uma nova palavra-passe.`,
     html: brandedEmail({
       businessName: business,
+      logoUrl: input.logoUrl,
+      signOffName: business,
       preheader: 'O seu acesso privado ao Portal 360 está pronto.',
       eyebrow: 'Portal 360',
       title: 'O seu acesso está pronto',
@@ -87,6 +103,7 @@ export function passwordResetEmail(input: {
 
 export function voucherDeliveryEmail(input: {
   businessName: string;
+  logoUrl?: string | null;
   clientName?: string | null;
   recipientName?: string | null;
   voucherUrl: string;
@@ -117,6 +134,8 @@ export function voucherDeliveryEmail(input: {
       .join('\n\n'),
     html: brandedEmail({
       businessName: business,
+      logoUrl: input.logoUrl,
+      signOffName: business,
       preheader: `O voucher ${input.code} está pronto para oferecer.`,
       eyebrow: 'Voucher',
       title: 'Um presente especial está pronto',
@@ -138,6 +157,7 @@ export function voucherDeliveryEmail(input: {
 
 export function referralInvitationEmail(input: {
   businessName: string;
+  logoUrl?: string | null;
   friendName: string;
   referrerName?: string | null;
   bookingUrl: string;
@@ -151,6 +171,8 @@ export function referralInvitationEmail(input: {
     text: `Olá, ${firstName}. ${referrer} indicou-lhe a ${business}. O seu benefício é ${input.benefit}. Conheça a campanha e marque a sua sessão: ${input.bookingUrl}`,
     html: brandedEmail({
       businessName: business,
+      logoUrl: input.logoUrl,
+      signOffName: business,
       preheader: `${referrer} preparou uma experiência especial para si.`,
       eyebrow: 'Convite especial',
       title: `${firstName}, recebeu um convite`,
@@ -166,6 +188,7 @@ export function referralInvitationEmail(input: {
 
 export function packDeliveryEmail(input: {
   businessName: string;
+  logoUrl?: string | null;
   clientName?: string | null;
   packName: string;
   code: string;
@@ -187,6 +210,8 @@ export function packDeliveryEmail(input: {
     text: `Olá, ${name}. O seu pack ${input.packName} está ativo. Sessões: ${sessionSummary}. Código: ${input.code}. PIN: ${input.pin}. Validade: ${expiry}. Consulte em ${input.portalUrl}`,
     html: brandedEmail({
       businessName: business,
+      logoUrl: input.logoUrl,
+      signOffName: business,
       preheader: `O seu pack ${input.packName} já está disponível.`,
       eyebrow: 'Pack de sessões',
       title: 'O seu pack está ativo',

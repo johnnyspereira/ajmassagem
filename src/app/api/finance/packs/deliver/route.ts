@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const [{ data: account }, { data: packs, error }] = await Promise.all([
     db
       .from('accounts')
-      .select('name')
+      .select('name,logo_url')
       .eq('id', profile.account_id)
       .maybeSingle(),
     db
@@ -68,6 +68,7 @@ export async function POST(request: Request) {
         to: contact.email,
         ...packDeliveryEmail({
           businessName: account?.name || 'JP Massagem',
+          logoUrl: account?.logo_url,
           clientName: contact.name,
           packName: pack?.name || 'Pack de sessões',
           code: item.code,

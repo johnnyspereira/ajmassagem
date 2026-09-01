@@ -6,6 +6,7 @@ import {
   appointmentConfirmationEmail,
   appointmentStatusEmail,
   appointmentStatusMessage,
+  type AppointmentBenefitEmailInfo,
   type AppointmentStatus,
 } from '@/lib/clinic/appointment-email';
 import {
@@ -94,6 +95,7 @@ export async function sendAppointmentCommunication({
   if (!sender)
     throw new Error('Não foi possível identificar o remetente da clínica.');
   const businessName = appointment.account?.name || '';
+  const benefit = await loadAppointmentBenefit(db, appointment);
   const text = buildAppointmentMessage(row, action, businessName, {
     clinicAddress: settings?.clinic_address,
     directions: settings?.directions,
@@ -113,7 +115,9 @@ export async function sendAppointmentCommunication({
     emailContent: appointmentConfirmationEmail({
       appointment: row,
       businessName,
+      logoUrl: appointment.account?.logo_url,
       anamnesisUrl,
+      benefit,
     }),
   });
   const now = new Date().toISOString();
@@ -170,6 +174,7 @@ export async function sendAppointmentStatusCommunication(input: {
     emailContent: appointmentStatusEmail({
       appointment: row,
       businessName,
+      logoUrl: appointment.account?.logo_url,
       status: input.status,
     }),
   });
@@ -240,10 +245,75 @@ function loadAppointment(db: SupabaseClient, appointmentId: string) {
   return db
     .from('clinic_appointments')
     .select(
-      '*, contact:contacts(id,name,phone,email,birth_date), service:clinic_services(id,name,category), professional:profiles!clinic_appointments_professional_profile_id_fkey(full_name,email), account:accounts(name,owner_user_id)'
+      '*, contact:contacts(id,name,phone,email,birth_date), service:clinic_services(id,name,category), professional:profiles!clinic_appointments_professional_profile_id_fkey(full_name,email), account:accounts(name,logo_url,owner_user_id)'
     )
     .eq('id', appointmentId)
     .single();
+}
+
+async function loadAppointmentBenefit(
+  db: SupabaseClient,
+  appointment: {
+    id: string;
+    currency?: string | null;
+    referral_discount_amount?: number | null;
+  }
+): Promise<AppointmentBenefitEmailInfo> {
+  const currency = appointment.currency || 'EUR';
+  const money = (value: number) =>
+    new Intl.NumberFormat('pt-PT', { style: 'currency', currency }).format(
+      value
+    );
+  const referralDiscount = Number(appointment.referral_discount_amount || 0);
+  if (referralDiscount > 0)
+    return {
+      type: 'referral',
+      label: 'Indique & Ganhe',
+      detail: `${money(referralDiscount)} de desconto aplicado nesta sessão`,
+    };
+
+  const { data: benefits } = await db
+    .from('finance_appointment_benefits')
+    .select(
+      'benefit_type,status,reserved_amount,reserved_sessions,voucher_id,client_pack_id'
+    )
+    .eq('appointment_id', appointment.id)
+    .in('status', ['reserved', 'consumed'])
+    .limit(1);
+  const benefit = benefits?.[0];
+  if (benefit?.benefit_type === 'voucher') {
+    const { data: voucher } = await db
+      .from('finance_vouchers')
+      .select('code')
+      .eq('id', benefit.voucher_id)
+      .maybeSingle();
+    return {
+      type: 'voucher',
+      label: `Voucher${voucher?.code ? ` ${voucher.code}` : ''}`,
+      detail:
+        Number(benefit.reserved_amount || 0) > 0
+          ? `${money(Number(benefit.reserved_amount))} reservados para esta sessão`
+          : 'Utilização reservada para esta sessão',
+    };
+  }
+  if (benefit?.benefit_type === 'pack') {
+    const { data: pack } = await db
+      .from('finance_client_packs')
+      .select('code,pack:finance_pack_catalog(name)')
+      .eq('id', benefit.client_pack_id)
+      .maybeSingle();
+    const catalog = Array.isArray(pack?.pack) ? pack.pack[0] : pack?.pack;
+    return {
+      type: 'pack',
+      label: catalog?.name || `Pack${pack?.code ? ` ${pack.code}` : ''}`,
+      detail: `${Number(benefit.reserved_sessions || 1)} sessão reservada no pack`,
+    };
+  }
+  return {
+    type: 'direct',
+    label: 'Pagamento direto',
+    detail: 'Sem voucher ou pack associado a esta marcação',
+  };
 }
 
 async function deliverChannels(input: {

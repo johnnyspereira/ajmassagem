@@ -1,6 +1,6 @@
 import 'server-only';
 
-import nodemailer from 'nodemailer';
+import nodemailer, { type Transporter } from 'nodemailer';
 
 function defaultSender() {
   const configuredUrl =
@@ -26,11 +26,16 @@ export async function sendLocalEmail(input: {
   subject: string;
   text: string;
   html?: string;
+  attachments?: Array<{
+    filename: string;
+    content: Buffer | string;
+    contentType?: string;
+  }>;
 }) {
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASSWORD;
-  const transports = [];
+  const transports: Array<{ name: string; client: Transporter }> = [];
   if (host) {
     transports.push({
       name: 'smtp',
