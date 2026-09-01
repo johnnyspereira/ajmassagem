@@ -119,6 +119,31 @@ export async function POST(request: Request) {
       );
       await hydrateRelationships(query.table, query.columns, rows);
       data = query.single ? (rows[0] ?? null) : rows;
+    } else if (
+      query.columns &&
+      query.operation === 'update' &&
+      result.affectedRows > 0
+    ) {
+      const followup = compileQuery(
+        {
+          table: query.table,
+          operation: 'select',
+          columns: query.columns,
+          filters: query.filters,
+          single: query.single,
+          limit: query.limit,
+        },
+        { accountId: auth.account.id, userId: auth.user.id }
+      );
+      const [rows] = await db().execute<RowDataPacket[]>(
+        followup.sql,
+        followup.values
+      );
+      await hydrateRelationships(query.table, query.columns, rows);
+      if (query.single === 'single' && rows.length !== 1) {
+        return errorResponse('Expected exactly one row.', 406, 'PGRST116');
+      }
+      data = query.single ? (rows[0] ?? null) : rows;
     }
     return Response.json({
       data,
