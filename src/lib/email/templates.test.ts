@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { portalAccessEmail } from './templates';
+import { passwordResetEmail, portalAccessEmail } from './templates';
 
 describe('portalAccessEmail', () => {
   it('renders the branded access action and temporary password', () => {
@@ -28,5 +28,18 @@ describe('portalAccessEmail', () => {
     expect(email.html).not.toContain('<script>');
     expect(email.html).not.toContain('<img>');
     expect(email.html).toContain('&lt;unsafe&gt;');
+  });
+});
+
+describe('passwordResetEmail', () => {
+  it('renders the branded secure recovery action', () => {
+    const email = passwordResetEmail({
+      resetUrl: 'https://jpmassagem.pt/auth/callback?code=abc',
+    });
+
+    expect(email.subject).toContain('Recuperar acesso');
+    expect(email.html).toContain('Definir nova palavra-passe');
+    expect(email.html).toContain('jpmassagem.pt/auth/callback');
+    expect(email.text).toContain('30 minutos');
   });
 });

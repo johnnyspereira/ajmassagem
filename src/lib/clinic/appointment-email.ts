@@ -1,4 +1,5 @@
 import type { AppointmentMessageRow } from '@/lib/clinic/appointment-messages';
+import { brandedEmail } from '@/lib/email/templates';
 
 export type AppointmentStatus =
   | 'scheduled'
@@ -7,15 +8,6 @@ export type AppointmentStatus =
   | 'completed'
   | 'cancelled'
   | 'no_show';
-
-function escapeHtml(value: string) {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
 
 function dateLabel(value: string) {
   return new Intl.DateTimeFormat('pt-PT', {
@@ -93,10 +85,25 @@ function emailShell(input: {
   ]
     .filter(Boolean)
     .join('\n\n');
-  const button = input.actionUrl
-    ? `<p style="margin:28px 0"><a href="${escapeHtml(input.actionUrl)}" style="display:inline-block;background:#7c3aed;color:#fff;text-decoration:none;padding:13px 22px;border-radius:10px;font-weight:700">${escapeHtml(input.actionLabel || 'Abrir')}</a></p>`
-    : '';
-  const html = `<!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(input.title)}</title></head><body style="margin:0;background:#f5f3ff;font-family:Arial,sans-serif;color:#17202a"><span style="display:none">${escapeHtml(input.preheader)}</span><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:32px 14px;background:#f5f3ff"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 8px 30px rgba(31,19,55,.09)"><tr><td style="background:#132b20;color:#fff;padding:24px 30px;font-size:20px;font-weight:700">${escapeHtml(brand)}</td></tr><tr><td style="padding:34px 30px"><p style="margin:0 0 10px;color:#7c3aed;font-weight:700">Agenda</p><h1 style="margin:0 0 20px;font-size:28px">${escapeHtml(input.title)}</h1><p style="font-size:16px;line-height:1.6">${escapeHtml(input.greeting)}</p><p style="font-size:16px;line-height:1.6">${escapeHtml(input.message)}</p><table role="presentation" width="100%" style="margin-top:24px;background:#f8fafc;border-radius:12px;padding:18px"><tr><td style="padding:5px"><strong>Serviço</strong><br>${escapeHtml(details.service)}</td></tr><tr><td style="padding:5px"><strong>Data e hora</strong><br>${escapeHtml(details.date)}</td></tr><tr><td style="padding:5px"><strong>Profissional</strong><br>${escapeHtml(details.professional)}</td></tr></table>${button}<p style="margin:28px 0 0;color:#64748b;font-size:14px">Com os melhores cumprimentos,<br>Equipa ${escapeHtml(brand)}</p></td></tr></table></td></tr></table></body></html>`;
+  const html = brandedEmail({
+    businessName: brand,
+    preheader: input.preheader,
+    eyebrow: 'Agenda',
+    title: input.title,
+    greeting: input.greeting,
+    message: input.message,
+    details: [
+      { label: 'Serviço', value: details.service },
+      { label: 'Data e hora', value: details.date },
+      { label: 'Profissional', value: details.professional },
+    ],
+    action: input.actionUrl
+      ? { label: input.actionLabel || 'Abrir', url: input.actionUrl }
+      : null,
+    notice: input.actionUrl
+      ? 'A ficha de anamnese é confidencial e ajuda-nos a preparar o seu atendimento com segurança.'
+      : undefined,
+  });
   return { subject: `${input.title} — ${brand}`, text, html };
 }
 

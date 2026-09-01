@@ -15,6 +15,7 @@ import {
   type AppointmentMessageRow,
 } from '@/lib/clinic/appointment-messages';
 import { sendLocalEmail } from '@/lib/email/smtp';
+import { getPublicUrl } from '@/lib/public-url';
 
 type Delivery = { sent: boolean; skipped: boolean; error: string | null };
 export type AppointmentDeliveries = { whatsapp: Delivery; email: Delivery };
@@ -85,7 +86,7 @@ export async function sendAppointmentCommunication({
         .update({ anamnesis_form_id: form.id })
         .eq('id', appointment.id);
     }
-    anamnesisUrl = `${origin.replace(/\/$/, '')}/anamnese/${form.public_token}`;
+    anamnesisUrl = getPublicUrl(`/anamnese/${form.public_token}`, origin);
   }
 
   const sender = appointment.user_id || appointment.account?.owner_user_id;

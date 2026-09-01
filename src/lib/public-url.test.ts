@@ -52,6 +52,19 @@ describe('getPublicUrl', () => {
     );
   });
 
+  it('never exposes the internal cPanel origin in anamnesis links', () => {
+    process.env.CANONICAL_APP_URL = 'https://jpmassagem.pt';
+
+    expect(
+      getPublicUrl(
+        '/anamnese/d104d446-e08c-4920-9aab-2d6c8fe0c8e5',
+        'https://cpanel173.dnscpanel.com:3000'
+      )
+    ).toBe(
+      'https://jpmassagem.pt/anamnese/d104d446-e08c-4920-9aab-2d6c8fe0c8e5'
+    );
+  });
+
   it('normalizes a configured domain without a protocol', () => {
     process.env.CANONICAL_APP_URL = 'jpmassagem.pt/';
 
