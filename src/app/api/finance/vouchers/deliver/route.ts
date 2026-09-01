@@ -52,6 +52,8 @@ export async function POST(request: Request) {
 
   let sent = 0;
   let skipped = 0;
+  let attachments = 0;
+  let attachmentBytes = 0;
   const failures: string[] = [];
   for (const voucher of vouchers ?? []) {
     const owner = Array.isArray(voucher.owner)
@@ -87,6 +89,14 @@ export async function POST(request: Request) {
         expiresAt: voucher.expires_at,
         message: voucher.message,
       });
+      if (
+        pdf.length < 1_000 ||
+        pdf.subarray(0, 5).toString('ascii') !== '%PDF-'
+      ) {
+        throw new Error(
+          `O PDF do voucher ${voucher.code} não foi gerado corretamente.`
+        );
+      }
       await sendLocalEmail({
         to: owner.email,
         ...voucherDeliveryEmail({
@@ -104,12 +114,16 @@ export async function POST(request: Request) {
         attachments: [
           {
             filename: `voucher-${voucher.code}.pdf`,
-            content: pdf,
+            content: pdf.toString('base64'),
             contentType: 'application/pdf',
+            contentDisposition: 'attachment',
+            encoding: 'base64',
           },
         ],
       });
       sent += 1;
+      attachments += 1;
+      attachmentBytes += pdf.length;
     } catch (cause) {
       failures.push(cause instanceof Error ? cause.message : 'Falha no email.');
     }
@@ -128,10 +142,23 @@ export async function POST(request: Request) {
       body: `${sent} enviado(s), ${skipped} sem email${failures.length ? `, ${failures.length} falhou(aram)` : ''}.`,
       actionUrl: '/benefits',
       dedupeKey: `voucher-delivery:${body.saleId}:${failures.length ? 'failed' : 'sent'}`,
-      metadata: { saleId: body.saleId, sent, skipped, failures },
+      metadata: {
+        saleId: body.saleId,
+        sent,
+        skipped,
+        failures,
+        attachments,
+        attachmentBytes,
+      },
     });
   } catch (notificationError) {
     console.error('[voucher-delivery] notification failed:', notificationError);
   }
-  return Response.json({ sent, skipped, failures });
+  return Response.json({
+    sent,
+    skipped,
+    failures,
+    attachments,
+    attachmentBytes,
+  });
 }

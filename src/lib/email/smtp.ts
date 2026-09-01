@@ -30,6 +30,8 @@ export async function sendLocalEmail(input: {
     filename: string;
     content: Buffer | string;
     contentType?: string;
+    contentDisposition?: 'attachment' | 'inline';
+    encoding?: 'base64';
   }>;
 }) {
   const host = process.env.SMTP_HOST;

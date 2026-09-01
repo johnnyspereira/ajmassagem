@@ -738,13 +738,17 @@ export function FinancePage({
       skipped?: number;
       failures?: string[];
       error?: string;
+      attachments?: number;
+      attachmentBytes?: number;
     };
     if (!delivery.ok || payload.failures?.length)
       toast.warning(
         `Pagamento registado, mas o voucher não foi enviado: ${payload.error || payload.failures?.[0] || 'falha no email'}`
       );
+    else if (payload.sent && payload.attachments === payload.sent)
+      toast.success('Voucher e PDF enviados por email ao cliente.');
     else if (payload.sent)
-      toast.success('Voucher enviado por email ao cliente.');
+      toast.warning('O email foi enviado, mas o PDF não foi confirmado.');
     else if (payload.skipped)
       toast.warning('Voucher criado, mas o cliente não possui email na ficha.');
   }
