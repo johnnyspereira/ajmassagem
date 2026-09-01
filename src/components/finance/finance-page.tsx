@@ -1242,7 +1242,12 @@ export function FinancePage({
   if (schemaMissing) {
     return (
       <div className="space-y-5">
-        <PageHeader cashSession={cashSession} onRefresh={loadFinance} />
+        <PageHeader
+          cashSession={cashSession}
+          onRefresh={loadFinance}
+          onNavigate={setActiveTab}
+          isOwner={isOwner}
+        />
         <div className="border-border bg-card rounded-lg border p-8 text-center">
           <CircleDollarSign className="text-muted-foreground mx-auto size-8" />
           <h2 className="mt-3 text-lg font-semibold">
@@ -1259,7 +1264,12 @@ export function FinancePage({
 
   return (
     <div className="space-y-5">
-      <PageHeader cashSession={cashSession} onRefresh={loadFinance} />
+      <PageHeader
+        cashSession={cashSession}
+        onRefresh={loadFinance}
+        onNavigate={setActiveTab}
+        isOwner={isOwner}
+      />
       {activeTab === 'overview' && (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <FinanceMetric
@@ -1314,8 +1324,8 @@ export function FinancePage({
         </div>
       ) : null}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-4">
-        <div className="border-border bg-background/95 sticky top-0 z-20 -mx-1 overflow-x-auto border-b px-1 py-2 backdrop-blur">
-          <TabsList className="bg-muted/60 flex h-10 w-full min-w-max justify-start gap-1 p-1 [&_button]:!h-8 [&_button]:!min-h-0 [&_button]:!rounded-md [&_button]:!border-0 [&_button]:!px-3 [&_button]:!py-1 [&_button]:!shadow-none [&_button>span>span:last-child]:hidden">
+        <div className="sticky top-0 z-20 -mx-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white/90 p-1.5 shadow-sm backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90">
+          <TabsList className="flex h-auto w-full min-w-max justify-start gap-1 bg-transparent p-0 [&_button]:!h-11 [&_button]:!min-h-0 [&_button]:!rounded-xl [&_button]:!border-0 [&_button]:!px-3.5 [&_button]:!py-2 [&_button]:!shadow-none [&_button>span>span:last-child]:hidden">
             <TabsTrigger
               value="overview"
               className="border-border data-active:border-primary data-active:bg-primary/5 bg-card min-h-16 justify-start rounded-xl border px-3 py-2 shadow-sm"
@@ -2491,28 +2501,78 @@ function OverviewLine({
 function PageHeader({
   cashSession,
   onRefresh,
+  onNavigate,
+  isOwner,
 }: {
   cashSession: FinanceCashSession | null;
   onRefresh: () => void;
+  onNavigate: (tab: string) => void;
+  isOwner: boolean;
 }) {
   return (
-    <div className="border-border flex flex-col gap-3 border-b pb-5 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h1 className="text-2xl font-bold">Centro Financeiro</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Operação, recebimentos, caixa, benefícios e gestão financeira num só
-          lugar.
-        </p>
+    <header className="relative overflow-hidden rounded-[28px] border border-slate-800 bg-slate-950 px-5 py-6 text-white shadow-xl shadow-slate-950/10 sm:px-7 sm:py-7">
+      <div className="absolute -top-32 -right-24 size-80 rounded-full bg-emerald-400/20 blur-3xl" />
+      <div className="absolute -bottom-40 left-1/4 size-72 rounded-full bg-cyan-500/15 blur-3xl" />
+      <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="max-w-2xl">
+          <div className="mb-3 flex items-center gap-2 text-xs font-semibold tracking-[0.18em] text-emerald-300 uppercase">
+            <CircleDollarSign className="size-4" /> Command center
+          </div>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            Centro Financeiro
+          </h1>
+          <p className="mt-2 text-sm leading-relaxed text-slate-300 sm:text-base">
+            Vendas, caixa, benefícios e tesouraria reunidos numa operação
+            simples, mensurável e pronta para agir.
+          </p>
+          <div className="mt-5 flex flex-wrap items-center gap-2 text-xs">
+            <span
+              className={cn(
+                'inline-flex items-center gap-2 rounded-full border px-3 py-2 font-semibold',
+                cashSession
+                  ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
+                  : 'border-amber-300/25 bg-amber-300/10 text-amber-200'
+              )}
+            >
+              <span
+                className={cn(
+                  'size-2 rounded-full',
+                  cashSession ? 'bg-emerald-400' : 'bg-amber-300'
+                )}
+              />
+              {cashSession ? 'Caixa aberto e operacional' : 'Caixa encerrado'}
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-slate-300">
+              Atualização em tempo real
+            </span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:flex">
+          <Button
+            variant="outline"
+            className="border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+            onClick={onRefresh}
+          >
+            <RefreshCw /> Atualizar
+          </Button>
+          <Button
+            className="bg-emerald-400 text-slate-950 hover:bg-emerald-300"
+            onClick={() => onNavigate('pos')}
+          >
+            <ShoppingCart /> Abrir POS
+          </Button>
+          {isOwner ? (
+            <Button
+              variant="outline"
+              className="col-span-2 border-white/15 bg-transparent text-white hover:bg-white/10 hover:text-white"
+              onClick={() => onNavigate('treasury')}
+            >
+              <Landmark /> Tesouraria
+            </Button>
+          ) : null}
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <Badge variant={cashSession ? 'default' : 'secondary'}>
-          {cashSession ? 'Caixa aberto' : 'Caixa fechado'}
-        </Badge>
-        <Button variant="outline" size="sm" onClick={onRefresh}>
-          <RefreshCw /> Atualizar
-        </Button>
-      </div>
-    </div>
+    </header>
   );
 }
 

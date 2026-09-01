@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { engineSendText } from '@/lib/automations/meta-send';
 import { sendPush, type StoredPushSubscription } from '@/lib/push/server';
 import { resolveConversationByPhone } from '@/lib/whatsapp/resolve-conversation';
+import { getPublicUrl } from '@/lib/public-url';
 
 type CreatedNotification = {
   id: string;
@@ -59,12 +60,10 @@ export async function GET(request: Request) {
         : [];
     });
     if (rows.length)
-      await admin
-        .from('finance_reminder_deliveries')
-        .upsert(rows, {
-          onConflict: 'notification_id',
-          ignoreDuplicates: true,
-        });
+      await admin.from('finance_reminder_deliveries').upsert(rows, {
+        onConflict: 'notification_id',
+        ignoreDuplicates: true,
+      });
   }
 
   const userIds = [...new Set(created.map((item) => item.user_id))];
@@ -102,6 +101,7 @@ export async function GET(request: Request) {
     .limit(25);
   let whatsappSent = 0;
   let whatsappFailed = 0;
+  const financeUrl = getPublicUrl('/finance', new URL(request.url).origin);
   for (const delivery of (due ?? []) as unknown as Delivery[]) {
     const { data: claim } = await admin
       .from('finance_reminder_deliveries')
@@ -131,7 +131,7 @@ export async function GET(request: Request) {
         .single();
       if (!owner?.user_id)
         throw new Error('ProprietÃ¡rio da conta nÃ£o encontrado.');
-      const message = `ðŸ”” *${delivery.notification?.title ?? 'Alerta financeiro'}*\n\n${delivery.notification?.body ?? ''}\n\nAbra o CRM: https://suporte.ajmassagem.pt/finance`;
+      const message = `🔔 *${delivery.notification?.title ?? 'Alerta financeiro'}*\n\n${delivery.notification?.body ?? ''}\n\nAbra o CRM: ${financeUrl}`;
       const sent = await engineSendText({
         accountId: delivery.account_id,
         userId: owner.user_id,

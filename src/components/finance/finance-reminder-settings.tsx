@@ -1,13 +1,23 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { BellRing, Clock3, Loader2, Save, ShieldCheck } from 'lucide-react';
+import {
+  BellRing,
+  CheckCircle2,
+  Clock3,
+  Loader2,
+  Radio,
+  Save,
+  Send,
+  ShieldCheck,
+  Smartphone,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { createClient } from '@/lib/supabase/client';
+import { cn } from '@/lib/utils';
 
 type Settings = {
   payables_enabled: boolean;
@@ -39,6 +49,8 @@ export function FinanceReminderSettings({ accountId }: { accountId: string }) {
   const [value, setValue] = useState(defaults);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [lastTest, setLastTest] = useState<Date | null>(null);
   useEffect(() => {
     void (async () => {
       const { data, error } = await supabase
@@ -56,6 +68,11 @@ export function FinanceReminderSettings({ accountId }: { accountId: string }) {
       setLoading(false);
     })();
   }, [accountId, supabase]);
+
+  const phoneIsValid = /^\+?[1-9]\d{6,14}$/.test(value.whatsapp_phone);
+  const operational =
+    (value.payables_enabled || value.cash_enabled) &&
+    (!value.whatsapp_enabled || phoneIsValid);
   const toggleDay = (day: number) =>
     setValue((current) => ({
       ...current,
@@ -63,16 +80,16 @@ export function FinanceReminderSettings({ accountId }: { accountId: string }) {
         ? current.payable_days_before.filter((item) => item !== day)
         : [...current.payable_days_before, day].sort((a, b) => b - a),
     }));
-  async function save() {
-    if (!value.payable_days_before.length)
-      return toast.error('Escolha pelo menos um aviso antecipado.');
-    if (
-      value.whatsapp_enabled &&
-      !/^\+?[1-9]\d{6,14}$/.test(value.whatsapp_phone)
-    )
-      return toast.error(
-        'Informe o WhatsApp no formato internacional, por exemplo +351935864343.'
-      );
+
+  async function persist() {
+    if (!value.payable_days_before.length) {
+      toast.error('Escolha pelo menos um aviso antecipado.');
+      return false;
+    }
+    if (value.whatsapp_enabled && !phoneIsValid) {
+      toast.error('Use o formato internacional, por exemplo +351935864343.');
+      return false;
+    }
     setSaving(true);
     const { error } = await supabase
       .from('finance_reminder_settings')
@@ -81,80 +98,113 @@ export function FinanceReminderSettings({ accountId }: { accountId: string }) {
         { onConflict: 'account_id' }
       );
     setSaving(false);
-    if (error) return toast.error(error.message);
-    toast.success('Automações financeiras guardadas e ativas.');
+    if (error) {
+      toast.error(error.message);
+      return false;
+    }
+    toast.success(
+      'Automações guardadas. O executor verifica alertas a cada 5 minutos.'
+    );
+    return true;
+  }
+  async function testWhatsApp() {
+    if (!(await persist())) return;
+    setTesting(true);
+    try {
+      const response = await fetch('/api/finance/reminders/test', {
+        method: 'POST',
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Falha no teste.');
+      setLastTest(new Date());
+      toast.success('Mensagem de teste entregue ao worker do WhatsApp.');
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : 'Falha no teste do WhatsApp.'
+      );
+    } finally {
+      setTesting(false);
+    }
   }
   if (loading)
     return (
-      <Card>
-        <CardContent className="flex h-24 items-center justify-center">
-          <Loader2 className="size-5 animate-spin" />
-        </CardContent>
-      </Card>
+      <div className="bg-card flex h-40 items-center justify-center rounded-3xl border">
+        <Loader2 className="size-6 animate-spin text-emerald-600" />
+      </div>
     );
+
   return (
-    <Card className="overflow-hidden border-violet-500/30 bg-gradient-to-br from-violet-500/5 via-transparent to-emerald-500/5">
-      <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <BellRing className="text-violet-500" />
-              Central de automações financeiras
-            </CardTitle>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Alertas no CRM e push no telemóvel, com deteção automática de
-              abertura, fecho e pagamento.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 rounded-full border bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700">
-            <ShieldCheck className="size-4" />
-            Anti-duplicação ativa
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="grid gap-5 xl:grid-cols-2">
-        <section className="bg-background/70 space-y-4 rounded-xl border p-4">
-          <div className="flex items-center justify-between">
+    <section className="overflow-hidden rounded-[28px] border border-slate-800 bg-slate-950 text-white shadow-xl shadow-slate-950/10">
+      <div className="relative overflow-hidden px-5 py-6 sm:px-7">
+        <div className="absolute -top-28 -right-20 size-64 rounded-full bg-emerald-400/20 blur-3xl" />
+        <div className="relative flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-start gap-4">
+            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-emerald-400 text-slate-950">
+              <BellRing />
+            </span>
             <div>
-              <p className="font-semibold">Contas a pagar</p>
-              <p className="text-muted-foreground text-xs">
-                Antecipa, alerta no dia e acompanha atrasos.
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-lg font-semibold">
+                  Piloto automático financeiro
+                </h3>
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
+                    operational
+                      ? 'bg-emerald-400/15 text-emerald-300'
+                      : 'bg-amber-400/15 text-amber-200'
+                  )}
+                >
+                  <Radio className="size-3.5" />
+                  {operational ? 'Operacional' : 'Atenção necessária'}
+                </span>
+              </div>
+              <p className="mt-1 max-w-2xl text-sm text-slate-300">
+                Controla vencimentos e caixa, cria alertas no CRM e envia pelo
+                WhatsApp sem duplicar mensagens.
               </p>
             </div>
-            <Switch
-              checked={value.payables_enabled}
-              onCheckedChange={(checked) =>
-                setValue({ ...value, payables_enabled: checked })
-              }
-            />
           </div>
-          <div>
-            <p className="mb-2 text-xs font-medium">
-              Avisar antes do vencimento
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {[30, 14, 7, 3, 1].map((day) => (
-                <Button
-                  key={day}
-                  type="button"
-                  size="sm"
-                  variant={
-                    value.payable_days_before.includes(day)
-                      ? 'default'
-                      : 'outline'
-                  }
-                  onClick={() => toggleDay(day)}
-                >
-                  {day} dia{day > 1 ? 's' : ''}
-                </Button>
-              ))}
-            </div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <Status icon={<Clock3 />} text="Verificação a cada 5 min" />
+            <Status icon={<ShieldCheck />} text="Anti-duplicação ativa" />
           </div>
-          <label className="flex items-center justify-between gap-3 text-sm">
+        </div>
+      </div>
+      <div className="grid gap-px bg-white/10 lg:grid-cols-2">
+        <Block
+          title="Contas e vencimentos"
+          description="Avise antes do prazo e acompanhe atrasos até à liquidação."
+          checked={value.payables_enabled}
+          onCheckedChange={(checked) =>
+            setValue({ ...value, payables_enabled: checked })
+          }
+        >
+          <p className="mb-2 text-xs font-medium text-slate-300">
+            Antecedência dos avisos
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {[30, 14, 7, 3, 1].map((day) => (
+              <button
+                key={day}
+                type="button"
+                onClick={() => toggleDay(day)}
+                className={cn(
+                  'rounded-xl border px-3 py-2 text-xs font-semibold transition',
+                  value.payable_days_before.includes(day)
+                    ? 'border-emerald-400 bg-emerald-400 text-slate-950'
+                    : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                )}
+              >
+                {day} dia{day > 1 ? 's' : ''}
+              </button>
+            ))}
+          </div>
+          <label className="mt-4 flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-3 text-sm">
             <span>
-              <strong>Cobrar contas atrasadas diariamente</strong>
-              <span className="text-muted-foreground block text-xs">
-                Para automaticamente quando a conta for paga ou cancelada.
+              <strong className="block">Cobrança diária de atrasos</strong>
+              <span className="text-xs text-slate-400">
+                Para quando a conta for liquidada.
               </span>
             </span>
             <Switch
@@ -164,49 +214,36 @@ export function FinanceReminderSettings({ accountId }: { accountId: string }) {
               }
             />
           </label>
-        </section>
-        <section className="bg-background/70 space-y-4 rounded-xl border p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-semibold">Disciplina automática do caixa</p>
-              <p className="text-muted-foreground text-xs">
-                Só alerta quando a ação ainda está pendente.
-              </p>
-            </div>
-            <Switch
-              checked={value.cash_enabled}
-              onCheckedChange={(checked) =>
-                setValue({ ...value, cash_enabled: checked })
-              }
-            />
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <label className="text-xs">
-              Abrir às
+        </Block>
+        <Block
+          title="Disciplina do caixa"
+          description="Lembra a abertura e o fecho somente enquanto estiver pendente."
+          checked={value.cash_enabled}
+          onCheckedChange={(checked) =>
+            setValue({ ...value, cash_enabled: checked })
+          }
+        >
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <DarkField label="Abrir às">
               <Input
-                className="mt-1"
                 type="time"
                 value={value.cash_open_time}
                 onChange={(e) =>
                   setValue({ ...value, cash_open_time: e.target.value })
                 }
               />
-            </label>
-            <label className="text-xs">
-              Fechar até
+            </DarkField>
+            <DarkField label="Fechar até">
               <Input
-                className="mt-1"
                 type="time"
                 value={value.cash_close_time}
                 onChange={(e) =>
                   setValue({ ...value, cash_close_time: e.target.value })
                 }
               />
-            </label>
-            <label className="text-xs">
-              Repetir (min)
+            </DarkField>
+            <DarkField label="Repetir (min)">
               <Input
-                className="mt-1"
                 type="number"
                 min={5}
                 max={240}
@@ -218,54 +255,140 @@ export function FinanceReminderSettings({ accountId }: { accountId: string }) {
                   })
                 }
               />
-            </label>
+            </DarkField>
           </div>
-          <label className="text-xs">
-            Fuso horário
+          <DarkField label="Fuso horário">
             <Input
-              className="mt-1"
               value={value.timezone}
               onChange={(e) => setValue({ ...value, timezone: e.target.value })}
             />
-          </label>
-          <p className="text-muted-foreground flex gap-2 text-xs">
-            <Clock3 className="size-4 shrink-0" />
-            Após o limite de fecho, o alerta repete até o sistema detetar o
-            caixa fechado.
-          </p>
-        </section>
-        <div className="flex flex-wrap items-center gap-3 xl:col-span-2">
-          <div className="bg-background/70 flex min-w-0 flex-1 items-center gap-3 rounded-xl border p-4">
-            <Switch
-              checked={value.whatsapp_enabled}
-              onCheckedChange={(checked) =>
-                setValue({ ...value, whatsapp_enabled: checked })
-              }
-            />
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold">Enviar tambÃ©m por WhatsApp</p>
-              <p className="text-muted-foreground text-xs">
-                Usa a sessÃ£o conectada e regista cada entrega.
+          </DarkField>
+        </Block>
+      </div>
+      <div className="border-t border-white/10 bg-slate-900/90 p-5 sm:p-7">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end">
+          <div className="flex min-w-0 flex-1 items-start gap-4">
+            <span className="grid size-10 place-items-center rounded-xl bg-emerald-400/10 text-emerald-300">
+              <Smartphone />
+            </span>
+            <div>
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={value.whatsapp_enabled}
+                  onCheckedChange={(checked) =>
+                    setValue({ ...value, whatsapp_enabled: checked })
+                  }
+                />
+                <p className="font-semibold">Entregar também no meu WhatsApp</p>
+              </div>
+              <p className="mt-1 text-xs text-slate-400">
+                Usa a sessão conectada ao CRM e regista cada tentativa.
               </p>
             </div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-[220px_auto_auto]">
             <Input
-              className="max-w-52"
-              placeholder="+351935864343"
+              aria-label="Número de WhatsApp"
+              className="border-white/15 bg-white/5 text-white"
               value={value.whatsapp_phone}
-              onChange={(event) =>
+              onChange={(e) =>
                 setValue({
                   ...value,
-                  whatsapp_phone: event.target.value.replace(/[\s()-]/g, ''),
+                  whatsapp_phone: e.target.value.replace(/[\s()-]/g, ''),
                 })
               }
             />
+            <Button
+              variant="outline"
+              className="border-white/15 bg-transparent text-white hover:bg-white/10 hover:text-white"
+              onClick={testWhatsApp}
+              disabled={testing || saving || !value.whatsapp_enabled}
+            >
+              {testing ? <Loader2 className="animate-spin" /> : <Send />} Testar
+              agora
+            </Button>
+            <Button
+              className="bg-emerald-400 text-slate-950 hover:bg-emerald-300"
+              onClick={() => void persist()}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="animate-spin" /> : <Save />} Guardar
+              e ativar
+            </Button>
           </div>
-          <Button onClick={save} disabled={saving}>
-            {saving ? <Loader2 className="animate-spin" /> : <Save />}Guardar e
-            ativar
-          </Button>
         </div>
-      </CardContent>
-    </Card>
+        <p
+          className={cn(
+            'mt-4 flex items-center gap-2 text-xs',
+            lastTest ? 'text-emerald-300' : 'text-slate-400'
+          )}
+        >
+          {lastTest ? (
+            <CheckCircle2 className="size-4" />
+          ) : (
+            <Send className="size-4" />
+          )}
+          {lastTest
+            ? `Teste entregue às ${lastTest.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}.`
+            : 'Teste a entrega para validar número, sessão e worker.'}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function Status({ icon, text }: { icon: React.ReactNode; text: string }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-slate-200 [&_svg]:size-4 [&_svg]:text-emerald-300">
+      {icon}
+      {text}
+    </span>
+  );
+}
+function Block({
+  title,
+  description,
+  checked,
+  onCheckedChange,
+  children,
+}: {
+  title: string;
+  description: string;
+  checked: boolean;
+  onCheckedChange: (value: boolean) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-5 bg-slate-950 px-5 py-6 sm:px-7">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">{title}</p>
+          <p className="mt-0.5 text-xs text-slate-400">{description}</p>
+        </div>
+        <Switch checked={checked} onCheckedChange={onCheckedChange} />
+      </div>
+      <div
+        className={cn(
+          'space-y-3',
+          !checked && 'pointer-events-none opacity-40'
+        )}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+function DarkField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block text-xs font-medium text-slate-300 [&_input]:mt-1 [&_input]:border-white/15 [&_input]:bg-white/5 [&_input]:text-white">
+      {label}
+      {children}
+    </label>
   );
 }

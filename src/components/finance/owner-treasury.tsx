@@ -696,23 +696,31 @@ export function OwnerTreasury() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold">Tesouraria privada</h2>
-          <p className="text-muted-foreground text-sm">
-            Visível exclusivamente para proprietários.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setImportOpen(true)}>
-            <FileUp /> Importar documento
-          </Button>
-          <Button variant="outline" onClick={downloadReport}>
-            <Download /> Relatório CSV
-          </Button>
-          <Button onClick={() => openCreate('payable')}>
-            <Plus /> Nova conta
-          </Button>
+      <div className="relative overflow-hidden rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-cyan-50 p-5 sm:p-6 dark:border-emerald-950 dark:from-emerald-950/40 dark:via-slate-950 dark:to-cyan-950/30">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <Badge className="mb-3 bg-emerald-600 text-white hover:bg-emerald-600">
+              Área reservada
+            </Badge>
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Tesouraria inteligente
+            </h2>
+            <p className="text-muted-foreground mt-1 max-w-xl text-sm">
+              Antecipe compromissos, acompanhe a liquidez e transforme
+              documentos em movimentos financeiros auditáveis.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <FileUp /> Importar documento
+            </Button>
+            <Button variant="outline" onClick={downloadReport}>
+              <Download /> Relatório CSV
+            </Button>
+            <Button onClick={() => openCreate('payable')}>
+              <Plus /> Nova conta
+            </Button>
+          </div>
         </div>
       </div>
       <TreasuryImportDialog
@@ -1288,16 +1296,39 @@ function Metric({
   danger?: boolean;
 }) {
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-muted-foreground text-sm font-medium">
-          {label}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className={cn('text-2xl font-bold', danger && 'text-destructive')}>
+    <Card
+      className={cn(
+        'group overflow-hidden border-slate-200 shadow-none transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800',
+        danger &&
+          'border-rose-200 bg-rose-50/40 dark:border-rose-950 dark:bg-rose-950/10'
+      )}
+    >
+      <CardContent className="p-4">
+        <div className="mb-5 flex items-center justify-between">
+          <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
+            {label}
+          </p>
+          <span
+            className={cn(
+              'size-2 rounded-full bg-emerald-400',
+              danger && 'bg-rose-500'
+            )}
+          />
+        </div>
+        <p
+          className={cn(
+            'text-2xl font-semibold tracking-tight',
+            danger && 'text-rose-600'
+          )}
+        >
           {value}
         </p>
+        <div
+          className={cn(
+            'mt-3 h-1 rounded-full bg-emerald-500/15 after:block after:h-full after:w-2/3 after:rounded-full after:bg-emerald-500',
+            danger && 'bg-rose-500/15 after:bg-rose-500'
+          )}
+        />
       </CardContent>
     </Card>
   );
