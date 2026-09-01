@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import localFont from 'next/font/local';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import './globals.css';
@@ -12,6 +13,20 @@ import {
   STORAGE_KEY,
   THEME_IDS,
 } from '@/lib/themes';
+
+const geistSans = localFont({
+  src: '../../node_modules/next/dist/next-devtools/server/font/geist-latin-ext.woff2',
+  variable: '--font-geist-sans',
+  display: 'swap',
+  fallback: ['Arial', 'Helvetica', 'sans-serif'],
+});
+
+const geistMono = localFont({
+  src: '../../node_modules/next/dist/next-devtools/server/font/geist-mono-latin-ext.woff2',
+  variable: '--font-geist-mono',
+  display: 'swap',
+  fallback: ['Consolas', 'monospace'],
+});
 
 export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
@@ -96,7 +111,7 @@ export default async function RootLayout({
       lang={locale}
       data-theme={DEFAULT_THEME}
       data-mode={DEFAULT_MODE}
-      className="h-full antialiased"
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       // The `theme-boot` script below rewrites `data-theme` and
       // `data-mode` on <html> from localStorage before React hydrates,
       // so for any non-default choice the client DOM intentionally
