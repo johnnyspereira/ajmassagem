@@ -35,13 +35,28 @@ type WorkerSyncResult = {
   messagesPersisted: number;
 };
 
+function runtimeEnv(name: string) {
+  // Bracket access is intentional: Next must read these values from the
+  // Passenger process at request time instead of folding the CI build value.
+  return process.env[name]?.trim();
+}
+
 function isRemoteWorkerMode() {
-  return process.env.WHATSAPP_MODE === 'remote_worker';
+  const mode = runtimeEnv('WHATSAPP_MODE');
+  if (mode === 'remote_worker') return true;
+  if (mode === 'local_qr' || mode === 'polling_worker') return false;
+
+  // A fully configured remote worker is safer than silently falling back to
+  // whatsapp-web.js on shared hosting. This also keeps older cPanel installs
+  // working when WHATSAPP_MODE was not persisted after an application move.
+  return Boolean(
+    runtimeEnv('WHATSAPP_WORKER_URL') && runtimeEnv('WHATSAPP_WORKER_SECRET')
+  );
 }
 
 function workerConfig() {
-  const url = process.env.WHATSAPP_WORKER_URL?.replace(/\/+$/, '');
-  const secret = process.env.WHATSAPP_WORKER_SECRET;
+  const url = runtimeEnv('WHATSAPP_WORKER_URL')?.replace(/\/+$/, '');
+  const secret = runtimeEnv('WHATSAPP_WORKER_SECRET');
   if (!url || !secret) {
     throw new Error(
       'WHATSAPP_WORKER_URL and WHATSAPP_WORKER_SECRET are required for remote_worker mode.'
