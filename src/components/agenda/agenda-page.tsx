@@ -39,6 +39,7 @@ import {
   StickyNote,
   Trash2,
   UserCheck,
+  WalletCards,
   RefreshCw,
   Repeat2,
   X,
@@ -1369,24 +1370,52 @@ export function AgendaPage({
       return;
     }
 
-    if (data?.id && newBenefitType !== 'direct') {
+    let createdAppointment = data;
+    if (data?.id && appointmentReferralId) {
+      const { error: discountError } = await supabase.rpc(
+        'apply_referral_appointment_discount',
+        { p_appointment_id: data.id }
+      );
+      if (discountError) {
+        await supabase
+          .from('clinic_appointments')
+          .delete()
+          .eq('id', data.id)
+          .eq('account_id', accountId);
+        setSavingAppointment(false);
+        toast.error(
+          `A regra do Indique & Ganhe não pôde ser aplicada e a marcação foi revertida: ${discountError.message}`
+        );
+        return;
+      }
+      const refreshed = await supabase
+        .from('clinic_appointments')
+        .select(
+          'id, price, original_price, referral_id, referral_discount_amount'
+        )
+        .eq('id', data.id)
+        .single();
+      if (refreshed.data) createdAppointment = refreshed.data;
+    }
+
+    if (createdAppointment?.id && newBenefitType !== 'direct') {
       const { error: benefitError } =
         newBenefitCodeLookup &&
         (newBenefitCodeLookup.kind === 'pack' ||
           newBenefitCodeLookup.lookup_mode !== 'fallback')
           ? await supabase.rpc('reserve_appointment_benefit_code', {
-              p_appointment_id: data.id,
+              p_appointment_id: createdAppointment.id,
               p_code: newBenefitVoucherCode.trim(),
               p_pin: newBenefitVoucherPin.trim(),
             })
           : newBenefitType === 'voucher'
             ? await supabase.rpc('reserve_appointment_voucher', {
-                p_appointment_id: data.id,
+                p_appointment_id: createdAppointment.id,
                 p_code: newBenefitVoucherCode.trim(),
                 p_pin: newBenefitVoucherPin.trim(),
               })
             : await supabase.rpc('set_appointment_benefit', {
-                p_appointment_id: data.id,
+                p_appointment_id: createdAppointment.id,
                 p_benefit_type: 'pack',
                 p_source_id: newBenefitSourceId,
               });
@@ -1394,7 +1423,7 @@ export function AgendaPage({
         await supabase
           .from('clinic_appointments')
           .delete()
-          .eq('id', data.id)
+          .eq('id', createdAppointment.id)
           .eq('account_id', accountId);
         setSavingAppointment(false);
         toast.error(
@@ -1406,9 +1435,9 @@ export function AgendaPage({
     let confirmationWarning: string | null = null;
     let confirmationSkipped = false;
     let confirmationChannels = '';
-    if (data?.id) {
+    if (createdAppointment?.id) {
       const confirmationResponse = await fetch(
-        `/api/clinic/appointments/${data.id}/confirmation`,
+        `/api/clinic/appointments/${createdAppointment.id}/confirmation`,
         { method: 'POST' }
       );
       if (!confirmationResponse.ok) {
@@ -1496,22 +1525,23 @@ export function AgendaPage({
       toast.success('Agendamento criado. O envio automático está desativado.');
     } else {
       toast.success(
-        Number(data?.referral_discount_amount ?? 0) > 0
-          ? `Agendamento criado com ${formatCurrency(Number(data?.referral_discount_amount), selectedService.currency || defaultCurrency)} de desconto da indicação e confirmação enviada.`
+        Number(createdAppointment?.referral_discount_amount ?? 0) > 0
+          ? `Agendamento criado com ${formatCurrency(Number(createdAppointment?.referral_discount_amount), selectedService.currency || defaultCurrency)} de desconto da indicação e confirmação enviada.`
           : `Agendamento criado${confirmationChannels ? ` e confirmação enviada por ${confirmationChannels}` : ''}.`
       );
     }
-    if (data?.id) {
+    if (createdAppointment?.id) {
       void recordAgendaEvent({
         entityType: 'appointment',
-        entityId: data.id,
+        entityId: createdAppointment.id,
         action: 'created',
         newStart: startAt.toISOString(),
         newEnd: endAt.toISOString(),
         metadata: {
-          source: data?.referral_id ? 'referral' : 'manual',
-          referral_id: data?.referral_id ?? appointmentReferralId,
-          referral_discount_amount: data?.referral_discount_amount ?? 0,
+          source: createdAppointment?.referral_id ? 'referral' : 'manual',
+          referral_id: createdAppointment?.referral_id ?? appointmentReferralId,
+          referral_discount_amount:
+            createdAppointment?.referral_discount_amount ?? 0,
         },
       });
     }
@@ -1521,9 +1551,9 @@ export function AgendaPage({
     setAppointmentOpen(false);
     setSelectedDate(startAt);
     void loadAgenda();
-    if (createSumUpCharge && data?.id) {
+    if (createSumUpCharge && createdAppointment?.id) {
       router.push(
-        `/finance?tab=pos&appointment=${encodeURIComponent(data.id)}&contact=${encodeURIComponent(appointmentDraft.contactId)}`
+        `/finance?tab=pos&appointment=${encodeURIComponent(createdAppointment.id)}&contact=${encodeURIComponent(appointmentDraft.contactId)}`
       );
     }
   }
@@ -2642,6 +2672,31 @@ export function AgendaPage({
     void loadAgenda();
   }
 
+  async function payAppointmentWithWallet() {
+    if (!selectedAppointment || !editDraft) return;
+    setSavingEdit(true);
+    const { data, error } = await supabase.rpc('pay_appointment_with_wallet', {
+      p_appointment_id: selectedAppointment.id,
+    });
+    setSavingEdit(false);
+    if (error) {
+      toast.error(`Cartão-saldo: ${error.message}`);
+      return;
+    }
+    const paidAt = new Date().toISOString();
+    setEditDraft((current) => (current ? { ...current, paidAt } : current));
+    void recordAgendaEvent({
+      entityType: 'appointment',
+      entityId: selectedAppointment.id,
+      action: 'updated',
+      reason: 'Pagamento concluído com cartão-saldo',
+      metadata: { source: 'appointment_payment', payment: data },
+    });
+    setPaymentChoiceOpen(false);
+    toast.success('Pagamento concluído e descontado do cartão-saldo.');
+    void loadAgenda();
+  }
+
   async function saveAppointmentSheet(
     options: { createNewAfter?: boolean } = {}
   ) {
@@ -2738,7 +2793,14 @@ export function AgendaPage({
           ? 'Alteração manual na ficha da marcação'
           : selectedAppointment.last_reschedule_reason,
         status: editDraft.status,
-        price: Number(service.price ?? selectedAppointment.price ?? 0),
+        original_price: selectedAppointment.referral_id
+          ? Number(service.price ?? selectedAppointment.original_price ?? 0)
+          : selectedAppointment.original_price,
+        price: Math.max(
+          0,
+          Number(service.price ?? selectedAppointment.price ?? 0) -
+            Number(selectedAppointment.referral_discount_amount ?? 0)
+        ),
         currency: service.currency || defaultCurrency,
         notes: editDraft.notes.trim() || null,
         coupon_code: editDraft.couponCode.trim() || null,
@@ -4383,6 +4445,26 @@ export function AgendaPage({
                   </span>
                 </button>
               ) : null}
+
+              <button
+                type="button"
+                onClick={() => void payAppointmentWithWallet()}
+                disabled={savingEdit || Boolean(editDraft.paidAt)}
+                className="flex w-full items-center gap-3 rounded-md border border-violet-500/30 bg-violet-500/10 p-4 text-left transition-colors hover:bg-violet-500/15 disabled:opacity-60"
+              >
+                {savingEdit ? (
+                  <Loader2 className="size-5 animate-spin text-violet-700" />
+                ) : (
+                  <WalletCards className="size-5 text-violet-700" />
+                )}
+                <span>
+                  <span className="block font-semibold">Usar cartão-saldo</span>
+                  <span className="text-muted-foreground block text-xs">
+                    Confere o saldo, debita exatamente o valor pendente e guarda
+                    o movimento no extrato do cliente.
+                  </span>
+                </span>
+              </button>
 
               <button
                 type="button"

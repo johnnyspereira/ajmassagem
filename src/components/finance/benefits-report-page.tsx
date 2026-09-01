@@ -38,6 +38,7 @@ type DeliveryNotification = {
 export function BenefitsReportPage() {
   const db = useMemo(() => createClient(), []);
   const { accountId, user } = useAuth();
+  const userId = user?.id;
   const [packs, setPacks] = useState<FinanceClientPack[]>([]);
   const [vouchers, setVouchers] = useState<FinanceVoucher[]>([]);
   const [deliveries, setDeliveries] = useState<DeliveryNotification[]>([]);
@@ -45,7 +46,7 @@ export function BenefitsReportPage() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    if (!accountId || !user?.id) return;
+    if (!accountId || !userId) return;
     setLoading(true);
     const [packResult, voucherResult, deliveryResult] = await Promise.all([
       db
@@ -64,7 +65,7 @@ export function BenefitsReportPage() {
         .from('notifications')
         .select('id,type,title,body,created_at,metadata')
         .eq('account_id', accountId)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .in('type', [
           'pack_delivery_sent',
           'pack_delivery_failed',
@@ -83,10 +84,11 @@ export function BenefitsReportPage() {
       setDeliveries((deliveryResult.data ?? []) as DeliveryNotification[]);
     }
     setLoading(false);
-  }, [accountId, db, user?.id]);
+  }, [accountId, db, userId]);
 
   useEffect(() => {
-    void load();
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
   }, [load]);
 
   const term = search.trim().toLowerCase();

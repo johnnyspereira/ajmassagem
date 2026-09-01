@@ -308,6 +308,21 @@ export function ReferralsPage() {
     void load();
   }
 
+  async function reconcileRewards(referralId: string) {
+    if (!canSendMessages) return;
+    setWorkingId(referralId);
+    const { error } = await db.rpc('reconcile_referral_rewards', {
+      p_referral_id: referralId,
+    });
+    setWorkingId(null);
+    if (error) {
+      toast.error(referralErrorMessage(error.message));
+      return;
+    }
+    toast.success('Recompensas reconstruídas com as regras atuais.');
+    void load();
+  }
+
   async function markContacted(referralId: string) {
     if (!canSendMessages) return;
     setWorkingId(referralId);
@@ -430,6 +445,35 @@ export function ReferralsPage() {
           value={`${metrics.conversion}%`}
         />
       </div>
+
+      <Card className="border-violet-500/25 bg-violet-500/5">
+        <CardContent className="grid gap-3 py-4 text-sm md:grid-cols-4">
+          <div>
+            <b>1. Indicação</b>
+            <p className="text-muted-foreground text-xs">
+              O amigo recebe o convite e fica ligado ao código de quem indicou.
+            </p>
+          </div>
+          <div>
+            <b>2. Primeira marcação</b>
+            <p className="text-muted-foreground text-xs">
+              O benefício do amigo é aplicado automaticamente antes da cobrança.
+            </p>
+          </div>
+          <div>
+            <b>3. Sessão paga</b>
+            <p className="text-muted-foreground text-xs">
+              A indicação qualifica quando cumpre a regra configurada.
+            </p>
+          </div>
+          <div>
+            <b>4. Recompensa</b>
+            <p className="text-muted-foreground text-xs">
+              O prémio de quem indicou é emitido e fica registado no extrato.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       {loadError && !schemaMissing ? (
         <div className="border-destructive/30 bg-destructive/5 text-destructive flex items-center justify-between gap-3 rounded-md border px-4 py-3 text-sm">
@@ -577,13 +621,32 @@ export function ReferralsPage() {
                           />
                         ))
                       ) : (
-                        <span className="text-muted-foreground text-xs">
-                          {row.metadata?.reward_limit_reached
-                            ? 'Limite de recompensas deste cliente atingido.'
-                            : ['qualified', 'rewarded'].includes(row.status)
-                              ? 'Campanha configurada sem recompensa para este caso.'
-                              : 'Aguardando qualificação para gerar recompensas.'}
-                        </span>
+                        <div className="space-y-2">
+                          <p className="text-muted-foreground text-xs">
+                            {row.metadata?.reward_limit_reached
+                              ? 'Limite de recompensas deste cliente atingido.'
+                              : ['qualified', 'rewarded'].includes(row.status)
+                                ? 'Esta indicação foi qualificada sem gerar as recompensas. Reconstrua-a com as regras atuais.'
+                                : 'Aguardando qualificação para gerar recompensas.'}
+                          </p>
+                          {['qualified', 'rewarded'].includes(row.status) &&
+                          !row.metadata?.reward_limit_reached &&
+                          canSendMessages ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={workingId === row.id}
+                              onClick={() => void reconcileRewards(row.id)}
+                            >
+                              {workingId === row.id ? (
+                                <Loader2 className="animate-spin" />
+                              ) : (
+                                <RefreshCw />
+                              )}
+                              Corrigir recompensas
+                            </Button>
+                          ) : null}
+                        </div>
                       )}
                     </div>
                     {!['rejected', 'rewarded'].includes(row.status) &&
