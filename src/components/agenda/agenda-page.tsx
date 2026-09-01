@@ -1122,6 +1122,16 @@ export function AgendaPage({
         },
         refresh
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'clinic_anamnesis_forms',
+          filter: `account_id=eq.${accountId}`,
+        },
+        refresh
+      )
       .subscribe();
 
     return () => {

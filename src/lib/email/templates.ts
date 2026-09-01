@@ -135,3 +135,31 @@ export function voucherDeliveryEmail(input: {
     }),
   };
 }
+
+export function referralInvitationEmail(input: {
+  businessName: string;
+  friendName: string;
+  referrerName?: string | null;
+  bookingUrl: string;
+  benefit: string;
+}) {
+  const business = input.businessName || 'JP Massagem';
+  const firstName = input.friendName.trim().split(/\s+/)[0] || 'cliente';
+  const referrer = input.referrerName?.trim().split(/\s+/)[0] || 'um amigo';
+  return {
+    subject: `${referrer} ofereceu-lhe um benefício na ${business}`,
+    text: `Olá, ${firstName}. ${referrer} indicou-lhe a ${business}. O seu benefício é ${input.benefit}. Conheça a campanha e marque a sua sessão: ${input.bookingUrl}`,
+    html: brandedEmail({
+      businessName: business,
+      preheader: `${referrer} preparou uma experiência especial para si.`,
+      eyebrow: 'Convite especial',
+      title: `${firstName}, recebeu um convite`,
+      greeting: `Olá, ${firstName}.`,
+      message: `${referrer} recomendou-lhe a nossa experiência de bem-estar. Ao realizar a sua primeira marcação elegível, poderá usufruir do benefício abaixo.`,
+      highlight: { label: 'O seu benefício', value: input.benefit },
+      action: { label: 'Conhecer e marcar sessão', url: input.bookingUrl },
+      notice:
+        'Este convite foi criado através do nosso programa de indicações. A equipa confirmará as condições antes da utilização do benefício.',
+    }),
+  };
+}

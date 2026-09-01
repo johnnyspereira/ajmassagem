@@ -1,13 +1,20 @@
 import { NextResponse } from 'next/server';
+import { randomUUID } from 'node:crypto';
 
 import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { engineSendText } from '@/lib/automations/meta-send';
 import {
   ContactError,
   findOrCreateContact,
   resolveAuditUserId,
 } from '@/lib/api/v1/contacts';
 import { findExistingContact } from '@/lib/contacts/dedupe';
+import { sendLocalEmail } from '@/lib/email/smtp';
+import { referralInvitationEmail } from '@/lib/email/templates';
+import { notifyAccountEvent } from '@/lib/notifications/account-events';
+import { getPublicUrl } from '@/lib/public-url';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { referralRewardDescription } from '@/lib/referrals/presentation';
 import { isValidE164, sanitizePhoneForMeta } from '@/lib/whatsapp/phone-utils';
 
 function clientIp(request: Request) {
@@ -262,9 +269,100 @@ export async function POST(
       });
     }
 
+    const account = Array.isArray(program.account)
+      ? program.account[0]
+      : program.account;
+    const referrer = Array.isArray(program.referrer)
+      ? program.referrer[0]
+      : program.referrer;
+    const businessName = account?.name || 'JP Massagem';
+    const benefit = referralRewardDescription({
+      type: program.settings.friend_reward_type,
+      value: Number(program.settings.friend_reward_value),
+      currency: account?.default_currency || 'EUR',
+      serviceName:
+        program.serviceNames.get(program.settings.friend_service_id) ?? null,
+    });
+    const bookingUrl = getPublicUrl('/portal', new URL(request.url).origin);
+    const delivery = { email: 'skipped', whatsapp: 'skipped' };
+
+    if (email) {
+      try {
+        await sendLocalEmail({
+          to: email,
+          ...referralInvitationEmail({
+            businessName,
+            friendName: name,
+            referrerName: referrer?.name,
+            bookingUrl,
+            benefit,
+          }),
+        });
+        delivery.email = 'sent';
+      } catch (emailError) {
+        delivery.email =
+          emailError instanceof Error ? emailError.message : 'failed';
+      }
+    }
+
+    try {
+      const { data: conversations } = await db
+        .from('conversations')
+        .select('id')
+        .eq('account_id', program.account_id)
+        .eq('contact_id', contact.id)
+        .limit(1);
+      let conversationId = conversations?.[0]?.id as string | undefined;
+      if (!conversationId) {
+        const { data: created, error: conversationError } = await db
+          .from('conversations')
+          .insert({
+            id: randomUUID(),
+            account_id: program.account_id,
+            user_id: auditUserId,
+            contact_id: contact.id,
+            status: 'open',
+          })
+          .select('id')
+          .single();
+        if (conversationError) throw new Error(conversationError.message);
+        conversationId = created.id;
+      }
+      await engineSendText({
+        accountId: program.account_id,
+        userId: auditUserId,
+        conversationId: conversationId!,
+        contactId: contact.id,
+        text: `🎁 *${businessName}*\n\nOlá, ${name.split(/\s+/)[0]}. ${referrer?.name?.split(/\s+/)[0] || 'Um amigo'} indicou-lhe a nossa experiência de bem-estar.\n\n*O seu benefício:* ${benefit}\n\nMarque a sua sessão: ${bookingUrl}`,
+      });
+      delivery.whatsapp = 'sent';
+    } catch (whatsappError) {
+      delivery.whatsapp =
+        whatsappError instanceof Error ? whatsappError.message : 'failed';
+    }
+
+    try {
+      await notifyAccountEvent({
+        accountId: program.account_id,
+        type: 'referral_registered',
+        category: 'clients',
+        priority: 'high',
+        title: `Nova indicação: ${name}`,
+        body: `Indicado por ${referrer?.name || 'cliente'}. Email ${delivery.email === 'sent' ? 'enviado' : 'não enviado'}; WhatsApp ${delivery.whatsapp === 'sent' ? 'enviado' : 'não enviado'}.`,
+        actionUrl: '/referrals',
+        contactId: contact.id,
+        dedupeKey: `referral-registered:${referral.id}`,
+        metadata: { referralId: referral.id, delivery, phone, email },
+        whatsappText: `🎉 *Nova indicação recebida*\nNome: ${name}\nTelefone: ${phone}\nEmail: ${email || 'não informado'}\nIndicado por: ${referrer?.name || 'cliente'}\nConvite: email ${delivery.email === 'sent' ? '✅' : '⚠️'} · WhatsApp ${delivery.whatsapp === 'sent' ? '✅' : '⚠️'}`,
+      });
+    } catch (notificationError) {
+      console.error('[referrals] admin notification failed:', notificationError);
+    }
+
     return NextResponse.json({
       ok: true,
       referral_id: referral.id,
+      delivery,
       message: 'Indicação registada com sucesso.',
     });
   } catch (error) {

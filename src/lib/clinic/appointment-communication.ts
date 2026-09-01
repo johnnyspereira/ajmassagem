@@ -15,6 +15,7 @@ import {
   type AppointmentMessageRow,
 } from '@/lib/clinic/appointment-messages';
 import { sendLocalEmail } from '@/lib/email/smtp';
+import { notifyAccountEvent } from '@/lib/notifications/account-events';
 import { getPublicUrl } from '@/lib/public-url';
 
 type Delivery = { sent: boolean; skipped: boolean; error: string | null };
@@ -134,6 +135,7 @@ export async function sendAppointmentCommunication({
       .update(update)
       .eq('id', appointment.id);
   await logDelivery(db, appointment, action, deliveries);
+  await notifyAppointmentDelivery(appointment, action, deliveries);
   return { text, anamnesisUrl, skipped: false, deliveries };
 }
 
@@ -178,7 +180,53 @@ export async function sendAppointmentStatusCommunication(input: {
     deliveries,
     input.status
   );
+  await notifyAppointmentDelivery(
+    appointment,
+    'status_changed',
+    deliveries,
+    input.status
+  );
   return { deliveries };
+}
+
+async function notifyAppointmentDelivery(
+  appointment: {
+    account_id: string;
+    id: string;
+    contact_id: string;
+    contact?: { name?: string | null } | null;
+  },
+  action: AppointmentMessageAction | 'status_changed',
+  deliveries: AppointmentDeliveries,
+  status?: AppointmentStatus
+) {
+  const failed = [deliveries.email.error, deliveries.whatsapp.error].filter(
+    Boolean
+  );
+  const sentChannels = [
+    deliveries.email.sent ? 'email' : null,
+    deliveries.whatsapp.sent ? 'WhatsApp' : null,
+  ].filter((channel): channel is string => Boolean(channel));
+  const client = appointment.contact?.name || 'Cliente';
+  const successful = sentChannels.length > 0;
+  await notifyAccountEvent({
+    accountId: appointment.account_id,
+    type: successful
+      ? 'appointment_communication_sent'
+      : 'appointment_communication_failed',
+    category: 'clinic',
+    priority: failed.length ? 'high' : 'normal',
+    title: successful
+      ? `Comunicação enviada a ${client}`
+      : `Falha ao notificar ${client}`,
+    body: successful
+      ? `${action === 'status_changed' ? `Estado alterado para ${status}. ` : ''}Enviado por ${sentChannels.join(' e ')}${failed.length ? `; falhou: ${failed.join(' | ')}` : '.'}`
+      : failed.join(' | ') || 'Nenhum canal de comunicação disponível.',
+    actionUrl: `/agenda?appointment=${encodeURIComponent(appointment.id)}`,
+    contactId: appointment.contact_id,
+    dedupeKey: `appointment:${appointment.id}:${action}:${status || 'none'}:${Date.now()}`,
+    metadata: { appointmentId: appointment.id, action, status, deliveries },
+  });
 }
 
 function loadAppointment(db: SupabaseClient, appointmentId: string) {

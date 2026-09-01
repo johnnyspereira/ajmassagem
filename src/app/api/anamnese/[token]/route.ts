@@ -4,6 +4,7 @@ import {
   mergeAnamnesisConfig,
 } from '@/lib/clinic/anamnesis-config';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { notifyAccountEvent } from '@/lib/notifications/account-events';
 
 function tokenValid(token: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -93,7 +94,7 @@ export async function POST(
   const { data: existing } = await db
     .from('clinic_anamnesis_forms')
     .select(
-      'id,account_id,appointment_id,service_id,status,expires_at,selected_modalities,service:clinic_services(name,category)'
+      'id,account_id,contact_id,appointment_id,service_id,status,expires_at,selected_modalities,service:clinic_services(name,category)'
     )
     .eq('public_token', token)
     .maybeSingle();
@@ -152,6 +153,48 @@ export async function POST(
     })
     .eq('id', existing.id);
   if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  // Keep the client master record in sync with the identification supplied in
+  // the clinical form. Previously the date only lived on the form, which made
+  // it look lost everywhere else in the CRM.
+  if (existing.contact_id) {
+    const contactUpdate: Record<string, string | null> = {
+      name: body.clientName.trim().slice(0, 160),
+      email: body.clientEmail?.trim().slice(0, 255) || null,
+      phone: body.clientPhone?.trim().slice(0, 40) || null,
+      birth_date: body.birthDate || null,
+    };
+    await db
+      .from('contacts')
+      .update(contactUpdate)
+      .eq('id', existing.contact_id)
+      .eq('account_id', existing.account_id);
+  }
+
+  try {
+    const serviceName = appointmentService?.name || 'sessão';
+    await notifyAccountEvent({
+      accountId: existing.account_id,
+      type: 'anamnesis_submitted',
+      category: 'clinic',
+      priority: 'high',
+      title: `Anamnese preenchida por ${body.clientName.trim()}`,
+      body: `A ficha clínica da ${serviceName} foi enviada e está pronta para consulta.`,
+      actionUrl: existing.appointment_id
+        ? `/agenda?appointment=${encodeURIComponent(existing.appointment_id)}`
+        : '/agenda',
+      contactId: existing.contact_id,
+      dedupeKey: `anamnesis-submitted:${existing.id}`,
+      metadata: {
+        anamnesisId: existing.id,
+        appointmentId: existing.appointment_id,
+        serviceName,
+      },
+      whatsappText: `✅ *Anamnese preenchida*\nCliente: ${body.clientName.trim()}\nSessão: ${serviceName}\nA ficha já está disponível no CRM.`,
+    });
+  } catch (notificationError) {
+    console.error('[anamnesis] admin notification failed:', notificationError);
+  }
   return Response.json({ ok: true });
 }
 
