@@ -194,16 +194,51 @@ export function Header({
     'U';
 
   return (
-    <header className="border-border bg-background flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4 lg:px-6">
-      <div className="flex min-w-0 items-center gap-2">
+    <header
+      className={cn(
+        'border-border bg-background shrink-0 border-b',
+        navigationLayout === 'topbar'
+          ? 'grid h-[4.5rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 shadow-[0_1px_0_hsl(var(--border)),0_8px_24px_-22px_hsl(var(--foreground))] lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:px-5'
+          : 'flex h-14 items-center justify-between gap-3 px-4 lg:px-6'
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"
           onClick={onOpenSidebar}
           aria-label={t('openMenu')}
-          className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-10 w-10 items-center justify-center rounded-md transition-colors lg:hidden"
+          className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-10 items-center justify-center rounded-xl transition-colors lg:hidden"
         >
           <Menu className="h-5 w-5" />
         </button>
+        {navigationLayout === 'topbar' && (
+          <Link
+            href="/dashboard"
+            className="group hidden min-w-0 items-center gap-3 rounded-xl py-1 pr-3 lg:flex"
+            title={account?.name ?? 'CRM'}
+          >
+            <Avatar className="size-10 rounded-xl shadow-sm ring-1 ring-black/5 after:rounded-xl">
+              {account?.logo_url ? (
+                <AvatarImage
+                  src={account.logo_url}
+                  alt={account.name ?? 'CRM'}
+                  className="rounded-xl"
+                />
+              ) : null}
+              <AvatarFallback className="bg-primary text-primary-foreground rounded-xl text-xs font-bold tracking-wide">
+                {(account?.name ?? 'CRM').slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <span className="min-w-0">
+              <span className="text-foreground block max-w-40 truncate text-sm font-semibold tracking-tight">
+                {account?.name ?? 'CRM'}
+              </span>
+              <span className="text-muted-foreground block text-[10px] font-medium tracking-[0.14em] uppercase">
+                Workspace
+              </span>
+            </span>
+          </Link>
+        )}
         <h1
           className={cn(
             'text-foreground truncate text-base font-semibold sm:text-lg',
@@ -215,27 +250,7 @@ export function Header({
       </div>
 
       {navigationLayout === 'topbar' && (
-        <nav className="hidden min-w-0 flex-1 items-center gap-1 overflow-visible px-2 lg:flex">
-          <Link
-            href="/dashboard"
-            className="text-foreground hover:bg-muted mr-1 flex max-w-[clamp(7rem,16vw,14rem)] shrink items-center gap-2 truncate rounded-md px-2 py-1.5 text-sm font-semibold"
-            title={account?.name ?? 'CRM'}
-          >
-            <Avatar className="size-6 rounded-md after:rounded-md">
-              {account?.logo_url ? (
-                <AvatarImage
-                  src={account.logo_url}
-                  alt={account.name ?? 'CRM'}
-                  className="rounded-md"
-                />
-              ) : null}
-              <AvatarFallback className="bg-primary text-primary-foreground rounded-md text-[10px]">
-                {(account?.name ?? 'CRM').slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <span className="truncate">{account?.name ?? 'CRM'}</span>
-          </Link>
-
+        <nav className="bg-muted/55 border-border/70 hidden min-w-0 items-center gap-0.5 overflow-visible rounded-2xl border p-1 shadow-inner lg:flex lg:justify-self-center">
           {topbarDirectItems.map((item) => {
             const active = isNavItemActive(pathname, item.href);
             const attentionLabel = getAttentionLabel(item);
@@ -244,13 +259,13 @@ export function Header({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors',
+                  'relative inline-flex h-10 shrink-0 items-center gap-2 rounded-xl px-3 text-xs font-medium transition-all',
                   active
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    ? 'bg-background text-foreground shadow-sm ring-1 ring-black/5'
+                    : 'text-muted-foreground hover:bg-background/65 hover:text-foreground'
                 )}
               >
-                <item.icon className="h-3.5 w-3.5" />
+                <item.icon className={cn('size-4', active && 'text-primary')} />
                 <span>{t(item.labelKey as string)}</span>
                 {attentionLabel && (
                   <span className="bg-primary text-primary-foreground flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-semibold">
@@ -276,26 +291,39 @@ export function Header({
               <DropdownMenu key={group.labelKey}>
                 <DropdownMenuTrigger
                   className={cn(
-                    'data-popup-open:bg-muted data-popup-open:text-foreground inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors focus:outline-none',
+                    'data-popup-open:bg-background data-popup-open:text-foreground inline-flex h-10 shrink-0 items-center gap-2 rounded-xl px-3 text-xs font-medium transition-all focus:outline-none',
                     active
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      ? 'bg-background text-foreground shadow-sm ring-1 ring-black/5'
+                      : 'text-muted-foreground hover:bg-background/65 hover:text-foreground'
                   )}
                 >
-                  {GroupIcon ? <GroupIcon className="h-3.5 w-3.5" /> : null}
+                  {GroupIcon ? (
+                    <GroupIcon
+                      className={cn('size-4', active && 'text-primary')}
+                    />
+                  ) : null}
                   {getHeaderLabel(group.labelKey)}
                   {attentionLabel && (
                     <span className="bg-primary text-primary-foreground flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-semibold">
                       {attentionLabel}
                     </span>
                   )}
-                  <ChevronDown className="h-3.5 w-3.5" />
+                  <ChevronDown className="size-3 opacity-60" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="start"
-                  sideOffset={8}
-                  className="w-56"
+                  sideOffset={10}
+                  className="w-64 rounded-xl p-1.5 shadow-xl"
                 >
+                  <div className="px-2.5 pt-1.5 pb-2">
+                    <p className="text-foreground text-xs font-semibold">
+                      {getHeaderLabel(group.labelKey)}
+                    </p>
+                    <p className="text-muted-foreground mt-0.5 text-[10px]">
+                      Aceda às ferramentas desta área
+                    </p>
+                  </div>
+                  <DropdownMenuSeparator />
                   {group.items.map((item) => {
                     const itemActive = isNavItemActive(pathname, item.href);
                     const itemAttentionLabel = getAttentionLabel(item);
@@ -304,7 +332,7 @@ export function Header({
                         key={item.href}
                         render={<Link href={item.href} />}
                         className={cn(
-                          'h-9 cursor-pointer justify-between gap-2 px-2',
+                          'h-10 cursor-pointer justify-between gap-2 rounded-lg px-2.5',
                           itemActive && 'bg-primary/10 text-primary'
                         )}
                       >
@@ -339,16 +367,22 @@ export function Header({
         </nav>
       )}
 
-      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+      <div
+        className={cn(
+          'flex shrink-0 items-center gap-1 sm:gap-2',
+          navigationLayout === 'topbar' &&
+            'border-border/60 bg-background/70 rounded-2xl border p-1 shadow-sm'
+        )}
+      >
         <WorkTimeClock />
         <ModeToggle />
 
         <DropdownMenu>
           <DropdownMenuTrigger
-            className="hover:bg-muted/70 focus:bg-muted/70 data-popup-open:bg-muted/70 flex items-center gap-2 rounded-md px-1 py-1 transition-colors focus:outline-none sm:gap-3 sm:pr-3 sm:pl-1"
+            className="hover:bg-muted/70 focus:bg-muted/70 data-popup-open:bg-muted/70 flex items-center gap-2 rounded-xl p-1 transition-colors focus:outline-none sm:pr-2.5"
             aria-label={t('openAccountMenu')}
           >
-            <Avatar className="size-8">
+            <Avatar className="size-9 ring-1 ring-black/5">
               {profile?.avatar_url ? (
                 <AvatarImage
                   src={profile.avatar_url}
@@ -361,7 +395,7 @@ export function Header({
             </Avatar>
             <span
               className={cn(
-                'text-foreground hidden text-sm font-medium whitespace-nowrap sm:inline'
+                'text-foreground hidden max-w-28 truncate text-sm font-medium whitespace-nowrap xl:inline'
               )}
             >
               {profile?.full_name ?? t('defaultUser')}
