@@ -12,6 +12,15 @@ function defaultSender() {
   }
 }
 
+function senderAddress(user?: string) {
+  const configured = process.env.SMTP_FROM?.trim();
+  if (configured?.includes('@')) return configured;
+  const address = user || defaultSender();
+  if (!configured) return address;
+  const displayName = configured.replace(/["\r\n<>]/g, '').trim();
+  return displayName ? `"${displayName}" <${address}>` : address;
+}
+
 export async function sendLocalEmail(input: {
   to: string;
   subject: string;
@@ -35,23 +44,33 @@ export async function sendLocalEmail(input: {
         socketTimeout: 20_000,
       }),
     });
+  } else {
+    transports.push({
+      name: 'sendmail',
+      client: nodemailer.createTransport({
+        sendmail: true,
+        newline: 'unix',
+        path: process.env.SENDMAIL_PATH || '/usr/sbin/sendmail',
+      }),
+    });
   }
-  transports.push({
-    name: 'sendmail',
-    client: nodemailer.createTransport({
-      sendmail: true,
-      newline: 'unix',
-      path: process.env.SENDMAIL_PATH || '/usr/sbin/sendmail',
-    }),
-  });
 
   const errors: string[] = [];
   for (const transport of transports) {
     try {
       const result = await transport.client.sendMail({
-        from: process.env.SMTP_FROM || user || defaultSender(),
+        from: senderAddress(user),
         ...input,
       });
+      if (transport.name === 'smtp') {
+        const accepted = Array.isArray(result.accepted) ? result.accepted : [];
+        const rejected = Array.isArray(result.rejected) ? result.rejected : [];
+        if (!accepted.length || rejected.length) {
+          throw new Error(
+            `SMTP did not accept every recipient (accepted: ${accepted.length}, rejected: ${rejected.length}).`
+          );
+        }
+      }
       console.info(
         `[email] delivered using ${transport.name}:`,
         result.messageId
