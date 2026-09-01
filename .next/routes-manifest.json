@@ -744,6 +744,12 @@
       "namedRegex": "^/api/finance/reminders/process(?:/)?$"
     },
     {
+      "page": "/api/finance/reminders/test",
+      "regex": "^/api/finance/reminders/test(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/finance/reminders/test(?:/)?$"
+    },
+    {
       "page": "/api/finance/treasury/import",
       "regex": "^/api/finance/treasury/import(?:/)?$",
       "routeKeys": {},
