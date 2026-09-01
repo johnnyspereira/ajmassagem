@@ -437,6 +437,7 @@ export function ClientPortal({ slug }: { slug: string }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordSent, setPasswordSent] = useState(false);
+  const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
   const [tab, setTab] = useState<PortalTab>('home');
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [supportRequestKey, setSupportRequestKey] = useState(0);
@@ -518,6 +519,7 @@ export function ClientPortal({ slug }: { slug: string }) {
         if (!response.ok) {
           throw new Error(payload.error || 'Não foi possível validar o link.');
         }
+        setPasswordChangeRequired(payload.requiresPasswordChange === true);
         toast.success('Acesso confirmado. Bem-vindo ao Portal 360.');
       }
       await loadPortal();
@@ -556,6 +558,7 @@ export function ClientPortal({ slug }: { slug: string }) {
       }
       return toast.error(payload.error || 'Email ou palavra-passe incorretos.');
     }
+    setPasswordChangeRequired(payload.requiresPasswordChange === true);
     try {
       await loadPortal();
     } catch (loadError) {
@@ -629,6 +632,14 @@ export function ClientPortal({ slug }: { slug: string }) {
           onOpenChange={setGuestBookingOpen}
           slug={slug}
           businessName={publicPortal.business.name}
+        />
+        <PortalPasswordChangeDialog
+          open={passwordChangeRequired}
+          slug={slug}
+          onChanged={async () => {
+            setPasswordChangeRequired(false);
+            await loadPortal();
+          }}
         />
       </>
     );
@@ -889,9 +900,12 @@ export function ClientPortal({ slug }: { slug: string }) {
         onCreated={refreshData}
       />
       <PortalPasswordChangeDialog
-        open={data.settings.requiresPasswordChange}
+        open={passwordChangeRequired || data.settings.requiresPasswordChange}
         slug={slug}
-        onChanged={refreshData}
+        onChanged={async () => {
+          setPasswordChangeRequired(false);
+          await refreshData();
+        }}
       />
       <PortalHelpLauncher
         onLearn={() => setTab('help')}
@@ -1391,8 +1405,8 @@ function PortalPasswordChangeDialog({
           </span>
           <DialogTitle>Crie a sua palavra-passe</DialogTitle>
           <DialogDescription>
-            A senha recebida pelo WhatsApp é temporária. Defina uma senha
-            pessoal antes de continuar no Portal 360.
+            A palavra-passe recebida por email ou WhatsApp é temporária. Defina
+            agora uma palavra-passe pessoal antes de continuar no Portal 360.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">

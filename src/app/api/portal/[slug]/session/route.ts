@@ -171,7 +171,7 @@ export async function POST(
   const { data: access } = settings
     ? await admin
         .from('client_portal_access')
-        .select('id,contact_id,portal_auth_email')
+        .select('id,contact_id,portal_auth_email,requires_password_change')
         .eq('account_id', settings.account_id)
         .eq('auth_user_id', data.user.id)
         .maybeSingle()
@@ -192,11 +192,18 @@ export async function POST(
     accessId: access.id,
     contactId: access.contact_id,
   });
-  return Response.json({ ok: true });
+  return Response.json({
+    ok: true,
+    requiresPasswordChange: databaseBoolean(access.requires_password_change),
+  });
 }
 
 export async function DELETE() {
   const portalAuth = await createPortalAuthClient();
   await portalAuth.auth.signOut();
   return Response.json({ ok: true });
+}
+
+function databaseBoolean(value: unknown) {
+  return value === true || value === 1 || value === '1';
 }

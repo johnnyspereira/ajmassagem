@@ -171,10 +171,11 @@ export async function GET(
         .maybeSingle(),
     ]);
 
-    const baseResults = [
-      account,
-      contact,
-      appointments,
+    const coreResults = [account, contact, appointments];
+    const failed = coreResults.find((result) => result.error);
+    if (failed?.error) throw failed.error;
+
+    const optionalResults = [
       anamnesisForms,
       services,
       professionals,
@@ -190,8 +191,14 @@ export async function GET(
       referrals,
       communicationSettings,
     ];
-    const failed = baseResults.find((result) => result.error);
-    if (failed?.error) throw failed.error;
+    for (const result of optionalResults) {
+      if (result.error) {
+        console.warn(
+          '[client-portal] optional module unavailable:',
+          result.error
+        );
+      }
+    }
 
     const voucherIds = (vouchers.data ?? []).map((item) => item.id);
     const packIds = (packs.data ?? []).map((item) => item.id);
@@ -238,14 +245,23 @@ export async function GET(
           .eq('account_id', access.account_id)
           .eq('contact_id', access.contact_id),
       ]);
-    if (benefitLogs.error) throw benefitLogs.error;
-    if (walletTransactions.error) throw walletTransactions.error;
-    const campaignSchemaMissing = [campaigns.error, campaignEnrollments.error]
-      .filter(Boolean)
-      .some((error) => error?.code === '42P01' || error?.code === 'PGRST205');
-    if (campaigns.error && !campaignSchemaMissing) throw campaigns.error;
-    if (campaignEnrollments.error && !campaignSchemaMissing)
-      throw campaignEnrollments.error;
+    const secondaryResults = [
+      benefitLogs,
+      walletTransactions,
+      campaigns,
+      campaignEnrollments,
+    ];
+    for (const result of secondaryResults) {
+      if (result.error) {
+        console.warn(
+          '[client-portal] secondary module unavailable:',
+          result.error
+        );
+      }
+    }
+    const campaignsUnavailable = Boolean(
+      campaigns.error || campaignEnrollments.error
+    );
 
     return Response.json({
       settings: {
@@ -256,15 +272,18 @@ export async function GET(
         benefitsEnabled: settings.benefits_enabled,
         financialEnabled: settings.financial_enabled,
         profileEditEnabled: settings.profile_edit_enabled !== false,
-        requiresPasswordChange: access.requires_password_change === true,
+        requiresPasswordChange: databaseBoolean(
+          access.requires_password_change
+        ),
         referralsEnabled:
           settings.referrals_enabled !== false && Boolean(referralProgram.data),
         cancellationHours: settings.cancellation_hours,
         bookingAdvanceDays: settings.booking_advance_days,
-        anamnesisPublicSlug:
-          communicationSettings.data?.anamnesis_enabled === true
-            ? communicationSettings.data.anamnesis_public_slug
-            : null,
+        anamnesisPublicSlug: databaseBoolean(
+          communicationSettings.data?.anamnesis_enabled
+        )
+          ? communicationSettings.data.anamnesis_public_slug
+          : null,
       },
       business: account.data,
       client: contact.data,
@@ -309,7 +328,7 @@ export async function GET(
         code: referralCode.data,
         items: referrals.data ?? [],
       },
-      campaigns: (campaignSchemaMissing ? [] : (campaigns.data ?? [])).map(
+      campaigns: (campaignsUnavailable ? [] : (campaigns.data ?? [])).map(
         (campaign) => ({
           ...campaign,
           enrollmentCount: Number(campaign.enrollments?.[0]?.count ?? 0),
@@ -324,4 +343,8 @@ export async function GET(
   } catch (error) {
     return portalErrorResponse(error);
   }
+}
+
+function databaseBoolean(value: unknown) {
+  return value === true || value === 1 || value === '1';
 }
