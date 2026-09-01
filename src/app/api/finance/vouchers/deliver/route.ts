@@ -36,7 +36,8 @@ export async function POST(request: Request) {
         'id,code,pin_code,voucher_type,initial_balance,currency,recipient_name,message,expires_at,status,owner:contacts(name,email),service:clinic_services(name)'
       )
       .eq('account_id', profile.account_id)
-      .eq('issued_sale_id', body.saleId),
+      .eq('issued_sale_id', body.saleId)
+      .eq('status', 'active'),
   ]);
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
@@ -84,6 +85,12 @@ export async function POST(request: Request) {
     } catch (cause) {
       failures.push(cause instanceof Error ? cause.message : 'Falha no email.');
     }
+  }
+  if (!(vouchers ?? []).length) {
+    return Response.json(
+      { error: 'A venda ainda não está paga ou não possui vouchers ativos.' },
+      { status: 409 }
+    );
   }
   return Response.json({ sent, skipped, failures });
 }

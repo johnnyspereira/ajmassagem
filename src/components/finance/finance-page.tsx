@@ -843,7 +843,12 @@ export function FinancePage({
       createdSale && typeof createdSale === 'object' && 'id' in createdSale
         ? String(createdSale.id)
         : '';
-    if (voucherInSale && contactId && saleId && remaining <= 0) {
+    const saleWasPaid =
+      createdSale &&
+      typeof createdSale === 'object' &&
+      'status' in createdSale &&
+      createdSale.status === 'paid';
+    if (voucherInSale && contactId && saleId && saleWasPaid) {
       try {
         await deliverSaleVouchers(saleId);
       } catch {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { nextNumericClientReference } from '@/lib/contacts/client-reference';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
@@ -162,13 +163,25 @@ export function ContactForm({
           .eq('id', contactId);
         if (error) throw error;
       } else {
+        let reference = clientReference.trim();
+        if (!reference) {
+          const { data: historicalReferences, error: referenceError } =
+            await supabase
+              .from('contacts')
+              .select('client_reference')
+              .eq('account_id', accountId);
+          if (referenceError) throw referenceError;
+          reference = nextNumericClientReference(
+            (historicalReferences ?? []).map((row) => row.client_reference)
+          );
+        }
         const { data, error } = await supabase
           .from('contacts')
           .insert({
             user_id: user.id,
             account_id: accountId,
             name: name.trim() || null,
-            client_reference: clientReference.trim() || null,
+            client_reference: reference,
             phone: phone.trim(),
             email: email.trim() || null,
             company: company.trim() || null,

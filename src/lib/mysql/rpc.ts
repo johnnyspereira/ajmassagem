@@ -169,7 +169,8 @@ export async function executeMysqlRpc(name: string, args: Record<string, unknown
           for(const payment of payments) await addPayment(connection,{accountId:context.accountId,userId:context.userId,saleId,method:String(payment.method),amount:Number(payment.amount),cashSessionId:optionalText(args.p_cash_session_id),reference:optionalText(payment.reference_code),pin:optionalText(payment.pin_code),notes:optionalText(payment.notes)});
           const [sale]=await connection.execute<(RowDataPacket&{status:string})[]>('SELECT status FROM finance_sales WHERE id=?',[saleId]); if(sale[0]?.status==='paid'){await connection.execute("UPDATE finance_vouchers SET status='active' WHERE issued_sale_id=? AND status='pending'",[saleId]);await connection.execute("UPDATE finance_client_packs SET status='active' WHERE sale_id=? AND status='pending'",[saleId]);}
         });
-        return ok({id:saleId});
+        const completedSale=await selectRows<(RowDataPacket&{id:string;status:string;balance_due:number})[]>('SELECT id,status,balance_due FROM finance_sales WHERE id=? AND account_id=? LIMIT 1',[saleId,context.accountId]);
+        return ok(completedSale[0]??{id:saleId,status:'open',balance_due:total});
       }
       case 'set_member_role': {
         const role=String(args.p_new_role); if(!['admin','agent','viewer'].includes(role)) throw new Error('Invalid role.');

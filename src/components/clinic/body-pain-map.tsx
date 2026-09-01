@@ -3,7 +3,6 @@
 import { RotateCcw, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 
 type PainZone = {
   id: string;
@@ -294,17 +293,6 @@ export function BodyPainMap({
           </Button>
         </div>
       )}
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium" htmlFor="body-pain-notes">
-          Intensidade, duração e observações
-        </label>
-        <Textarea
-          id="body-pain-notes"
-          value={parsed.notes}
-          onChange={(event) => update(parsed.zones, event.target.value)}
-          placeholder="Ex.: dor 7/10 há três dias; evitar pressão intensa no ombro direito."
-        />
-      </div>
     </div>
   );
 }
