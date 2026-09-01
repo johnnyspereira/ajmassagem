@@ -317,6 +317,22 @@
       "namedRegex": "^/api/portal/(?<nxtPslug>[^/]+?)/password(?:/)?$"
     },
     {
+      "page": "/api/portal/[slug]/privacy",
+      "regex": "^/api/portal/([^/]+?)/privacy(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/api/portal/(?<nxtPslug>[^/]+?)/privacy(?:/)?$"
+    },
+    {
+      "page": "/api/portal/[slug]/privacy/export",
+      "regex": "^/api/portal/([^/]+?)/privacy/export(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/api/portal/(?<nxtPslug>[^/]+?)/privacy/export(?:/)?$"
+    },
+    {
       "page": "/api/portal/[slug]/profile",
       "regex": "^/api/portal/([^/]+?)/profile(?:/)?$",
       "routeKeys": {
@@ -616,6 +632,12 @@
       "regex": "^/api/account/members(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/account/members(?:/)?$"
+    },
+    {
+      "page": "/api/account/privacy",
+      "regex": "^/api/account/privacy(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/account/privacy(?:/)?$"
     },
     {
       "page": "/api/account/transfer-ownership",
