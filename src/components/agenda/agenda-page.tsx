@@ -12,6 +12,7 @@ import {
 } from 'react';
 import {
   BellRing,
+  AlertTriangle,
   CalendarCheck,
   CalendarClock,
   CalendarSync,
@@ -28,6 +29,7 @@ import {
   Lock,
   Loader2,
   MessageCircle,
+  Mail,
   PackageCheck,
   Plus,
   Search,
@@ -38,6 +40,7 @@ import {
   Trash2,
   UserCheck,
   RefreshCw,
+  Repeat2,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -142,6 +145,8 @@ type AppointmentRow = Omit<
   > | null;
   sales?: FinanceSale[] | null;
 };
+
+type AppointmentAnamnesis = NonNullable<AppointmentRow['anamnesis']>;
 
 type TimeBlockRow = Omit<ClinicTimeBlock, 'professional'> & {
   room?: ClinicRoom | null;
@@ -631,6 +636,12 @@ export function AgendaPage({
     () => defaultAppointmentDraft(profile?.id)
   );
   const [savingAppointment, setSavingAppointment] = useState(false);
+  const [appointmentPreviewOpen, setAppointmentPreviewOpen] = useState(false);
+  const [createSumUpCharge, setCreateSumUpCharge] = useState(false);
+  const [recurrenceCount, setRecurrenceCount] = useState(1);
+  const [recentClientAppointments, setRecentClientAppointments] = useState<
+    AppointmentRow[]
+  >([]);
   const [quickContactOpen, setQuickContactOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] =
     useState<AppointmentRow | null>(null);
@@ -702,6 +713,70 @@ export function AgendaPage({
   const selectedService =
     services.find((service) => service.id === appointmentDraft.serviceId) ??
     null;
+  const selectedNewContact =
+    contacts.find((contact) => contact.id === appointmentDraft.contactId) ??
+    null;
+  const selectedNewPack = availablePacks.find(
+    (pack) => pack.id === newBenefitSourceId
+  );
+  const selectedNewPackBalance = selectedNewPack?.balances?.find(
+    (balance) => balance.service_id === appointmentDraft.serviceId
+  );
+  const newAppointmentStart = appointmentDate(
+    appointmentDraft.date,
+    appointmentDraft.time
+  );
+  const newAppointmentEnd = selectedService
+    ? addMinutes(newAppointmentStart, selectedService.duration_minutes)
+    : newAppointmentStart;
+  const newAppointmentConflicts = selectedService
+    ? findAvailabilityConflicts(
+        [
+          ...appointments.map((item) => ({
+            id: item.id,
+            kind: 'appointment' as const,
+            startsAt: item.scheduled_start,
+            endsAt: item.scheduled_end,
+            professionalId: item.professional_profile_id,
+            roomId: item.room_id,
+            status: item.status,
+          })),
+          ...timeBlocks.map((item) => ({
+            id: item.id,
+            kind: 'time_block' as const,
+            startsAt: item.starts_at,
+            endsAt: item.ends_at,
+            professionalId: item.professional_profile_id,
+            roomId: item.room_id,
+          })),
+        ],
+        {
+          startsAt: newAppointmentStart,
+          endsAt: newAppointmentEnd,
+          professionalId: appointmentDraft.professionalProfileId || null,
+          roomId: appointmentDraft.roomId || null,
+        }
+      )
+    : [];
+  const newAppointmentPreview =
+    selectedService && selectedNewContact
+      ? buildAppointmentMessage(
+          {
+            contact: selectedNewContact,
+            service: selectedService,
+            professional:
+              team.find(
+                (member) => member.id === appointmentDraft.professionalProfileId
+              ) ?? null,
+            room:
+              rooms.find((room) => room.id === appointmentDraft.roomId) ?? null,
+            scheduled_start: newAppointmentStart.toISOString(),
+            scheduled_end: newAppointmentEnd.toISOString(),
+          } as AppointmentRow,
+          'confirmation',
+          account?.name ?? 'nossa clínica'
+        )
+      : '';
   const selectedEditService =
     editDraft == null
       ? null
@@ -742,6 +817,10 @@ export function AgendaPage({
       setNewBenefitVoucherCode('');
       setNewBenefitVoucherPin('');
       setNewBenefitCodeLookup(null);
+      setAppointmentPreviewOpen(false);
+      setCreateSumUpCharge(false);
+      setRecurrenceCount(1);
+      setRecentClientAppointments([]);
       setAppointmentReferralId(referralId ?? null);
       setAppointmentOpen(true);
     },
@@ -955,9 +1034,38 @@ export function AgendaPage({
       return;
     }
 
+    const loadedAppointments = (appointmentsRes.data ?? []) as AppointmentRow[];
+    if (loadedAppointments.length) {
+      const appointmentIds = loadedAppointments.map((item) => item.id);
+      const { data: forms } = await supabase
+        .from('clinic_anamnesis_forms')
+        .select('id,appointment_id,public_token,status,submitted_at')
+        .eq('account_id', accountId)
+        .in('appointment_id', appointmentIds)
+        .order('created_at', { ascending: false });
+      const formByAppointment = new Map<string, AppointmentAnamnesis>();
+      for (const form of forms ?? []) {
+        if (
+          form.appointment_id &&
+          !formByAppointment.has(form.appointment_id)
+        ) {
+          formByAppointment.set(
+            form.appointment_id,
+            form as AppointmentAnamnesis
+          );
+        }
+      }
+      for (const appointment of loadedAppointments) {
+        appointment.anamnesis =
+          formByAppointment.get(appointment.id) ??
+          appointment.anamnesis ??
+          null;
+      }
+    }
+
     setServices((servicesRes.data ?? []) as ClinicService[]);
     setRooms((roomsRes.data ?? []) as ClinicRoom[]);
-    setAppointments((appointmentsRes.data ?? []) as AppointmentRow[]);
+    setAppointments(loadedAppointments);
     setTimeBlocks((blocksRes.data ?? []) as TimeBlockRow[]);
     setContacts((contactsRes.data ?? []) as Contact[]);
     setTeam((teamRes.data ?? []) as TeamMember[]);
@@ -1322,6 +1430,52 @@ export function AgendaPage({
           confirmationWarning = failures.join(' | ');
       }
     }
+    let recurringCreated = 0;
+    if (recurrenceCount > 1 && newBenefitType === 'direct') {
+      for (let occurrence = 1; occurrence < recurrenceCount; occurrence += 1) {
+        const recurringStart = addDays(startAt, occurrence * 7);
+        const recurringEnd = addMinutes(
+          recurringStart,
+          selectedService.duration_minutes
+        );
+        if (
+          !(await ensureAvailability({
+            startsAt: recurringStart,
+            endsAt: recurringEnd,
+            professionalId: appointmentDraft.professionalProfileId || null,
+            roomId: appointmentDraft.roomId || null,
+          }))
+        )
+          break;
+        const { data: recurring, error: recurringError } = await supabase
+          .from('clinic_appointments')
+          .insert({
+            account_id: accountId,
+            user_id: user.id,
+            contact_id: appointmentDraft.contactId,
+            service_id: appointmentDraft.serviceId,
+            professional_profile_id:
+              appointmentDraft.professionalProfileId || null,
+            room_id: appointmentDraft.roomId || null,
+            scheduled_start: recurringStart.toISOString(),
+            scheduled_end: recurringEnd.toISOString(),
+            status: appointmentDraft.status,
+            source: 'manual',
+            price: Number(selectedService.price ?? 0),
+            currency: selectedService.currency || defaultCurrency,
+            notes: appointmentDraft.notes.trim() || null,
+            original_scheduled_start: recurringStart.toISOString(),
+            original_scheduled_end: recurringEnd.toISOString(),
+          })
+          .select('id')
+          .single();
+        if (recurringError || !recurring?.id) break;
+        recurringCreated += 1;
+        await fetch(`/api/clinic/appointments/${recurring.id}/confirmation`, {
+          method: 'POST',
+        }).catch(() => undefined);
+      }
+    }
     setSavingAppointment(false);
 
     if (confirmationWarning) {
@@ -1351,9 +1505,17 @@ export function AgendaPage({
         },
       });
     }
+    if (recurringCreated) {
+      toast.success(`${recurringCreated + 1} agendamentos semanais criados.`);
+    }
     setAppointmentOpen(false);
     setSelectedDate(startAt);
     void loadAgenda();
+    if (createSumUpCharge && data?.id) {
+      router.push(
+        `/finance?tab=pos&appointment=${encodeURIComponent(data.id)}&contact=${encodeURIComponent(appointmentDraft.contactId)}`
+      );
+    }
   }
 
   function openTimeBlockDialog() {
@@ -1805,8 +1967,25 @@ export function AgendaPage({
   }
 
   async function openAppointmentSheet(appointment: AppointmentRow) {
-    setSelectedAppointment(appointment);
-    setEditDraft(editDraftFromAppointment(appointment));
+    let resolvedAppointment = appointment;
+    if (!appointment.anamnesis) {
+      const { data: form } = await supabase
+        .from('clinic_anamnesis_forms')
+        .select('id,public_token,status,submitted_at')
+        .eq('account_id', accountId)
+        .eq('appointment_id', appointment.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (form) {
+        resolvedAppointment = {
+          ...appointment,
+          anamnesis: form as AppointmentAnamnesis,
+        };
+      }
+    }
+    setSelectedAppointment(resolvedAppointment);
+    setEditDraft(editDraftFromAppointment(resolvedAppointment));
     setAppointmentEvents(await loadAgendaEvents('appointment', appointment.id));
   }
 
@@ -1888,6 +2067,30 @@ export function AgendaPage({
     appointmentOpen,
     supabase,
   ]);
+
+  useEffect(() => {
+    if (!appointmentOpen || !accountId || !appointmentDraft.contactId) {
+      setRecentClientAppointments([]);
+      return;
+    }
+    let cancelled = false;
+    void supabase
+      .from('clinic_appointments')
+      .select(
+        '*, service:clinic_services(*), professional:profiles!clinic_appointments_professional_profile_id_fkey(id,full_name,email)'
+      )
+      .eq('account_id', accountId)
+      .eq('contact_id', appointmentDraft.contactId)
+      .order('scheduled_start', { ascending: false })
+      .limit(5)
+      .then(({ data }) => {
+        if (!cancelled)
+          setRecentClientAppointments((data ?? []) as AppointmentRow[]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, appointmentDraft.contactId, appointmentOpen, supabase]);
 
   function closeAppointmentSheet() {
     if (savingEdit) return;
@@ -3373,7 +3576,12 @@ export function AgendaPage({
                             />
                           }
                         >
-                          <ClipboardList /> Abrir ficha de anamnese
+                          <ClipboardList />{' '}
+                          {['submitted', 'reviewed'].includes(
+                            selectedAppointment.anamnesis.status
+                          )
+                            ? 'Ver anamnese preenchida'
+                            : 'Abrir ficha pendente'}
                         </Button>
                       </div>
                     ) : null}
@@ -4926,6 +5134,183 @@ export function AgendaPage({
               </div>
             </div>
 
+            <div className="grid gap-3 lg:grid-cols-2">
+              <section className="border-border rounded-md border p-3">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold">
+                      Comunicação e anamnese
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      Canais usados depois da confirmação.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!newAppointmentPreview}
+                    onClick={() => setAppointmentPreviewOpen((open) => !open)}
+                  >
+                    <Send className="size-4" /> Pré-visualizar
+                  </Button>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <CommunicationChannel
+                    icon={Mail}
+                    label="Email"
+                    available={Boolean(selectedNewContact?.email)}
+                  />
+                  <CommunicationChannel
+                    icon={MessageCircle}
+                    label="WhatsApp"
+                    available={Boolean(
+                      selectedNewContact?.phone ||
+                      selectedNewContact?.phone_normalized
+                    )}
+                  />
+                  <CommunicationChannel
+                    icon={ClipboardList}
+                    label="Anamnese"
+                    available={Boolean(selectedService)}
+                    availableLabel="Será criada e enviada"
+                  />
+                </div>
+                {appointmentPreviewOpen && newAppointmentPreview ? (
+                  <div className="bg-muted/50 mt-3 rounded-md p-3 text-xs leading-relaxed whitespace-pre-wrap">
+                    {newAppointmentPreview}
+                  </div>
+                ) : null}
+              </section>
+
+              <section className="border-border rounded-md border p-3">
+                <p className="text-sm font-semibold">
+                  Disponibilidade e cobrança
+                </p>
+                <div
+                  className={cn(
+                    'mt-2 flex gap-2 rounded-md p-3 text-xs',
+                    newAppointmentConflicts.length
+                      ? 'bg-red-500/10 text-red-700 dark:text-red-300'
+                      : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                  )}
+                >
+                  {newAppointmentConflicts.length ? (
+                    <AlertTriangle className="size-4 shrink-0" />
+                  ) : (
+                    <CheckCircle2 className="size-4 shrink-0" />
+                  )}
+                  <span>
+                    {newAppointmentConflicts.length
+                      ? availabilityConflictMessage(newAppointmentConflicts)
+                      : 'Profissional, sala e horário disponíveis.'}
+                  </span>
+                </div>
+                <label className="mt-3 flex items-center justify-between gap-3 text-sm">
+                  <span className="flex items-center gap-2">
+                    <Repeat2 className="size-4" /> Recorrência semanal
+                  </span>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={12}
+                    value={recurrenceCount}
+                    disabled={newBenefitType !== 'direct'}
+                    onChange={(event) =>
+                      setRecurrenceCount(
+                        Math.min(
+                          12,
+                          Math.max(1, Number(event.target.value) || 1)
+                        )
+                      )
+                    }
+                    className="w-20"
+                  />
+                </label>
+                <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-md border p-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={createSumUpCharge}
+                    onChange={(event) =>
+                      setCreateSumUpCharge(event.target.checked)
+                    }
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="block font-medium">
+                      Abrir cobrança SumUp no POS
+                    </span>
+                    <span className="text-muted-foreground text-xs">
+                      Abre o POS com cliente e agendamento selecionados.
+                    </span>
+                  </span>
+                </label>
+              </section>
+            </div>
+
+            {recentClientAppointments.length ? (
+              <section className="border-border rounded-md border p-3">
+                <p className="mb-2 text-sm font-semibold">
+                  Histórico recente do cliente
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {recentClientAppointments.slice(0, 4).map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-muted/40 rounded-md px-3 py-2 text-xs"
+                    >
+                      <p className="font-medium">
+                        {item.service?.name ?? 'Procedimento'}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {new Date(item.scheduled_start).toLocaleString(
+                          'pt-PT',
+                          { dateStyle: 'short', timeStyle: 'short' }
+                        )}{' '}
+                        · {STATUS_LABEL[item.status]}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            <section className="border-primary/30 bg-primary/5 rounded-md border p-3">
+              <p className="text-sm font-semibold">Resumo antes de confirmar</p>
+              <div className="text-muted-foreground mt-2 grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
+                <span>
+                  <strong className="text-foreground">Cliente:</strong>{' '}
+                  {selectedNewContact?.name || 'Por selecionar'}
+                </span>
+                <span>
+                  <strong className="text-foreground">Sessão:</strong>{' '}
+                  {selectedService?.name || 'Por selecionar'}
+                </span>
+                <span>
+                  <strong className="text-foreground">Quando:</strong>{' '}
+                  {newAppointmentStart.toLocaleString('pt-PT', {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  })}
+                </span>
+                <span>
+                  <strong className="text-foreground">Total:</strong>{' '}
+                  {recurrenceCount} marcação(ões)
+                </span>
+                {selectedNewPackBalance ? (
+                  <span className="sm:col-span-2">
+                    <strong className="text-foreground">Pack:</strong>{' '}
+                    {selectedNewPackBalance.remaining_sessions} disponíveis ·{' '}
+                    {Math.max(0, selectedNewPackBalance.remaining_sessions - 1)}{' '}
+                    após a reserva
+                    {selectedNewPack?.expires_at
+                      ? ` · válido até ${new Date(selectedNewPack.expires_at).toLocaleDateString('pt-PT')}`
+                      : ''}
+                  </span>
+                ) : null}
+              </div>
+            </section>
+
             <Field label="Observações">
               <Textarea
                 value={appointmentDraft.notes}
@@ -5303,6 +5688,25 @@ function AppointmentBlock({
               appointment.currency || currency
             )}
           </p>
+          {appointment.anamnesis ? (
+            <span
+              className={cn(
+                'mt-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase',
+                ['submitted', 'reviewed'].includes(appointment.anamnesis.status)
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-amber-400 text-amber-950'
+              )}
+            >
+              <ClipboardList className="size-3" />
+              {['submitted', 'reviewed'].includes(appointment.anamnesis.status)
+                ? 'Anamnese preenchida'
+                : 'Anamnese pendente'}
+            </span>
+          ) : (
+            <span className="mt-1 inline-flex items-center gap-1 rounded bg-slate-600 px-1.5 py-0.5 text-[9px] font-bold text-white uppercase">
+              <ClipboardList className="size-3" /> Sem anamnese
+            </span>
+          )}
           <AppointmentBenefitBadge appointment={appointment} />
         </div>
       </div>
@@ -5743,6 +6147,36 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       <span className="text-foreground font-medium">{label}</span>
       {children}
     </label>
+  );
+}
+
+function CommunicationChannel({
+  icon: Icon,
+  label,
+  available,
+  availableLabel = 'Será enviado',
+}: {
+  icon: typeof Mail;
+  label: string;
+  available: boolean;
+  availableLabel?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'rounded-md border p-2 text-xs',
+        available
+          ? 'border-emerald-500/30 bg-emerald-500/10'
+          : 'border-amber-500/30 bg-amber-500/10'
+      )}
+    >
+      <div className="flex items-center gap-1.5 font-semibold">
+        <Icon className="size-3.5" /> {label}
+      </div>
+      <p className="text-muted-foreground mt-1">
+        {available ? availableLabel : 'Dados não disponíveis'}
+      </p>
+    </div>
   );
 }
 
