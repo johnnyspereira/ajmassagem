@@ -405,6 +405,15 @@ function one<T>(value: Relation<T>): T | null {
   return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
+function packIsAvailable(pack: PortalData['benefits']['packs'][number]) {
+  if (pack.status !== 'active') return false;
+  if (pack.expires_at && new Date(pack.expires_at).getTime() <= Date.now())
+    return false;
+  return (pack.balances ?? []).some(
+    (balance) => Number(balance.remaining_sessions) > 0
+  );
+}
+
 const STATUS: Record<string, string> = {
   scheduled: 'Agendada',
   confirmed: 'Confirmada',
@@ -442,6 +451,7 @@ export function ClientPortal({ slug }: { slug: string }) {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [supportRequestKey, setSupportRequestKey] = useState(0);
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [bookingBenefitCode, setBookingBenefitCode] = useState('');
   const [guestBookingOpen, setGuestBookingOpen] = useState(false);
 
   const loadPortal = useCallback(async () => {
@@ -659,8 +669,14 @@ export function ClientPortal({ slug }: { slug: string }) {
     .filter((item) => item.status === 'active')
     .reduce((sum, item) => sum + Number(item.current_balance), 0);
   const packSessions = data.benefits.packs
+    .filter(packIsAvailable)
     .flatMap((item) => item.balances ?? [])
     .reduce((sum, item) => sum + Number(item.remaining_sessions), 0);
+
+  function openBooking(benefitCode = '') {
+    setBookingBenefitCode(benefitCode);
+    setBookingOpen(true);
+  }
 
   return (
     <div className="min-h-screen bg-[#f6f7f9] pb-20 text-[#17191c] [--background:#ffffff] [--border:#dde1e7] [--card:#ffffff] [--foreground:#17191c] [--input:#d0d5dd] [--muted-foreground:#667085] [--muted:#f1f3f5] [--popover-foreground:#17191c] [--popover:#ffffff] lg:pb-0">
@@ -764,14 +780,14 @@ export function ClientPortal({ slug }: { slug: string }) {
               walletBalance={walletBalance}
               voucherBalance={voucherBalance}
               packSessions={packSessions}
-              onBook={() => setBookingOpen(true)}
+              onBook={() => openBooking()}
               onNavigate={setTab}
             />
           )}
           {tab === 'appointments' && (
             <AppointmentsView
               data={data}
-              onBook={() => setBookingOpen(true)}
+              onBook={() => openBooking()}
               onRefresh={refreshData}
             />
           )}
@@ -782,7 +798,7 @@ export function ClientPortal({ slug }: { slug: string }) {
               walletBalance={walletBalance}
               voucherBalance={voucherBalance}
               packSessions={packSessions}
-              onUse={() => setBookingOpen(true)}
+              onUse={openBooking}
             />
           )}
           {tab === 'referrals' && (
@@ -893,10 +909,15 @@ export function ClientPortal({ slug }: { slug: string }) {
       </nav>
 
       <BookingDialog
+        key={bookingBenefitCode || 'standard-booking'}
         open={bookingOpen}
-        onOpenChange={setBookingOpen}
+        onOpenChange={(nextOpen) => {
+          setBookingOpen(nextOpen);
+          if (!nextOpen) setBookingBenefitCode('');
+        }}
         data={data}
         slug={slug}
+        preferredBenefitCode={bookingBenefitCode}
         onCreated={refreshData}
       />
       <PortalPasswordChangeDialog
@@ -2052,7 +2073,7 @@ function BenefitsView({
   walletBalance: number;
   voucherBalance: number;
   packSessions: number;
-  onUse: () => void;
+  onUse: (benefitCode?: string) => void;
 }) {
   const [showArchived, setShowArchived] = useState(false);
   const activeVouchers = data.benefits.vouchers.filter(
@@ -2061,11 +2082,9 @@ function BenefitsView({
   const archivedVouchers = data.benefits.vouchers.filter(
     (item) => item.status !== 'active'
   );
-  const activePacks = data.benefits.packs.filter(
-    (item) => item.status === 'active'
-  );
+  const activePacks = data.benefits.packs.filter(packIsAvailable);
   const archivedPacks = data.benefits.packs.filter(
-    (item) => item.status !== 'active'
+    (item) => !packIsAvailable(item)
   );
   return (
     <div className="space-y-6">
@@ -2073,7 +2092,7 @@ function BenefitsView({
         title="Benefícios"
         detail="Consulte e utilize os benefícios associados à sua ficha."
         action={
-          <Button onClick={onUse}>
+          <Button onClick={() => onUse()}>
             <Sparkles /> Usar numa marcação
           </Button>
         }
@@ -2261,7 +2280,7 @@ function VoucherPortalCard({
 }: {
   item: PortalData['benefits']['vouchers'][number];
   data: PortalData;
-  onUse?: () => void;
+  onUse?: (benefitCode: string) => void;
 }) {
   const monetary = item.voucher_type !== 'service';
   const initial = monetary
@@ -2305,7 +2324,7 @@ function VoucherPortalCard({
       </p>
       <div className="mt-auto pt-3">
         {onUse && item.status === 'active' && (
-          <Button className="w-full" size="sm" onClick={onUse}>
+          <Button className="w-full" size="sm" onClick={() => onUse(item.code)}>
             <CalendarCheck /> Usar numa marcação
           </Button>
         )}
@@ -2325,7 +2344,7 @@ function PackPortalCard({
 }: {
   pack: PortalData['benefits']['packs'][number];
   data: PortalData;
-  onUse?: () => void;
+  onUse?: (benefitCode: string) => void;
 }) {
   const total = (pack.balances || []).reduce(
     (sum, balance) => sum + Number(balance.total_sessions || 0),
@@ -2371,7 +2390,7 @@ function PackPortalCard({
       </div>
       <div className="mt-auto pt-3">
         {onUse && pack.status === 'active' && (
-          <Button className="w-full" size="sm" onClick={onUse}>
+          <Button className="w-full" size="sm" onClick={() => onUse(pack.code)}>
             <CalendarCheck /> Usar numa marcação
           </Button>
         )}
@@ -3698,12 +3717,14 @@ function BookingDialog({
   onOpenChange,
   data,
   slug,
+  preferredBenefitCode,
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (value: boolean) => void;
   data: PortalData;
   slug: string;
+  preferredBenefitCode: string;
   onCreated: () => Promise<void>;
 }) {
   const [serviceId, setServiceId] = useState(() =>
@@ -3716,10 +3737,11 @@ function BookingDialog({
   );
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
-  const [benefitCode, setBenefitCode] = useState('');
+  const [benefitCode, setBenefitCode] = useState(preferredBenefitCode);
   const [benefitPin, setBenefitPin] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+
   const service = data.catalog.services.find((item) => item.id === serviceId);
   const professional = data.catalog.professionals.find(
     (item) => item.id === professionalId
@@ -3741,6 +3763,8 @@ function BookingDialog({
   async function submit() {
     if (!serviceId || !professionalId || !date || !time)
       return toast.error('Preencha serviço, profissional, data e horário.');
+    if (benefitCode && !/^\d{4,8}$/.test(benefitPin))
+      return toast.error('Informe o PIN do benefício para reservar a sessão.');
     setSaving(true);
     const response = await fetch(
       `/api/portal/${encodeURIComponent(slug)}/appointments`,
@@ -3908,7 +3932,7 @@ function BookingDialog({
           </div>
         )}
         {data.settings.benefitsEnabled && (
-          <details className="border-border rounded-lg border">
+          <details className="border-border rounded-lg border" open>
             <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
               Usar voucher ou pack
             </summary>
@@ -3933,13 +3957,11 @@ function BookingDialog({
                         · {item.code}
                       </option>
                     ))}
-                  {data.benefits.packs
-                    .filter((item) => item.status === 'active')
-                    .map((item) => (
-                      <option key={item.id} value={item.code}>
-                        {one(item.pack)?.name || 'Pack'} · {item.code}
-                      </option>
-                    ))}
+                  {data.benefits.packs.filter(packIsAvailable).map((item) => (
+                    <option key={item.id} value={item.code}>
+                      {one(item.pack)?.name || 'Pack'} · {item.code}
+                    </option>
+                  ))}
                 </select>
               </Field>
               {benefitCode && (
@@ -3948,9 +3970,18 @@ function BookingDialog({
                     type="password"
                     inputMode="numeric"
                     value={benefitPin}
-                    onChange={(event) => setBenefitPin(event.target.value)}
-                    placeholder="PIN do benefício"
+                    onChange={(event) =>
+                      setBenefitPin(
+                        event.target.value.replace(/\D/g, '').slice(0, 8)
+                      )
+                    }
+                    maxLength={8}
+                    placeholder="PIN de 4 a 8 dígitos"
                   />
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    O PIN confirma que este pack ou voucher pertence à sua
+                    ficha.
+                  </p>
                 </Field>
               )}
             </div>
