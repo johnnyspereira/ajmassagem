@@ -107,7 +107,7 @@ export async function GET(
         ? admin
             .from('finance_client_packs')
             .select(
-              'id,code,status,purchased_at,expires_at,pack:finance_pack_catalog(id,name),balances:finance_client_pack_balances(id,total_sessions,used_sessions,remaining_sessions,service:clinic_services(id,name))'
+              'id,code,pin_code,status,purchased_at,expires_at,pack:finance_pack_catalog(id,name),balances:finance_client_pack_balances(id,total_sessions,used_sessions,remaining_sessions,service:clinic_services(id,name))'
             )
             .eq('contact_id', access.contact_id)
             .order('purchased_at', { ascending: false })

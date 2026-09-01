@@ -223,6 +223,7 @@ type PortalData = {
     packs: Array<{
       id: string;
       code: string;
+      pin_code: string | null;
       status: string;
       purchased_at: string;
       expires_at: string | null;
@@ -2367,6 +2368,12 @@ function PackPortalCard({
       <p className="text-muted-foreground mt-1 font-mono text-xs">
         {pack.code}
       </p>
+      <div className="mt-2 flex items-center justify-between rounded-md bg-slate-100 px-3 py-2 text-xs dark:bg-slate-800">
+        <span className="text-muted-foreground">PIN para reservar</span>
+        <strong className="font-mono tracking-[0.2em]">
+          {pack.pin_code || 'Não definido'}
+        </strong>
+      </div>
       <strong className="mt-4 block text-2xl">
         {remaining}/{total} sessões
       </strong>
