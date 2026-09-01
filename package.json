@@ -6,8 +6,7 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "start": "node server.js",
-    "postinstall": "node scripts/mysql-migrate.mjs"
+    "start": "node server.js"
   },
   "dependencies": {
     "@adiwajshing/keyed-db": "^0.2.4",
