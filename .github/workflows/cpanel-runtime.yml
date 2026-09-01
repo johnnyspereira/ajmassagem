@@ -77,7 +77,6 @@ jobs:
             engines: source.engines,
             scripts: {
               start: 'node server.js',
-              postinstall: 'node scripts/mysql-migrate.mjs',
             },
             dependencies,
             overrides: source.overrides,
