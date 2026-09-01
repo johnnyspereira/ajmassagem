@@ -14,7 +14,7 @@ jobs:
     env:
       NEXT_TELEMETRY_DISABLED: '1'
       PUPPETEER_SKIP_DOWNLOAD: 'true'
-      WHATSAPP_MODE: remote_worker
+      WHATSAPP_MODE: polling_worker
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       NEXT_PUBLIC_APP_URL: https://jpmassagem.pt
@@ -52,12 +52,40 @@ jobs:
           git worktree add --detach cpanel-runtime origin/cpanel-runtime
           find cpanel-runtime -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           mkdir -p cpanel-runtime/.next
-          cp -a .next/standalone/. cpanel-runtime/
+          # CloudLinux Node.js Selector reserves node_modules for the virtual
+          # environment symlink. Keep the prebuilt Next output, but let cPanel
+          # install runtime dependencies into that environment.
+          rsync -a --exclude='node_modules/' .next/standalone/ cpanel-runtime/
           cp -a .next/static cpanel-runtime/.next/static
           cp -a public cpanel-runtime/public
           mkdir -p cpanel-runtime/mysql cpanel-runtime/scripts
           cp -a mysql/migrations cpanel-runtime/mysql/migrations
           cp scripts/mysql-migrate.mjs cpanel-runtime/scripts/mysql-migrate.mjs
+          cp package-lock.json cpanel-runtime/package-lock.json
+          node <<'EOF'
+          const fs = require('node:fs');
+          const source = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const runtime = {
+            name: source.name,
+            version: source.version,
+            private: true,
+            engines: source.engines,
+            scripts: {
+              start: 'node server.js',
+              postinstall: 'node scripts/mysql-migrate.mjs',
+            },
+            dependencies: source.dependencies,
+            overrides: source.overrides,
+          };
+          fs.writeFileSync(
+            'cpanel-runtime/package.json',
+            `${JSON.stringify(runtime, null, 2)}\n`,
+          );
+          EOF
+          if find cpanel-runtime -type d -name node_modules -print -quit | grep -q .; then
+            echo 'Runtime must not contain a node_modules directory.' >&2
+            exit 1
+          fi
           mv cpanel-runtime/server.js cpanel-runtime/next-server.js
           cat > cpanel-runtime/server.js <<'EOF'
           const { execFileSync } = require('node:child_process');
@@ -84,7 +112,7 @@ jobs:
           No cPanel:
           - Branch: cpanel-runtime
           - Application startup file: server.js
-          - Nao execute `npm install`
+          - Execute `Run NPM Install` uma vez apos criar a aplicacao
           - Nao execute `npm run build`
           - As migrations MySQL pendentes sao aplicadas automaticamente no arranque
           - Configure as variaveis de ambiente no Setup Node.js App
