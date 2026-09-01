@@ -5815,13 +5815,48 @@ function AppointmentBlock({
           <p className="truncate text-xs font-bold">
             {appointmentContactLabel(appointment.contact)}
           </p>
-          <span
-            className={cn(
-              'mt-0.5 inline-flex rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wide uppercase',
-              stateBadge.className
-            )}
-          >
-            {stateBadge.label}
+          <span className="mt-0.5 flex max-w-full flex-wrap items-center gap-1">
+            <span
+              className={cn(
+                'inline-flex rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wide uppercase',
+                stateBadge.className
+              )}
+            >
+              {stateBadge.label}
+            </span>
+            <span
+              className={cn(
+                'inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase',
+                appointment.anamnesis &&
+                  ['submitted', 'reviewed'].includes(
+                    appointment.anamnesis.status
+                  )
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-amber-400 text-amber-950'
+              )}
+              title={
+                appointment.anamnesis &&
+                ['submitted', 'reviewed'].includes(
+                  appointment.anamnesis.status
+                )
+                  ? 'Ficha de anamnese preenchida'
+                  : 'Ficha de anamnese ainda não preenchida'
+              }
+            >
+              <ClipboardList className="size-2.5" />
+              {appointment.anamnesis &&
+              ['submitted', 'reviewed'].includes(appointment.anamnesis.status)
+                ? 'Anamnese OK'
+                : 'Anamnese pendente'}
+            </span>
+            {appointment.referral_id ? (
+              <span
+                className="inline-flex items-center gap-0.5 rounded bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold text-white uppercase"
+                title={`Indique & Ganhe: ${formatCurrency(Number(appointment.referral_discount_amount ?? 0), appointment.currency || currency)} de benefício`}
+              >
+                <HeartHandshake className="size-2.5" /> Indique & Ganhe
+              </span>
+            ) : null}
           </span>
           <p className="truncate text-[11px]">
             {appointment.service?.name ?? 'Procedimento'}
@@ -5837,25 +5872,6 @@ function AppointmentBlock({
               appointment.currency || currency
             )}
           </p>
-          {appointment.anamnesis ? (
-            <span
-              className={cn(
-                'mt-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase',
-                ['submitted', 'reviewed'].includes(appointment.anamnesis.status)
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-amber-400 text-amber-950'
-              )}
-            >
-              <ClipboardList className="size-3" />
-              {['submitted', 'reviewed'].includes(appointment.anamnesis.status)
-                ? 'Anamnese preenchida'
-                : 'Anamnese pendente'}
-            </span>
-          ) : (
-            <span className="mt-1 inline-flex items-center gap-1 rounded bg-slate-600 px-1.5 py-0.5 text-[9px] font-bold text-white uppercase">
-              <ClipboardList className="size-3" /> Sem anamnese
-            </span>
-          )}
           <AppointmentBenefitBadge appointment={appointment} />
         </div>
       </div>
@@ -5903,22 +5919,9 @@ function AppointmentBenefitBadge({
         .map((payment) => paymentMethodLabel(payment.method)) ?? []
     )
   );
-  if (!appointment.referral_id && !benefit && !sale && !appointment.paid_at)
-    return null;
+  if (!benefit && !sale && !appointment.paid_at) return null;
   return (
     <span className="mt-1 flex max-w-full flex-wrap gap-1">
-      {appointment.referral_id ? (
-        <span className="inline-flex max-w-full items-center gap-1 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-          <HeartHandshake className="size-3 shrink-0" />
-          <span className="truncate">
-            Indicação · -
-            {formatCurrency(
-              Number(appointment.referral_discount_amount ?? 0),
-              appointment.currency || 'EUR'
-            )}
-          </span>
-        </span>
-      ) : null}
       {benefit?.benefit_type === 'pack' ? (
         <span className="inline-flex max-w-full items-center gap-1 rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
           <PackageCheck className="size-3 shrink-0" />

@@ -20,7 +20,11 @@ jobs:
     env:
       NEXT_TELEMETRY_DISABLED: '1'
       PUPPETEER_SKIP_DOWNLOAD: 'true'
-      WHATSAPP_MODE: polling_worker
+      # The cPanel app delegates WhatsApp QR to the local/remote worker.
+      # Building as polling_worker makes Next include the local Chromium
+      # transport, whose whatsapp-web.js dependency is intentionally absent
+      # from the shared-hosting runtime.
+      WHATSAPP_MODE: remote_worker
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       NEXT_PUBLIC_APP_URL: https://jpmassagem.pt
