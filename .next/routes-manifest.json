@@ -732,6 +732,12 @@
       "namedRegex": "^/api/clinic/external\\-calendars(?:/)?$"
     },
     {
+      "page": "/api/finance/packs/deliver",
+      "regex": "^/api/finance/packs/deliver(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/finance/packs/deliver(?:/)?$"
+    },
+    {
       "page": "/api/finance/payment-links/stripe",
       "regex": "^/api/finance/payment\\-links/stripe(?:/)?$",
       "routeKeys": {},
@@ -988,6 +994,12 @@
       "regex": "^/automations/new(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/automations/new(?:/)?$"
+    },
+    {
+      "page": "/benefits",
+      "regex": "^/benefits(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/benefits(?:/)?$"
     },
     {
       "page": "/broadcasts",
