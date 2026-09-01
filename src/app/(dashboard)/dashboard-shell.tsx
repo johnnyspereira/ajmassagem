@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { ShoppingCart } from 'lucide-react';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
@@ -57,6 +59,15 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
         <NotificationRealtimeAlerts />
         <PushNotifications />
         <ContextualHelp />
+        <Link
+          href="/finance?tab=pos"
+          aria-label="Abrir ponto de venda"
+          title="Abrir POS"
+          className="bg-primary text-primary-foreground hover:bg-primary-hover fixed right-5 bottom-20 z-40 flex size-12 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-offset-2 sm:right-6 sm:bottom-6"
+        >
+          <ShoppingCart className="size-5" />
+          <span className="sr-only">Abrir POS</span>
+        </Link>
         <div
           className={navigationLayout === 'topbar' ? 'lg:hidden' : 'contents'}
         >

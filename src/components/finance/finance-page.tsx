@@ -338,7 +338,9 @@ export function FinancePage({
         .limit(300),
       supabase
         .from('finance_voucher_transfer_requests')
-        .select('*, voucher:finance_vouchers(*, owner:contacts(*), service:clinic_services(*))')
+        .select(
+          '*, voucher:finance_vouchers(*, owner:contacts(*), service:clinic_services(*))'
+        )
         .eq('account_id', accountId)
         .order('created_at', { ascending: false })
         .limit(300),
@@ -725,6 +727,28 @@ export function FinancePage({
     setPayments([]);
   }
 
+  async function deliverSaleVouchers(saleId: string) {
+    const delivery = await fetch('/api/finance/vouchers/deliver', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ saleId }),
+    });
+    const payload = (await delivery.json().catch(() => ({}))) as {
+      sent?: number;
+      skipped?: number;
+      failures?: string[];
+      error?: string;
+    };
+    if (!delivery.ok || payload.failures?.length)
+      toast.warning(
+        `Pagamento registado, mas o voucher não foi enviado: ${payload.error || payload.failures?.[0] || 'falha no email'}`
+      );
+    else if (payload.sent)
+      toast.success('Voucher enviado por email ao cliente.');
+    else if (payload.skipped)
+      toast.warning('Voucher criado, mas o cliente não possui email na ficha.');
+  }
+
   async function finishSale() {
     if (!accountId || !cart.length) return;
     if (
@@ -774,33 +798,37 @@ export function FinancePage({
       return;
     }
     setSaving(true);
-    const { error } = await supabase.rpc('create_finance_sale_secure', {
-      p_contact_id: contactId || null,
-      p_appointment_id: initialAppointmentId || null,
-      p_cash_session_id: cashSession?.id ?? null,
-      p_currency: defaultCurrency,
-      p_items: cart.map((item) => ({
-        item_type: item.itemType,
-        source_id: item.sourceId ?? null,
-        name: item.name,
-        reference: item.reference ?? null,
-        quantity: item.quantity,
-        unit_price: item.unitPrice,
-        discount_amount: item.discountAmount,
-        tax_rate: item.taxRate,
-        metadata: item.metadata ?? {},
-      })),
-      p_payments: payments
-        .filter((payment) => payment.amount > 0)
-        .map((payment) => ({
-          method: payment.method,
-          amount: payment.amount,
-          reference_code: payment.referenceCode || null,
-          pin_code: payment.pinCode || null,
+    const voucherInSale = cart.some((item) => item.itemType === 'voucher');
+    const { data: createdSale, error } = await supabase.rpc(
+      'create_finance_sale_secure',
+      {
+        p_contact_id: contactId || null,
+        p_appointment_id: initialAppointmentId || null,
+        p_cash_session_id: cashSession?.id ?? null,
+        p_currency: defaultCurrency,
+        p_items: cart.map((item) => ({
+          item_type: item.itemType,
+          source_id: item.sourceId ?? null,
+          name: item.name,
+          reference: item.reference ?? null,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          discount_amount: item.discountAmount,
+          tax_rate: item.taxRate,
+          metadata: item.metadata ?? {},
         })),
-      p_sale_discount: saleDiscount,
-      p_notes: saleNotes || null,
-    });
+        p_payments: payments
+          .filter((payment) => payment.amount > 0)
+          .map((payment) => ({
+            method: payment.method,
+            amount: payment.amount,
+            reference_code: payment.referenceCode || null,
+            pin_code: payment.pinCode || null,
+          })),
+        p_sale_discount: saleDiscount,
+        p_notes: saleNotes || null,
+      }
+    );
     setSaving(false);
     if (error) {
       toast.error(error.message);
@@ -811,6 +839,17 @@ export function FinancePage({
         ? `Venda registada com ${money(remaining, defaultCurrency)} pendente.`
         : 'Venda concluída e paga.'
     );
+    const saleId =
+      createdSale && typeof createdSale === 'object' && 'id' in createdSale
+        ? String(createdSale.id)
+        : '';
+    if (voucherInSale && contactId && saleId && remaining <= 0) {
+      try {
+        await deliverSaleVouchers(saleId);
+      } catch {
+        toast.warning('Voucher criado, mas o email não pôde ser enviado.');
+      }
+    }
     resetSale();
     await loadFinance();
     setActiveTab('sales');
@@ -1182,6 +1221,13 @@ export function FinancePage({
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success('Pagamento registado.');
+    if (laterPaymentAmount >= Number(paymentSale.balance_due)) {
+      try {
+        await deliverSaleVouchers(paymentSale.id);
+      } catch {
+        toast.warning('Pagamento concluído, mas o email do voucher falhou.');
+      }
+    }
     setPaymentOpen(false);
     await loadFinance();
   }

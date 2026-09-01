@@ -84,3 +84,54 @@ export function passwordResetEmail(input: {
     }),
   };
 }
+
+export function voucherDeliveryEmail(input: {
+  businessName: string;
+  clientName?: string | null;
+  recipientName?: string | null;
+  voucherUrl: string;
+  code: string;
+  pin: string;
+  benefit: string;
+  expiresAt?: string | null;
+  message?: string | null;
+}) {
+  const business = input.businessName || 'JP Massagem';
+  const name = input.clientName?.trim().split(/\s+/)[0] || 'cliente';
+  const expiry = input.expiresAt
+    ? new Date(input.expiresAt).toLocaleDateString('pt-PT')
+    : 'Sem data limite';
+  return {
+    subject: `${business} · O seu voucher ${input.code}`,
+    text: [
+      `Olá, ${name}.`,
+      `O voucher para ${input.recipientName || input.clientName || 'o destinatário'} está pronto.`,
+      `Benefício: ${input.benefit}`,
+      `Código: ${input.code}`,
+      `PIN: ${input.pin}`,
+      `Validade: ${expiry}`,
+      input.message ? `Mensagem: ${input.message}` : null,
+      `Consultar voucher: ${input.voucherUrl}`,
+    ]
+      .filter(Boolean)
+      .join('\n\n'),
+    html: brandedEmail({
+      businessName: business,
+      preheader: `O voucher ${input.code} está pronto para oferecer.`,
+      eyebrow: 'Voucher',
+      title: 'Um presente especial está pronto',
+      greeting: `Olá, ${name}.`,
+      message: `Preparámos o voucher para ${input.recipientName || input.clientName || 'o destinatário'}. Pode consultar, validar ou apresentar o voucher através do botão abaixo.`,
+      details: [
+        { label: 'Benefício', value: input.benefit },
+        { label: 'Código', value: input.code },
+        { label: 'Validade', value: expiry },
+        ...(input.message ? [{ label: 'Mensagem', value: input.message }] : []),
+      ],
+      highlight: { label: 'PIN de utilização', value: input.pin },
+      action: { label: 'Abrir o voucher', url: input.voucherUrl },
+      notice:
+        'Guarde o código e o PIN. O voucher pode ser validado online e apresentado no momento do atendimento.',
+    }),
+  };
+}

@@ -2070,6 +2070,33 @@ export function AgendaPage({
     setScheduleChangeOpen(true);
   }
 
+  async function sendUpdatedAppointmentConfirmation(appointmentId: string) {
+    const response = await fetch(
+      `/api/clinic/appointments/${appointmentId}/confirmation`,
+      { method: 'POST' }
+    );
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      skipped?: boolean;
+      deliveries?: {
+        whatsapp?: { sent?: boolean; error?: string | null };
+        email?: { sent?: boolean; error?: string | null };
+      };
+    };
+    if (!response.ok)
+      throw new Error(payload.error || 'Falha ao enviar a nova confirmação.');
+    const failed = [
+      payload.deliveries?.whatsapp?.error ? 'WhatsApp' : null,
+      payload.deliveries?.email?.error ? 'email' : null,
+    ].filter(Boolean);
+    if (failed.length) throw new Error(`falha por ${failed.join(' e ')}`);
+    if (
+      payload.skipped ||
+      (!payload.deliveries?.whatsapp?.sent && !payload.deliveries?.email?.sent)
+    )
+      throw new Error('nenhum canal disponível');
+  }
+
   function updateScheduleChangeTime(
     updates: Partial<Pick<ScheduleChangeDraft, 'date' | 'time'>>
   ) {
@@ -2130,9 +2157,13 @@ export function AgendaPage({
       scheduleChangeDraft.requestClientConfirmation;
     const changedAt = new Date().toISOString();
 
-    if (shouldRequestConfirmation && !canMessageAppointment(appointment)) {
+    if (
+      shouldRequestConfirmation &&
+      !canMessageAppointment(appointment) &&
+      !appointment.contact?.email?.trim()
+    ) {
       toast.error(
-        'Este cliente precisa de telefone para confirmar pelo WhatsApp.'
+        'Este cliente precisa de telefone ou email para receber a nova confirmação.'
       );
       return;
     }
@@ -2231,38 +2262,13 @@ export function AgendaPage({
     let messageFailed = false;
     if (shouldRequestConfirmation) {
       try {
-        const response = await fetch('/api/whatsapp/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contact_id: appointment.contact_id,
-            message_type: 'text',
-            content_text: scheduleChangeDraft.confirmationMessage.trim(),
-          }),
-        });
-        const payload = (await response.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        if (!response.ok) {
-          throw new Error(payload.error || 'Falha ao enviar WhatsApp.');
-        }
-
-        void recordAgendaEvent({
-          entityType: 'appointment',
-          entityId: appointment.id,
-          action: 'message_sent',
-          reason: 'Pedido de confirmação da alteração enviado pelo WhatsApp',
-          metadata: {
-            contact_id: appointment.contact_id,
-            message_action: 'schedule_change_confirmation',
-          },
-        });
+        await sendUpdatedAppointmentConfirmation(appointment.id);
       } catch (error) {
         messageFailed = true;
         toast.error(
           error instanceof Error
-            ? `Alteração guardada, mas a mensagem não foi enviada: ${error.message}`
-            : 'Alteração guardada, mas a mensagem não foi enviada.'
+            ? `Alteração guardada, mas a confirmação não foi enviada: ${error.message}`
+            : 'Alteração guardada, mas a confirmação não foi enviada.'
         );
       }
     }
@@ -2273,7 +2279,7 @@ export function AgendaPage({
       toast.success(
         messageFailed
           ? 'Horário atualizado. Confirmação pendente de envio.'
-          : 'Horário atualizado e confirmação enviada ao cliente.'
+          : 'Horário atualizado. Confirmação enviada pelos canais disponíveis.'
       );
     }
 
@@ -2608,6 +2614,18 @@ export function AgendaPage({
         newEnd: endAt.toISOString(),
         metadata: { source: 'appointment_sheet' },
       });
+      try {
+        await sendUpdatedAppointmentConfirmation(selectedAppointment.id);
+        toast.success(
+          'Novo horário enviado ao cliente pelos canais disponíveis.'
+        );
+      } catch (notificationError) {
+        toast.warning(
+          notificationError instanceof Error
+            ? `Horário guardado, mas a nova confirmação falhou: ${notificationError.message}`
+            : 'Horário guardado, mas a nova confirmação não foi enviada.'
+        );
+      }
     }
 
     if (editDraft.status !== selectedAppointment.status) {
@@ -5218,6 +5236,7 @@ function AppointmentBlock({
     appointment.professional?.professional_color ||
     appointment.service?.color ||
     '#7c3aed';
+  const stateBadge = appointmentStateBadge(appointment);
 
   return (
     <button
@@ -5262,6 +5281,14 @@ function AppointmentBlock({
           <p className="truncate text-xs font-bold">
             {appointmentContactLabel(appointment.contact)}
           </p>
+          <span
+            className={cn(
+              'mt-0.5 inline-flex rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wide uppercase',
+              stateBadge.className
+            )}
+          >
+            {stateBadge.label}
+          </span>
           <p className="truncate text-[11px]">
             {appointment.service?.name ?? 'Procedimento'}
           </p>
@@ -5281,6 +5308,28 @@ function AppointmentBlock({
       </div>
     </button>
   );
+}
+
+function appointmentStateBadge(appointment: AppointmentRow) {
+  if (appointment.status === 'cancelled')
+    return { label: 'Desmarcado', className: 'bg-red-600 text-white' };
+  if (appointment.status === 'no_show')
+    return { label: 'Faltou', className: 'bg-amber-500 text-amber-950' };
+  if (appointment.status === 'completed')
+    return { label: 'Concluído', className: 'bg-slate-700 text-white' };
+  if (appointment.status === 'confirmed')
+    return { label: 'Confirmado', className: 'bg-emerald-600 text-white' };
+  if (
+    appointment.last_schedule_change_type === 'rescheduled' ||
+    Number(appointment.reschedule_count ?? 0) > 0
+  )
+    return { label: 'Reagendado', className: 'bg-violet-600 text-white' };
+  if (appointment.last_schedule_change_type === 'schedule_changed')
+    return { label: 'Horário alterado', className: 'bg-sky-600 text-white' };
+  return {
+    label: 'Agendado',
+    className: 'bg-background/80 text-foreground border',
+  };
 }
 
 function AppointmentBenefitBadge({
