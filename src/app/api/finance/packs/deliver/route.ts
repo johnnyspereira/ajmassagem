@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { sendLocalEmail } from '@/lib/email/smtp';
-import { voucherDeliveryEmail } from '@/lib/email/templates';
+import { packDeliveryEmail } from '@/lib/email/templates';
 import { notifyAccountEvent } from '@/lib/notifications/account-events';
 import { getPublicUrl } from '@/lib/public-url';
 import { createClient } from '@/lib/supabase/server';
@@ -25,23 +25,23 @@ export async function POST(request: Request) {
   if (!profile || !['owner', 'admin', 'agent'].includes(profile.account_role))
     return Response.json({ error: 'Sem permissão.' }, { status: 403 });
 
-  const [{ data: account }, { data: vouchers, error }] = await Promise.all([
+  const [{ data: account }, { data: packs, error }] = await Promise.all([
     db
       .from('accounts')
       .select('name')
       .eq('id', profile.account_id)
       .maybeSingle(),
     db
-      .from('finance_vouchers')
+      .from('finance_client_packs')
       .select(
-        'id,code,pin_code,voucher_type,initial_balance,currency,recipient_name,message,expires_at,status,owner:contacts(name,email),service:clinic_services(name)'
+        'id,contact_id,code,pin_code,status,expires_at,contact:contacts(name,email),pack:finance_pack_catalog(name),balances:finance_client_pack_balances(total_sessions,remaining_sessions,service:clinic_services(name))'
       )
       .eq('account_id', profile.account_id)
-      .eq('issued_sale_id', body.saleId)
+      .eq('sale_id', body.saleId)
       .eq('status', 'active'),
   ]);
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  if (!(vouchers ?? []).length)
+  if (!(packs ?? []).length)
     return Response.json({
       sent: 0,
       skipped: 0,
@@ -52,41 +52,37 @@ export async function POST(request: Request) {
   let sent = 0;
   let skipped = 0;
   const failures: string[] = [];
-  for (const voucher of vouchers ?? []) {
-    const owner = Array.isArray(voucher.owner)
-      ? voucher.owner[0]
-      : voucher.owner;
-    const service = Array.isArray(voucher.service)
-      ? voucher.service[0]
-      : voucher.service;
-    if (!owner?.email) {
+  const portalUrl = getPublicUrl('/portal', new URL(request.url).origin);
+  for (const item of packs ?? []) {
+    const contact = Array.isArray(item.contact)
+      ? item.contact[0]
+      : item.contact;
+    const pack = Array.isArray(item.pack) ? item.pack[0] : item.pack;
+    const balances = Array.isArray(item.balances) ? item.balances : [];
+    if (!contact?.email) {
       skipped += 1;
       continue;
     }
-    const benefit =
-      voucher.voucher_type === 'service'
-        ? service?.name || 'Voucher de serviço'
-        : new Intl.NumberFormat('pt-PT', {
-            style: 'currency',
-            currency: voucher.currency || 'EUR',
-          }).format(Number(voucher.initial_balance));
-    const voucherUrl = getPublicUrl(
-      `/voucher/${encodeURIComponent(voucher.id)}?pin=${encodeURIComponent(voucher.pin_code || '')}`,
-      new URL(request.url).origin
-    );
     try {
       await sendLocalEmail({
-        to: owner.email,
-        ...voucherDeliveryEmail({
+        to: contact.email,
+        ...packDeliveryEmail({
           businessName: account?.name || 'JP Massagem',
-          clientName: owner.name,
-          recipientName: voucher.recipient_name,
-          voucherUrl,
-          code: voucher.code,
-          pin: voucher.pin_code || '',
-          benefit,
-          expiresAt: voucher.expires_at,
-          message: voucher.message,
+          clientName: contact.name,
+          packName: pack?.name || 'Pack de sessões',
+          code: item.code,
+          pin: item.pin_code,
+          expiresAt: item.expires_at,
+          sessions: balances.map((balance) => {
+            const service = Array.isArray(balance.service)
+              ? balance.service[0]
+              : balance.service;
+            return {
+              service: service?.name || 'Sessão',
+              total: Number(balance.total_sessions),
+            };
+          }),
+          portalUrl,
         }),
       });
       sent += 1;
@@ -94,24 +90,23 @@ export async function POST(request: Request) {
       failures.push(cause instanceof Error ? cause.message : 'Falha no email.');
     }
   }
+
   try {
     await notifyAccountEvent({
       accountId: profile.account_id,
-      type: failures.length
-        ? 'voucher_delivery_failed'
-        : 'voucher_delivery_sent',
+      type: failures.length ? 'pack_delivery_failed' : 'pack_delivery_sent',
       category: 'finance',
       priority: failures.length ? 'high' : 'normal',
       title: failures.length
-        ? 'Falha no envio de voucher'
-        : 'Voucher enviado por email',
+        ? 'Falha no envio de pack'
+        : 'Pack enviado por email',
       body: `${sent} enviado(s), ${skipped} sem email${failures.length ? `, ${failures.length} falhou(aram)` : ''}.`,
       actionUrl: '/benefits',
-      dedupeKey: `voucher-delivery:${body.saleId}:${failures.length ? 'failed' : 'sent'}`,
+      dedupeKey: `pack-delivery:${body.saleId}:${failures.length ? 'failed' : 'sent'}`,
       metadata: { saleId: body.saleId, sent, skipped, failures },
     });
   } catch (notificationError) {
-    console.error('[voucher-delivery] notification failed:', notificationError);
+    console.error('[pack-delivery] notification failed:', notificationError);
   }
   return Response.json({ sent, skipped, failures });
 }

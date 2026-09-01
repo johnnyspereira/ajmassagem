@@ -163,3 +163,46 @@ export function referralInvitationEmail(input: {
     }),
   };
 }
+
+export function packDeliveryEmail(input: {
+  businessName: string;
+  clientName?: string | null;
+  packName: string;
+  code: string;
+  pin: string;
+  expiresAt?: string | null;
+  sessions: Array<{ service: string; total: number }>;
+  portalUrl: string;
+}) {
+  const business = input.businessName || 'JP Massagem';
+  const name = input.clientName?.trim().split(/\s+/)[0] || 'cliente';
+  const expiry = input.expiresAt
+    ? new Date(input.expiresAt).toLocaleDateString('pt-PT')
+    : 'Sem data limite';
+  const sessionSummary = input.sessions.length
+    ? input.sessions.map((item) => `${item.total}× ${item.service}`).join(' · ')
+    : 'Sessões disponíveis no Portal 360';
+  return {
+    subject: `${business} · O seu pack ${input.packName}`,
+    text: `Olá, ${name}. O seu pack ${input.packName} está ativo. Sessões: ${sessionSummary}. Código: ${input.code}. PIN: ${input.pin}. Validade: ${expiry}. Consulte em ${input.portalUrl}`,
+    html: brandedEmail({
+      businessName: business,
+      preheader: `O seu pack ${input.packName} já está disponível.`,
+      eyebrow: 'Pack de sessões',
+      title: 'O seu pack está ativo',
+      greeting: `Olá, ${name}.`,
+      message:
+        'A compra foi confirmada e as suas sessões já estão disponíveis para marcação no Portal 360.',
+      details: [
+        { label: 'Pack', value: input.packName },
+        { label: 'Sessões incluídas', value: sessionSummary },
+        { label: 'Código', value: input.code },
+        { label: 'Validade', value: expiry },
+      ],
+      highlight: { label: 'PIN de utilização', value: input.pin },
+      action: { label: 'Abrir o Portal 360', url: input.portalUrl },
+      notice:
+        'Guarde o código e o PIN. O saldo apresentado no portal considera apenas sessões ativas e ainda disponíveis.',
+    }),
+  };
+}

@@ -9,6 +9,7 @@ import {
   LibraryBig,
   LayoutDashboard,
   MessageSquare,
+  PackageCheck,
   Megaphone,
   LifeBuoy,
   CircleHelp,
@@ -72,6 +73,12 @@ export const navItems: NavItem[] = [
     labelKey: 'finance',
     icon: BadgeEuro,
     newBadge: { key: 'retroactive-cash', ...TODAY_NEW_BADGE },
+  },
+  {
+    href: '/benefits',
+    labelKey: 'benefits',
+    icon: PackageCheck,
+    newBadge: { key: 'benefits-report', ...TODAY_NEW_BADGE },
   },
   {
     href: '/business-hub',

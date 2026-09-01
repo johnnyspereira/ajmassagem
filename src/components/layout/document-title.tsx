@@ -14,6 +14,7 @@ const ROUTE_TITLE_KEYS: Array<[string, string]> = [
   ['/agenda', 'agenda'],
   ['/contacts', 'contacts'],
   ['/finance', 'finance'],
+  ['/benefits', 'benefits'],
   ['/reports', 'reports'],
   ['/referrals', 'referrals'],
   ['/pipelines', 'pipelines'],

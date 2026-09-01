@@ -749,6 +749,29 @@ export function FinancePage({
       toast.warning('Voucher criado, mas o cliente não possui email na ficha.');
   }
 
+  async function deliverSalePacks(saleId: string) {
+    const delivery = await fetch('/api/finance/packs/deliver', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ saleId }),
+    });
+    const payload = (await delivery.json().catch(() => ({}))) as {
+      sent?: number;
+      skipped?: number;
+      failures?: string[];
+      error?: string;
+      notApplicable?: boolean;
+    };
+    if (payload.notApplicable) return;
+    if (!delivery.ok || payload.failures?.length)
+      toast.warning(
+        `Pagamento registado, mas o pack não foi enviado: ${payload.error || payload.failures?.[0] || 'falha no email'}`
+      );
+    else if (payload.sent) toast.success('Pack enviado por email ao cliente.');
+    else if (payload.skipped)
+      toast.warning('Pack criado, mas o cliente não possui email na ficha.');
+  }
+
   async function finishSale() {
     if (!accountId || !cart.length) return;
     if (
@@ -799,6 +822,7 @@ export function FinancePage({
     }
     setSaving(true);
     const voucherInSale = cart.some((item) => item.itemType === 'voucher');
+    const packInSale = cart.some((item) => item.itemType === 'pack');
     const { data: createdSale, error } = await supabase.rpc(
       'create_finance_sale_secure',
       {
@@ -853,6 +877,13 @@ export function FinancePage({
         await deliverSaleVouchers(saleId);
       } catch {
         toast.warning('Voucher criado, mas o email não pôde ser enviado.');
+      }
+    }
+    if (packInSale && contactId && saleId && saleWasPaid) {
+      try {
+        await deliverSalePacks(saleId);
+      } catch {
+        toast.warning('Pack criado, mas o email não pôde ser enviado.');
       }
     }
     resetSale();
@@ -1229,6 +1260,7 @@ export function FinancePage({
     if (laterPaymentAmount >= Number(paymentSale.balance_due)) {
       try {
         await deliverSaleVouchers(paymentSale.id);
+        await deliverSalePacks(paymentSale.id);
       } catch {
         toast.warning('Pagamento concluído, mas o email do voucher falhou.');
       }

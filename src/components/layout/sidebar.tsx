@@ -24,6 +24,7 @@ import {
   LayoutDashboard,
   LogOut,
   MessageSquare,
+  PackageCheck,
   Megaphone,
   LifeBuoy,
   Radio,
@@ -138,6 +139,12 @@ const navItems: NavItem[] = [
     newBadge: { key: 'retroactive-cash', ...TODAY_NEW_BADGE },
   },
   {
+    href: '/benefits',
+    labelKey: 'benefits',
+    icon: PackageCheck,
+    newBadge: { key: 'benefits-report', ...TODAY_NEW_BADGE },
+  },
+  {
     href: '/business-hub',
     labelKey: 'businessHub',
     icon: Sparkles,
@@ -216,6 +223,7 @@ const navSections = [
     hrefs: [
       '/pipelines',
       '/finance',
+      '/benefits',
       '/business-hub',
       '/business-hub/goals',
       '/reports',

@@ -209,24 +209,31 @@ async function notifyAppointmentDelivery(
   ].filter((channel): channel is string => Boolean(channel));
   const client = appointment.contact?.name || 'Cliente';
   const successful = sentChannels.length > 0;
-  await notifyAccountEvent({
-    accountId: appointment.account_id,
-    type: successful
-      ? 'appointment_communication_sent'
-      : 'appointment_communication_failed',
-    category: 'clinic',
-    priority: failed.length ? 'high' : 'normal',
-    title: successful
-      ? `Comunicação enviada a ${client}`
-      : `Falha ao notificar ${client}`,
-    body: successful
-      ? `${action === 'status_changed' ? `Estado alterado para ${status}. ` : ''}Enviado por ${sentChannels.join(' e ')}${failed.length ? `; falhou: ${failed.join(' | ')}` : '.'}`
-      : failed.join(' | ') || 'Nenhum canal de comunicação disponível.',
-    actionUrl: `/agenda?appointment=${encodeURIComponent(appointment.id)}`,
-    contactId: appointment.contact_id,
-    dedupeKey: `appointment:${appointment.id}:${action}:${status || 'none'}:${Date.now()}`,
-    metadata: { appointmentId: appointment.id, action, status, deliveries },
-  });
+  try {
+    await notifyAccountEvent({
+      accountId: appointment.account_id,
+      type: successful
+        ? 'appointment_communication_sent'
+        : 'appointment_communication_failed',
+      category: 'clinic',
+      priority: failed.length ? 'high' : 'normal',
+      title: successful
+        ? `Comunicação enviada a ${client}`
+        : `Falha ao notificar ${client}`,
+      body: successful
+        ? `${action === 'status_changed' ? `Estado alterado para ${status}. ` : ''}Enviado por ${sentChannels.join(' e ')}${failed.length ? `; falhou: ${failed.join(' | ')}` : '.'}`
+        : failed.join(' | ') || 'Nenhum canal de comunicação disponível.',
+      actionUrl: `/agenda?appointment=${encodeURIComponent(appointment.id)}`,
+      contactId: appointment.contact_id,
+      dedupeKey: `appointment:${appointment.id}:${action}:${status || 'none'}:${Date.now()}`,
+      metadata: { appointmentId: appointment.id, action, status, deliveries },
+    });
+  } catch (notificationError) {
+    console.error(
+      '[appointment] internal notification failed:',
+      notificationError
+    );
+  }
 }
 
 function loadAppointment(db: SupabaseClient, appointmentId: string) {
