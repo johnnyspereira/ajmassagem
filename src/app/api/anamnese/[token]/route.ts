@@ -22,7 +22,7 @@ export async function GET(
   const { data: form } = await db
     .from('clinic_anamnesis_forms')
     .select(
-      'id,account_id,status,client_name,client_email,client_phone,birth_date,selected_modalities,answers,health_consent,privacy_consent,signature_name,submitted_at,expires_at,service:clinic_services(name,category),appointment:clinic_appointments!clinic_anamnesis_forms_appointment_id_fkey(scheduled_start),account:accounts(name,logo_url)'
+      'id,account_id,appointment_id,service_id,status,client_name,client_email,client_phone,birth_date,selected_modalities,answers,health_consent,privacy_consent,signature_name,submitted_at,expires_at,service:clinic_services(name,category),appointment:clinic_appointments!clinic_anamnesis_forms_appointment_id_fkey(scheduled_start),account:accounts(name,logo_url)'
     )
     .eq('public_token', token)
     .maybeSingle();
@@ -38,6 +38,10 @@ export async function GET(
   return Response.json({
     form: {
       ...form,
+      modality_locked: Boolean(
+        form.appointment_id &&
+        (form.service_id || form.selected_modalities?.length)
+      ),
       form_title: settings?.anamnesis_title,
       form_intro: settings?.anamnesis_intro,
       config: mergeAnamnesisConfig(settings?.anamnesis_form_config),
@@ -88,7 +92,9 @@ export async function POST(
   const db = supabaseAdmin();
   const { data: existing } = await db
     .from('clinic_anamnesis_forms')
-    .select('id,account_id,status,expires_at')
+    .select(
+      'id,account_id,appointment_id,service_id,status,expires_at,selected_modalities,service:clinic_services(name,category)'
+    )
     .eq('public_token', token)
     .maybeSingle();
   if (!existing || ['reviewed', 'expired', 'revoked'].includes(existing.status))
@@ -101,9 +107,25 @@ export async function POST(
     .select('anamnesis_form_config')
     .eq('account_id', existing.account_id)
     .maybeSingle();
+  const appointmentService = Array.isArray(existing.service)
+    ? existing.service[0]
+    : existing.service;
+  const appointmentModalities = existing.appointment_id
+    ? Array.from(
+        new Set(
+          [
+            ...(existing.selected_modalities || []),
+            appointmentService?.name,
+            appointmentService?.category,
+          ].filter((value): value is string => Boolean(value))
+        )
+      ).slice(0, 20)
+    : null;
+  const selectedModalities =
+    appointmentModalities || body.selectedModalities || [];
   const missingQuestion = findMissingRequiredQuestion(
     mergeAnamnesisConfig(settings?.anamnesis_form_config),
-    body.selectedModalities || [],
+    selectedModalities,
     body.answers || {}
   );
   if (missingQuestion) {
@@ -121,7 +143,7 @@ export async function POST(
       client_email: body.clientEmail?.trim().slice(0, 255) || null,
       client_phone: body.clientPhone?.trim().slice(0, 40) || null,
       birth_date: body.birthDate || null,
-      selected_modalities: (body.selectedModalities || []).slice(0, 20),
+      selected_modalities: selectedModalities.slice(0, 20),
       answers: body.answers || {},
       health_consent: true,
       privacy_consent: true,

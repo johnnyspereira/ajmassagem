@@ -38,6 +38,7 @@ type FormData = {
   client_phone: string | null;
   birth_date: string | null;
   selected_modalities: string[];
+  modality_locked?: boolean;
   answers: Record<string, unknown>;
   signature_name: string | null;
   submitted_at: string | null;
@@ -184,6 +185,7 @@ export function PublicAnamnesis({
   const activeModalities = configuredModalities.filter((modality) =>
     modalityMatches(modality, modalities)
   );
+  const appointmentModality = form.service?.name || modalities[0] || '';
   const customQuestions = form.config?.customQuestions || [];
 
   return (
@@ -328,20 +330,48 @@ export function PublicAnamnesis({
           </FormSection>
 
           <FormSection
-            title="3. Modalidades"
-            detail="Selecione o tipo de atendimento para abrir as perguntas específicas."
+            title={
+              form.modality_locked ? '3. A sua modalidade' : '3. Modalidades'
+            }
+            detail={
+              form.modality_locked
+                ? 'Esta é a modalidade escolhida no seu agendamento.'
+                : 'Selecione o tipo de atendimento para abrir as perguntas específicas.'
+            }
             icon={Activity}
           >
-            <div className="grid gap-2 sm:grid-cols-2">
-              {configuredModalities.map((item) => (
-                <Toggle
-                  key={item.id}
-                  label={item.label}
-                  active={modalityMatches(item, modalities)}
-                  onClick={() => toggleConfiguredModality(item)}
-                />
-              ))}
-            </div>
+            {form.modality_locked ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-emerald-950">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
+                    <Check className="size-4" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p className="text-sm text-emerald-800">
+                      A sua modalidade escolhida foi
+                    </p>
+                    <p className="mt-0.5 text-lg font-semibold">
+                      {appointmentModality || 'Modalidade do agendamento'}
+                    </p>
+                    <p className="mt-1 text-sm text-emerald-700">
+                      Esta informação está associada ao seu agendamento e não
+                      precisa de ser selecionada novamente.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {configuredModalities.map((item) => (
+                  <Toggle
+                    key={item.id}
+                    label={item.label}
+                    active={modalityMatches(item, modalities)}
+                    onClick={() => toggleConfiguredModality(item)}
+                  />
+                ))}
+              </div>
+            )}
             {activeModalities.map((modality) => (
               <Conditional key={modality.id} title={modality.label}>
                 {(modality.questions || []).map((question) => (
