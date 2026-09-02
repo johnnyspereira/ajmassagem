@@ -89,6 +89,7 @@ type PublicPortal = {
     financial: boolean;
     profile: boolean;
     referrals: boolean;
+    whatsappRecovery: boolean;
   };
 };
 
@@ -1070,15 +1071,17 @@ function PortalLogin({
             >
               <Send /> Recuperar acesso por email
             </Button>
-            <Button
-              type="button"
-              variant="link"
-              className="w-full"
-              disabled={loading}
-              onClick={() => onRequestPassword('whatsapp')}
-            >
-              Receber pelo WhatsApp
-            </Button>
+            {portal.features.whatsappRecovery ? (
+              <Button
+                type="button"
+                variant="link"
+                className="w-full"
+                disabled={loading}
+                onClick={() => onRequestPassword('whatsapp')}
+              >
+                Receber pelo WhatsApp
+              </Button>
+            ) : null}
             {portal.features.booking ? (
               <div className="border-border mt-5 border-t pt-5">
                 <p className="text-muted-foreground mb-3 text-center text-sm">

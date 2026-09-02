@@ -1425,12 +1425,31 @@ export function AgendaPage({
         original_scheduled_end: endAt.toISOString(),
       })
       .select(
-        'id, price, original_price, referral_id, referral_discount_amount'
+        'id, scheduled_start, scheduled_end, price, original_price, referral_id, referral_discount_amount'
       )
       .single();
     if (error) {
       setSavingAppointment(false);
       toast.error(`Falha ao criar agendamento: ${error.message}`);
+      return;
+    }
+
+    const storedStart = new Date(data.scheduled_start);
+    const storedEnd = new Date(data.scheduled_end);
+    if (
+      storedStart.getTime() !== startAt.getTime() ||
+      storedEnd.getTime() !== endAt.getTime()
+    ) {
+      await supabase
+        .from('clinic_appointments')
+        .delete()
+        .eq('id', data.id)
+        .eq('account_id', accountId);
+      setSavingAppointment(false);
+      setAppointmentSaveStage('');
+      toast.error(
+        'A marcação foi cancelada com segurança porque o servidor devolveu um horário diferente. Nenhuma confirmação foi enviada.'
+      );
       return;
     }
 
@@ -1456,7 +1475,7 @@ export function AgendaPage({
       const refreshed = await supabase
         .from('clinic_appointments')
         .select(
-          'id, price, original_price, referral_id, referral_discount_amount'
+          'id, scheduled_start, scheduled_end, price, original_price, referral_id, referral_discount_amount'
         )
         .eq('id', data.id)
         .single();

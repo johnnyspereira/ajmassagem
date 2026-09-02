@@ -111,4 +111,33 @@ describe('MySQL query compiler', () => {
     );
     expect(query.sql).toContain('SELECT * FROM `conversations`');
   });
+
+  it('binds ISO instants as UTC dates for MySQL DATETIME fields and filters', () => {
+    const instant = '2026-09-02T18:00:00.000Z';
+    const query = compileQuery(
+      {
+        table: 'clinic_appointments',
+        operation: 'insert',
+        values: {
+          scheduled_start: instant,
+          scheduled_end: '2026-09-02T18:50:00.000Z',
+        },
+      },
+      context
+    );
+    const filter = compileQuery(
+      {
+        table: 'clinic_appointments',
+        operation: 'select',
+        filters: [
+          { column: 'scheduled_start', operator: 'gte', value: instant },
+        ],
+      },
+      context
+    );
+
+    expect(query.values.some((value) => value instanceof Date)).toBe(true);
+    expect(filter.values.at(-1)).toBeInstanceOf(Date);
+    expect((filter.values.at(-1) as Date).toISOString()).toBe(instant);
+  });
 });

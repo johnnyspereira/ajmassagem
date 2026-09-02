@@ -110,7 +110,17 @@ export async function POST(
     .eq('account_id', settings.account_id)
     .ilike('email', email)
     .limit(2);
-  if (!contacts || contacts.length !== 1) return generic;
+  if (!contacts?.length) return generic;
+  if (contacts.length > 1) {
+    return Response.json(
+      {
+        error:
+          'Este email está associado a mais de uma ficha de cliente. Contacte a clínica para unificar os registos antes de criar o acesso.',
+        code: 'PORTAL_DUPLICATE_EMAIL',
+      },
+      { status: 409 }
+    );
+  }
   const contact = contacts[0];
   if (delivery === 'whatsapp' && !contact.phone) return generic;
 
@@ -182,7 +192,14 @@ export async function POST(
         '[portal-password] auth user could not be created:',
         createError?.message
       );
-      return generic;
+      return Response.json(
+        {
+          error:
+            'Não foi possível preparar a identidade segura do Portal 360. Contacte a clínica.',
+          code: 'PORTAL_IDENTITY_CREATE_FAILED',
+        },
+        { status: 502 }
+      );
     }
     createdUserId = created.user.id;
     const accessMutation = access
@@ -210,7 +227,15 @@ export async function POST(
       .single();
     if (accessError) {
       await admin.auth.admin.deleteUser(created.user.id);
-      return generic;
+      console.error('[portal-password] access record failed:', accessError);
+      return Response.json(
+        {
+          error:
+            'Não foi possível associar a ficha ao Portal 360. Contacte a clínica.',
+          code: 'PORTAL_ACCESS_LINK_FAILED',
+        },
+        { status: 502 }
+      );
     }
     access = inserted;
     createdAccess = !previousAccess;

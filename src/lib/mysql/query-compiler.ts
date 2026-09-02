@@ -54,6 +54,13 @@ function selection(columns = '*'): string {
 function normalizeValue(value: unknown): ExecuteValues {
   if (value === undefined) return null;
   if (
+    typeof value === 'string' &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(value)
+  ) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) return date;
+  }
+  if (
     Array.isArray(value) ||
     (typeof value === 'object' && value !== null && !(value instanceof Date))
   ) {
