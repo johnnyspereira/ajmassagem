@@ -8,6 +8,7 @@ import {
   Archive,
   CalendarDays,
   CheckCircle2,
+  Clock3,
   ExternalLink,
   Mail,
   MessageCircle,
@@ -16,6 +17,7 @@ import {
   Pencil,
   Plus,
   Send,
+  Sparkles,
   UserRound,
   Users,
 } from 'lucide-react';
@@ -87,7 +89,7 @@ const emptyDraft = (): Draft => ({
   benefitText: '',
   terms: '',
   startsAt: localDate(),
-  endsAt: '',
+  endsAt: localDate(new Date(Date.now() + 7 * 24 * 60 * 60_000)),
   capacity: '',
 });
 
@@ -259,13 +261,20 @@ export function PortalCampaignsPage() {
       <div className="grid gap-4 xl:grid-cols-2">
         {items.length ? (
           items.map((item) => (
-            <Card key={item.id}>
+            <Card
+              key={item.id}
+              className="overflow-hidden border-violet-100 bg-gradient-to-br from-white via-white to-violet-50/60 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+            >
               <CardHeader>
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="mb-2 flex gap-2">
                       <Badge>
-                        {item.status === 'draft'
+                        {item.status === 'published' &&
+                        item.ends_at &&
+                        new Date(item.ends_at) < new Date()
+                          ? 'Expirada'
+                          : item.status === 'draft'
                           ? 'Rascunho'
                           : item.status === 'published'
                             ? 'Publicada'
@@ -275,7 +284,7 @@ export function PortalCampaignsPage() {
                         <Badge variant="outline">{item.badge_text}</Badge>
                       )}
                     </div>
-                    <CardTitle>{item.title}</CardTitle>
+                    <CardTitle className="text-xl">{item.title}</CardTitle>
                     <p className="text-muted-foreground mt-1 text-sm">
                       {item.summary}
                     </p>
@@ -313,6 +322,12 @@ export function PortalCampaignsPage() {
                     </div>
                   </div>
                 </div>
+                {item.benefit_text && (
+                  <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-900">
+                    <Sparkles className="size-5 shrink-0" />
+                    <strong>{item.benefit_text}</strong>
+                  </div>
+                )}
                 {item.enrollments.length > 0 && (
                   <div className="overflow-hidden rounded-xl border">
                     <div className="bg-muted/50 flex items-center justify-between px-3 py-2">
@@ -453,7 +468,17 @@ export function PortalCampaignsPage() {
               A campanha só aparece aos clientes depois de publicada.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3">
+          <div className="grid gap-4">
+            <div className="rounded-xl border border-violet-200 bg-gradient-to-r from-violet-50 to-fuchsia-50 p-4">
+              <p className="flex items-center gap-2 font-semibold text-violet-900">
+                <Sparkles className="size-4" /> Uma oferta que merece atenção
+              </p>
+              <p className="mt-1 text-xs leading-5 text-violet-700">
+                Dê um título emocional, mostre o benefício concreto e mantenha
+                as condições simples. A campanha nasce como rascunho para ser
+                revista antes da publicação.
+              </p>
+            </div>
             <Input
               placeholder="Título"
               value={draft.title}
@@ -514,6 +539,11 @@ export function PortalCampaignsPage() {
                   setDraft({ ...draft, capacity: e.target.value })
                 }
               />
+              <p className="text-muted-foreground flex items-start gap-1 text-xs sm:col-span-2">
+                <Clock3 className="mt-0.5 size-3.5 shrink-0" />
+                O fim inclui uma hora exata. Depois desse momento, a campanha
+                deixa automaticamente de aparecer no Portal 360.
+              </p>
             </div>
             <Textarea
               placeholder="Termos e condições"

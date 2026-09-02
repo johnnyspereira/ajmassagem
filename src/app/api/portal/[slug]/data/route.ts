@@ -31,6 +31,8 @@ export async function GET(
       referralCode,
       referrals,
       communicationSettings,
+      privacySettings,
+      privacyNotice,
     ] = await Promise.all([
       admin
         .from('accounts')
@@ -168,6 +170,20 @@ export async function GET(
         .select('*')
         .eq('account_id', access.account_id)
         .maybeSingle(),
+      admin
+        .from('privacy_settings')
+        .select('privacy_notice_version,privacy_policy_url,controller_name,controller_email')
+        .eq('account_id', access.account_id)
+        .maybeSingle(),
+      admin
+        .from('privacy_consent_events')
+        .select('policy_version,occurred_at')
+        .eq('account_id', access.account_id)
+        .eq('contact_id', access.contact_id)
+        .eq('purpose', 'privacy_notice')
+        .order('occurred_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     const coreResults = [account, contact, appointments];
@@ -189,6 +205,8 @@ export async function GET(
       referralCode,
       referrals,
       communicationSettings,
+      privacySettings,
+      privacyNotice,
     ];
     for (const result of optionalResults) {
       if (result.error) {
@@ -384,6 +402,18 @@ export async function GET(
           enrollments: undefined,
         })
       ),
+      privacy: {
+        policyVersion: privacySettings.data?.privacy_notice_version || '1.0',
+        policyUrl:
+          privacySettings.data?.privacy_policy_url ||
+          `/privacy/${encodeURIComponent(settings.slug)}`,
+        controllerName:
+          privacySettings.data?.controller_name || account.data?.name || null,
+        controllerEmail: privacySettings.data?.controller_email || null,
+        noticeAccepted:
+          privacyNotice.data?.policy_version ===
+          (privacySettings.data?.privacy_notice_version || '1.0'),
+      },
     });
   } catch (error) {
     return portalErrorResponse(error);

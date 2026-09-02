@@ -403,6 +403,13 @@ type PortalData = {
     enrollmentCount: number;
     enrollment: null | { status: string; joined_at: string };
   }>;
+  privacy: {
+    policyVersion: string;
+    policyUrl: string;
+    controllerName: string | null;
+    controllerEmail: string | null;
+    noticeAccepted: boolean;
+  };
 };
 
 type Relation<T> = T | T[] | null;
@@ -459,6 +466,8 @@ export function ClientPortal({ slug }: { slug: string }) {
   const [bookingOpen, setBookingOpen] = useState(false);
   const [bookingBenefitCode, setBookingBenefitCode] = useState('');
   const [guestBookingOpen, setGuestBookingOpen] = useState(false);
+  const [privacyUnderstood, setPrivacyUnderstood] = useState(false);
+  const [savingPrivacyNotice, setSavingPrivacyNotice] = useState(false);
 
   const loadPortal = useCallback(async () => {
     const publicResponse = await fetch(
@@ -684,8 +693,94 @@ export function ClientPortal({ slug }: { slug: string }) {
     setBookingOpen(true);
   }
 
+  async function acknowledgePrivacyNotice() {
+    if (!privacyUnderstood) return;
+    setSavingPrivacyNotice(true);
+    const response = await fetch(
+      `/api/portal/${encodeURIComponent(slug)}/privacy-notice`,
+      { method: 'POST' }
+    );
+    const payload = await response.json().catch(() => ({}));
+    setSavingPrivacyNotice(false);
+    if (!response.ok) {
+      toast.error(
+        payload.error || 'Não foi possível registar a confirmação.'
+      );
+      return;
+    }
+    setData((current) =>
+      current
+        ? {
+            ...current,
+            privacy: { ...current.privacy, noticeAccepted: true },
+          }
+        : current
+    );
+    toast.success('Informação de privacidade confirmada.');
+  }
+
   return (
     <div className="min-h-screen bg-[#f6f7f9] pb-20 text-[#17191c] [--background:#ffffff] [--border:#dde1e7] [--card:#ffffff] [--foreground:#17191c] [--input:#d0d5dd] [--muted-foreground:#667085] [--muted:#f1f3f5] [--popover-foreground:#17191c] [--popover:#ffffff] lg:pb-0">
+      <Dialog open={!data.privacy.noticeAccepted}>
+        <DialogContent
+          className="overflow-hidden border-0 p-0 sm:max-w-xl"
+          showCloseButton={false}
+        >
+          <div className="bg-gradient-to-br from-violet-700 via-purple-700 to-indigo-800 px-6 py-7 text-white">
+            <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/25">
+              <ShieldCheck className="size-6" />
+            </div>
+            <DialogTitle className="text-2xl text-white">
+              A sua privacidade, sem letras pequenas
+            </DialogTitle>
+            <DialogDescription className="mt-2 text-sm leading-6 text-violet-100">
+              Antes de entrar, queremos explicar de forma clara como a{' '}
+              {data.privacy.controllerName || data.business.name} protege e
+              utiliza os seus dados.
+            </DialogDescription>
+          </div>
+          <div className="space-y-4 px-6 py-5">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[
+                ['Só o necessário', 'Usamos os dados para gerir os seus serviços.'],
+                ['Sob o seu controlo', 'Pode consultar, corrigir ou pedir a eliminação.'],
+                ['Marketing opcional', 'As campanhas dependem da sua escolha.'],
+              ].map(([title, detail]) => (
+                <div key={title} className="rounded-xl border bg-slate-50 p-3">
+                  <p className="text-sm font-semibold">{title}</p>
+                  <p className="text-muted-foreground mt-1 text-xs leading-5">{detail}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-muted-foreground text-xs leading-5">
+              Esta confirmação apenas regista que recebeu a informação de
+              privacidade, versão {data.privacy.policyVersion}. Não ativa
+              marketing nem substitui consentimentos específicos.
+            </p>
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-4 accent-violet-700"
+                checked={privacyUnderstood}
+                onChange={(event) => setPrivacyUnderstood(event.target.checked)}
+              />
+              <span>Li e compreendi a informação sobre o tratamento dos meus dados.</span>
+            </label>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+              <Button variant="ghost" render={<a href={data.privacy.policyUrl} target="_blank" rel="noreferrer" />}>
+                <BookOpen /> Ler política completa
+              </Button>
+              <Button
+                disabled={!privacyUnderstood || savingPrivacyNotice}
+                onClick={() => void acknowledgePrivacyNotice()}
+              >
+                {savingPrivacyNotice ? <Loader2 className="animate-spin" /> : <ShieldCheck />}
+                Confirmar e entrar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <aside className="border-border bg-background fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r lg:flex">
         <div className="border-border flex h-20 items-center border-b px-5">
           <Brand business={data.business} />
@@ -2958,22 +3053,28 @@ function CampaignsView({
           return (
             <article
               key={campaign.id}
-              className="border-border bg-background overflow-hidden rounded-xl border shadow-sm"
+              className="group overflow-hidden rounded-3xl border border-violet-100 bg-white shadow-[0_18px_60px_-30px_rgba(109,40,217,.45)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_-28px_rgba(109,40,217,.55)]"
             >
               {campaign.image_url && (
                 <img
                   src={campaign.image_url}
                   alt=""
-                  className="h-52 w-full object-cover"
+                  className="h-56 w-full object-cover transition duration-500 group-hover:scale-[1.03]"
                 />
               )}
-              <div className="space-y-4 p-5">
+              {!campaign.image_url && (
+                <div className="relative flex h-40 items-center justify-center overflow-hidden bg-gradient-to-br from-violet-700 via-fuchsia-600 to-amber-400 text-white">
+                  <div className="absolute -top-16 -right-12 size-44 rounded-full bg-white/15 blur-2xl" />
+                  <Sparkles className="size-14 drop-shadow-lg" />
+                </div>
+              )}
+              <div className="space-y-5 p-6">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     {campaign.badge_text && (
                       <Badge className="mb-2">{campaign.badge_text}</Badge>
                     )}
-                    <h2 className="text-xl font-semibold">{campaign.title}</h2>
+                    <h2 className="text-2xl font-bold tracking-tight">{campaign.title}</h2>
                     <p className="text-muted-foreground mt-1 text-sm">
                       {campaign.summary}
                     </p>
@@ -2981,8 +3082,9 @@ function CampaignsView({
                   <Megaphone className="text-primary size-6 shrink-0" />
                 </div>
                 {campaign.benefit_text && (
-                  <div className="border-primary/25 bg-primary/[0.06] text-primary rounded-lg border p-3 font-semibold">
-                    {campaign.benefit_text}
+                  <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-4 text-emerald-900">
+                    <Gift className="size-5 shrink-0" />
+                    <strong className="text-base">{campaign.benefit_text}</strong>
                   </div>
                 )}
                 <p className="text-sm leading-6 whitespace-pre-line">
@@ -3011,7 +3113,7 @@ function CampaignsView({
                   </details>
                 )}
                 <Button
-                  className="w-full"
+                  className="h-12 w-full rounded-xl bg-gradient-to-r from-violet-700 to-fuchsia-600 text-base font-semibold shadow-lg shadow-violet-200 hover:from-violet-800 hover:to-fuchsia-700"
                   disabled={Boolean(joined || full || joining)}
                   onClick={() => void join(campaign.id)}
                 >
