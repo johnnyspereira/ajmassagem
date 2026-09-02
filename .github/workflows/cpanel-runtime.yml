@@ -58,15 +58,25 @@ jobs:
         shell: bash
         run: |
           rm -rf cpanel-runtime
+          rm -rf cpanel-previous-static
           git fetch origin cpanel-runtime:refs/remotes/origin/cpanel-runtime
           git worktree add --detach cpanel-runtime origin/cpanel-runtime
+          # Preserve assets from the two previous runtimes. Passenger may keep
+          # an older server process alive briefly after Git updates the working
+          # tree; without these hashed files its HTML renders without CSS/JS.
+          mkdir -p cpanel-previous-static
+          git -C cpanel-runtime archive HEAD .next/static 2>/dev/null | tar -x -C cpanel-previous-static || true
+          git -C cpanel-runtime archive HEAD^ .next/static 2>/dev/null | tar -x -C cpanel-previous-static || true
           find cpanel-runtime -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           mkdir -p cpanel-runtime/.next
           # CloudLinux Node.js Selector reserves node_modules for the virtual
           # environment symlink. Keep the prebuilt Next output, but let cPanel
           # install runtime dependencies into that environment.
           rsync -a --exclude='node_modules/' .next/standalone/ cpanel-runtime/
-          cp -a .next/static cpanel-runtime/.next/static
+          if [ -d cpanel-previous-static/.next/static ]; then
+            cp -a cpanel-previous-static/.next/static cpanel-runtime/.next/
+          fi
+          rsync -a .next/static/ cpanel-runtime/.next/static/
           cp -a public cpanel-runtime/public
           cp .cpanel.yml .gitignore cpanel-runtime/
           mkdir -p cpanel-runtime/mysql cpanel-runtime/scripts
@@ -141,6 +151,7 @@ jobs:
           - Configure as variaveis de ambiente no Setup Node.js App
           - Use Restart Application apos cada pull
           EOF
+          rm -rf cpanel-previous-static
 
       - name: Publish cPanel runtime branch
         shell: bash
