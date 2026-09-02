@@ -3687,7 +3687,7 @@ function ProfileView({
         Consulte a{' '}
         <a
           className="text-primary underline"
-          href={`/privacy/${encodeURIComponent(data.settings.slug)}`}
+          href="/privacidade"
           target="_blank"
           rel="noreferrer"
         >

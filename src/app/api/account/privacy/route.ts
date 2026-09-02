@@ -75,6 +75,7 @@ export async function PATCH(request: Request) {
       account_id: ctx.accountId,
       controller_name: text(body.controllerName, 255),
       controller_email: text(body.controllerEmail, 320),
+      controller_tax_id: text(body.controllerTaxId, 40),
       controller_address: text(body.controllerAddress, 2000),
       dpo_email: text(body.dpoEmail, 320),
       privacy_policy_url:

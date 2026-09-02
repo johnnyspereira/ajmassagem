@@ -31,6 +31,9 @@ export default async function PrivacyPolicyPage({
     : portal.account;
   const name =
     privacy?.controller_name || account?.name || 'Responsável pelo tratamento';
+  const updatedLabel = privacy?.updated_at
+    ? ` · atualizada em ${new Date(privacy.updated_at).toLocaleDateString('pt-PT')}`
+    : '';
   const purposes = [
     [
       'Agendamento e prestação dos serviços',
@@ -68,19 +71,25 @@ export default async function PrivacyPolicyPage({
             <p className="text-muted-foreground text-sm">{name}</p>
             <h1 className="text-2xl font-bold">Política de privacidade</h1>
             <p className="text-muted-foreground text-xs">
-              Versão {privacy?.privacy_notice_version || '1.0'} · atualizada em{' '}
-              {new Date(privacy?.updated_at || 0).toLocaleDateString('pt-PT')}
+              Versão {privacy?.privacy_notice_version || '1.0'}
+              {updatedLabel}
             </p>
           </div>
         </header>
         <section className="mt-7 space-y-6 text-sm leading-6">
           <Policy title="Responsável pelo tratamento">
             {name}
+            {privacy?.controller_tax_id
+              ? `, NIF/NIPC ${privacy.controller_tax_id}`
+              : ''}
             {privacy?.controller_address
               ? `, ${privacy.controller_address}`
               : ''}
             . Contacto: {privacy?.controller_email || 'a disponibilizar'}
-            {privacy?.dpo_email ? `. EPD/DPO: ${privacy.dpo_email}` : ''}.
+            {privacy?.dpo_email
+              ? `. EPD/DPO: ${privacy.dpo_email}`
+              : '. Não existe EPD/DPO designado'}
+            .
           </Policy>
           <Policy title="Dados e finalidades">
             <div className="space-y-3">

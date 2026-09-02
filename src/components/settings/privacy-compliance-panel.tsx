@@ -28,6 +28,7 @@ type SubjectRequest = {
 const defaults = {
   controllerName: '',
   controllerEmail: '',
+  controllerTaxId: '',
   controllerAddress: '',
   dpoEmail: '',
   privacyPolicyUrl: '',
@@ -74,6 +75,7 @@ export function PrivacyCompliancePanel() {
       setForm({
         controllerName: v.controller_name || '',
         controllerEmail: v.controller_email || '',
+        controllerTaxId: v.controller_tax_id || '',
         controllerAddress: v.controller_address || '',
         dpoEmail: v.dpo_email || '',
         privacyPolicyUrl: v.privacy_policy_url || '',
@@ -187,6 +189,12 @@ export function PrivacyCompliancePanel() {
                 type="email"
                 value={form.controllerEmail}
                 onChange={(e) => set('controllerEmail', e.target.value)}
+              />
+            </Field>
+            <Field label="NIF/NIPC do responsável">
+              <Input
+                value={form.controllerTaxId}
+                onChange={(e) => set('controllerTaxId', e.target.value)}
               />
             </Field>
             <Field label="Email do EPD/DPO (se aplicável)">
