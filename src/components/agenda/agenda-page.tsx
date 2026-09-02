@@ -648,6 +648,7 @@ export function AgendaPage({
     useState<AppointmentRow | null>(null);
   const [editDraft, setEditDraft] = useState<AppointmentEditDraft | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editSaveStage, setEditSaveStage] = useState('');
   const [blockOpen, setBlockOpen] = useState(false);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [blockEvents, setBlockEvents] = useState<ClinicAgendaEvent[]>([]);
@@ -2392,7 +2393,7 @@ export function AgendaPage({
   async function sendUpdatedAppointmentConfirmation(appointmentId: string) {
     const response = await fetch(
       `/api/clinic/appointments/${appointmentId}/confirmation`,
-      { method: 'POST' }
+      { method: 'POST', signal: AbortSignal.timeout(12_000) }
     );
     const payload = (await response.json().catch(() => ({}))) as {
       error?: string;
@@ -2821,6 +2822,9 @@ export function AgendaPage({
       return;
     }
 
+    setSavingEdit(true);
+    setEditSaveStage('A validar disponibilidade…');
+
     const startAt = appointmentDate(editDraft.date, editDraft.time);
     const endAt = addMinutes(startAt, service.duration_minutes);
     const scheduleChanged =
@@ -2828,19 +2832,27 @@ export function AgendaPage({
       endAt.toISOString() !== selectedAppointment.scheduled_end;
     const scheduleChangedAt = new Date().toISOString();
 
-    if (
-      !(await ensureAvailability({
+    let isAvailable = false;
+    try {
+      isAvailable = await ensureAvailability({
         startsAt: startAt,
         endsAt: endAt,
         professionalId: editDraft.professionalProfileId || null,
         roomId: editDraft.roomId || null,
         excludeAppointmentId: selectedAppointment.id,
-      }))
-    ) {
+      });
+    } catch (error) {
+      toast.error(
+        `Não foi possível validar a disponibilidade: ${error instanceof Error ? error.message : 'erro inesperado'}`
+      );
+    }
+    if (!isAvailable) {
+      setSavingEdit(false);
+      setEditSaveStage('');
       return;
     }
 
-    setSavingEdit(true);
+    setEditSaveStage('A guardar alterações…');
     const { error } = await supabase
       .from('clinic_appointments')
       .update({
@@ -2900,6 +2912,7 @@ export function AgendaPage({
       appointmentBenefit?.status !== 'consumed' &&
       !(benefitType === 'voucher' && existingVoucherWithoutPin)
     ) {
+      setEditSaveStage('A atualizar benefício…');
       const { error: benefitError } = codeBasedBenefit
         ? await supabase.rpc('reserve_appointment_benefit_code', {
             p_appointment_id: selectedAppointment.id,
@@ -2932,6 +2945,7 @@ export function AgendaPage({
         editDraft.status === 'no_show' ||
         (Boolean(editDraft.paidAt) && benefitType !== 'direct'))
     ) {
+      setEditSaveStage('A processar benefício…');
       const settlementAction =
         editDraft.status === 'cancelled' || editDraft.status === 'no_show'
           ? benefitDisposition
@@ -2951,8 +2965,6 @@ export function AgendaPage({
         return;
       }
     }
-    setSavingEdit(false);
-
     if (scheduleChanged) {
       void recordAgendaEvent({
         entityType: 'appointment',
@@ -2966,6 +2978,7 @@ export function AgendaPage({
         metadata: { source: 'appointment_sheet' },
       });
       try {
+        setEditSaveStage('Alterações guardadas. A notificar cliente…');
         await sendUpdatedAppointmentConfirmation(selectedAppointment.id);
         toast.success(
           'Novo horário enviado ao cliente pelos canais disponíveis.'
@@ -3000,12 +3013,14 @@ export function AgendaPage({
       });
 
       try {
+        setEditSaveStage('Alterações guardadas. A notificar cliente…');
         const response = await fetch(
           `/api/clinic/appointments/${selectedAppointment.id}/status-notification`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: editDraft.status }),
+            signal: AbortSignal.timeout(12_000),
           }
         );
         const result = (await response.json().catch(() => ({}))) as {
@@ -3033,6 +3048,9 @@ export function AgendaPage({
         );
       }
     }
+
+    setSavingEdit(false);
+    setEditSaveStage('');
 
     if (benefitType !== 'direct') {
       void recordAgendaEvent({
@@ -4434,7 +4452,9 @@ export function AgendaPage({
                         ) : (
                           <Plus className="size-4" />
                         )}
-                        Guardar e criar nova
+                        {savingEdit
+                          ? editSaveStage || 'A guardar…'
+                          : 'Guardar e criar nova'}
                       </Button>
                       <Button
                         onClick={() => saveAppointmentSheet()}
@@ -4445,7 +4465,7 @@ export function AgendaPage({
                         ) : (
                           <CalendarCheck className="size-4" />
                         )}
-                        Guardar
+                        {savingEdit ? editSaveStage || 'A guardar…' : 'Guardar'}
                       </Button>
                     </div>
                   ) : (
