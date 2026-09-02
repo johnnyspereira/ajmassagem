@@ -1172,6 +1172,12 @@
       "namedRegex": "^/portal\\-campaigns(?:/)?$"
     },
     {
+      "page": "/privacidade",
+      "regex": "^/privacidade(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/privacidade(?:/)?$"
+    },
+    {
       "page": "/referrals",
       "regex": "^/referrals(?:/)?$",
       "routeKeys": {},
