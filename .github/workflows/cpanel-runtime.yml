@@ -159,6 +159,12 @@ jobs:
           cd cpanel-runtime
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # The source repository intentionally ignores /.next, but this
+          # generated branch *is* the deployable Next runtime. Force-add it so
+          # every newly hashed route chunk and stylesheet is published. Without
+          # this, Git keeps only assets already tracked by an older runtime and
+          # production HTML starts returning 404 for its new CSS/JS files.
+          git add -f .next
           git add -A
           if git diff --cached --quiet; then
             echo "Runtime output is unchanged; nothing to publish."
