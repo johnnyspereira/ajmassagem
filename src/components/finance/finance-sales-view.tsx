@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { BadgeCheck, ChevronRight, CircleDollarSign, Download, ReceiptText, RotateCcw, Search } from 'lucide-react';
+import { BadgeCheck, ChevronRight, CircleDollarSign, Download, Mail, ReceiptText, RotateCcw, Search } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ export function SalesView({
   currency,
   onPayment,
   onApprove,
+  onResendVoucher,
   onReverse,
   canOperate,
   canRefund,
@@ -26,6 +27,7 @@ export function SalesView({
   currency: string;
   onPayment: (sale: FinanceSale) => void;
   onApprove: (sale: FinanceSale) => void;
+  onResendVoucher: (sale: FinanceSale) => void;
   onReverse: (sale: FinanceSale) => void;
   canOperate: boolean;
   canRefund: boolean;
@@ -203,6 +205,22 @@ export function SalesView({
                         onClick={() => onPayment(sale)}
                       >
                         <CircleDollarSign /> Receber saldo
+                      </Button>
+                    ) : null}
+                    {sale.status === 'paid' &&
+                    sale.items?.some((item) => item.item_type === 'voucher') ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!canOperate || !sale.contact?.email}
+                        title={
+                          sale.contact?.email
+                            ? 'Reenvia o voucher e o PDF para o email do cliente'
+                            : 'O cliente não possui email na ficha'
+                        }
+                        onClick={() => onResendVoucher(sale)}
+                      >
+                        <Mail /> Reenviar voucher
                       </Button>
                     ) : null}
                     {sale.status !== 'paid' &&

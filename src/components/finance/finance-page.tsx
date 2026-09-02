@@ -1291,6 +1291,20 @@ export function FinancePage({
     await loadFinance();
   }
 
+  async function resendSaleVoucher(sale: FinanceSale) {
+    if (!canOperate) return;
+    if (!sale.contact?.email) {
+      toast.error('Adicione um email à ficha do cliente antes de reenviar.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await deliverSaleVouchers(sale.id);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (loading)
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -1554,6 +1568,7 @@ export function FinancePage({
             currency={defaultCurrency}
             onPayment={startLaterPayment}
             onApprove={approveComplimentarySale}
+            onResendVoucher={resendSaleVoucher}
             onReverse={startReverseSale}
             canOperate={canOperate}
             canRefund={canEditSettings}
