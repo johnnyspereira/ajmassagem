@@ -78,7 +78,12 @@ export async function sendLocalEmail(input: {
         socketTimeout: 20_000,
       }),
     });
-  } else {
+  }
+  // Shared cPanel installations normally expose a local sendmail binary.
+  // Keep it as a delivery fallback when SMTP is configured but unavailable;
+  // a stale SMTP password or certificate must not disable every transactional
+  // email from the portal, agenda, packs and vouchers.
+  if (!host || process.platform !== 'win32') {
     transports.push({
       name: 'sendmail',
       client: nodemailer.createTransport({

@@ -314,7 +314,15 @@ export async function POST(
         { senderType: 'bot' }
       );
     }
-    return generic;
+    return Response.json({
+      ok: true,
+      delivered: true,
+      channel: delivery,
+      message:
+        delivery === 'email'
+          ? `Email de acesso enviado para ${email}. Verifique também o spam.`
+          : 'Acesso enviado para o WhatsApp registado.',
+    });
   } catch (error) {
     if (createdUserId) {
       if (createdAccess) {
