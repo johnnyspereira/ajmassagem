@@ -4317,6 +4317,7 @@ export function AgendaPage({
                           <>
                             <ActionButton
                               tone="violet"
+                              disabled={editDraft.status === 'cancelled'}
                               onClick={() =>
                                 openScheduleChange(selectedAppointment)
                               }
@@ -4336,6 +4337,7 @@ export function AgendaPage({
                             </ActionButton>
                             <ActionButton
                               tone="amber"
+                              disabled={editDraft.status === 'cancelled'}
                               active={Boolean(
                                 selectedAppointment.reminder_sent_at
                               )}
@@ -4349,6 +4351,7 @@ export function AgendaPage({
                           <>
                             <ActionButton
                               tone="emerald"
+                              disabled={editDraft.status === 'cancelled'}
                               active={editDraft.status === 'confirmed'}
                               onClick={() => updateEditAction('confirmed')}
                             >
@@ -4356,6 +4359,7 @@ export function AgendaPage({
                             </ActionButton>
                             <ActionButton
                               tone="sky"
+                              disabled={editDraft.status === 'cancelled'}
                               active={Boolean(editDraft.arrivedAt)}
                               onClick={() => updateEditAction('arrived')}
                             >
@@ -4363,6 +4367,7 @@ export function AgendaPage({
                             </ActionButton>
                             <ActionButton
                               tone="violet"
+                              disabled={editDraft.status === 'cancelled'}
                               active={editDraft.status === 'completed'}
                               onClick={() => updateEditAction('completed')}
                             >
@@ -4370,6 +4375,7 @@ export function AgendaPage({
                             </ActionButton>
                             <ActionButton
                               tone="emerald"
+                              disabled={editDraft.status === 'cancelled'}
                               active={Boolean(editDraft.paidAt)}
                               onClick={() => setPaymentChoiceOpen(true)}
                             >
@@ -4377,6 +4383,7 @@ export function AgendaPage({
                             </ActionButton>
                             <ActionButton
                               tone="amber"
+                              disabled={editDraft.status === 'cancelled'}
                               active={editDraft.status === 'no_show'}
                               onClick={() => updateEditAction('no_show')}
                             >
@@ -4384,6 +4391,7 @@ export function AgendaPage({
                             </ActionButton>
                             <ActionButton
                               danger
+                              disabled={editDraft.status === 'cancelled'}
                               active={editDraft.status === 'cancelled'}
                               onClick={() => updateEditAction('cancelled')}
                             >
@@ -6492,12 +6500,14 @@ function HeaderStatus({
 function ActionButton({
   active,
   danger,
+  disabled,
   tone = 'neutral',
   onClick,
   children,
 }: {
   active?: boolean;
   danger?: boolean;
+  disabled?: boolean;
   tone?: 'neutral' | 'emerald' | 'sky' | 'amber' | 'violet';
   onClick: () => void;
   children: ReactNode;
@@ -6516,8 +6526,9 @@ function ActionButton({
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={cn(
-        'inline-flex min-h-9 items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors',
+        'inline-flex min-h-9 items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45',
         active
           ? danger
             ? 'border-red-500 bg-red-500 text-white'
