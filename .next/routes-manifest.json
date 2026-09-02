@@ -349,6 +349,14 @@
       "namedRegex": "^/api/portal/(?<nxtPslug>[^/]+?)/privacy/export(?:/)?$"
     },
     {
+      "page": "/api/portal/[slug]/privacy-notice",
+      "regex": "^/api/portal/([^/]+?)/privacy\\-notice(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/api/portal/(?<nxtPslug>[^/]+?)/privacy\\-notice(?:/)?$"
+    },
+    {
       "page": "/api/portal/[slug]/profile",
       "regex": "^/api/portal/([^/]+?)/profile(?:/)?$",
       "routeKeys": {
