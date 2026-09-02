@@ -622,6 +622,7 @@ export function AgendaPage({
   const calendarAutoSyncStarted = useRef(false);
 
   const [appointmentOpen, setAppointmentOpen] = useState(false);
+  const appointmentFormScrollRef = useRef<HTMLDivElement>(null);
   const [appointmentReferralId, setAppointmentReferralId] = useState<
     string | null
   >(initialReferralId);
@@ -869,6 +870,9 @@ export function AgendaPage({
       setRecentClientAppointments([]);
       setAppointmentReferralId(referralId ?? null);
       setAppointmentOpen(true);
+      requestAnimationFrame(() => {
+        appointmentFormScrollRef.current?.scrollTo({ top: 0 });
+      });
     },
     [
       activeRooms,
@@ -5025,8 +5029,18 @@ export function AgendaPage({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={appointmentOpen} onOpenChange={setAppointmentOpen}>
-        <DialogContent className="flex max-h-[calc(100dvh-5rem)] flex-col overflow-hidden rounded-2xl p-0 sm:max-w-5xl">
+      <Dialog
+        open={appointmentOpen}
+        onOpenChange={(open) => {
+          setAppointmentOpen(open);
+          if (open) {
+            requestAnimationFrame(() => {
+              appointmentFormScrollRef.current?.scrollTo({ top: 0 });
+            });
+          }
+        }}
+      >
+        <DialogContent className="flex h-[min(880px,calc(100dvh-3rem))] max-h-[calc(100dvh-3rem)] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-5xl">
           <DialogHeader className="border-border bg-background/95 shrink-0 border-b px-6 py-5 backdrop-blur">
             <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
               <div>
@@ -5073,7 +5087,10 @@ export function AgendaPage({
             </div>
           </DialogHeader>
 
-          <div className="bg-muted/15 grid min-h-0 flex-1 gap-5 overflow-y-auto px-6 py-5">
+          <div
+            ref={appointmentFormScrollRef}
+            className="bg-muted/15 grid min-h-0 flex-1 scroll-pt-5 gap-5 overflow-y-auto overscroll-contain px-6 py-5"
+          >
             {appointmentReferralId ? (
               <div className="flex gap-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm">
                 <HeartHandshake className="mt-0.5 size-5 shrink-0 text-emerald-600" />
@@ -5612,7 +5629,7 @@ export function AgendaPage({
             </Field>
           </div>
 
-          <DialogFooter className="border-border bg-background shrink-0 items-center border-t px-6 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:justify-between">
+          <DialogFooter className="border-border bg-background z-10 m-0 shrink-0 items-center rounded-none border-t px-6 py-4 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] sm:justify-between">
             <div className="mr-auto hidden text-xs sm:block">
               <p className="font-medium">
                 {newAppointmentConflicts.length

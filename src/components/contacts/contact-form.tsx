@@ -23,7 +23,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { Loader2, AlertTriangle, Search, Tags } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 interface ContactFormProps {
@@ -70,6 +70,12 @@ export function ContactForm({
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
+  const [tagQuery, setTagQuery] = useState('');
+
+  const normalizedTagQuery = tagQuery.trim().toLocaleLowerCase('pt-PT');
+  const visibleTags = tags.filter((tag) =>
+    tag.name.toLocaleLowerCase('pt-PT').includes(normalizedTagQuery)
+  );
 
   useEffect(() => {
     if (open) {
@@ -79,6 +85,7 @@ export function ContactForm({
       setEmail(contact?.email ?? '');
       setCompany(contact?.company ?? '');
       setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
+      setTagQuery('');
       setDupMatch(null);
       fetchTags();
     }
@@ -240,8 +247,8 @@ export function ContactForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="bg-popover border-border text-popover-foreground flex h-[min(760px,calc(100dvh-3rem))] max-h-[calc(100dvh-3rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="border-border shrink-0 border-b px-6 py-5 pr-14">
           <DialogTitle className="text-popover-foreground">
             {isEdit ? t('editTitle') : t('addTitle')}
           </DialogTitle>
@@ -250,144 +257,177 @@ export function ContactForm({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="cf-name" className="text-muted-foreground">
-              {t('nameLabel')}
-            </Label>
-            <Input
-              id="cf-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('namePlaceholder')}
-              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto overscroll-contain px-6 py-5 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="cf-name" className="text-muted-foreground">
+                {t('nameLabel')}
+              </Label>
+              <Input
+                id="cf-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t('namePlaceholder')}
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="cf-client-ref" className="text-muted-foreground">
-              Ref. cliente
-            </Label>
-            <Input
-              id="cf-client-ref"
-              value={clientReference}
-              onChange={(e) => setClientReference(e.target.value)}
-              placeholder="Automática se ficar em branco"
-              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="cf-client-ref" className="text-muted-foreground">
+                Ref. cliente
+              </Label>
+              <Input
+                id="cf-client-ref"
+                value={clientReference}
+                onChange={(e) => setClientReference(e.target.value)}
+                placeholder="Automática se ficar em branco"
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="cf-phone" className="text-muted-foreground">
-              {t('phoneLabel')} <span className="text-red-400">*</span>
-            </Label>
-            <Input
-              id="cf-phone"
-              value={phone}
-              onChange={(e) => {
-                setPhone(e.target.value);
-                if (dupMatch) setDupMatch(null);
-              }}
-              onBlur={checkDuplicate}
-              placeholder={t('phonePlaceholder')}
-              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-            />
-            {dupMatch ? (
-              <div
-                className={`flex items-start gap-2 rounded-md border px-2.5 py-2 text-xs ${
-                  dupMatch.exact
-                    ? 'border-red-500/40 bg-red-500/10 text-red-300'
-                    : 'border-amber-500/40 bg-amber-500/10 text-amber-300'
-                }`}
-              >
-                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-                <div className="space-y-1">
-                  <p>{dupMatch.exact ? t('dupExact') : t('dupSimilar')}</p>
-                  {onViewExisting && (
-                    <button
-                      type="button"
-                      onClick={() => onViewExisting(dupMatch.contact.id)}
-                      className="font-medium underline underline-offset-2 hover:no-underline"
-                    >
-                      {t('viewExisting', {
-                        name: dupMatch.contact.name || dupMatch.contact.phone,
-                      })}
-                    </button>
-                  )}
+            <div className="space-y-2">
+              <Label htmlFor="cf-phone" className="text-muted-foreground">
+                {t('phoneLabel')} <span className="text-red-400">*</span>
+              </Label>
+              <Input
+                id="cf-phone"
+                value={phone}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  if (dupMatch) setDupMatch(null);
+                }}
+                onBlur={checkDuplicate}
+                placeholder={t('phonePlaceholder')}
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+              />
+              {dupMatch ? (
+                <div
+                  className={`flex items-start gap-2 rounded-md border px-2.5 py-2 text-xs ${
+                    dupMatch.exact
+                      ? 'border-red-500/40 bg-red-500/10 text-red-300'
+                      : 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                  }`}
+                >
+                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                  <div className="space-y-1">
+                    <p>{dupMatch.exact ? t('dupExact') : t('dupSimilar')}</p>
+                    {onViewExisting && (
+                      <button
+                        type="button"
+                        onClick={() => onViewExisting(dupMatch.contact.id)}
+                        className="font-medium underline underline-offset-2 hover:no-underline"
+                      >
+                        {t('viewExisting', {
+                          name: dupMatch.contact.name || dupMatch.contact.phone,
+                        })}
+                      </button>
+                    )}
+                  </div>
                 </div>
+              ) : (
+                <p className="text-muted-foreground text-xs">
+                  {t('phoneHint')}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cf-email" className="text-muted-foreground">
+                {t('emailLabel')}
+              </Label>
+              <Input
+                id="cf-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t('emailPlaceholder')}
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cf-company" className="text-muted-foreground">
+                {t('companyLabel')}
+              </Label>
+              <Input
+                id="cf-company"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                placeholder={t('companyPlaceholder')}
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+              />
+            </div>
+
+            <div className="border-border bg-muted/20 space-y-3 rounded-xl border p-4 sm:col-span-2">
+              <div className="flex items-center justify-between gap-3">
+                <Label className="text-foreground flex items-center gap-2 font-semibold">
+                  <Tags className="text-primary size-4" />
+                  {t('tagsLabel')}
+                </Label>
+                <span className="text-muted-foreground text-xs">
+                  {selectedTagIds.length
+                    ? `${selectedTagIds.length} selecionada${selectedTagIds.length === 1 ? '' : 's'}`
+                    : 'Opcional'}
+                </span>
               </div>
-            ) : (
-              <p className="text-muted-foreground text-xs">{t('phoneHint')}</p>
-            )}
+              {loadingTags ? (
+                <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                  <Loader2 className="size-3 animate-spin" />
+                  {t('loadingTags')}
+                </div>
+              ) : tags.length === 0 ? (
+                <p className="text-muted-foreground text-xs">
+                  {t('noTagsAvailable')}
+                </p>
+              ) : (
+                <>
+                  <div className="relative">
+                    <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+                    <Input
+                      value={tagQuery}
+                      onChange={(event) => setTagQuery(event.target.value)}
+                      placeholder="Pesquisar etiquetas…"
+                      className="bg-background pl-9"
+                    />
+                  </div>
+                  <div className="bg-background max-h-36 overflow-y-auto rounded-lg border p-2">
+                    <div className="flex flex-wrap gap-2">
+                      {visibleTags.map((tag) => {
+                        const selected = selectedTagIds.includes(tag.id);
+                        return (
+                          <button
+                            key={tag.id}
+                            type="button"
+                            onClick={() => toggleTag(tag.id)}
+                            aria-pressed={selected}
+                            className={`inline-flex cursor-pointer items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
+                              selected
+                                ? 'ring-primary shadow-sm ring-2 ring-offset-1'
+                                : 'opacity-75 hover:opacity-100'
+                            }`}
+                            style={{
+                              backgroundColor: tag.color + '20',
+                              color: tag.color,
+                              borderColor: tag.color,
+                            }}
+                          >
+                            {tag.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {visibleTags.length === 0 ? (
+                      <p className="text-muted-foreground py-5 text-center text-xs">
+                        Nenhuma etiqueta encontrada.
+                      </p>
+                    ) : null}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="cf-email" className="text-muted-foreground">
-              {t('emailLabel')}
-            </Label>
-            <Input
-              id="cf-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={t('emailPlaceholder')}
-              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="cf-company" className="text-muted-foreground">
-              {t('companyLabel')}
-            </Label>
-            <Input
-              id="cf-company"
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              placeholder={t('companyPlaceholder')}
-              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-muted-foreground">{t('tagsLabel')}</Label>
-            {loadingTags ? (
-              <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                <Loader2 className="size-3 animate-spin" />
-                {t('loadingTags')}
-              </div>
-            ) : tags.length === 0 ? (
-              <p className="text-muted-foreground text-xs">
-                {t('noTagsAvailable')}
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {tags.map((tag) => {
-                  const selected = selectedTagIds.includes(tag.id);
-                  return (
-                    <button
-                      key={tag.id}
-                      type="button"
-                      onClick={() => toggleTag(tag.id)}
-                      className={`inline-flex cursor-pointer items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
-                        selected
-                          ? 'ring-primary ring-offset-border ring-2 ring-offset-1'
-                          : 'opacity-60 hover:opacity-100'
-                      }`}
-                      style={{
-                        backgroundColor: tag.color + '20',
-                        color: tag.color,
-                        borderColor: tag.color,
-                      }}
-                    >
-                      {tag.name}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="bg-popover border-border">
+          <DialogFooter className="bg-background border-border m-0 shrink-0 rounded-none border-t px-6 py-4 shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
             <Button
               type="button"
               variant="outline"
