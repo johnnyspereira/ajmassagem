@@ -4,11 +4,18 @@ import nodemailer, { type Transporter } from 'nodemailer';
 
 function defaultSender() {
   const configuredUrl =
-    process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '';
+    process.env.CANONICAL_APP_URL ||
+    process.env.APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    '';
   try {
-    return `no-reply@${new URL(configuredUrl).hostname}`;
+    const hostname = new URL(configuredUrl).hostname.replace(/^www\./, '');
+    return hostname === 'jpmassagem.pt'
+      ? 'geral@jpmassagem.pt'
+      : `no-reply@${hostname}`;
   } catch {
-    return 'no-reply@localhost';
+    return 'geral@jpmassagem.pt';
   }
 }
 
@@ -19,6 +26,19 @@ function senderAddress(user?: string) {
   if (!configured) return address;
   const displayName = configured.replace(/["\r\n<>]/g, '').trim();
   return displayName ? `"${displayName}" <${address}>` : address;
+}
+
+export function emailDeliveryConfiguration() {
+  const smtp = Boolean(process.env.SMTP_HOST?.trim());
+  const user = process.env.SMTP_USER?.trim();
+  const password = process.env.SMTP_PASSWORD?.trim();
+  return {
+    transport: smtp ? ('smtp' as const) : ('sendmail' as const),
+    sender: senderAddress(user),
+    smtpHostConfigured: smtp,
+    smtpAuthenticationConfigured: Boolean(user && password),
+    ready: smtp ? Boolean(user && password) : process.platform !== 'win32',
+  };
 }
 
 export async function sendLocalEmail(input: {

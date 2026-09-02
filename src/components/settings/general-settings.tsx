@@ -40,6 +40,7 @@ import {
   type NavigationLayout,
 } from '@/lib/account-preferences';
 import { cn } from '@/lib/utils';
+import { EmailDeliveryPanel } from './email-delivery-panel';
 
 const BRANDING_BUCKET = 'account-branding';
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
@@ -485,6 +486,8 @@ export function GeneralSettings() {
           navigationLayout={navigationLayout}
         />
       </div>
+
+      {canEditSettings && <EmailDeliveryPanel />}
 
       <div className="flex items-center justify-end gap-3">
         {!canEditSettings && (
