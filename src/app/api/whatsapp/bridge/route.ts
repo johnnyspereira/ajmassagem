@@ -3,7 +3,7 @@ import type { RowDataPacket } from 'mysql2';
 
 import { mutate, selectRows, transaction } from '@/lib/mysql/db';
 
-function authorized(request: Request) {
+async function authorized(request: Request, accountId: string) {
   // Bracket access is intentional: this value only exists in Passenger's
   // runtime environment and must never be folded into the GitHub build.
   const secret = process.env['WHATSAPP_WORKER_SECRET']?.trim();
@@ -11,9 +11,22 @@ function authorized(request: Request) {
     .get('authorization')
     ?.replace(/^Bearer\s+/i, '')
     .trim();
-  if (!secret || !supplied) return false;
-  const left = Buffer.from(secret);
-  const right = Buffer.from(supplied);
+  if (!supplied) return false;
+  if (secret) {
+    const left = Buffer.from(secret);
+    const right = Buffer.from(supplied);
+    if (left.length === right.length && timingSafeEqual(left, right)) return true;
+  }
+  if (!accountId) return false;
+  const rows = await selectRows<(RowDataPacket & { secret_hash: string })[]>(
+    'SELECT secret_hash FROM whatsapp_worker_credentials WHERE account_id=? LIMIT 1',
+    [accountId]
+  );
+  const expected = rows[0]?.secret_hash;
+  if (!expected) return false;
+  const suppliedHash = createHash('sha256').update(supplied).digest('hex');
+  const left = Buffer.from(expected, 'hex');
+  const right = Buffer.from(suppliedHash, 'hex');
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
@@ -33,13 +46,13 @@ function messageDedupeKey(conversationId: string, externalId: string) {
 }
 
 export async function POST(request: Request) {
-  if (!authorized(request))
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const body = (await request.json()) as Record<string, unknown>;
     const action = String(body.action ?? '');
     const accountId = String(body.accountId ?? '');
     if (!accountId) throw new Error('accountId is required.');
+    if (!(await authorized(request, accountId)))
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     if (action === 'heartbeat') {
       await mutate(
