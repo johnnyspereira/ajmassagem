@@ -1273,6 +1273,24 @@ export function FinancePage({
     await loadFinance();
   }
 
+  async function approveComplimentarySale(sale: FinanceSale) {
+    if (!canOperate) return;
+    setSaving(true);
+    const { error } = await supabase.rpc('approve_complimentary_finance_sale', {
+      p_sale_id: sale.id,
+    });
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    try {
+      await deliverSaleVouchers(sale.id);
+      await deliverSalePacks(sale.id);
+    } catch {
+      toast.warning('Venda aprovada, mas a entrega por email ficou pendente.');
+    }
+    toast.success('Venda aprovada e benefício emitido.');
+    await loadFinance();
+  }
+
   if (loading)
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -1535,6 +1553,7 @@ export function FinancePage({
             sales={sales}
             currency={defaultCurrency}
             onPayment={startLaterPayment}
+            onApprove={approveComplimentarySale}
             onReverse={startReverseSale}
             canOperate={canOperate}
             canRefund={canEditSettings}

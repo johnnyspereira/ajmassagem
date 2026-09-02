@@ -2100,6 +2100,43 @@ export async function executeMysqlRpc(
         });
         return ok(true);
       }
+      case 'approve_complimentary_finance_sale': {
+        const saleId = String(args.p_sale_id);
+        await transaction(async (connection) => {
+          const [sales] = await connection.execute<
+            (RowDataPacket & {
+              status: string;
+              total_amount: number;
+              balance_due: number;
+            })[]
+          >(
+            `SELECT status,total_amount,balance_due FROM finance_sales
+             WHERE id=? AND account_id=? FOR UPDATE`,
+            [saleId, context.accountId]
+          );
+          const sale = sales[0];
+          if (!sale || !['open', 'partially_paid'].includes(sale.status))
+            throw new Error('Esta venda já não pode ser aprovada.');
+          if (Number(sale.total_amount) !== 0 || Number(sale.balance_due) !== 0)
+            throw new Error('Só é possível aprovar vendas sem valor por receber.');
+          await connection.execute(
+            `UPDATE finance_sales
+             SET status='paid',paid_amount=0,balance_due=0,
+                 completed_at=COALESCE(completed_at,UTC_TIMESTAMP(3))
+             WHERE id=?`,
+            [saleId]
+          );
+          await connection.execute(
+            "UPDATE finance_vouchers SET status='active' WHERE issued_sale_id=? AND status='pending'",
+            [saleId]
+          );
+          await connection.execute(
+            "UPDATE finance_client_packs SET status='active' WHERE sale_id=? AND status='pending'",
+            [saleId]
+          );
+        });
+        return ok(true);
+      }
       case 'confirm_external_payment_link': {
         const provider = String(args.p_provider),
           session = String(args.p_external_session_id);

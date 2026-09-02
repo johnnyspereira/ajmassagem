@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { ChevronRight, CircleDollarSign, Download, ReceiptText, RotateCcw, Search } from 'lucide-react';
+import { BadgeCheck, ChevronRight, CircleDollarSign, Download, ReceiptText, RotateCcw, Search } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ export function SalesView({
   sales,
   currency,
   onPayment,
+  onApprove,
   onReverse,
   canOperate,
   canRefund,
@@ -24,6 +25,7 @@ export function SalesView({
   sales: FinanceSale[];
   currency: string;
   onPayment: (sale: FinanceSale) => void;
+  onApprove: (sale: FinanceSale) => void;
   onReverse: (sale: FinanceSale) => void;
   canOperate: boolean;
   canRefund: boolean;
@@ -201,6 +203,17 @@ export function SalesView({
                         onClick={() => onPayment(sale)}
                       >
                         <CircleDollarSign /> Receber saldo
+                      </Button>
+                    ) : null}
+                    {sale.status !== 'paid' &&
+                    Number(sale.total_amount) === 0 &&
+                    Number(sale.balance_due) === 0 ? (
+                      <Button
+                        size="sm"
+                        disabled={!canOperate}
+                        onClick={() => onApprove(sale)}
+                      >
+                        <BadgeCheck /> Aprovar e emitir
                       </Button>
                     ) : null}
                     {!['voided', 'refunded'].includes(sale.status) ? (
