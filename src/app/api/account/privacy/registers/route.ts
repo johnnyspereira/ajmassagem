@@ -74,6 +74,8 @@ export async function POST(request: Request) {
         data_subjects: String(body.dataSubjects || 'Clientes'),
         data_categories: String(body.dataCategories || ''),
         legal_basis: String(body.legalBasis || ''),
+        legal_reference:
+          String(body.legalReference || '').slice(0, 255) || null,
         special_category_basis: String(body.specialCategoryBasis || '') || null,
         recipients: String(body.recipients || '') || null,
         retention_rule: String(body.retentionRule || '') || null,

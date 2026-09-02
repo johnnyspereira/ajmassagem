@@ -40,6 +40,7 @@ export function PrivacyOperations() {
     dataSubjects: 'Clientes',
     dataCategories: '',
     legalBasis: 'contract',
+    legalReference: '',
     specialCategoryBasis: '',
     recipients: '',
     retentionRule: '',
@@ -216,6 +217,16 @@ export function PrivacyOperations() {
               }
             />
             <Input
+              placeholder="Referência legal (ex.: RGPD artigo 6.º, n.º 1, alínea b))"
+              value={activity.legalReference}
+              onChange={(e) =>
+                setActivity((v) => ({
+                  ...v,
+                  legalReference: e.target.value,
+                }))
+              }
+            />
+            <Input
               placeholder="Regra de retenção"
               value={activity.retentionRule}
               onChange={(e) =>
@@ -228,9 +239,14 @@ export function PrivacyOperations() {
             </Button>
           </Grid>
           <List
-            values={data.activities}
+            values={data.activities.map((item) => ({
+              ...item,
+              legal_summary: [item.legal_basis, item.legal_reference]
+                .filter(Boolean)
+                .join(' · '),
+            }))}
             primary="name"
-            secondary="legal_basis"
+            secondary="legal_summary"
           />
         </CardContent>
       </Card>

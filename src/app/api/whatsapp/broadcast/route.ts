@@ -213,6 +213,33 @@ export async function POST(request: Request) {
         continue;
       }
 
+      const consentQuery = recipient.contact_id
+        ? supabase
+            .from('contacts')
+            .select('id,marketing_whatsapp_consent,privacy_review_status')
+            .eq('account_id', accountId)
+            .eq('id', recipient.contact_id)
+        : supabase
+            .from('contacts')
+            .select('id,marketing_whatsapp_consent,privacy_review_status')
+            .eq('account_id', accountId)
+            .in('phone', [recipient.phone, sanitized, `+${sanitized}`]);
+      const { data: consent } = await consentQuery.maybeSingle();
+      if (
+        !consent?.marketing_whatsapp_consent ||
+        consent.privacy_review_status !== 'current'
+      ) {
+        results.push({
+          phone: recipient.phone,
+          contact_id: consent?.id,
+          status: 'failed',
+          error:
+            'Marketing por WhatsApp não autorizado ou consentimento pendente de revisão.',
+        });
+        failedCount++;
+        continue;
+      }
+
       // Retry with phone variants on "not in allowed list" so numbers
       // that differ only in a trunk-prefix 0 still reach recipients.
       const variants = phoneVariants(sanitized);
@@ -328,7 +355,9 @@ async function sendQrInternalBroadcast({
 
     const { data: contact, error: contactError } = await supabase
       .from('contacts')
-      .select('id, name, phone, email, company')
+      .select(
+        'id, name, phone, email, company, marketing_whatsapp_consent, privacy_review_status'
+      )
       .eq('id', contactId)
       .eq('account_id', accountId)
       .maybeSingle();
@@ -338,6 +367,20 @@ async function sendQrInternalBroadcast({
         phone: recipient.phone,
         status: 'failed',
         error: 'Contact not found',
+      });
+      failedCount++;
+      continue;
+    }
+    if (
+      !contact.marketing_whatsapp_consent ||
+      contact.privacy_review_status !== 'current'
+    ) {
+      results.push({
+        phone: recipient.phone,
+        contact_id: contact.id,
+        status: 'failed',
+        error:
+          'Marketing por WhatsApp não autorizado ou consentimento pendente de revisão.',
       });
       failedCount++;
       continue;
@@ -471,9 +514,8 @@ async function waitForQrConnection(accountId: string, userId: string) {
     });
   }
 
-  const { getBaileysSessionStatus, startBaileysSession } = await import(
-    '@/lib/whatsapp/baileys'
-  );
+  const { getBaileysSessionStatus, startBaileysSession } =
+    await import('@/lib/whatsapp/baileys');
 
   let status = await startBaileysSession({
     accountId,

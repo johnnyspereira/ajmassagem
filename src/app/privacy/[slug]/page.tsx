@@ -37,27 +37,27 @@ export default async function PrivacyPolicyPage({
   const purposes = [
     [
       'Agendamento e prestação dos serviços',
-      'Execução do contrato e diligências pré-contratuais.',
+      'Execução do contrato e diligências pré-contratuais (artigo 6.º, n.º 1, alínea b) do RGPD).',
     ],
     [
       'Faturação, pagamentos, packs e vouchers',
-      'Execução do contrato e cumprimento de obrigações legais.',
+      'Execução do contrato e cumprimento de obrigações legais (artigo 6.º, n.º 1, alíneas b) e c) do RGPD).',
     ],
     [
       'Comunicações operacionais',
-      'Execução do serviço e interesses legítimos, respeitando as suas escolhas de canal.',
+      'Execução do contrato quando necessárias à marcação ou ao serviço (artigo 6.º, n.º 1, alínea b) do RGPD). Não são usadas como autorização para campanhas.',
     ],
     [
       'Marketing e campanhas',
-      'Consentimento, que pode ser retirado a qualquer momento.',
+      'Consentimento específico para cada canal (artigo 6.º, n.º 1, alínea a) do RGPD e artigo 13.º-A da Lei n.º 41/2004), que pode ser retirado a qualquer momento.',
     ],
     [
       'Anamnese e segurança do atendimento',
-      'Consentimento explícito para dados de saúde e prestação segura do serviço.',
+      'Consentimento e consentimento explícito para dados de saúde (artigo 6.º, n.º 1, alínea a), e artigo 9.º, n.º 2, alínea a) do RGPD).',
     ],
     [
       'Indique e Ganhe',
-      'Execução do programa e consentimento para contactar a pessoa indicada.',
+      'Registo mínimo da indicação e execução das condições do programa após adesão. O envio de campanhas ao amigo depende do consentimento do próprio.',
     ],
   ];
   return (

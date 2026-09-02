@@ -24,7 +24,8 @@ type ContactRow = {
 
 function isAuthorized(request: Request) {
   const expected = process.env.AUTOMATION_CRON_SECRET;
-  if (!expected) return { ok: false, status: 503, error: 'cron not configured' };
+  if (!expected)
+    return { ok: false, status: 503, error: 'cron not configured' };
 
   const supplied = request.headers.get('x-cron-secret') ?? '';
   const suppliedBuf = Buffer.from(supplied);
@@ -54,7 +55,11 @@ function scheduledAtForToday(sendTime: string) {
   return date.toISOString();
 }
 
-function formatMessage(template: string, contact: ContactRow, rule: AutomationRule) {
+function formatMessage(
+  template: string,
+  contact: ContactRow,
+  rule: AutomationRule
+) {
   return template
     .replaceAll('{{nome}}', contact.name?.trim() || 'tudo bem')
     .replaceAll('{{telefone}}', contact.phone || '')
@@ -167,6 +172,8 @@ async function findContactsForRule(rule: AutomationRule, today: Date) {
       .eq('account_id', rule.account_id)
       .not('birth_date', 'is', null)
       .filter('marketing_consent', 'is', true)
+      .filter('marketing_whatsapp_consent', 'is', true)
+      .eq('privacy_review_status', 'current')
       .limit(2000);
 
     if (error) {
@@ -185,11 +192,11 @@ async function findContactsForRule(rule: AutomationRule, today: Date) {
 
   const { data, error } = await supabaseAdmin()
     .from('contacts')
-    .select(
-      'id, name, phone, conversations!left(last_message_at, created_at)'
-    )
+    .select('id, name, phone, conversations!left(last_message_at, created_at)')
     .eq('account_id', rule.account_id)
     .filter('marketing_consent', 'is', true)
+    .filter('marketing_whatsapp_consent', 'is', true)
+    .eq('privacy_review_status', 'current')
     .limit(2000);
 
   if (error) {
@@ -197,11 +204,21 @@ async function findContactsForRule(rule: AutomationRule, today: Date) {
     return [];
   }
 
-  return ((data ?? []) as Array<ContactRow & {
-    conversations?: Array<{ last_message_at: string | null; created_at: string | null }>;
-  }>).filter((contact) => {
+  return (
+    (data ?? []) as Array<
+      ContactRow & {
+        conversations?: Array<{
+          last_message_at: string | null;
+          created_at: string | null;
+        }>;
+      }
+    >
+  ).filter((contact) => {
     const last = contact.conversations
-      ?.map((conversation) => conversation.last_message_at ?? conversation.created_at)
+      ?.map(
+        (conversation) =>
+          conversation.last_message_at ?? conversation.created_at
+      )
       .filter(Boolean)
       .sort()
       .at(-1);

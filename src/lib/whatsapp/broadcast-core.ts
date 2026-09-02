@@ -158,6 +158,19 @@ export async function createBroadcast(
     const { id } = await findOrCreateContact(db, accountId, auditUserId, {
       phone: sanitized,
     });
+    const { data: consent } = await db
+      .from('contacts')
+      .select('marketing_whatsapp_consent,privacy_review_status')
+      .eq('account_id', accountId)
+      .eq('id', id)
+      .maybeSingle();
+    if (
+      !consent?.marketing_whatsapp_consent ||
+      consent.privacy_review_status !== 'current'
+    ) {
+      rejected++;
+      continue;
+    }
     resolved.push({
       contactId: id,
       phone: sanitized,
@@ -182,7 +195,7 @@ export async function createBroadcast(
   if (deduped.length === 0) {
     throw new BroadcastError(
       'bad_request',
-      'No recipients had a valid E.164 phone number',
+      'Nenhum destinatário tem um telefone válido e consentimento atual para marketing por WhatsApp.',
       400
     );
   }
