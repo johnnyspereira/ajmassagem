@@ -636,6 +636,7 @@ export function AgendaPage({
     () => defaultAppointmentDraft(profile?.id)
   );
   const [savingAppointment, setSavingAppointment] = useState(false);
+  const [appointmentSaveStage, setAppointmentSaveStage] = useState('');
   const [appointmentPreviewOpen, setAppointmentPreviewOpen] = useState(false);
   const [createSumUpCharge, setCreateSumUpCharge] = useState(false);
   const [recurrenceCount, setRecurrenceCount] = useState(1);
@@ -1374,24 +1375,35 @@ export function AgendaPage({
       return;
     }
 
+    setSavingAppointment(true);
+    setAppointmentSaveStage('A validar disponibilidade…');
+
     const startAt = appointmentDate(
       appointmentDraft.date,
       appointmentDraft.time
     );
     const endAt = addMinutes(startAt, selectedService.duration_minutes);
 
-    if (
-      !(await ensureAvailability({
+    let isAvailable = false;
+    try {
+      isAvailable = await ensureAvailability({
         startsAt: startAt,
         endsAt: endAt,
         professionalId: appointmentDraft.professionalProfileId || null,
         roomId: appointmentDraft.roomId || null,
-      }))
-    ) {
+      });
+    } catch (error) {
+      toast.error(
+        `Não foi possível validar a disponibilidade: ${error instanceof Error ? error.message : 'erro inesperado'}`
+      );
+    }
+    if (!isAvailable) {
+      setSavingAppointment(false);
+      setAppointmentSaveStage('');
       return;
     }
 
-    setSavingAppointment(true);
+    setAppointmentSaveStage('A guardar marcação…');
     const { data, error } = await supabase
       .from('clinic_appointments')
       .insert({
@@ -1424,6 +1436,7 @@ export function AgendaPage({
 
     let createdAppointment = data;
     if (data?.id && appointmentReferralId) {
+      setAppointmentSaveStage('A aplicar benefício…');
       const { error: discountError } = await supabase.rpc(
         'apply_referral_appointment_discount',
         { p_appointment_id: data.id }
@@ -1451,6 +1464,7 @@ export function AgendaPage({
     }
 
     if (createdAppointment?.id && newBenefitType !== 'direct') {
+      setAppointmentSaveStage('A reservar benefício…');
       const { error: benefitError } =
         newBenefitCodeLookup &&
         (newBenefitCodeLookup.kind === 'pack' ||
@@ -1488,17 +1502,26 @@ export function AgendaPage({
     let confirmationSkipped = false;
     let confirmationChannels = '';
     if (createdAppointment?.id) {
-      const confirmationResponse = await fetch(
-        `/api/clinic/appointments/${createdAppointment.id}/confirmation`,
-        { method: 'POST' }
-      );
-      if (!confirmationResponse.ok) {
+      setAppointmentSaveStage('Marcação criada. A enviar confirmação…');
+      let confirmationResponse: Response | null = null;
+      try {
+        confirmationResponse = await fetch(
+          `/api/clinic/appointments/${createdAppointment.id}/confirmation`,
+          { method: 'POST', signal: AbortSignal.timeout(12_000) }
+        );
+      } catch (error) {
+        confirmationWarning =
+          error instanceof DOMException && error.name === 'TimeoutError'
+            ? 'O envio excedeu 12 segundos e continuará pendente.'
+            : 'O canal de comunicação não respondeu.';
+      }
+      if (confirmationResponse && !confirmationResponse.ok) {
         const confirmationPayload = await confirmationResponse
           .json()
           .catch(() => ({}));
         confirmationWarning =
           confirmationPayload.error || 'Não foi possível enviar a confirmação.';
-      } else {
+      } else if (confirmationResponse) {
         const confirmationPayload = (await confirmationResponse.json()) as {
           skipped?: boolean;
           deliveries?: {
@@ -1568,6 +1591,7 @@ export function AgendaPage({
       }
     }
     setSavingAppointment(false);
+    setAppointmentSaveStage('');
 
     if (confirmationWarning) {
       toast.warning(
@@ -5660,7 +5684,9 @@ export function AgendaPage({
               ) : (
                 <CalendarCheck className="size-4" />
               )}
-              Criar agendamento
+              {savingAppointment
+                ? appointmentSaveStage || 'A criar…'
+                : 'Criar agendamento'}
             </Button>
           </DialogFooter>
         </DialogContent>
