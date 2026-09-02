@@ -1010,6 +1010,17 @@ export async function executeMysqlRpc(
               pin: optionalText(payment.pin_code),
               notes: optionalText(payment.notes),
             });
+          // A complimentary voucher or pack has no payment to register, but
+          // it is still a completed sale: issue its benefits immediately.
+          if (total === 0) {
+            await connection.execute(
+              `UPDATE finance_sales
+               SET status='paid',paid_amount=0,balance_due=0,
+                   completed_at=COALESCE(completed_at,UTC_TIMESTAMP(3))
+               WHERE id=? AND status='open'`,
+              [saleId]
+            );
+          }
           const [sale] = await connection.execute<
             (RowDataPacket & { status: string })[]
           >('SELECT status FROM finance_sales WHERE id=?', [saleId]);
