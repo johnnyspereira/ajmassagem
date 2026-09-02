@@ -63,6 +63,19 @@ function smtpErrorForUser(error: unknown) {
   return `Falha SMTP: ${message.slice(0, 280)}`;
 }
 
+function portalIdentityErrorCode(message = '') {
+  const normalized = message.toLowerCase();
+  if (normalized.includes('duplicate') || normalized.includes('unique'))
+    return 'PORTAL_IDENTITY_DUPLICATE';
+  if (normalized.includes('user_metadata') || normalized.includes('unknown column'))
+    return 'PORTAL_IDENTITY_SCHEMA';
+  if (normalized.includes('scrypt') || normalized.includes('memory'))
+    return 'PORTAL_IDENTITY_PASSWORD';
+  if (normalized.includes('connect') || normalized.includes('timeout'))
+    return 'PORTAL_IDENTITY_DATABASE';
+  return 'PORTAL_IDENTITY_CREATE_FAILED';
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
@@ -188,6 +201,7 @@ export async function POST(
         },
       });
     if (createError || !created.user) {
+      const identityErrorCode = portalIdentityErrorCode(createError?.message);
       console.warn(
         '[portal-password] auth user could not be created:',
         createError?.message
@@ -196,7 +210,7 @@ export async function POST(
         {
           error:
             'Não foi possível preparar a identidade segura do Portal 360. Contacte a clínica.',
-          code: 'PORTAL_IDENTITY_CREATE_FAILED',
+          code: identityErrorCode,
         },
         { status: 502 }
       );

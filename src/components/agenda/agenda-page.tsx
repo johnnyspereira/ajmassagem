@@ -1517,6 +1517,15 @@ export function AgendaPage({
         return;
       }
     }
+    // The appointment is durable at this point. Reflect it immediately instead
+    // of keeping the modal blocked while external communication is delivered.
+    setSavingAppointment(false);
+    setAppointmentSaveStage('');
+    setAppointmentOpen(false);
+    setSelectedDate(startAt);
+    void loadAgenda();
+    toast.success('Agendamento guardado. A confirmação está a ser processada.');
+
     let confirmationWarning: string | null = null;
     let confirmationSkipped = false;
     let confirmationChannels = '';
@@ -1609,9 +1618,6 @@ export function AgendaPage({
         }).catch(() => undefined);
       }
     }
-    setSavingAppointment(false);
-    setAppointmentSaveStage('');
-
     if (confirmationWarning) {
       toast.warning(
         `Agendamento criado, mas a confirmação ficou pendente: ${confirmationWarning}`
@@ -1643,9 +1649,6 @@ export function AgendaPage({
     if (recurringCreated) {
       toast.success(`${recurringCreated + 1} agendamentos semanais criados.`);
     }
-    setAppointmentOpen(false);
-    setSelectedDate(startAt);
-    void loadAgenda();
     if (createSumUpCharge && createdAppointment?.id) {
       router.push(
         `/finance?tab=pos&appointment=${encodeURIComponent(createdAppointment.id)}&contact=${encodeURIComponent(appointmentDraft.contactId)}`
@@ -2983,6 +2986,15 @@ export function AgendaPage({
         return;
       }
     }
+    // The edit and its financial effects are already committed. Close and
+    // refresh now; client notifications must not make the Save button appear
+    // unresponsive or encourage duplicate submissions.
+    setSavingEdit(false);
+    setEditSaveStage('');
+    closeAppointmentSheet();
+    void loadAgenda();
+    toast.success('Marcação guardada. Comunicações em processamento.');
+
     if (scheduleChanged) {
       void recordAgendaEvent({
         entityType: 'appointment',
@@ -3067,9 +3079,6 @@ export function AgendaPage({
       }
     }
 
-    setSavingEdit(false);
-    setEditSaveStage('');
-
     if (benefitType !== 'direct') {
       void recordAgendaEvent({
         entityType: 'appointment',
@@ -3093,10 +3102,6 @@ export function AgendaPage({
         },
       });
     }
-
-    toast.success('Marcação guardada.');
-    closeAppointmentSheet();
-    void loadAgenda();
 
     if (options.createNewAfter) {
       window.setTimeout(() => openAppointmentDialog(), 0);
