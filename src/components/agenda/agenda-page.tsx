@@ -3543,50 +3543,108 @@ export function AgendaPage({
           if (!open) closeAppointmentSheet();
         }}
       >
-        <DialogContent className="flex max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-[1180px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1180px]">
+        <DialogContent className="flex max-h-[calc(100vh-1rem)] w-[calc(100vw-1rem)] max-w-[1240px] flex-col gap-0 overflow-hidden border-violet-200/70 p-0 shadow-2xl sm:max-w-[1240px] dark:border-violet-900/60">
           {selectedAppointment && editDraft ? (
             <>
-              <DialogHeader className="border-border shrink-0 border-b px-5 py-4">
+              <DialogHeader className="dark:via-background shrink-0 border-b border-violet-200/70 bg-gradient-to-r from-violet-50 via-white to-sky-50 px-6 py-5 dark:border-violet-900/60 dark:from-violet-950/50 dark:to-sky-950/40">
                 <div className="flex flex-wrap items-start justify-between gap-4 pr-10">
-                  <div>
-                    <DialogTitle>Ficha da marcação</DialogTitle>
-                    <div className="text-muted-foreground mt-2 grid gap-1 text-xs sm:grid-cols-2">
-                      <span>
-                        Criada:{' '}
-                        {new Date(
-                          selectedAppointment.created_at
-                        ).toLocaleString('pt-PT')}
-                      </span>
-                      <span>
-                        Modificada:{' '}
-                        {new Date(
-                          selectedAppointment.updated_at
-                        ).toLocaleString('pt-PT')}
-                      </span>
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-sm shadow-violet-500/30">
+                      <CalendarCheck className="size-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <DialogTitle className="text-xl">
+                          Ficha da marcação
+                        </DialogTitle>
+                        <Badge className="border-violet-200 bg-violet-100 font-mono text-violet-700 hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-300">
+                          #{selectedAppointment.id.slice(0, 8).toUpperCase()}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 truncate text-sm font-medium text-violet-950 dark:text-violet-100">
+                        {selectedAppointment.contact?.name ||
+                          'Cliente sem nome'}{' '}
+                        · {selectedAppointment.service?.name || 'Serviço'} ·{' '}
+                        {formatAppointmentDateTime(
+                          selectedAppointment.scheduled_start
+                        )}
+                      </p>
+                      <div className="text-muted-foreground mt-2 grid gap-1 text-xs sm:grid-cols-2">
+                        <span>
+                          Criada:{' '}
+                          {new Date(
+                            selectedAppointment.created_at
+                          ).toLocaleString('pt-PT')}
+                        </span>
+                        <span>
+                          Modificada:{' '}
+                          {new Date(
+                            selectedAppointment.updated_at
+                          ).toLocaleString('pt-PT')}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div className="grid min-w-[420px] flex-1 grid-cols-3 gap-2 sm:flex-none">
+                  <div className="grid w-full min-w-0 flex-1 grid-cols-2 gap-2 md:grid-cols-4 xl:w-auto xl:min-w-[520px] xl:flex-none">
                     <HeaderStatus
                       label="Estado"
                       value={STATUS_LABEL[editDraft.status]}
+                      tone={
+                        editDraft.status === 'confirmed'
+                          ? 'emerald'
+                          : editDraft.status === 'completed'
+                            ? 'violet'
+                            : editDraft.status === 'cancelled'
+                              ? 'rose'
+                              : editDraft.status === 'no_show'
+                                ? 'amber'
+                                : 'sky'
+                      }
                     />
                     <HeaderStatus
                       label="Chegada"
                       value={editDraft.arrivedAt ? 'Registada' : 'Pendente'}
                       active={Boolean(editDraft.arrivedAt)}
+                      tone={editDraft.arrivedAt ? 'emerald' : 'amber'}
                     />
                     <HeaderStatus
                       label="Pagamento"
                       value={editDraft.paidAt ? 'Registado' : 'Pendente'}
                       active={Boolean(editDraft.paidAt)}
+                      tone={editDraft.paidAt ? 'emerald' : 'amber'}
+                    />
+                    <HeaderStatus
+                      label="Anamnese"
+                      value={
+                        selectedAppointment.anamnesis &&
+                        ['submitted', 'reviewed'].includes(
+                          selectedAppointment.anamnesis.status
+                        )
+                          ? 'Preenchida'
+                          : 'Pendente'
+                      }
+                      active={Boolean(
+                        selectedAppointment.anamnesis &&
+                        ['submitted', 'reviewed'].includes(
+                          selectedAppointment.anamnesis.status
+                        )
+                      )}
+                      tone={
+                        selectedAppointment.anamnesis &&
+                        ['submitted', 'reviewed'].includes(
+                          selectedAppointment.anamnesis.status
+                        )
+                          ? 'emerald'
+                          : 'amber'
+                      }
                     />
                   </div>
                 </div>
               </DialogHeader>
 
-              <div className="min-h-0 flex-1 overflow-y-auto p-5">
+              <div className="via-background min-h-0 flex-1 overflow-y-auto bg-gradient-to-b from-violet-50/40 to-sky-50/30 p-5 dark:from-violet-950/10 dark:to-sky-950/10">
                 <div className="grid items-start gap-5">
-                  <section className="border-border bg-muted/20 rounded-md border p-4">
+                  <section className="dark:to-background rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 to-white p-4 shadow-sm dark:border-sky-900/60 dark:from-sky-950/30">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <h3 className="text-sm font-semibold">
@@ -3597,8 +3655,8 @@ export function AgendaPage({
                           financeiro desta marcação.
                         </p>
                       </div>
-                      <Badge variant="outline" className="font-mono">
-                        #{selectedAppointment.id.slice(0, 8).toUpperCase()}
+                      <Badge className="bg-sky-100 text-sky-700 hover:bg-sky-100 dark:bg-sky-950 dark:text-sky-300">
+                        Visão geral
                       </Badge>
                     </div>
                     <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -3715,7 +3773,7 @@ export function AgendaPage({
                     ) : null}
                   </section>
 
-                  <div className="grid gap-4">
+                  <div className="dark:bg-background/80 grid gap-4 rounded-xl border border-violet-200/60 bg-white/80 p-4 shadow-sm dark:border-violet-900/50">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Field label="Profissional">
                         <NativeSelect
@@ -4324,7 +4382,7 @@ export function AgendaPage({
                 </div>
               </div>
 
-              <div className="border-border bg-background shrink-0 border-t px-5 py-3">
+              <div className="dark:from-background shrink-0 border-t border-violet-200/70 bg-gradient-to-r from-white via-violet-50/70 to-sky-50/70 px-5 py-3 dark:border-violet-900/60 dark:via-violet-950/30 dark:to-sky-950/30">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <Button variant="outline" onClick={closeAppointmentSheet}>
                     Fechar marcação
@@ -6193,12 +6251,42 @@ function AppointmentSection({
   summary: string;
   children: ReactNode;
 }) {
+  const tone = {
+    notes: {
+      card: 'border-amber-200/80 bg-amber-50/40 dark:border-amber-900/60 dark:bg-amber-950/15',
+      icon: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+    },
+    benefits: {
+      card: 'border-emerald-200/80 bg-emerald-50/40 dark:border-emerald-900/60 dark:bg-emerald-950/15',
+      icon: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+    },
+    actions: {
+      card: 'border-violet-200/80 bg-violet-50/40 dark:border-violet-900/60 dark:bg-violet-950/15',
+      icon: 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300',
+    },
+    treatment: {
+      card: 'border-rose-200/80 bg-rose-50/40 dark:border-rose-900/60 dark:bg-rose-950/15',
+      icon: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300',
+    },
+    history: {
+      card: 'border-sky-200/80 bg-sky-50/40 dark:border-sky-900/60 dark:bg-sky-950/15',
+      icon: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300',
+    },
+  }[value] ?? {
+    card: 'border-border bg-card',
+    icon: 'bg-primary/10 text-primary',
+  };
   return (
-    <Accordion className="border-border bg-card rounded-md border">
+    <Accordion className={cn('rounded-xl border shadow-sm', tone.card)}>
       <AccordionItem value={value} className="border-0 px-3">
         <AccordionTrigger className="min-h-14 py-2.5 hover:no-underline">
           <span className="flex min-w-0 items-center gap-2.5">
-            <span className="bg-primary/10 text-primary flex size-8 shrink-0 items-center justify-center rounded-md">
+            <span
+              className={cn(
+                'flex size-9 shrink-0 items-center justify-center rounded-lg',
+                tone.icon
+              )}
+            >
               {icon}
             </span>
             <span className="min-w-0">
@@ -6232,18 +6320,29 @@ function HeaderStatus({
   label,
   value,
   active = false,
+  tone = 'sky',
 }: {
   label: string;
   value: string;
   active?: boolean;
+  tone?: 'sky' | 'emerald' | 'amber' | 'violet' | 'rose';
 }) {
+  const colors = {
+    sky: 'border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100',
+    emerald:
+      'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100',
+    amber:
+      'border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100',
+    violet:
+      'border-violet-200 bg-violet-50 text-violet-900 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-100',
+    rose: 'border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-100',
+  }[tone];
   return (
     <div
       className={cn(
-        'rounded-md border px-3 py-2',
-        active
-          ? 'border-emerald-500/30 bg-emerald-500/10'
-          : 'border-border bg-muted/30'
+        'rounded-xl border px-3 py-2.5 shadow-sm',
+        colors,
+        active && 'ring-1 ring-current/15'
       )}
     >
       <p className="text-muted-foreground text-[10px] font-medium uppercase">
