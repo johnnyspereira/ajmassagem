@@ -4,13 +4,16 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   AlertTriangle,
   Clock3,
+  Download,
+  Eraser,
   FileLock2,
   Plus,
   Save,
   ShieldCheck,
+  UserCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +27,14 @@ type SubjectRequest = {
   requester_name: string | null;
   requester_email: string | null;
   due_at: string;
+  contact_id: string | null;
+  identity_verified_at: string | null;
+  identity_verification_method: string | null;
+  export_generated_at: string | null;
+  decision: string;
+  resolution_notes: string | null;
+  rejection_basis: string | null;
+  erasure_retention_justification: string | null;
 };
 const defaults = {
   controllerName: '',
@@ -130,11 +141,15 @@ export function PrivacyCompliancePanel() {
     });
     await load();
   }
-  async function requestAction(id: string, action: string) {
+  async function requestAction(
+    id: string,
+    action: string,
+    payload: Record<string, unknown> = {}
+  ) {
     const response = await fetch(`/api/account/privacy/requests/${id}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({ action, ...payload }),
     });
     const result = await response.json();
     if (!response.ok)
@@ -143,6 +158,61 @@ export function PrivacyCompliancePanel() {
       );
     toast.success('Pedido atualizado e auditado.');
     await load();
+  }
+  async function verifyIdentity(item: SubjectRequest) {
+    const method = prompt(
+      'Método de confirmação (ex.: documento apresentado, código enviado ao email ou validação presencial):'
+    )?.trim();
+    if (!method) return;
+    const notes = prompt(
+      'Registe a evidência verificada, sem copiar dados excessivos do documento:'
+    )?.trim();
+    if (!notes) return;
+    await requestAction(item.id, 'verify', { method, notes });
+  }
+  async function conclude(item: SubjectRequest, partial = false) {
+    const notes = prompt(
+      'Descreva concretamente as ações realizadas e a resposta dada ao titular:'
+    )?.trim();
+    if (!notes) return;
+    let retentionJustification = '';
+    if (partial) {
+      retentionJustification =
+        prompt(
+          'Indique a obrigação legal ou outra razão que impede o cumprimento integral:'
+        )?.trim() || '';
+      if (!retentionJustification) return;
+    }
+    await requestAction(item.id, 'complete', {
+      decision: partial ? 'partially_approved' : 'approved',
+      notes,
+      retentionJustification,
+    });
+  }
+  async function reject(item: SubjectRequest) {
+    const notes = prompt(
+      'Indique o fundamento jurídico e factual da recusa:'
+    )?.trim();
+    if (!notes) return;
+    await requestAction(item.id, 'reject', { notes });
+  }
+  async function anonymize(item: SubjectRequest) {
+    const notes = prompt('Resuma o âmbito da anonimização:')?.trim();
+    if (!notes) return;
+    const retentionJustification =
+      prompt(
+        'Se existirem documentos fiscais a preservar, indique a justificação legal. Caso contrário, deixe vazio:'
+      )?.trim() || '';
+    if (
+      prompt('Para confirmar a anonimização, escreva APAGAR DADOS:') !==
+      'APAGAR DADOS'
+    )
+      return;
+    await requestAction(item.id, 'anonymize', {
+      notes,
+      retentionJustification,
+      confirmText: 'APAGAR DADOS',
+    });
   }
   return (
     <section className="animate-in fade-in-50 max-w-6xl duration-200">
@@ -325,42 +395,111 @@ export function PrivacyCompliancePanel() {
               requests.map((item) => (
                 <div
                   key={item.id}
-                  className="border-border flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm"
+                  className="border-border rounded-lg border p-4 text-sm"
                 >
-                  <div>
-                    <span className="font-medium">
-                      {item.requester_name || item.requester_email || 'Titular'}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {' '}
-                      · {requestLabel(item.request_type)}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <span className="font-medium">
+                        {item.requester_name ||
+                          item.requester_email ||
+                          'Titular'}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {' '}
+                        · {requestLabel(item.request_type)}
+                      </span>
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        {item.contact_id
+                          ? 'Ficha associada'
+                          : 'Sem ficha associada'}{' '}
+                        · Prazo:{' '}
+                        {new Date(item.due_at).toLocaleDateString('pt-PT')}
+                      </p>
+                    </div>
                     <span className="rounded-full bg-amber-500/10 px-2 py-1 text-xs text-amber-700">
                       {item.status}
                     </span>
-                    <span className="text-muted-foreground text-xs">
-                      Prazo: {new Date(item.due_at).toLocaleDateString('pt-PT')}
-                    </span>
-                    {!item.status.includes('completed') &&
-                      item.status !== 'rejected' && (
+                  </div>
+                  {item.identity_verified_at && (
+                    <p className="mt-3 flex items-center gap-2 text-xs text-emerald-700">
+                      <UserCheck className="size-4" /> Identidade confirmada por{' '}
+                      {item.identity_verification_method || 'método registado'}{' '}
+                      em{' '}
+                      {new Date(item.identity_verified_at).toLocaleDateString(
+                        'pt-PT'
+                      )}
+                      .
+                    </p>
+                  )}
+                  {(item.resolution_notes || item.rejection_basis) && (
+                    <p className="bg-muted/50 mt-3 rounded-md p-3 text-xs">
+                      {item.resolution_notes || item.rejection_basis}
+                    </p>
+                  )}
+                  {!['completed', 'rejected'].includes(item.status) && (
+                    <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
+                      {!item.identity_verified_at ? (
                         <Button
                           size="xs"
                           variant="outline"
-                          onClick={() =>
-                            requestAction(
-                              item.id,
-                              item.status === 'received' ? 'verify' : 'complete'
-                            )
-                          }
+                          onClick={() => verifyIdentity(item)}
                         >
-                          {item.status === 'received'
-                            ? 'Verificar identidade'
-                            : 'Concluir'}
+                          <UserCheck /> Confirmar identidade
                         </Button>
+                      ) : (
+                        <>
+                          <a
+                            className={buttonVariants({
+                              size: 'xs',
+                              variant: 'outline',
+                            })}
+                            href={`/api/account/privacy/requests/${item.id}/export`}
+                            download
+                          >
+                            <Download /> Gerar pacote
+                          </a>
+                          {item.contact_id &&
+                            item.request_type === 'rectification' && (
+                              <a
+                                className={buttonVariants({
+                                  size: 'xs',
+                                  variant: 'outline',
+                                })}
+                                href={`/contacts/${item.contact_id}`}
+                              >
+                                Corrigir ficha
+                              </a>
+                            )}
+                          {item.request_type === 'erasure' && (
+                            <Button
+                              size="xs"
+                              variant="destructive"
+                              onClick={() => anonymize(item)}
+                            >
+                              <Eraser /> Anonimizar
+                            </Button>
+                          )}
+                          <Button size="xs" onClick={() => conclude(item)}>
+                            Concluir integralmente
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={() => conclude(item, true)}
+                          >
+                            Concluir parcialmente
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={() => reject(item)}
+                          >
+                            Recusar
+                          </Button>
+                        </>
                       )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               ))
             ) : (

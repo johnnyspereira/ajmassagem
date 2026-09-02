@@ -206,15 +206,27 @@ export async function POST(request: Request) {
     const now = new Date();
     const due = new Date(now);
     due.setMonth(due.getMonth() + 1);
+    const requesterEmail = text(body.requesterEmail, 320);
+    let contactId = text(body.contactId, 36);
+    if (!contactId && requesterEmail) {
+      const { data: contact } = await supabaseAdmin()
+        .from('contacts')
+        .select('id')
+        .eq('account_id', ctx.accountId)
+        .eq('email', requesterEmail)
+        .limit(1)
+        .maybeSingle();
+      contactId = contact?.id ?? null;
+    }
     const { data, error } = await supabaseAdmin()
       .from('privacy_data_subject_requests')
       .insert({
         id: crypto.randomUUID(),
         account_id: ctx.accountId,
-        contact_id: text(body.contactId, 36),
+        contact_id: contactId,
         request_type: requestType,
         requester_name: text(body.requesterName, 255),
-        requester_email: text(body.requesterEmail, 320),
+        requester_email: requesterEmail,
         details: text(body.details, 5000),
         source: 'admin',
         due_at: due.toISOString(),
