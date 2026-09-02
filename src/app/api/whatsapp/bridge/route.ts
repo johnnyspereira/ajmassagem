@@ -4,10 +4,13 @@ import type { RowDataPacket } from 'mysql2';
 import { mutate, selectRows, transaction } from '@/lib/mysql/db';
 
 function authorized(request: Request) {
-  const secret = process.env.WHATSAPP_WORKER_SECRET;
+  // Bracket access is intentional: this value only exists in Passenger's
+  // runtime environment and must never be folded into the GitHub build.
+  const secret = process.env['WHATSAPP_WORKER_SECRET']?.trim();
   const supplied = request.headers
     .get('authorization')
-    ?.replace(/^Bearer\s+/i, '');
+    ?.replace(/^Bearer\s+/i, '')
+    .trim();
   if (!secret || !supplied) return false;
   const left = Buffer.from(secret);
   const right = Buffer.from(supplied);

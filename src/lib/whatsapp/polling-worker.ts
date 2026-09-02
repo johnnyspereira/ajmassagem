@@ -6,7 +6,8 @@ import type { RowDataPacket } from 'mysql2';
 import { mutate, selectRows } from '@/lib/mysql/db';
 
 export function isPollingWorkerMode() {
-  return process.env.WHATSAPP_MODE === 'polling_worker';
+  // Read at request time: cPanel/Passenger owns this setting, not CI.
+  return process.env['WHATSAPP_MODE']?.trim() === 'polling_worker';
 }
 
 export async function getPollingWorkerStatus(accountId: string) {
