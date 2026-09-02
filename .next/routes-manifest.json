@@ -124,6 +124,14 @@
       "namedRegex": "^/api/account/members/(?<nxtPuserId>[^/]+?)(?:/)?$"
     },
     {
+      "page": "/api/account/privacy/requests/[id]",
+      "regex": "^/api/account/privacy/requests/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/account/privacy/requests/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
       "page": "/api/ai/autoreply/[conversationId]",
       "regex": "^/api/ai/autoreply/([^/]+?)(?:/)?$",
       "routeKeys": {
@@ -533,6 +541,14 @@
       "namedRegex": "^/portal/(?<nxtPslug>[^/]+?)(?:/)?$"
     },
     {
+      "page": "/privacy/[slug]",
+      "regex": "^/privacy/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/privacy/(?<nxtPslug>[^/]+?)(?:/)?$"
+    },
+    {
       "page": "/refer/[code]",
       "regex": "^/refer/([^/]+?)(?:/)?$",
       "routeKeys": {
@@ -638,6 +654,18 @@
       "regex": "^/api/account/privacy(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/account/privacy(?:/)?$"
+    },
+    {
+      "page": "/api/account/privacy/registers",
+      "regex": "^/api/account/privacy/registers(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/account/privacy/registers(?:/)?$"
+    },
+    {
+      "page": "/api/account/privacy/retention",
+      "regex": "^/api/account/privacy/retention(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/account/privacy/retention(?:/)?$"
     },
     {
       "page": "/api/account/transfer-ownership",
