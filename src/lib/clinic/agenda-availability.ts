@@ -55,17 +55,29 @@ export function findAvailabilityConflicts(
     }
     if (
       item.kind === 'appointment' &&
-      ['cancelled', 'no_show'].includes(item.status ?? '')
+      ['cancelled', 'canceled', 'no_show'].includes(
+        (item.status ?? '').trim().toLowerCase()
+      )
     ) {
       return false;
     }
     if (!sharesResource(item, request)) return false;
 
+    const itemStart = new Date(item.startsAt);
+    const itemEnd = new Date(item.endsAt);
+    if (
+      Number.isNaN(itemStart.getTime()) ||
+      Number.isNaN(itemEnd.getTime()) ||
+      itemEnd <= itemStart
+    ) {
+      return false;
+    }
+
     return intervalsOverlap(
       request.startsAt,
       request.endsAt,
-      new Date(item.startsAt),
-      new Date(item.endsAt)
+      itemStart,
+      itemEnd
     );
   });
 }
@@ -82,7 +94,19 @@ export function availabilityConflictMessage(conflicts: AgendaResource[]) {
       : '',
     blocks ? `${blocks} bloqueio${blocks === 1 ? '' : 's'}` : '',
   ].filter(Boolean);
-  return `O horário entra em conflito com ${parts.join(' e ')}. Escolha outro horário, profissional ou sala.`;
+  const firstConflict = conflicts[0];
+  const detail = firstConflict?.label?.trim()
+    ? `: ${firstConflict.label.trim()}`
+    : firstConflict
+      ? ` (${new Date(firstConflict.startsAt).toLocaleTimeString('pt-PT', {
+          hour: '2-digit',
+          minute: '2-digit',
+        })}–${new Date(firstConflict.endsAt).toLocaleTimeString('pt-PT', {
+          hour: '2-digit',
+          minute: '2-digit',
+        })})`
+      : '';
+  return `O horário coincide com ${parts.join(' e ')}${detail}. Altere a hora, o profissional ou a sala.`;
 }
 
 export function snapMinutesToGrid(minutes: number, step = 15) {

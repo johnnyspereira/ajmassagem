@@ -49,9 +49,17 @@ function isRemoteWorkerMode() {
   // A fully configured remote worker is safer than silently falling back to
   // whatsapp-web.js on shared hosting. This also keeps older cPanel installs
   // working when WHATSAPP_MODE was not persisted after an application move.
-  return Boolean(
-    runtimeEnv('WHATSAPP_WORKER_URL') && runtimeEnv('WHATSAPP_WORKER_SECRET')
-  );
+  if (
+    runtimeEnv('WHATSAPP_WORKER_URL') &&
+    runtimeEnv('WHATSAPP_WORKER_SECRET')
+  ) {
+    return true;
+  }
+
+  // Shared-hosting production deliberately excludes whatsapp-web.js and
+  // Chromium. Passenger does not always preserve the build-time mode, so a
+  // missing variable must never select the unavailable local transport.
+  return runtimeEnv('NODE_ENV') === 'production';
 }
 
 function workerConfig() {

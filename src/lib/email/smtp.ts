@@ -28,6 +28,13 @@ function senderAddress(user?: string) {
   return displayName ? `"${displayName}" <${address}>` : address;
 }
 
+function senderMailbox(user?: string) {
+  const formatted = senderAddress(user);
+  const bracketed = formatted.match(/<([^<>\s]+@[^<>\s]+)>/);
+  if (bracketed?.[1]) return bracketed[1];
+  return formatted.match(/[^\s<>]+@[^\s<>]+/)?.[0] || defaultSender();
+}
+
 export function emailDeliveryConfiguration() {
   const smtp = Boolean(process.env.SMTP_HOST?.trim());
   const user = process.env.SMTP_USER?.trim();
@@ -87,6 +94,11 @@ export async function sendLocalEmail(input: {
     try {
       const result = await transport.client.sendMail({
         from: senderAddress(user),
+        replyTo: senderMailbox(user),
+        envelope: {
+          from: senderMailbox(user),
+          to: input.to,
+        },
         ...input,
       });
       if (transport.name === 'smtp') {

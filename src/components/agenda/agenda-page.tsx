@@ -788,6 +788,7 @@ export function AgendaPage({
             professionalId: item.professional_profile_id,
             roomId: item.room_id,
             status: item.status,
+            label: `${item.contact?.name || 'Cliente sem nome'} · ${appointmentRange(item)}`,
           })),
           ...timeBlocks.map((item) => ({
             id: item.id,
@@ -796,6 +797,7 @@ export function AgendaPage({
             endsAt: item.ends_at,
             professionalId: item.professional_profile_id,
             roomId: item.room_id,
+            label: `${item.reason || 'Bloqueio de agenda'} · ${timeInputValue(new Date(item.starts_at))}-${timeInputValue(new Date(item.ends_at))}`,
           })),
         ],
         {
@@ -823,8 +825,7 @@ export function AgendaPage({
             currency: selectedService.currency || defaultCurrency,
             original_price: Number(selectedService.price ?? 0),
             referral_discount_amount: referralQuote?.discount ?? 0,
-            price:
-              referralQuote?.total ?? Number(selectedService.price ?? 0),
+            price: referralQuote?.total ?? Number(selectedService.price ?? 0),
           } as AppointmentRow,
           'confirmation',
           account?.name ?? 'nossa clínica'
@@ -964,6 +965,7 @@ export function AgendaPage({
             'id, scheduled_start, scheduled_end, professional_profile_id, room_id, status'
           )
           .eq('account_id', accountId)
+          .not('status', 'in', '(cancelled,no_show)')
           .lt('scheduled_start', request.endsAt.toISOString())
           .gt('scheduled_end', request.startsAt.toISOString()),
         supabase
@@ -990,6 +992,7 @@ export function AgendaPage({
           professionalId: item.professional_profile_id,
           roomId: item.room_id,
           status: item.status,
+          label: `${timeInputValue(new Date(item.scheduled_start))}-${timeInputValue(new Date(item.scheduled_end))}`,
         })) as AgendaResource[]),
         ...((blocksRes.data ?? []).map((item) => ({
           id: item.id,
@@ -998,6 +1001,7 @@ export function AgendaPage({
           endsAt: item.ends_at,
           professionalId: item.professional_profile_id,
           roomId: item.room_id,
+          label: `${timeInputValue(new Date(item.starts_at))}-${timeInputValue(new Date(item.ends_at))}`,
         })) as AgendaResource[]),
       ];
       const conflicts = findAvailabilityConflicts(resources, request);
@@ -4959,12 +4963,54 @@ export function AgendaPage({
       </Dialog>
 
       <Dialog open={appointmentOpen} onOpenChange={setAppointmentOpen}>
-        <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden p-0 sm:max-w-3xl">
-          <DialogHeader className="border-border shrink-0 border-b px-5 py-4">
-            <DialogTitle>Novo agendamento</DialogTitle>
+        <DialogContent className="flex max-h-[calc(100vh-1rem)] flex-col overflow-hidden p-0 sm:max-w-5xl">
+          <DialogHeader className="border-border bg-background/95 shrink-0 border-b px-6 py-5 backdrop-blur">
+            <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
+              <div>
+                <DialogTitle className="text-xl">
+                  Criar nova marcação
+                </DialogTitle>
+                <DialogDescription className="mt-1">
+                  Cliente, horário, benefício e comunicação confirmados num
+                  único fluxo.
+                </DialogDescription>
+              </div>
+              <Badge
+                variant={
+                  newAppointmentConflicts.length ? 'destructive' : 'outline'
+                }
+              >
+                {newAppointmentConflicts.length
+                  ? 'Horário indisponível'
+                  : 'Pronto para validar'}
+              </Badge>
+            </div>
+            <div
+              className="mt-4 grid grid-cols-4 gap-2"
+              aria-label="Etapas da marcação"
+            >
+              {[
+                '1. Atendimento',
+                '2. Benefício',
+                '3. Comunicação',
+                '4. Confirmar',
+              ].map((step, index) => (
+                <div key={step} className="min-w-0">
+                  <div
+                    className={cn(
+                      'mb-1 h-1 rounded-full',
+                      index === 0 || selectedService ? 'bg-primary' : 'bg-muted'
+                    )}
+                  />
+                  <span className="text-muted-foreground hidden text-[11px] font-medium sm:block">
+                    {step}
+                  </span>
+                </div>
+              ))}
+            </div>
           </DialogHeader>
 
-          <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-5 py-4">
+          <div className="bg-muted/15 grid min-h-0 flex-1 gap-5 overflow-y-auto px-6 py-5">
             {appointmentReferralId ? (
               <div className="flex gap-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm">
                 <HeartHandshake className="mt-0.5 size-5 shrink-0 text-emerald-600" />
@@ -4982,171 +5028,197 @@ export function AgendaPage({
                 </div>
               </div>
             ) : null}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Cliente">
-                <div className="flex gap-2">
-                  <ContactSearchSelect
-                    contacts={contacts}
-                    value={appointmentDraft.contactId}
-                    disabled={Boolean(appointmentReferralId)}
-                    onChange={(value) =>
-                      setAppointmentDraft((prev) => ({
-                        ...prev,
-                        contactId: value,
-                      }))
-                    }
-                    placeholder="Selecione um cliente"
-                    searchPlaceholder="Buscar por nome, telefone, referência, email..."
-                    emptyOptionLabel="Sem cliente"
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setQuickContactOpen(true)}
-                  >
-                    Novo
-                  </Button>
-                </div>
-              </Field>
-              <Field label="Procedimento">
-                <NativeSelect
-                  value={appointmentDraft.serviceId}
-                  onChange={(value) =>
-                    setAppointmentDraft((prev) => ({
-                      ...prev,
-                      serviceId: value,
-                    }))
-                  }
-                >
-                  <option value="">Selecione um procedimento</option>
-                  {activeServices.map((service) => (
-                    <option key={service.id} value={service.id}>
-                      {service.name} · {service.duration_minutes} min
-                    </option>
-                  ))}
-                </NativeSelect>
-              </Field>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="Data">
-                <Input
-                  type="date"
-                  value={appointmentDraft.date}
-                  onChange={(event) =>
-                    setAppointmentDraft((prev) => ({
-                      ...prev,
-                      date: event.target.value,
-                    }))
-                  }
-                />
-              </Field>
-              <Field label="Hora">
-                <Input
-                  type="time"
-                  value={appointmentDraft.time}
-                  onChange={(event) =>
-                    setAppointmentDraft((prev) => ({
-                      ...prev,
-                      time: event.target.value,
-                    }))
-                  }
-                />
-              </Field>
-              <Field label="Status">
-                <NativeSelect
-                  value={appointmentDraft.status}
-                  onChange={(value) =>
-                    setAppointmentDraft((prev) => ({
-                      ...prev,
-                      status: value as ClinicAppointmentStatus,
-                    }))
-                  }
-                >
-                  <option value="scheduled">Agendado</option>
-                  <option value="confirmed">Confirmado</option>
-                </NativeSelect>
-              </Field>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Profissional">
-                <NativeSelect
-                  value={appointmentDraft.professionalProfileId}
-                  onChange={(value) =>
-                    setAppointmentDraft((prev) => ({
-                      ...prev,
-                      professionalProfileId: value,
-                    }))
-                  }
-                >
-                  <option value="">Sem profissional</option>
-                  {visibleProfessionals.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {professionalName(member)}
-                    </option>
-                  ))}
-                </NativeSelect>
-              </Field>
-              <Field label="Sala">
-                <NativeSelect
-                  value={appointmentDraft.roomId}
-                  onChange={(value) =>
-                    setAppointmentDraft((prev) => ({ ...prev, roomId: value }))
-                  }
-                >
-                  <option value="">Sem sala</option>
-                  {activeRooms.map((room) => (
-                    <option key={room.id} value={room.id}>
-                      {room.name}
-                    </option>
-                  ))}
-                </NativeSelect>
-              </Field>
-            </div>
-
-            {selectedService ? (
-              <div className="border-border bg-muted/30 grid gap-2 rounded-md border p-3 text-sm sm:grid-cols-3">
+            <section className="border-border bg-background rounded-xl border p-4 shadow-sm">
+              <div className="mb-4 flex items-center gap-3">
+                <span className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-full text-xs font-bold">
+                  1
+                </span>
                 <div>
-                  <p className="text-muted-foreground text-xs">Duração</p>
-                  <p className="text-foreground font-medium">
-                    {selectedService.duration_minutes} minutos
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">Preço</p>
-                  <p className="text-foreground font-medium">
-                    {formatCurrency(
-                      Number(selectedService.price),
-                      selectedService.currency || defaultCurrency
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">Fim previsto</p>
-                  <p className="text-foreground font-medium">
-                    {timeInputValue(
-                      addMinutes(
-                        appointmentDate(
-                          appointmentDraft.date,
-                          appointmentDraft.time
-                        ),
-                        selectedService.duration_minutes
-                      )
-                    )}
+                  <p className="text-sm font-semibold">Atendimento</p>
+                  <p className="text-muted-foreground text-xs">
+                    Quem será atendido, por quem e quando.
                   </p>
                 </div>
               </div>
-            ) : null}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Cliente">
+                  <div className="flex gap-2">
+                    <ContactSearchSelect
+                      contacts={contacts}
+                      value={appointmentDraft.contactId}
+                      disabled={Boolean(appointmentReferralId)}
+                      onChange={(value) =>
+                        setAppointmentDraft((prev) => ({
+                          ...prev,
+                          contactId: value,
+                        }))
+                      }
+                      placeholder="Selecione um cliente"
+                      searchPlaceholder="Buscar por nome, telefone, referência, email..."
+                      emptyOptionLabel="Sem cliente"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setQuickContactOpen(true)}
+                    >
+                      Novo
+                    </Button>
+                  </div>
+                </Field>
+                <Field label="Procedimento">
+                  <NativeSelect
+                    value={appointmentDraft.serviceId}
+                    onChange={(value) =>
+                      setAppointmentDraft((prev) => ({
+                        ...prev,
+                        serviceId: value,
+                      }))
+                    }
+                  >
+                    <option value="">Selecione um procedimento</option>
+                    {activeServices.map((service) => (
+                      <option key={service.id} value={service.id}>
+                        {service.name} · {service.duration_minutes} min
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </Field>
+              </div>
 
-            <div className="border-border rounded-md border p-3">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field label="Data">
+                  <Input
+                    type="date"
+                    value={appointmentDraft.date}
+                    onChange={(event) =>
+                      setAppointmentDraft((prev) => ({
+                        ...prev,
+                        date: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field label="Hora">
+                  <Input
+                    type="time"
+                    value={appointmentDraft.time}
+                    onChange={(event) =>
+                      setAppointmentDraft((prev) => ({
+                        ...prev,
+                        time: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field label="Status">
+                  <NativeSelect
+                    value={appointmentDraft.status}
+                    onChange={(value) =>
+                      setAppointmentDraft((prev) => ({
+                        ...prev,
+                        status: value as ClinicAppointmentStatus,
+                      }))
+                    }
+                  >
+                    <option value="scheduled">Agendado</option>
+                    <option value="confirmed">Confirmado</option>
+                  </NativeSelect>
+                </Field>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Profissional">
+                  <NativeSelect
+                    value={appointmentDraft.professionalProfileId}
+                    onChange={(value) =>
+                      setAppointmentDraft((prev) => ({
+                        ...prev,
+                        professionalProfileId: value,
+                      }))
+                    }
+                  >
+                    <option value="">Sem profissional</option>
+                    {visibleProfessionals.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {professionalName(member)}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </Field>
+                <Field label="Sala">
+                  <NativeSelect
+                    value={appointmentDraft.roomId}
+                    onChange={(value) =>
+                      setAppointmentDraft((prev) => ({
+                        ...prev,
+                        roomId: value,
+                      }))
+                    }
+                  >
+                    <option value="">Sem sala</option>
+                    {activeRooms.map((room) => (
+                      <option key={room.id} value={room.id}>
+                        {room.name}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </Field>
+              </div>
+
+              {selectedService ? (
+                <div className="border-border bg-muted/30 grid gap-2 rounded-md border p-3 text-sm sm:grid-cols-3">
+                  <div>
+                    <p className="text-muted-foreground text-xs">Duração</p>
+                    <p className="text-foreground font-medium">
+                      {selectedService.duration_minutes} minutos
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">Preço</p>
+                    <p className="text-foreground font-medium">
+                      {formatCurrency(
+                        Number(selectedService.price),
+                        selectedService.currency || defaultCurrency
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">
+                      Fim previsto
+                    </p>
+                    <p className="text-foreground font-medium">
+                      {timeInputValue(
+                        addMinutes(
+                          appointmentDate(
+                            appointmentDraft.date,
+                            appointmentDraft.time
+                          ),
+                          selectedService.duration_minutes
+                        )
+                      )}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+            </section>
+
+            <div className="border-border bg-background rounded-xl border p-4 shadow-sm">
               <div className="mb-3 flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold">Forma de pagamento</p>
-                  <p className="text-muted-foreground text-xs">
-                    Pode reservar um voucher ou uma sessão de pack agora.
-                  </p>
+                <div className="flex items-center gap-3">
+                  <span className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-full text-xs font-bold">
+                    2
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold">
+                      Pagamento e benefícios
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      Escolha como esta sessão será liquidada. A reserva só é
+                      consumida ao concluir.
+                    </p>
+                  </div>
                 </div>
                 {loadingBenefits ? (
                   <Loader2 className="text-muted-foreground size-4 animate-spin" />
@@ -5282,10 +5354,13 @@ export function AgendaPage({
             </div>
 
             <div className="grid gap-3 lg:grid-cols-2">
-              <section className="border-border rounded-md border p-3">
+              <section className="border-border bg-background rounded-xl border p-4 shadow-sm">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <div>
                     <p className="text-sm font-semibold">
+                      <span className="bg-primary text-primary-foreground mr-2 inline-flex size-6 items-center justify-center rounded-full text-xs font-bold">
+                        3
+                      </span>
                       Comunicação e anamnese
                     </p>
                     <p className="text-muted-foreground text-xs">
@@ -5332,9 +5407,9 @@ export function AgendaPage({
                 ) : null}
               </section>
 
-              <section className="border-border rounded-md border p-3">
+              <section className="border-border bg-background rounded-xl border p-4 shadow-sm">
                 <p className="text-sm font-semibold">
-                  Disponibilidade e cobrança
+                  Disponibilidade e validação
                 </p>
                 <div
                   className={cn(
@@ -5474,13 +5549,31 @@ export function AgendaPage({
             </Field>
           </div>
 
-          <DialogFooter className="border-border shrink-0 border-t px-5 py-3">
+          <DialogFooter className="border-border bg-background shrink-0 items-center border-t px-6 py-4 sm:justify-between">
+            <div className="mr-auto hidden text-xs sm:block">
+              <p className="font-medium">
+                {newAppointmentConflicts.length
+                  ? 'Resolva o conflito para continuar'
+                  : selectedService && selectedNewContact
+                    ? `${selectedNewContact.name} · ${selectedService.name}`
+                    : 'Selecione cliente e procedimento'}
+              </p>
+              <p className="text-muted-foreground">
+                {appointmentDraft.date} às {appointmentDraft.time || '--:--'}
+              </p>
+            </div>
             <Button variant="outline" onClick={() => setAppointmentOpen(false)}>
               Cancelar
             </Button>
             <Button
               onClick={handleCreateAppointment}
-              disabled={savingAppointment || activeServices.length === 0}
+              disabled={
+                savingAppointment ||
+                activeServices.length === 0 ||
+                !selectedService ||
+                !selectedNewContact ||
+                newAppointmentConflicts.length > 0
+              }
             >
               {savingAppointment ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -5836,9 +5929,7 @@ function AppointmentBlock({
               )}
               title={
                 appointment.anamnesis &&
-                ['submitted', 'reviewed'].includes(
-                  appointment.anamnesis.status
-                )
+                ['submitted', 'reviewed'].includes(appointment.anamnesis.status)
                   ? 'Ficha de anamnese preenchida'
                   : 'Ficha de anamnese ainda não preenchida'
               }

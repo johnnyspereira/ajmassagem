@@ -6,12 +6,14 @@ const original = {
   mode: process.env.WHATSAPP_MODE,
   url: process.env.WHATSAPP_WORKER_URL,
   secret: process.env.WHATSAPP_WORKER_SECRET,
+  nodeEnv: process.env.NODE_ENV,
 };
 
 afterEach(() => {
   restore('WHATSAPP_MODE', original.mode);
   restore('WHATSAPP_WORKER_URL', original.url);
   restore('WHATSAPP_WORKER_SECRET', original.secret);
+  restore('NODE_ENV', original.nodeEnv);
 });
 
 describe('remoteWhatsAppWorker.enabled', () => {
@@ -32,6 +34,14 @@ describe('remoteWhatsAppWorker.enabled', () => {
     process.env.WHATSAPP_WORKER_URL = 'https://worker.example.test';
     process.env.WHATSAPP_WORKER_SECRET = 'secret';
     expect(remoteWhatsAppWorker.enabled()).toBe(false);
+  });
+
+  it('never falls back to the excluded local package in production', () => {
+    delete process.env.WHATSAPP_MODE;
+    delete process.env.WHATSAPP_WORKER_URL;
+    delete process.env.WHATSAPP_WORKER_SECRET;
+    Reflect.set(process.env, 'NODE_ENV', 'production');
+    expect(remoteWhatsAppWorker.enabled()).toBe(true);
   });
 });
 

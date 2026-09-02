@@ -76,4 +76,19 @@ describe('agenda availability', () => {
     expect(snapMinutesToGrid(37)).toBe(30);
     expect(snapMinutesToGrid(38)).toBe(45);
   });
+
+  it('ignores cancelled and malformed ghost appointments', () => {
+    const conflicts = findAvailabilityConflicts(
+      [
+        { ...resources[0], status: 'CANCELLED' },
+        { ...resources[0], id: 'invalid', startsAt: 'invalid-date' },
+      ],
+      {
+        startsAt: new Date('2026-02-10T10:00:00.000Z'),
+        endsAt: new Date('2026-02-10T10:30:00.000Z'),
+        professionalId: 'pro-1',
+      }
+    );
+    expect(conflicts).toEqual([]);
+  });
 });
