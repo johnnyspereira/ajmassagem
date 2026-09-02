@@ -413,14 +413,6 @@ function formatRangeTitle(date: Date, view: CalendarView) {
   }).format(date);
 }
 
-function dayLabel(date: Date) {
-  return new Intl.DateTimeFormat('pt-PT', {
-    weekday: 'short',
-    day: '2-digit',
-    month: '2-digit',
-  }).format(date);
-}
-
 function defaultAppointmentDraft(profileId?: string | null): AppointmentDraft {
   const now = new Date();
   now.setMinutes(now.getMinutes() < 30 ? 30 : 0, 0, 0);
@@ -3159,14 +3151,24 @@ export function AgendaPage({
 
   return (
     <section className="space-y-5">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <h1 className="text-foreground text-2xl font-bold tracking-tight">
-            Agenda
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Calendário diário ou semanal por profissional e sala.
-          </p>
+      <div className="dark:via-background flex flex-col gap-5 rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50 via-white to-sky-50 p-5 shadow-sm xl:flex-row xl:items-center xl:justify-between dark:border-violet-900/60 dark:from-violet-950/40 dark:to-sky-950/30">
+        <div className="flex items-center gap-4">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-500/25">
+            <CalendarClock className="size-6" />
+          </span>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-foreground text-2xl font-bold tracking-tight">
+                Agenda
+              </h1>
+              <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300">
+                Operacional
+              </Badge>
+            </div>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Organize horários, clientes, benefícios e pagamentos num só lugar.
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -3187,7 +3189,7 @@ export function AgendaPage({
           >
             <ChevronRight className="size-4" />
           </Button>
-          <div className="border-border bg-card text-foreground min-h-9 rounded-md border px-3 py-2 text-sm font-medium capitalize">
+          <div className="min-h-9 rounded-lg border border-violet-200 bg-white/80 px-3 py-2 text-sm font-semibold text-violet-950 capitalize shadow-sm dark:border-violet-900 dark:bg-violet-950/30 dark:text-violet-100">
             {formatRangeTitle(selectedDate, view)}
           </div>
           <Button
@@ -3230,9 +3232,12 @@ export function AgendaPage({
                 <History className="size-4" />
                 Importar histórico
               </Button>
-              <Button onClick={() => openAppointmentDialog()}>
+              <Button
+                className="bg-violet-600 text-white shadow-md shadow-violet-500/20 hover:bg-violet-700"
+                onClick={() => openAppointmentDialog()}
+              >
                 <Plus className="size-4" />
-                Agendamento
+                Nova marcação
               </Button>
             </>
           ) : null}
@@ -3382,7 +3387,7 @@ export function AgendaPage({
         </DialogContent>
       </Dialog>
 
-      <Card className="rounded-lg">
+      <Card className="overflow-hidden rounded-2xl border-slate-200/80 shadow-md shadow-slate-950/5 dark:border-slate-800">
         <CardContent className="space-y-3 p-4">
           <div className="grid gap-3 xl:grid-cols-[auto_auto_1fr_auto] xl:items-center">
             <SegmentedControl
@@ -3543,7 +3548,7 @@ export function AgendaPage({
           if (!open) closeAppointmentSheet();
         }}
       >
-        <DialogContent className="flex max-h-[calc(100vh-1rem)] w-[calc(100vw-1rem)] max-w-[1240px] flex-col gap-0 overflow-hidden border-violet-200/70 p-0 shadow-2xl sm:max-w-[1240px] dark:border-violet-900/60">
+        <DialogContent className="flex max-h-[calc(100dvh-5rem)] w-[calc(100vw-2rem)] max-w-[1240px] flex-col gap-0 overflow-hidden rounded-2xl border-violet-200/70 p-0 shadow-2xl sm:max-w-[1240px] dark:border-violet-900/60">
           {selectedAppointment && editDraft ? (
             <>
               <DialogHeader className="dark:via-background shrink-0 border-b border-violet-200/70 bg-gradient-to-r from-violet-50 via-white to-sky-50 px-6 py-5 dark:border-violet-900/60 dark:from-violet-950/50 dark:to-sky-950/40">
@@ -4382,7 +4387,7 @@ export function AgendaPage({
                 </div>
               </div>
 
-              <div className="dark:from-background shrink-0 border-t border-violet-200/70 bg-gradient-to-r from-white via-violet-50/70 to-sky-50/70 px-5 py-3 dark:border-violet-900/60 dark:via-violet-950/30 dark:to-sky-950/30">
+              <div className="dark:from-background shrink-0 border-t border-violet-200/70 bg-gradient-to-r from-white via-violet-50/70 to-sky-50/70 px-5 pt-3 pb-[max(.75rem,env(safe-area-inset-bottom))] dark:border-violet-900/60 dark:via-violet-950/30 dark:to-sky-950/30">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <Button variant="outline" onClick={closeAppointmentSheet}>
                     Fechar marcação
@@ -5021,7 +5026,7 @@ export function AgendaPage({
       </Dialog>
 
       <Dialog open={appointmentOpen} onOpenChange={setAppointmentOpen}>
-        <DialogContent className="flex max-h-[calc(100vh-1rem)] flex-col overflow-hidden p-0 sm:max-w-5xl">
+        <DialogContent className="flex max-h-[calc(100dvh-5rem)] flex-col overflow-hidden rounded-2xl p-0 sm:max-w-5xl">
           <DialogHeader className="border-border bg-background/95 shrink-0 border-b px-6 py-5 backdrop-blur">
             <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
               <div>
@@ -5607,7 +5612,7 @@ export function AgendaPage({
             </Field>
           </div>
 
-          <DialogFooter className="border-border bg-background shrink-0 items-center border-t px-6 py-4 sm:justify-between">
+          <DialogFooter className="border-border bg-background shrink-0 items-center border-t px-6 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:justify-between">
             <div className="mr-auto hidden text-xs sm:block">
               <p className="font-medium">
                 {newAppointmentConflicts.length
@@ -5753,28 +5758,63 @@ function CalendarTimeGrid({
   }, []);
 
   return (
-    <div className="border-border bg-card max-h-[calc(100vh-260px)] overflow-auto rounded-lg border">
+    <div className="border-border/70 bg-card max-h-[calc(100dvh-275px)] min-h-[520px] overflow-auto rounded-2xl border shadow-lg shadow-slate-950/5">
       <div
-        className="min-w-[920px]"
+        className={days.length === 1 ? 'min-w-[700px]' : 'min-w-[1480px]'}
         style={{
           display: 'grid',
           gridTemplateColumns: `64px repeat(${days.length}, ${minDayWidth})`,
         }}
       >
-        <div className="bg-muted/95 border-border sticky top-0 left-0 z-30 border-r border-b px-2 py-2 text-xs font-semibold backdrop-blur">
-          Hora
+        <div className="sticky top-0 left-0 z-30 flex min-h-16 items-center justify-center border-r border-b border-violet-200/70 bg-violet-50/95 px-2 text-[10px] font-bold tracking-[0.14em] text-violet-600 uppercase backdrop-blur dark:border-violet-900/60 dark:bg-violet-950/90 dark:text-violet-300">
+          Horário
         </div>
-        {days.map((day) => (
-          <div
-            key={day.toISOString()}
-            className="bg-muted/95 border-border sticky top-0 z-20 border-b px-3 py-2 text-sm font-semibold capitalize backdrop-blur"
-          >
-            {dayLabel(day)}
-          </div>
-        ))}
+        {days.map((day) => {
+          const today = new Date();
+          const isToday =
+            day.getFullYear() === today.getFullYear() &&
+            day.getMonth() === today.getMonth() &&
+            day.getDate() === today.getDate();
+          return (
+            <div
+              key={day.toISOString()}
+              className={cn(
+                'sticky top-0 z-20 flex min-h-16 items-center gap-3 border-b px-4 backdrop-blur',
+                isToday
+                  ? 'border-violet-300/70 bg-gradient-to-r from-violet-100/95 to-fuchsia-50/95 dark:border-violet-800 dark:from-violet-950/95 dark:to-fuchsia-950/80'
+                  : 'border-border bg-background/95'
+              )}
+            >
+              <span
+                className={cn(
+                  'flex size-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold',
+                  isToday
+                    ? 'bg-violet-600 text-white shadow-sm shadow-violet-500/30'
+                    : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
+                )}
+              >
+                {day.getDate()}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-bold capitalize">
+                  {new Intl.DateTimeFormat('pt-PT', { weekday: 'long' }).format(
+                    day
+                  )}
+                </span>
+                <span className="text-muted-foreground block text-xs capitalize">
+                  {new Intl.DateTimeFormat('pt-PT', {
+                    month: 'long',
+                    year: 'numeric',
+                  }).format(day)}
+                  {isToday ? ' · Hoje' : ''}
+                </span>
+              </span>
+            </div>
+          );
+        })}
 
         <div
-          className="border-border bg-card sticky left-0 z-10 border-r"
+          className="via-background sticky left-0 z-10 border-r border-violet-200/60 bg-gradient-to-b from-violet-50/80 to-sky-50/60 dark:border-violet-900/50 dark:from-violet-950/30 dark:to-sky-950/20"
           style={{ height: gridHeight }}
         >
           {Array.from(
@@ -5783,7 +5823,7 @@ function CalendarTimeGrid({
           ).map((hour) => (
             <div
               key={hour}
-              className="text-muted-foreground absolute right-2 -translate-y-2 text-xs"
+              className="bg-background absolute right-2 -translate-y-1/2 rounded-full border border-violet-200/70 px-2 py-0.5 text-[10px] font-semibold text-violet-700 shadow-sm dark:border-violet-900 dark:text-violet-300"
               style={{ top: (hour - CALENDAR_START_HOUR) * HOUR_HEIGHT }}
             >
               {pad(hour)}:00
@@ -5815,7 +5855,7 @@ function CalendarTimeGrid({
           return (
             <div
               key={day.toISOString()}
-              className="border-border relative border-r last:border-r-0"
+              className="group/day border-border relative border-r last:border-r-0"
               onDragOver={(event) => event.preventDefault()}
               onDoubleClick={(event) => {
                 if (!onCreateAt || event.target !== event.currentTarget) return;
@@ -5864,9 +5904,42 @@ function CalendarTimeGrid({
               style={{
                 height: gridHeight,
                 backgroundImage:
-                  'repeating-linear-gradient(to bottom, transparent 0, transparent 20px, rgba(148, 163, 184, 0.22) 20px, rgba(148, 163, 184, 0.22) 21px, transparent 21px, transparent 84px)',
+                  'repeating-linear-gradient(to bottom, rgba(248,250,252,.72) 0, rgba(248,250,252,.72) 41px, rgba(226,232,240,.8) 41px, rgba(226,232,240,.8) 42px, rgba(255,255,255,.78) 42px, rgba(255,255,255,.78) 83px, rgba(148,163,184,.28) 83px, rgba(148,163,184,.28) 84px)',
               }}
             >
+              {onCreateAt
+                ? Array.from(
+                    {
+                      length: (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 2,
+                    },
+                    (_, slot) => {
+                      const targetStart = new Date(day);
+                      targetStart.setHours(
+                        CALENDAR_START_HOUR + Math.floor(slot / 2),
+                        (slot % 2) * 30,
+                        0,
+                        0
+                      );
+                      return (
+                        <button
+                          key={slot}
+                          type="button"
+                          className="group/slot absolute right-0 left-0 z-0 flex items-center justify-end pr-3 text-transparent transition hover:bg-violet-500/5 hover:text-violet-600 focus-visible:bg-violet-500/10 focus-visible:text-violet-600 focus-visible:outline-none"
+                          style={{
+                            top: slot * (HOUR_HEIGHT / 2),
+                            height: HOUR_HEIGHT / 2,
+                          }}
+                          onClick={() => onCreateAt(targetStart)}
+                          title={`Criar marcação às ${timeInputValue(targetStart)}`}
+                        >
+                          <span className="rounded-full border border-violet-300 bg-white px-2 py-0.5 text-[10px] font-semibold opacity-0 shadow-sm transition-opacity group-hover/slot:opacity-100 group-focus-visible/slot:opacity-100 dark:bg-slate-950">
+                            + {timeInputValue(targetStart)}
+                          </span>
+                        </button>
+                      );
+                    }
+                  )
+                : null}
               {isToday && currentTop >= 0 && currentTop <= gridHeight ? (
                 <div
                   className="pointer-events-none absolute right-0 left-0 z-20 border-t-2 border-rose-500"
@@ -5937,21 +6010,21 @@ function AppointmentBlock({
       }}
       onClick={onSelect}
       className={cn(
-        'hover:ring-primary/40 absolute overflow-hidden rounded-md border p-2 text-left shadow-sm transition hover:z-30 hover:ring-2',
+        'hover:ring-primary/30 absolute z-10 overflow-hidden rounded-xl border p-2.5 text-left shadow-md transition duration-200 hover:z-30 hover:-translate-y-0.5 hover:shadow-lg hover:ring-2',
         appointment.status === 'cancelled'
-          ? 'border-red-500/30 bg-red-500/15 text-red-950 dark:text-red-100'
+          ? 'border-red-400/50 bg-gradient-to-br from-red-100 to-rose-50 text-red-950 dark:from-red-950 dark:to-rose-950 dark:text-red-100'
           : appointment.status === 'no_show'
-            ? 'border-amber-500/30 bg-amber-500/15 text-amber-950 dark:text-amber-100'
+            ? 'border-amber-400/50 bg-gradient-to-br from-amber-100 to-orange-50 text-amber-950 dark:from-amber-950 dark:to-orange-950 dark:text-amber-100'
             : appointment.paid_at
-              ? 'border-emerald-500/30 bg-emerald-500/20'
-              : 'border-sky-500/30 bg-sky-500/20'
+              ? 'border-emerald-400/50 bg-gradient-to-br from-emerald-100 to-teal-50 dark:from-emerald-950 dark:to-teal-950'
+              : 'border-sky-400/50 bg-gradient-to-br from-sky-100 to-cyan-50 dark:from-sky-950 dark:to-cyan-950'
       )}
       style={{
         top: calendarTop(appointment.scheduled_start),
         height: calendarHeight(appointment),
         left: `calc(${((layout?.column ?? 0) / (layout?.columns ?? 1)) * 100}% + 4px)`,
         width: `calc(${100 / (layout?.columns ?? 1)}% - 8px)`,
-        borderLeftWidth: 4,
+        borderLeftWidth: 6,
         borderLeftColor: professionalColor,
       }}
     >
