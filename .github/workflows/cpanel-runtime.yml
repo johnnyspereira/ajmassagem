@@ -77,6 +77,12 @@ jobs:
             cp -a cpanel-previous-static/.next/static cpanel-runtime/.next/
           fi
           rsync -a .next/static/ cpanel-runtime/.next/static/
+          # Some cPanel Git deployments leave newly tracked files inside the
+          # hidden .next directory out of the checked-out application tree.
+          # Ship a visible recovery copy; server.js restores it before Next
+          # starts, so HTML and its hashed CSS/JS always come from one build.
+          mkdir -p cpanel-runtime/runtime-static
+          rsync -a cpanel-runtime/.next/static/ cpanel-runtime/runtime-static/
           cp -a public cpanel-runtime/public
           cp .cpanel.yml .gitignore cpanel-runtime/
           mkdir -p cpanel-runtime/mysql cpanel-runtime/scripts
@@ -122,7 +128,21 @@ jobs:
           mv cpanel-runtime/server.js cpanel-runtime/next-server.js
           cat > cpanel-runtime/server.js <<'EOF'
           const { execFileSync } = require('node:child_process');
+          const fs = require('node:fs');
           const path = require('node:path');
+
+          const bundledStatic = path.join(__dirname, 'runtime-static');
+          const nextStatic = path.join(__dirname, '.next', 'static');
+
+          try {
+            if (fs.existsSync(bundledStatic)) {
+              fs.mkdirSync(nextStatic, { recursive: true });
+              fs.cpSync(bundledStatic, nextStatic, { recursive: true, force: true });
+              console.log('cPanel: Next static assets restored.');
+            }
+          } catch (error) {
+            console.error('cPanel: failed to restore Next static assets.', error);
+          }
 
           try {
             console.log('cPanel: applying pending MySQL migrations...');
