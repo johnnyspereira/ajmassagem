@@ -346,8 +346,10 @@ export default function ReferralLandingPage() {
                     }
                     className="mt-1"
                   />
-                  Aceito que os meus dados sejam tratados para gerir este
-                  convite e o contacto comercial associado.
+                  Aceito que os meus dados sejam tratados apenas para registar
+                  esta indicação, validar o benefício e permitir o contacto
+                  necessário ao primeiro agendamento. Este consentimento não
+                  autoriza campanhas de marketing e pode ser retirado.
                 </label>
               ) : null}
               {error ? (

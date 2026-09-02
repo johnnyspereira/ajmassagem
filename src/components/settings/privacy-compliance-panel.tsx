@@ -15,6 +15,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SettingsPanelHead } from './settings-panel-head';
+import { PrivacyOperations } from './privacy-operations';
 
 type SubjectRequest = {
   id: string;
@@ -125,6 +126,20 @@ export function PrivacyCompliancePanel() {
       requesterEmail: '',
       details: '',
     });
+    await load();
+  }
+  async function requestAction(id: string, action: string) {
+    const response = await fetch(`/api/account/privacy/requests/${id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    const result = await response.json();
+    if (!response.ok)
+      return toast.error(
+        result.error || 'Não foi possível atualizar o pedido.'
+      );
+    toast.success('Pedido atualizado e auditado.');
     await load();
   }
   return (
@@ -320,6 +335,23 @@ export function PrivacyCompliancePanel() {
                     <span className="text-muted-foreground text-xs">
                       Prazo: {new Date(item.due_at).toLocaleDateString('pt-PT')}
                     </span>
+                    {!item.status.includes('completed') &&
+                      item.status !== 'rejected' && (
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={() =>
+                            requestAction(
+                              item.id,
+                              item.status === 'received' ? 'verify' : 'complete'
+                            )
+                          }
+                        >
+                          {item.status === 'received'
+                            ? 'Verificar identidade'
+                            : 'Concluir'}
+                        </Button>
+                      )}
                   </div>
                 </div>
               ))
@@ -331,6 +363,7 @@ export function PrivacyCompliancePanel() {
           </div>
         </CardContent>
       </Card>
+      <PrivacyOperations />
       <div className="mt-4 flex gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
         <AlertTriangle className="mt-0.5 size-4 shrink-0" />
         <p>

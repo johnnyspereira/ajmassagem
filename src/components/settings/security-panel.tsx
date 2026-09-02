@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { AccountRecoveryCard } from './account-recovery-card';
 import { PasswordForm } from './password-form';
 import { SessionsCard } from './sessions-card';
+import { MfaCard } from './mfa-card';
 import { SettingsPanelHead } from './settings-panel-head';
 
 interface SessionSummary {
@@ -103,6 +104,7 @@ export function SecurityPanel() {
           <SecurityChecklist emailConfirmed={emailConfirmed} />
           <AccountRecoveryCard />
           <SessionsCard />
+          <MfaCard />
         </div>
       </div>
     </section>

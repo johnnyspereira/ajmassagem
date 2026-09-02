@@ -3,6 +3,7 @@ import {
   portalErrorResponse,
   requirePortalAccess,
 } from '@/lib/portal/server';
+import { notifyAccountEvent } from '@/lib/notifications/account-events';
 
 const TYPES = new Set([
   'access',
@@ -75,6 +76,18 @@ export async function POST(
       .select('id,request_type,status,due_at,created_at')
       .single();
     if (error) throw error;
+    await notifyAccountEvent({
+      accountId: access.account_id,
+      type: 'system',
+      category: 'system',
+      priority: 'high',
+      title: `Novo pedido RGPD: ${body.requestType}`,
+      body: `${contact?.name || contact?.email || 'Um cliente'} exerceu um direito de privacidade no Portal 360.`,
+      actionUrl: '/settings?tab=privacy',
+      contactId: access.contact_id,
+      dedupeKey: `privacy-request:${data.id}`,
+      metadata: { privacyRequestId: data.id, requestType: body.requestType },
+    });
     return Response.json({ request: data }, { status: 201 });
   } catch (error) {
     return portalErrorResponse(error);

@@ -3683,6 +3683,18 @@ function ProfileView({
         </div>
       </form>
       <PrivacyRightsCard slug={data.settings.slug} />
+      <p className="text-muted-foreground mt-4 text-center text-xs">
+        Consulte a{' '}
+        <a
+          className="text-primary underline"
+          href={`/privacy/${encodeURIComponent(data.settings.slug)}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          política de privacidade
+        </a>{' '}
+        aplicável ao tratamento dos seus dados.
+      </p>
     </div>
   );
 }

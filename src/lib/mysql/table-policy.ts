@@ -118,6 +118,28 @@ const policies: Record<string, TablePolicy> = {
     minimumWriteRole: 'agent',
   },
   public_site_leads: { accountColumn: 'account_id', minimumWriteRole: 'agent' },
+  privacy_settings: { accountColumn: 'account_id', minimumWriteRole: 'admin' },
+  privacy_consent_events: {
+    accountColumn: 'account_id',
+    minimumWriteRole: 'agent',
+  },
+  privacy_data_subject_requests: {
+    accountColumn: 'account_id',
+    minimumWriteRole: 'admin',
+  },
+  privacy_incidents: { accountColumn: 'account_id', minimumWriteRole: 'admin' },
+  privacy_processors: {
+    accountColumn: 'account_id',
+    minimumWriteRole: 'admin',
+  },
+  privacy_processing_activities: {
+    accountColumn: 'account_id',
+    minimumWriteRole: 'admin',
+  },
+  privacy_audit_events: {
+    accountColumn: 'account_id',
+    minimumWriteRole: 'admin',
+  },
 };
 
 const userOwnedTables = new Set([

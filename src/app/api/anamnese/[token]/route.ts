@@ -40,6 +40,11 @@ export async function GET(
     .select('anamnesis_title,anamnesis_intro,anamnesis_form_config')
     .eq('account_id', form.account_id)
     .maybeSingle();
+  const { data: privacy } = await db
+    .from('privacy_settings')
+    .select('privacy_notice_version,privacy_policy_url')
+    .eq('account_id', form.account_id)
+    .maybeSingle();
   return Response.json({
     form: {
       ...form,
@@ -50,6 +55,12 @@ export async function GET(
       form_title: settings?.anamnesis_title,
       form_intro: settings?.anamnesis_intro,
       config: mergeAnamnesisConfig(settings?.anamnesis_form_config),
+      privacy: privacy
+        ? {
+            version: privacy.privacy_notice_version,
+            policy_url: privacy.privacy_policy_url,
+          }
+        : null,
     },
   });
 }

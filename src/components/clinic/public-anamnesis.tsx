@@ -49,6 +49,7 @@ type FormData = {
   form_title?: string | null;
   form_intro?: string | null;
   config?: Partial<AnamnesisFormConfig> | null;
+  privacy?: { version: string; policy_url: string | null } | null;
 };
 
 export function PublicAnamnesis({
@@ -429,8 +430,18 @@ export function PublicAnamnesis({
             <Consent
               checked={privacyConsent}
               onChange={setPrivacyConsent}
-              text="Autorizo o tratamento confidencial destes dados para preparação e acompanhamento do serviço, nos termos de privacidade aplicáveis."
+              text={`Dou o meu consentimento explícito ao tratamento confidencial dos dados de saúde exclusivamente para preparar, prestar e acompanhar este serviço. Li o aviso de privacidade${form.privacy?.version ? ` (versão ${form.privacy.version})` : ''} e sei que posso retirar o consentimento, sem afetar o tratamento anterior.`}
             />
+            {form.privacy?.policy_url && (
+              <a
+                className="text-primary block text-xs underline"
+                href={form.privacy.policy_url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Ler a política de privacidade completa
+              </a>
+            )}
             <Field label="Assinatura digital — nome completo *">
               <Input
                 value={signature}

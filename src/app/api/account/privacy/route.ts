@@ -62,13 +62,23 @@ export async function PATCH(request: Request) {
   try {
     const ctx = await requireRole('admin');
     const body = (await request.json()) as Record<string, unknown>;
+    const db = supabaseAdmin();
+    const { data: portal } = await db
+      .from('client_portal_settings')
+      .select('slug')
+      .eq('account_id', ctx.accountId)
+      .maybeSingle();
+    const generatedPolicyUrl = portal?.slug
+      ? `${new URL(request.url).origin}/privacy/${encodeURIComponent(portal.slug)}`
+      : null;
     const payload = {
       account_id: ctx.accountId,
       controller_name: text(body.controllerName, 255),
       controller_email: text(body.controllerEmail, 320),
       controller_address: text(body.controllerAddress, 2000),
       dpo_email: text(body.dpoEmail, 320),
-      privacy_policy_url: text(body.privacyPolicyUrl, 2000),
+      privacy_policy_url:
+        text(body.privacyPolicyUrl, 2000) || generatedPolicyUrl,
       privacy_notice_version: text(body.privacyNoticeVersion, 80) || '1.0',
       contact_retention_months: integer(
         body.contactRetentionMonths,
@@ -97,12 +107,84 @@ export async function PATCH(request: Request) {
       ),
       updated_at: new Date().toISOString(),
     };
-    const { data, error } = await supabaseAdmin()
+    const { data, error } = await db
       .from('privacy_settings')
       .upsert(payload, { onConflict: 'account_id' })
       .select('*')
       .single();
     if (error) throw error;
+    const { count } = await db
+      .from('privacy_processing_activities')
+      .select('id', { count: 'exact', head: true })
+      .eq('account_id', ctx.accountId);
+    if (!count)
+      await db.from('privacy_processing_activities').insert(
+        [
+          [
+            'Agenda e serviços',
+            'Gerir marcações e prestar serviços',
+            'contract',
+            null,
+            'Dados identificativos, contacto e agenda',
+          ],
+          [
+            'Faturação e benefícios',
+            'Processar pagamentos, faturação, packs e vouchers',
+            'legal_obligation',
+            null,
+            'Identificação, NIF, transações e benefícios',
+          ],
+          [
+            'Comunicações operacionais',
+            'Enviar confirmações, alterações e lembretes',
+            'contract',
+            null,
+            'Nome, contactos e marcações',
+          ],
+          [
+            'Marketing',
+            'Enviar campanhas e promoções autorizadas',
+            'consent',
+            null,
+            'Nome, contacto e preferências',
+          ],
+          [
+            'Anamnese',
+            'Preparar e prestar o atendimento com segurança',
+            'consent',
+            'explicit_consent',
+            'Identificação e dados de saúde',
+          ],
+          [
+            'Indicações',
+            'Gerir o programa Indique e Ganhe',
+            'consent',
+            null,
+            'Nome, telefone, email e relação de indicação',
+          ],
+        ].map(
+          ([
+            name,
+            purposes,
+            legal_basis,
+            special_category_basis,
+            data_categories,
+          ]) => ({
+            id: crypto.randomUUID(),
+            account_id: ctx.accountId,
+            name,
+            purposes,
+            data_subjects: 'Clientes e potenciais clientes',
+            data_categories,
+            legal_basis,
+            special_category_basis,
+            recipients: 'Equipa autorizada e subcontratantes necessários',
+            retention_rule: 'Conforme matriz RGPD configurada',
+            security_measures:
+              'Controlo de acesso, auditoria, backups e transmissão segura',
+          })
+        )
+      );
     return Response.json({ settings: data });
   } catch (error) {
     return toErrorResponse(error);
