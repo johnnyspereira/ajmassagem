@@ -134,6 +134,9 @@ type PortalData = {
     marketing_consent: boolean;
     marketing_whatsapp_consent: boolean;
     whatsapp_consent: boolean;
+    privacy_review_status: 'current' | 'legacy_unverified' | 'withdrawn';
+    consent_reviewed_at: string | null;
+    consent_review_source: string | null;
     created_at: string;
     updated_at: string;
   };
@@ -3644,6 +3647,16 @@ function ProfileView({
             />
           </Field>
         </div>
+        {data.client.privacy_review_status === 'legacy_unverified' && (
+          <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+            <strong>Confirme novamente as suas preferências.</strong>
+            <p className="mt-1">
+              As autorizações anteriores não possuem prova suficiente. Reveja
+              cada opção abaixo e carregue em “Guardar alterações”. Nenhuma
+              campanha será enviada antes desta confirmação.
+            </p>
+          </div>
+        )}
         <div className="border-border mt-6 grid gap-3 border-t pt-5 md:grid-cols-3">
           <ConsentToggle
             label="Comunicações por WhatsApp"

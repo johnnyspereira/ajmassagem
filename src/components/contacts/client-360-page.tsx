@@ -635,11 +635,14 @@ export function Client360Page({
         ? []
         : ((clientEventsRes.data as ClientActivityEvent[] | null) ?? [])
     );
-    setClientTasks(tasksRes.error ? [] : ((tasksRes.data as ClientTask[] | null) ?? []));
+    setClientTasks(
+      tasksRes.error ? [] : ((tasksRes.data as ClientTask[] | null) ?? [])
+    );
     setScheduledMessages(
       scheduledMessagesRes.error
         ? []
-        : ((scheduledMessagesRes.data as ScheduledWhatsAppMessage[] | null) ?? [])
+        : ((scheduledMessagesRes.data as ScheduledWhatsAppMessage[] | null) ??
+            [])
     );
     setBroadcastEvents(
       broadcastEventsRes.error
@@ -689,6 +692,15 @@ export function Client360Page({
     }
     if (!draft.phone.trim()) {
       toast.error('O telefone do cliente é obrigatório.');
+      return;
+    }
+    if (
+      (!contact?.marketing_consent && draft.marketingConsent) ||
+      (!contact?.whatsapp_consent && draft.whatsappConsent)
+    ) {
+      toast.error(
+        'Uma nova autorização deve ser confirmada pelo próprio cliente no Portal 360 para ficar acompanhada de prova.'
+      );
       return;
     }
 
@@ -1585,6 +1597,13 @@ export function Client360Page({
                   </select>
                 </label>
                 <div className="bg-muted/40 grid gap-3 rounded-md border p-3 sm:col-span-2 sm:grid-cols-2">
+                  {contact?.privacy_review_status === 'legacy_unverified' && (
+                    <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950 sm:col-span-2">
+                      <strong>Consentimentos antigos por confirmar.</strong>{' '}
+                      Peça ao cliente para rever estas escolhas no Portal 360.
+                      Até lá, campanhas permanecem bloqueadas.
+                    </div>
+                  )}
                   <label className="flex items-start gap-2 text-sm">
                     <input
                       type="checkbox"

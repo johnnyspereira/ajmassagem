@@ -42,7 +42,9 @@ export async function PATCH(
     const body = (await request.json()) as Record<string, unknown>;
     const { data: previousConsent } = await admin
       .from('contacts')
-      .select('marketing_consent,marketing_whatsapp_consent,whatsapp_consent')
+      .select(
+        'marketing_consent,marketing_whatsapp_consent,whatsapp_consent,privacy_review_status'
+      )
       .eq('account_id', access.account_id)
       .eq('id', access.contact_id)
       .maybeSingle();
@@ -97,7 +99,7 @@ export async function PATCH(
       .eq('account_id', access.account_id)
       .eq('id', access.contact_id)
       .select(
-        'id,name,email,phone,company,avatar_url,client_reference,birth_date,tax_id,gender,address_line,postal_code,city,country,preferred_contact,marketing_consent,marketing_whatsapp_consent,whatsapp_consent'
+        'id,name,email,phone,company,avatar_url,client_reference,birth_date,tax_id,gender,address_line,postal_code,city,country,preferred_contact,marketing_consent,marketing_whatsapp_consent,whatsapp_consent,privacy_review_status,consent_reviewed_at,consent_review_source'
       )
       .single();
     if (error) {
@@ -109,19 +111,21 @@ export async function PATCH(
     const nextMarketing = boolean(body.marketingConsent);
     const nextMarketingWhatsapp = boolean(body.marketingWhatsappConsent);
     const nextWhatsapp = boolean(body.whatsappConsent);
+    const requiresReview = previousConsent?.privacy_review_status !== 'current';
     const changes = [
-      previousConsent?.marketing_consent !== nextMarketing
+      requiresReview || previousConsent?.marketing_consent !== nextMarketing
         ? {
             purpose: 'marketing_email',
             status: nextMarketing ? 'granted' : 'withdrawn',
           }
         : null,
-      previousConsent?.whatsapp_consent !== nextWhatsapp
+      requiresReview || previousConsent?.whatsapp_consent !== nextWhatsapp
         ? {
             purpose: 'operational_whatsapp',
             status: nextWhatsapp ? 'granted' : 'withdrawn',
           }
         : null,
+      requiresReview ||
       previousConsent?.marketing_whatsapp_consent !== nextMarketingWhatsapp
         ? {
             purpose: 'marketing_whatsapp',
@@ -134,21 +138,43 @@ export async function PATCH(
         privacyNoticeVersion(admin, access.account_id),
         requestConsentEvidence(request),
       ]);
-      await admin.from('privacy_consent_events').insert(
-        changes.map((change) => ({
-          id: crypto.randomUUID(),
-          account_id: access.account_id,
-          contact_id: access.contact_id,
-          purpose: change.purpose,
-          status: change.status,
-          legal_basis: 'consent',
-          policy_version: version,
-          source: 'client_portal',
-          evidence,
-        }))
-      );
+      const { error: consentError } = await admin
+        .from('privacy_consent_events')
+        .insert(
+          changes.map((change) => ({
+            id: crypto.randomUUID(),
+            account_id: access.account_id,
+            contact_id: access.contact_id,
+            purpose: change.purpose,
+            status: change.status,
+            legal_basis: 'consent',
+            policy_version: version,
+            source: 'client_portal',
+            evidence,
+          }))
+        );
+      if (consentError) throw consentError;
+      const { error: reviewError } = await admin
+        .from('contacts')
+        .update({
+          privacy_review_status: 'current',
+          consent_reviewed_at: new Date().toISOString(),
+          consent_review_source: 'client_portal',
+        })
+        .eq('account_id', access.account_id)
+        .eq('id', access.contact_id);
+      if (reviewError) throw reviewError;
     }
-    return Response.json({ client: data });
+    return Response.json({
+      client: changes.length
+        ? {
+            ...data,
+            privacy_review_status: 'current',
+            consent_reviewed_at: new Date().toISOString(),
+            consent_review_source: 'client_portal',
+          }
+        : data,
+    });
   } catch (error) {
     return portalErrorResponse(error);
   }

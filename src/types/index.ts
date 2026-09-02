@@ -145,7 +145,11 @@ export interface Contact {
   source?: string | null;
   preferred_contact?: 'whatsapp' | 'phone' | 'email' | null;
   marketing_consent?: boolean;
+  marketing_whatsapp_consent?: boolean;
   whatsapp_consent?: boolean;
+  privacy_review_status?: 'current' | 'legacy_unverified' | 'withdrawn';
+  consent_reviewed_at?: string | null;
+  consent_review_source?: string | null;
   avatar_url?: string;
   created_at: string;
   updated_at: string;
