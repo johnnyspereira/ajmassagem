@@ -68,6 +68,7 @@ jobs:
           rsync -a --exclude='node_modules/' .next/standalone/ cpanel-runtime/
           cp -a .next/static cpanel-runtime/.next/static
           cp -a public cpanel-runtime/public
+          cp .cpanel.yml .gitignore cpanel-runtime/
           mkdir -p cpanel-runtime/mysql cpanel-runtime/scripts
           cp -a mysql/migrations cpanel-runtime/mysql/migrations
           cp scripts/mysql-migrate.mjs cpanel-runtime/scripts/mysql-migrate.mjs
