@@ -8,11 +8,12 @@ on:
 permissions:
   contents: write
 
-# Only one generated runtime may publish this shared branch at a time.
-# A newer source push remains queued instead of racing an older build.
+# Only the newest source revision should reach the shared runtime branch.
+# Superseded builds are cancelled so cPanel never receives stale intermediate
+# versions after a sequence of urgent fixes.
 concurrency:
   group: cpanel-runtime-publish
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-runtime:
