@@ -80,9 +80,8 @@ export async function GET(
         .order('full_name'),
       admin
         .from('clinic_appointments')
-        .select('professional_profile_id,scheduled_start,scheduled_end')
+        .select('professional_profile_id,scheduled_start,scheduled_end,status')
         .eq('account_id', access.account_id)
-        .not('status', 'in', '(cancelled,no_show)')
         .gte('scheduled_start', now)
         .lte('scheduled_start', busyEnd.toISOString())
         .limit(5000),
@@ -334,7 +333,12 @@ export async function GET(
         services: services.data ?? [],
         professionals: professionals.data ?? [],
       },
-      availability: { busy: busy.data ?? [], blocks: blocks.data ?? [] },
+      availability: {
+        busy: (busy.data ?? []).filter(
+          (item) => !['cancelled', 'canceled', 'no_show'].includes(item.status)
+        ),
+        blocks: blocks.data ?? [],
+      },
       benefits: {
         vouchers: vouchers.data ?? [],
         packs: packs.data ?? [],

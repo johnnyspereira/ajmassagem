@@ -963,7 +963,6 @@ export function AgendaPage({
             'id, scheduled_start, scheduled_end, professional_profile_id, room_id, status'
           )
           .eq('account_id', accountId)
-          .not('status', 'in', '(cancelled,no_show)')
           .lt('scheduled_start', request.endsAt.toISOString())
           .gt('scheduled_end', request.startsAt.toISOString()),
         supabase

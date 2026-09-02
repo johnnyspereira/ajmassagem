@@ -143,13 +143,12 @@ export async function POST(
     const [appointments, blocks] = await Promise.all([
       admin
         .from('clinic_appointments')
-        .select('id')
+        .select('id,status')
         .eq('account_id', settings.account_id)
         .eq('professional_profile_id', professional.id)
-        .not('status', 'in', '(cancelled,no_show)')
         .lt('scheduled_start', end.toISOString())
         .gt('scheduled_end', start.toISOString())
-        .limit(1),
+        .limit(25),
       admin
         .from('clinic_time_blocks')
         .select('id')
@@ -161,7 +160,10 @@ export async function POST(
         )
         .limit(1),
     ]);
-    if (appointments.data?.length || blocks.data?.length) {
+    const activeAppointments = (appointments.data ?? []).filter(
+      (item) => !['cancelled', 'canceled', 'no_show'].includes(item.status)
+    );
+    if (activeAppointments.length || blocks.data?.length) {
       return Response.json(
         { error: 'Esse horário já não está disponível. Escolha outro.' },
         { status: 409 }
