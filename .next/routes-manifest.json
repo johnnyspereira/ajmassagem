@@ -132,6 +132,14 @@
       "namedRegex": "^/api/account/privacy/requests/(?<nxtPid>[^/]+?)(?:/)?$"
     },
     {
+      "page": "/api/account/privacy/requests/[id]/export",
+      "regex": "^/api/account/privacy/requests/([^/]+?)/export(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/account/privacy/requests/(?<nxtPid>[^/]+?)/export(?:/)?$"
+    },
+    {
       "page": "/api/ai/autoreply/[conversationId]",
       "regex": "^/api/ai/autoreply/([^/]+?)(?:/)?$",
       "routeKeys": {
