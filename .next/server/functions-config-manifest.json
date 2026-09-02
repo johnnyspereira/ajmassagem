@@ -10,6 +10,7 @@
         }
       ]
     },
+    "/api/account/email/diagnostics": {},
     "/api/finance/invoice-requests/[id]/issue-fiscal": {},
     "/api/finance/payment-links/stripe": {},
     "/api/finance/treasury/import": {},

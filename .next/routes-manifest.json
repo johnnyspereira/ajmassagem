@@ -638,6 +638,12 @@
       "namedRegex": "^/api/account/data\\-cleanup(?:/)?$"
     },
     {
+      "page": "/api/account/email/diagnostics",
+      "regex": "^/api/account/email/diagnostics(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/account/email/diagnostics(?:/)?$"
+    },
+    {
       "page": "/api/account/invitations",
       "regex": "^/api/account/invitations(?:/)?$",
       "routeKeys": {},
