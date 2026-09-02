@@ -1,0 +1,5 @@
+---
+deployment:
+  tasks:
+    - /bin/mkdir -p /home/jpmassag/repositorios/ajmassagem-v2/tmp
+    - /usr/bin/touch /home/jpmassag/repositorios/ajmassagem-v2/tmp/restart.txt
