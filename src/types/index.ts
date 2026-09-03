@@ -507,6 +507,7 @@ export interface ClinicService {
   currency: string;
   color: string;
   online_enabled?: boolean;
+  coming_soon?: boolean;
   iva_enabled?: boolean;
   commissions_enabled?: boolean;
   collaborators_enabled?: boolean;

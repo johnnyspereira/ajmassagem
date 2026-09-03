@@ -142,6 +142,7 @@ type ServiceDraft = {
   price: string;
   color: string;
   onlineEnabled: boolean;
+  comingSoon: boolean;
   ivaEnabled: boolean;
   commissionsEnabled: boolean;
   collaboratorsEnabled: boolean;
@@ -213,6 +214,7 @@ function defaultServiceDraft(): ServiceDraft {
     price: '',
     color: COLORS[0],
     onlineEnabled: true,
+    comingSoon: false,
     ivaEnabled: false,
     commissionsEnabled: false,
     collaboratorsEnabled: true,
@@ -237,6 +239,7 @@ function serviceDraftFromService(service: ClinicService): ServiceDraft {
     price: String(service.price ?? ''),
     color: service.color ?? COLORS[0],
     onlineEnabled: service.online_enabled ?? true,
+    comingSoon: service.coming_soon ?? false,
     ivaEnabled: service.iva_enabled ?? false,
     commissionsEnabled: service.commissions_enabled ?? false,
     collaboratorsEnabled: service.collaborators_enabled ?? true,
@@ -607,6 +610,7 @@ export function ClinicSettings() {
       currency: defaultCurrency,
       color: serviceDraft.color,
       online_enabled: serviceDraft.onlineEnabled,
+      coming_soon: serviceDraft.comingSoon,
       iva_enabled: serviceDraft.ivaEnabled,
       commissions_enabled: serviceDraft.commissionsEnabled,
       collaborators_enabled: serviceDraft.collaboratorsEnabled,
@@ -1254,6 +1258,13 @@ export function ClinicSettings() {
                     ...prev,
                     onlineEnabled: checked,
                   }))
+                }
+              />
+              <ServiceOption
+                label="Em breve"
+                checked={serviceDraft.comingSoon}
+                onChange={(checked) =>
+                  setServiceDraft((prev) => ({ ...prev, comingSoon: checked }))
                 }
               />
               <ServiceOption
