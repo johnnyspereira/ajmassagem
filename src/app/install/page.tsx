@@ -1,12 +1,7 @@
-import type { RowDataPacket } from 'mysql2';
 import { redirect } from 'next/navigation';
 
-import { selectRows } from '@/lib/mysql/db';
-import { InstallForm } from './install-form';
-
-export default async function InstallPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const rows = await selectRows<(RowDataPacket & { total: number })[]>('SELECT COUNT(*) AS total FROM app_users');
-  if (Number(rows[0]?.total ?? 0) > 0) redirect('/login');
-  const { error } = await searchParams;
-  return <InstallForm error={error} />;
+// Installation is a one-time provisioning operation. It must never be exposed
+// on the live business domain, nor run a database query just to render a page.
+export default function InstallPage() {
+  redirect('/login');
 }
