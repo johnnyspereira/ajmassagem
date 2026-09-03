@@ -36,6 +36,13 @@ describe('remoteWhatsAppWorker.enabled', () => {
     expect(remoteWhatsAppWorker.enabled()).toBe(false);
   });
 
+  it('uses a configured endpoint with the legacy polling mode', () => {
+    process.env.WHATSAPP_MODE = 'polling_worker';
+    process.env.WHATSAPP_WORKER_URL = 'https://worker.example.test';
+    process.env.WHATSAPP_WORKER_SECRET = 'secret';
+    expect(remoteWhatsAppWorker.enabled()).toBe(true);
+  });
+
   it('never falls back to the excluded local package in production', () => {
     delete process.env.WHATSAPP_MODE;
     delete process.env.WHATSAPP_WORKER_URL;

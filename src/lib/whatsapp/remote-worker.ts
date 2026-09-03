@@ -44,7 +44,18 @@ function runtimeEnv(name: string) {
 function isRemoteWorkerMode() {
   const mode = runtimeEnv('WHATSAPP_MODE');
   if (mode === 'remote_worker') return true;
-  if (mode === 'local_qr' || mode === 'polling_worker') return false;
+  if (mode === 'local_qr') return false;
+
+  // Older cPanel installations used `polling_worker` while already exposing
+  // a secured Worker URL. Prefer that live endpoint when both credentials
+  // are present: it returns the QR immediately instead of waiting for the
+  // optional database heartbeat transport.
+  if (mode === 'polling_worker') {
+    return Boolean(
+      runtimeEnv('WHATSAPP_WORKER_URL') &&
+        runtimeEnv('WHATSAPP_WORKER_SECRET')
+    );
+  }
 
   // A fully configured remote worker is safer than silently falling back to
   // whatsapp-web.js on shared hosting. This also keeps older cPanel installs
