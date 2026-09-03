@@ -124,7 +124,9 @@ export async function PublicBusinessPage({
           <nav className="hidden items-center gap-6 text-sm text-slate-600 md:flex">
             <a href="#servicos">Serviços</a>
             <a href="#sobre">Sobre</a>
+            {settings.show_team && team.length > 0 && <a href="#equipa">Equipa</a>}
             {settings.show_plans && <a href="#planos">Planos</a>}
+            {settings.show_faq && settings.faqs.length > 0 && <a href="#duvidas">Dúvidas</a>}
             <a href="#contacto">Contacto</a>
           </nav>
           <div className="flex gap-2">
