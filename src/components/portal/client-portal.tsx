@@ -548,6 +548,12 @@ export function ClientPortal({ slug }: { slug: string }) {
         toast.success('Acesso confirmado. Bem-vindo ao Portal 360.');
       }
       await loadPortal();
+      if (params.get('book') === '1') {
+        setBookingOpen(true);
+        params.delete('book');
+        const search = params.toString();
+        window.history.replaceState({}, '', `${window.location.pathname}${search ? `?${search}` : ''}`);
+      }
     }
 
     bootstrapPortal()

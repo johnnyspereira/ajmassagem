@@ -64,7 +64,8 @@ export async function PublicBusinessPage({
     site = await getPublicBusinessSite(slug);
   if (!site) notFound();
   const { settings, account, services, team, portal } = site;
-  const bookingUrl = portal?.booking_enabled ? '/portal' : '#contacto';
+  const bookingUrl = settings.show_booking && portal?.booking_enabled ? '/portal' : '#contacto';
+  const bookingHref = `${bookingUrl}${bookingUrl.includes('?') ? '&' : '?'}book=1`;
   const whatsapp = settings.whatsapp_phone?.replace(/\D/g, '');
   const heroSlides = [
     ...(settings.hero_image_url
@@ -74,6 +75,24 @@ export async function PublicBusinessPage({
     { image: '/site-presets/wellness/hero-02.webp', label: 'Bem-estar' },
     { image: '/site-presets/wellness/hero-03.webp', label: 'Ambiente' },
   ].slice(0, 3);
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'HealthAndBeautyBusiness',
+    name: account.name,
+    image: settings.hero_image_url || account.logo_url || undefined,
+    email: settings.contact_email || undefined,
+    telephone: settings.contact_phone || undefined,
+    address: settings.address ? { '@type': 'PostalAddress', streetAddress: settings.address } : undefined,
+    openingHours: settings.opening_hours || undefined,
+    hasOfferCatalog: services.length ? {
+      '@type': 'OfferCatalog',
+      name: 'Serviços',
+      itemListElement: services.filter((service) => !service.coming_soon).map((service) => ({
+        '@type': 'Offer', itemOffered: { '@type': 'Service', name: service.name, description: service.public_presentation || service.description || undefined },
+        price: Number(service.price) || undefined, priceCurrency: service.currency || 'EUR',
+      })),
+    } : undefined,
+  };
   return (
     <div
       className="public-site min-h-screen bg-white text-slate-900"
@@ -85,6 +104,7 @@ export async function PublicBusinessPage({
         } as React.CSSProperties
       }
     >
+      <a href="#conteudo" className="sr-only z-50 rounded-b-lg bg-white px-4 py-3 font-semibold text-slate-900 focus:not-sr-only focus:absolute focus:top-0 focus:left-4">Saltar para o conteúdo</a>
       <header className="site-header sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-18 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
@@ -125,7 +145,7 @@ export async function PublicBusinessPage({
           </div>
         </div>
       </header>
-      <main>
+      <main id="conteudo">
         <section className="site-hero relative overflow-hidden bg-[var(--dark)] text-white">
           <PublicHeroSlider slides={heroSlides} />
           <div className="site-hero-inner relative z-[2] mx-auto flex min-h-[720px] max-w-7xl items-center px-4 py-28 sm:px-6">
@@ -144,7 +164,7 @@ export async function PublicBusinessPage({
               )}
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
-                  href={bookingUrl}
+                  href={bookingHref}
                   className="site-button inline-flex items-center gap-2 rounded-xl bg-[var(--brand)] px-6 py-3 font-semibold"
                 >
                   Marcar agora
@@ -289,7 +309,7 @@ export async function PublicBusinessPage({
           </section>
         )}
         {settings.show_team && team.length > 0 && (
-          <section className="site-team bg-[var(--dark)] text-white">
+          <section id="equipa" className="site-team bg-[var(--dark)] text-white">
             <div className="mx-auto max-w-7xl px-4 py-24 sm:px-6">
               <SectionHeading
                 eyebrow="NOSSA EQUIPA"
@@ -396,7 +416,7 @@ export async function PublicBusinessPage({
           </section>
         )}
         {settings.show_faq && settings.faqs.length > 0 && (
-          <section className="mx-auto max-w-4xl px-4 py-24 sm:px-6">
+          <section id="duvidas" className="mx-auto max-w-4xl px-4 py-24 sm:px-6">
             <SectionHeading eyebrow="DÚVIDAS" title="Perguntas frequentes" />
             <div className="site-card mt-10 divide-y divide-slate-200 rounded-2xl border border-slate-200 px-6">
               {settings.faqs.map((faq, index) => (
@@ -474,6 +494,7 @@ export async function PublicBusinessPage({
           </div>
         </div>
       </footer>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, '\\u003c') }} />
     </div>
   );
 }
