@@ -216,6 +216,11 @@ export async function PublicBusinessPage({
                   </span>
                 </div>
               </div>
+              <div className="site-hero-availability mt-8 flex max-w-2xl flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border border-white/15 bg-black/15 px-4 py-3 text-sm backdrop-blur-sm">
+                <span className="flex size-2 rounded-full bg-emerald-400 shadow-[0_0_0_5px_rgb(74_222_128_/_14%)]" />
+                <span className="font-medium">Marcação online com confirmação de disponibilidade</span>
+                <span className="text-white/60">Serviço, profissional e horário num só fluxo.</span>
+              </div>
             </div>
           </div>
         </section>
@@ -224,7 +229,7 @@ export async function PublicBusinessPage({
           <PublicServiceMatcher services={services} />
           <section
             id="servicos"
-            className="mx-auto max-w-7xl px-4 py-24 sm:px-6"
+            className="site-services mx-auto max-w-7xl px-4 py-24 sm:px-6"
           >
             <SectionHeading
               eyebrow="O QUE FAZEMOS"
