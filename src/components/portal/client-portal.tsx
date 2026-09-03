@@ -465,7 +465,9 @@ export function ClientPortal({ slug }: { slug: string }) {
   const [supportRequestKey, setSupportRequestKey] = useState(0);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [bookingBenefitCode, setBookingBenefitCode] = useState('');
+  const [bookingServiceId, setBookingServiceId] = useState('');
   const [guestBookingOpen, setGuestBookingOpen] = useState(false);
+  const [guestBookingServiceId, setGuestBookingServiceId] = useState('');
   const [privacyUnderstood, setPrivacyUnderstood] = useState(false);
   const [savingPrivacyNotice, setSavingPrivacyNotice] = useState(false);
 
@@ -549,7 +551,11 @@ export function ClientPortal({ slug }: { slug: string }) {
       }
       await loadPortal();
       if (params.get('book') === '1') {
+        const serviceId = params.get('service') || '';
+        setBookingServiceId(serviceId);
+        setGuestBookingServiceId(serviceId);
         setBookingOpen(true);
+        setGuestBookingOpen(true);
         params.delete('book');
         const search = params.toString();
         window.history.replaceState({}, '', `${window.location.pathname}${search ? `?${search}` : ''}`);
@@ -663,6 +669,7 @@ export function ClientPortal({ slug }: { slug: string }) {
           onOpenChange={setGuestBookingOpen}
           slug={slug}
           businessName={publicPortal.business.name}
+          preferredServiceId={guestBookingServiceId}
         />
         <PortalPasswordChangeDialog
           open={passwordChangeRequired}
@@ -1025,6 +1032,7 @@ export function ClientPortal({ slug }: { slug: string }) {
         data={data}
         slug={slug}
         preferredBenefitCode={bookingBenefitCode}
+        preferredServiceId={bookingServiceId}
         onCreated={refreshData}
       />
       <PortalPasswordChangeDialog
@@ -1235,11 +1243,13 @@ function GuestBookingDialog({
   onOpenChange,
   slug,
   businessName,
+  preferredServiceId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   slug: string;
   businessName: string;
+  preferredServiceId: string;
 }) {
   const [catalog, setCatalog] = useState<GuestCatalog | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1263,7 +1273,7 @@ function GuestBookingDialog({
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error);
         setCatalog(payload as GuestCatalog);
-        setServiceId(payload.services?.[0]?.id || '');
+        setServiceId(payload.services?.some((service: { id: string }) => service.id === preferredServiceId) ? preferredServiceId : payload.services?.[0]?.id || '');
         setProfessionalId(payload.professionals?.[0]?.id || '');
       })
       .catch((error) =>
@@ -1272,7 +1282,7 @@ function GuestBookingDialog({
         )
       )
       .finally(() => setLoading(false));
-  }, [catalog, open, slug]);
+  }, [catalog, open, preferredServiceId, slug]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -3985,6 +3995,7 @@ function BookingDialog({
   data,
   slug,
   preferredBenefitCode,
+  preferredServiceId,
   onCreated,
 }: {
   open: boolean;
@@ -3992,10 +4003,11 @@ function BookingDialog({
   data: PortalData;
   slug: string;
   preferredBenefitCode: string;
+  preferredServiceId: string;
   onCreated: () => Promise<void>;
 }) {
   const [serviceId, setServiceId] = useState(() =>
-    data.catalog.services.length === 1 ? data.catalog.services[0].id : ''
+    data.catalog.services.some((service) => service.id === preferredServiceId) ? preferredServiceId : data.catalog.services.length === 1 ? data.catalog.services[0].id : ''
   );
   const [professionalId, setProfessionalId] = useState(() =>
     data.catalog.professionals.length === 1
@@ -4008,6 +4020,12 @@ function BookingDialog({
   const [benefitPin, setBenefitPin] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setServiceId(data.catalog.services.some((service) => service.id === preferredServiceId) ? preferredServiceId : data.catalog.services.length === 1 ? data.catalog.services[0].id : '');
+    setTime('');
+  }, [data.catalog.services, open, preferredServiceId]);
 
   const service = data.catalog.services.find((item) => item.id === serviceId);
   const professional = data.catalog.professionals.find(
