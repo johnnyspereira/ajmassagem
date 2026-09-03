@@ -49,6 +49,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
 import {
   DEFAULT_ANAMNESIS_CONFIG,
@@ -1164,7 +1165,13 @@ export function ClinicSettings() {
               {editingServiceId ? 'Editar procedimento' : 'Novo procedimento'}
             </DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4">
+          <Tabs defaultValue="general" className="min-h-[480px]">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="general">Geral</TabsTrigger>
+              <TabsTrigger value="operation">Operação</TabsTrigger>
+              <TabsTrigger value="public">Site público</TabsTrigger>
+            </TabsList>
+            <TabsContent value="general" className="mt-4 grid gap-4">
             <Field label="Nome">
               <Input
                 value={serviceDraft.name}
@@ -1236,6 +1243,8 @@ export function ClinicSettings() {
                 setServiceDraft((prev) => ({ ...prev, color }))
               }
             />
+            </TabsContent>
+            <TabsContent value="operation" className="mt-4 grid gap-4">
             <div className="grid gap-2 sm:grid-cols-3">
               <ServiceOption
                 label="Opções online"
@@ -1335,6 +1344,8 @@ export function ClinicSettings() {
                 }
               />
             </Field>
+            </TabsContent>
+            <TabsContent value="public" className="mt-4">
             <div className="rounded-xl border border-violet-200 bg-violet-50/50 p-4">
               <div className="mb-4">
                 <p className="font-semibold">Apresentação no site público</p>
@@ -1357,7 +1368,8 @@ export function ClinicSettings() {
                 </div>
               </div>
             </div>
-          </div>
+            </TabsContent>
+          </Tabs>
           <DialogFooter>
             <Button variant="outline" onClick={() => setServiceOpen(false)}>
               Cancelar
