@@ -19,8 +19,16 @@ function defaultSender() {
   }
 }
 
-function senderAddress(user?: string) {
-  const configured = process.env.SMTP_FROM?.trim();
+export type EmailProfile = 'general' | 'agenda' | 'finance' | 'marketing' | 'privacy' | 'support';
+
+function profileConfig(profile?: EmailProfile) {
+  const prefix = profile ? `SMTP_${profile.toUpperCase()}_` : 'SMTP_';
+  const fallback = (key: string) => process.env[`SMTP_${key}`]?.trim();
+  return { host: process.env[`${prefix}HOST`]?.trim() || fallback('HOST'), user: process.env[`${prefix}USER`]?.trim() || fallback('USER'), password: process.env[`${prefix}PASSWORD`]?.trim() || fallback('PASSWORD'), from: process.env[`${prefix}FROM`]?.trim() || fallback('FROM'), port: process.env[`${prefix}PORT`]?.trim() || fallback('PORT'), secure: process.env[`${prefix}SECURE`]?.trim() || fallback('SECURE') };
+}
+
+function senderAddress(user?: string, configuredValue?: string) {
+  const configured = configuredValue?.trim() || process.env.SMTP_FROM?.trim();
   if (configured?.includes('@')) return configured;
   const address = user || defaultSender();
   if (!configured) return address;
@@ -28,8 +36,8 @@ function senderAddress(user?: string) {
   return displayName ? `"${displayName}" <${address}>` : address;
 }
 
-function senderMailbox(user?: string) {
-  const formatted = senderAddress(user);
+function senderMailbox(user?: string, configured?: string) {
+  const formatted = senderAddress(user, configured);
   const bracketed = formatted.match(/<([^<>\s]+@[^<>\s]+)>/);
   if (bracketed?.[1]) return bracketed[1];
   return formatted.match(/[^\s<>]+@[^\s<>]+/)?.[0] || defaultSender();
@@ -50,6 +58,7 @@ export function emailDeliveryConfiguration() {
 
 export async function sendLocalEmail(input: {
   to: string;
+  profile?: EmailProfile;
   subject: string;
   text: string;
   html?: string;
@@ -61,17 +70,20 @@ export async function sendLocalEmail(input: {
     encoding?: 'base64';
   }>;
 }) {
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASSWORD;
+  const config = profileConfig(input.profile);
+  const host = config.host;
+  const user = config.user;
+  const pass = config.password;
+  const from = senderAddress(user, config.from);
+  const mailbox = senderMailbox(user, config.from);
   const transports: Array<{ name: string; client: Transporter }> = [];
   if (host) {
     transports.push({
       name: 'smtp',
       client: nodemailer.createTransport({
         host,
-        port: Number(process.env.SMTP_PORT || 465),
-        secure: process.env.SMTP_SECURE !== 'false',
+        port: Number(config.port || 465),
+        secure: config.secure !== 'false',
         auth: user && pass ? { user, pass } : undefined,
         connectionTimeout: 10_000,
         greetingTimeout: 10_000,
@@ -98,10 +110,10 @@ export async function sendLocalEmail(input: {
   for (const transport of transports) {
     try {
       const result = await transport.client.sendMail({
-        from: senderAddress(user),
-        replyTo: senderMailbox(user),
+        from,
+        replyTo: mailbox,
         envelope: {
-          from: senderMailbox(user),
+          from: mailbox,
           to: input.to,
         },
         ...input,

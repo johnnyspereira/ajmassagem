@@ -352,7 +352,7 @@ async function deliverChannels(input: {
   } else result.whatsapp.skipped = true;
   if (input.email) {
     try {
-      await sendLocalEmail({ to: input.email, ...input.emailContent });
+      await sendLocalEmail({ to: input.email, profile: 'agenda', ...input.emailContent });
       result.email.sent = true;
     } catch (error) {
       result.email.error = errorMessage(error, 'Falha no email.');

@@ -333,6 +333,7 @@ export async function POST(
       });
       await sendLocalEmail({
         to: email,
+        profile: 'general',
         ...template,
       });
     } else if (remoteWhatsAppWorker.enabled()) {

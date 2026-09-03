@@ -66,6 +66,7 @@ export async function POST(request: Request) {
     try {
       await sendLocalEmail({
         to: contact.email,
+        profile: 'finance',
         ...packDeliveryEmail({
           businessName: account?.name || 'JP Massagem',
           logoUrl: account?.logo_url,

@@ -36,6 +36,7 @@ export async function POST(request: Request) {
     try {
       await sendLocalEmail({
         to: email,
+        profile: 'general',
         ...passwordResetEmail({ resetUrl: url.toString() }),
       });
     } catch (cause) {

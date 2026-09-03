@@ -99,6 +99,7 @@ export async function POST(request: Request) {
       }
       await sendLocalEmail({
         to: owner.email,
+        profile: 'finance',
         ...voucherDeliveryEmail({
           businessName: account?.name || 'JP Massagem',
           logoUrl: account?.logo_url,
