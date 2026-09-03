@@ -27,7 +27,7 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
     admin
       .from('profiles')
       .select(
-        'id,full_name,avatar_url,professional_title,professional_bio,professional_color'
+        'id,full_name,avatar_url,professional_title,professional_bio,professional_color,professional_public_slug,working_hours'
       )
       .eq('account_id', settings.account_id)
       .eq('is_professional', true)
