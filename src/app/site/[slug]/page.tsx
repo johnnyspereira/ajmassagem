@@ -21,6 +21,7 @@ import { getPublicBusinessSite } from '@/lib/public-site/server';
 import { PublicLeadForm } from '@/components/website/public-lead-form';
 import { PublicHeroSlider } from '@/components/website/public-hero-slider';
 import { PublicServiceExplorer } from '@/components/website/public-service-explorer';
+import { PublicServiceMatcher } from '@/components/website/public-service-matcher';
 import './site-themes.css';
 export async function generateMetadata({
   params,
@@ -213,6 +214,8 @@ export async function PublicBusinessPage({
           </div>
         </section>
         {settings.show_services && services.length > 0 && (
+          <>
+          <PublicServiceMatcher services={services} />
           <section
             id="servicos"
             className="mx-auto max-w-7xl px-4 py-24 sm:px-6"
@@ -224,6 +227,7 @@ export async function PublicBusinessPage({
             />
             <PublicServiceExplorer services={services} bookingUrl={bookingUrl} />
           </section>
+          </>
         )}
         <section id="sobre" className="site-about bg-slate-50">
           <div className="mx-auto grid max-w-7xl gap-12 px-4 py-24 sm:px-6 lg:grid-cols-[0.9fr_1.1fr]">
