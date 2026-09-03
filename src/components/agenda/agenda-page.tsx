@@ -684,7 +684,7 @@ export function AgendaPage({
   const [newBenefitVoucherPin, setNewBenefitVoucherPin] = useState('');
   const [newBenefitCodeLookup, setNewBenefitCodeLookup] =
     useState<BenefitCodeLookup | null>(null);
-  const [, setAvailableVouchers] = useState<FinanceVoucher[]>([]);
+  const [availableVouchers, setAvailableVouchers] = useState<FinanceVoucher[]>([]);
   const [availablePacks, setAvailablePacks] = useState<AppointmentPackOption[]>(
     []
   );
@@ -764,6 +764,11 @@ export function AgendaPage({
   );
   const selectedNewPackBalance = selectedNewPack?.balances?.find(
     (balance) => balance.service_id === appointmentDraft.serviceId
+  );
+  const compatibleNewVouchers = availableVouchers.filter(
+    (voucher) =>
+      voucher.voucher_type !== 'service' ||
+      voucher.service_id === appointmentDraft.serviceId
   );
   const newAppointmentStart = appointmentDate(
     appointmentDraft.date,
@@ -1364,14 +1369,8 @@ export function AgendaPage({
       toast.error('Selecione o procedimento.');
       return;
     }
-    if (
-      (newBenefitType === 'voucher' &&
-        (!newBenefitVoucherCode.trim() || !newBenefitVoucherPin.trim())) ||
-      (newBenefitType === 'pack' &&
-        (!newBenefitSourceId ||
-          (Boolean(newBenefitCodeLookup) && !newBenefitVoucherPin.trim())))
-    ) {
-      toast.error('Informe o código e PIN do voucher ou selecione o pack.');
+    if (newBenefitType !== 'direct' && !newBenefitSourceId) {
+      toast.error('Selecione um voucher ou pack compatível.');
       return;
     }
 
@@ -1484,26 +1483,11 @@ export function AgendaPage({
 
     if (createdAppointment?.id && newBenefitType !== 'direct') {
       setAppointmentSaveStage('A reservar benefício…');
-      const { error: benefitError } =
-        newBenefitCodeLookup &&
-        (newBenefitCodeLookup.kind === 'pack' ||
-          newBenefitCodeLookup.lookup_mode !== 'fallback')
-          ? await supabase.rpc('reserve_appointment_benefit_code', {
-              p_appointment_id: createdAppointment.id,
-              p_code: newBenefitVoucherCode.trim(),
-              p_pin: newBenefitVoucherPin.trim(),
-            })
-          : newBenefitType === 'voucher'
-            ? await supabase.rpc('reserve_appointment_voucher', {
-                p_appointment_id: createdAppointment.id,
-                p_code: newBenefitVoucherCode.trim(),
-                p_pin: newBenefitVoucherPin.trim(),
-              })
-            : await supabase.rpc('set_appointment_benefit', {
-                p_appointment_id: createdAppointment.id,
-                p_benefit_type: 'pack',
-                p_source_id: newBenefitSourceId,
-              });
+      const { error: benefitError } = await supabase.rpc('set_appointment_benefit', {
+        p_appointment_id: createdAppointment.id,
+        p_benefit_type: newBenefitType,
+        p_source_id: newBenefitSourceId,
+      });
       if (benefitError) {
         await supabase
           .from('clinic_appointments')
@@ -1844,7 +1828,8 @@ export function AgendaPage({
           ? []
           : ((vouchersRes.data as FinanceVoucher[] | null) ?? []).filter(
               (item) =>
-                !item.expires_at || new Date(item.expires_at).getTime() > now
+                (!item.expires_at || new Date(item.expires_at).getTime() > now) &&
+                (item.voucher_type !== 'service' || item.service_id === appointmentDraft.serviceId)
             )
       );
       setAvailablePacks(
@@ -4619,6 +4604,11 @@ export function AgendaPage({
               </div>
 
               {benefitType !== 'direct' ? (
+                <div className="space-y-2">
+                  <Field label="PIN do voucher ou pack">
+                    <Input type="password" inputMode="numeric" value={benefitVoucherPin} onChange={(event) => setBenefitVoucherPin(event.target.value.replace(/\D/g, '').slice(0, 8))} placeholder="Introduza o PIN de 4 a 8 dígitos" />
+                  </Field>
+                  <p className="text-muted-foreground text-xs">Confirme o PIN apresentado pelo cliente antes de consumir o benefício.</p>
                 <button
                   type="button"
                   onClick={() => void consumeAppointmentBenefit()}
@@ -4642,6 +4632,7 @@ export function AgendaPage({
                     </span>
                   </span>
                 </button>
+                </div>
               ) : null}
 
               <button
@@ -5444,7 +5435,13 @@ export function AgendaPage({
                   ))}
                 </div>
                 {newBenefitType === 'voucher' ? (
-                  <div className="grid gap-2 sm:grid-cols-[1fr_120px]">
+                  <div className="space-y-2">
+                    <NativeSelect value={newBenefitSourceId} onChange={setNewBenefitSourceId}>
+                      <option value="">Selecione um voucher compatível</option>
+                      {compatibleNewVouchers.map((voucher) => <option key={voucher.id} value={voucher.id}>{voucher.voucher_type === 'service' ? (services.find((service) => service.id === voucher.service_id)?.name || 'Voucher de serviço') : formatCurrency(Number(voucher.current_balance), voucher.currency)} · {voucher.code}</option>)}
+                    </NativeSelect>
+                    <p className="text-muted-foreground text-xs">O PIN não é necessário para o profissional. Ele só é pedido quando o cliente agenda no Portal.</p>
+                    <div className="hidden">
                     <Input
                       value={newBenefitVoucherCode}
                       readOnly={Boolean(newBenefitCodeLookup)}
@@ -5466,6 +5463,7 @@ export function AgendaPage({
                       }
                       placeholder="PIN"
                     />
+                    </div>
                   </div>
                 ) : newBenefitType === 'pack' && newBenefitCodeLookup ? (
                   <div className="grid gap-2 sm:grid-cols-[1fr_120px]">
