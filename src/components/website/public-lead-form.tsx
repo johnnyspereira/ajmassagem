@@ -24,19 +24,32 @@ export function PublicLeadForm({
     e.preventDefault();
     setLoading(true);
     setError('');
-    const response = await fetch(
-      `/api/site/${encodeURIComponent(slug)}/contact`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, phone, subject, message }),
+    try {
+      const response = await fetch(
+        `/api/site/${encodeURIComponent(slug)}/contact`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, phone, subject, message }),
+        }
+      );
+      const text = await response.text();
+      let payload: { error?: string } = {};
+      let isJson = false;
+      try {
+        payload = JSON.parse(text) as { error?: string };
+        isJson = true;
+      } catch {
+        payload = {};
       }
-    );
-    const payload = await response.json();
-    setLoading(false);
-    if (!response.ok)
-      return setError(payload.error || 'Não foi possível enviar.');
-    setSent(true);
+      if (!response.ok || !isJson)
+        return setError(payload.error || 'Não foi possível enviar.');
+      setSent(true);
+    } catch {
+      setError('Não foi possível contactar o servidor.');
+    } finally {
+      setLoading(false);
+    }
   }
   if (sent)
     return (

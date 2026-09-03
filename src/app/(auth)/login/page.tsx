@@ -63,8 +63,16 @@ function LoginPageInner() {
       body: JSON.stringify({ email, password }),
     });
 
-    const result = (await response.json()) as { error?: string };
-    if (!response.ok) {
+    const text = await response.text();
+    let result: { error?: string } = {};
+    let isJson = false;
+    try {
+      result = JSON.parse(text) as { error?: string };
+      isJson = true;
+    } catch {
+      result = {};
+    }
+    if (!response.ok || !isJson || result.error) {
       setError(result.error ?? 'Não foi possível entrar.');
       setLoading(false);
       return;
