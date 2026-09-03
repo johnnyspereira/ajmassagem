@@ -117,10 +117,10 @@ export async function PublicBusinessPage({
               </Link>
             )}
             <Link
-              href={bookingUrl}
+              href="/login?next=/dashboard"
               className="site-button rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white"
             >
-              Agendar
+              Área do profissional
             </Link>
           </div>
         </div>
