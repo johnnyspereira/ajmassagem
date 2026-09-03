@@ -4043,6 +4043,25 @@ function BookingDialog({
   const professional = data.catalog.professionals.find(
     (item) => item.id === professionalId
   );
+  const compatibleVouchers = data.benefits.vouchers.filter((item) =>
+    item.status === 'active' &&
+    (item.voucher_type !== 'service' || one(item.service)?.id === serviceId)
+  );
+  const compatiblePacks = data.benefits.packs.filter((pack) =>
+    packIsAvailable(pack) && (pack.balances ?? []).some(
+      (balance) =>
+        balance.service &&
+        one(balance.service)?.id === serviceId &&
+        Number(balance.remaining_sessions) > 0
+    )
+  );
+  useEffect(() => {
+    if (!benefitCode) return;
+    if (![...compatibleVouchers, ...compatiblePacks].some((item) => item.code === benefitCode)) {
+      setBenefitCode('');
+      setBenefitPin('');
+    }
+  }, [benefitCode, compatiblePacks, compatibleVouchers]);
   const slots = useMemo(
     () =>
       buildSlots(
@@ -4241,8 +4260,7 @@ function BookingDialog({
                   onChange={(event) => chooseBenefit(event.target.value)}
                 >
                   <option value="">Pagamento normal</option>
-                  {data.benefits.vouchers
-                    .filter((item) => item.status === 'active')
+                  {compatibleVouchers
                     .map((item) => (
                       <option key={item.id} value={item.code}>
                         {item.voucher_type === 'service'
@@ -4254,12 +4272,15 @@ function BookingDialog({
                         · {item.code}
                       </option>
                     ))}
-                  {data.benefits.packs.filter(packIsAvailable).map((item) => (
+                  {compatiblePacks.map((item) => (
                     <option key={item.id} value={item.code}>
                       {one(item.pack)?.name || 'Pack'} · {item.code}
                     </option>
                   ))}
                 </select>
+                {serviceId && !compatibleVouchers.length && !compatiblePacks.length && (
+                  <p className="text-muted-foreground mt-2 text-xs">Não existe voucher ou pack ativo compatível com este serviço.</p>
+                )}
               </Field>
               {benefitCode && (
                 <Field label="PIN">
