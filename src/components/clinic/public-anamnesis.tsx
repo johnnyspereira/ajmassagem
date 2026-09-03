@@ -462,6 +462,17 @@ function SignaturePad({ value, onChange }: { value: string; onChange: (value: st
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
   const last = useRef<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    if (!value) return;
+    const image = new Image();
+    image.onload = () => context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    image.src = value;
+  }, [value]);
   const point = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
