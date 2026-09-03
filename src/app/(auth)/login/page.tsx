@@ -45,9 +45,16 @@ function LoginPageInner() {
 
   useEffect(() => {
     void fetch('/api/install', { cache: 'no-store' })
-      .then((response) => response.json())
-      .then((state: { installed?: boolean }) => {
-        if (state.installed === false) router.replace('/install');
+      .then(async (response) => ({
+        ok: response.ok,
+        state: (await response.json()) as { installed?: boolean },
+      }))
+      .then(({ ok, state }) => {
+        // A database or network outage must keep the login page available.
+        // Previously a 503 also carried `installed: false`, which redirected
+        // to /install; production redirects that route back to /login, causing
+        // an endless refresh loop.
+        if (ok && state.installed === false) router.replace('/install');
       })
       .catch(() => undefined);
   }, [router]);
