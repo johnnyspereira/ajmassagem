@@ -466,8 +466,10 @@ export function ClientPortal({ slug }: { slug: string }) {
   const [bookingOpen, setBookingOpen] = useState(false);
   const [bookingBenefitCode, setBookingBenefitCode] = useState('');
   const [bookingServiceId, setBookingServiceId] = useState('');
+  const [bookingProfessionalId, setBookingProfessionalId] = useState('');
   const [guestBookingOpen, setGuestBookingOpen] = useState(false);
   const [guestBookingServiceId, setGuestBookingServiceId] = useState('');
+  const [guestBookingProfessionalId, setGuestBookingProfessionalId] = useState('');
   const [privacyUnderstood, setPrivacyUnderstood] = useState(false);
   const [savingPrivacyNotice, setSavingPrivacyNotice] = useState(false);
 
@@ -552,8 +554,11 @@ export function ClientPortal({ slug }: { slug: string }) {
       await loadPortal();
       if (params.get('book') === '1') {
         const serviceId = params.get('service') || '';
+        const professionalId = params.get('professional') || '';
         setBookingServiceId(serviceId);
+        setBookingProfessionalId(professionalId);
         setGuestBookingServiceId(serviceId);
+        setGuestBookingProfessionalId(professionalId);
         setBookingOpen(true);
         setGuestBookingOpen(true);
         params.delete('book');
@@ -670,6 +675,7 @@ export function ClientPortal({ slug }: { slug: string }) {
           slug={slug}
           businessName={publicPortal.business.name}
           preferredServiceId={guestBookingServiceId}
+          preferredProfessionalId={guestBookingProfessionalId}
         />
         <PortalPasswordChangeDialog
           open={passwordChangeRequired}
@@ -1033,6 +1039,7 @@ export function ClientPortal({ slug }: { slug: string }) {
         slug={slug}
         preferredBenefitCode={bookingBenefitCode}
         preferredServiceId={bookingServiceId}
+        preferredProfessionalId={bookingProfessionalId}
         onCreated={refreshData}
       />
       <PortalPasswordChangeDialog
@@ -1244,12 +1251,14 @@ function GuestBookingDialog({
   slug,
   businessName,
   preferredServiceId,
+  preferredProfessionalId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   slug: string;
   businessName: string;
   preferredServiceId: string;
+  preferredProfessionalId: string;
 }) {
   const [catalog, setCatalog] = useState<GuestCatalog | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1274,7 +1283,7 @@ function GuestBookingDialog({
         if (!response.ok) throw new Error(payload.error);
         setCatalog(payload as GuestCatalog);
         setServiceId(payload.services?.some((service: { id: string }) => service.id === preferredServiceId) ? preferredServiceId : payload.services?.[0]?.id || '');
-        setProfessionalId(payload.professionals?.[0]?.id || '');
+        setProfessionalId(payload.professionals?.some((professional: { id: string }) => professional.id === preferredProfessionalId) ? preferredProfessionalId : payload.professionals?.[0]?.id || '');
       })
       .catch((error) =>
         toast.error(
@@ -1282,7 +1291,7 @@ function GuestBookingDialog({
         )
       )
       .finally(() => setLoading(false));
-  }, [catalog, open, preferredServiceId, slug]);
+  }, [catalog, open, preferredProfessionalId, preferredServiceId, slug]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -3996,6 +4005,7 @@ function BookingDialog({
   slug,
   preferredBenefitCode,
   preferredServiceId,
+  preferredProfessionalId,
   onCreated,
 }: {
   open: boolean;
@@ -4004,13 +4014,14 @@ function BookingDialog({
   slug: string;
   preferredBenefitCode: string;
   preferredServiceId: string;
+  preferredProfessionalId: string;
   onCreated: () => Promise<void>;
 }) {
   const [serviceId, setServiceId] = useState(() =>
     data.catalog.services.some((service) => service.id === preferredServiceId) ? preferredServiceId : data.catalog.services.length === 1 ? data.catalog.services[0].id : ''
   );
   const [professionalId, setProfessionalId] = useState(() =>
-    data.catalog.professionals.length === 1
+    data.catalog.professionals.some((professional) => professional.id === preferredProfessionalId) ? preferredProfessionalId : data.catalog.professionals.length === 1
       ? data.catalog.professionals[0].id
       : ''
   );
@@ -4024,8 +4035,9 @@ function BookingDialog({
   useEffect(() => {
     if (!open) return;
     setServiceId(data.catalog.services.some((service) => service.id === preferredServiceId) ? preferredServiceId : data.catalog.services.length === 1 ? data.catalog.services[0].id : '');
+    setProfessionalId(data.catalog.professionals.some((professional) => professional.id === preferredProfessionalId) ? preferredProfessionalId : data.catalog.professionals.length === 1 ? data.catalog.professionals[0].id : '');
     setTime('');
-  }, [data.catalog.services, open, preferredServiceId]);
+  }, [data.catalog.professionals, data.catalog.services, open, preferredProfessionalId, preferredServiceId]);
 
   const service = data.catalog.services.find((item) => item.id === serviceId);
   const professional = data.catalog.professionals.find(

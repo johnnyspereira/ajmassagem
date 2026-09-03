@@ -344,6 +344,12 @@ export async function PublicBusinessPage({
                         {person.professional_bio}
                       </p>
                     )}
+                    <Link
+                      href={settings.show_booking && portal?.booking_enabled ? `${bookingHref}&professional=${encodeURIComponent(person.id)}` : '#contacto'}
+                      className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-[var(--brand)]"
+                    >
+                      Marcar com este profissional <ArrowRight className="size-4" />
+                    </Link>
                   </article>
                 ))}
               </div>
