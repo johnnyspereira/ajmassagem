@@ -474,11 +474,16 @@ export function ClientPortal({ slug }: { slug: string }) {
   const [savingPrivacyNotice, setSavingPrivacyNotice] = useState(false);
 
   const loadPortal = useCallback(async () => {
+    if (!slug.trim()) {
+      throw new Error('O Portal do Cliente ainda não está configurado.');
+    }
     const publicResponse = await fetch(
       `/api/portal/${encodeURIComponent(slug)}/public`,
       { cache: 'no-store' }
     );
-    const publicPayload = await publicResponse.json();
+    // The hosting provider may temporarily return an HTML error page. Keep
+    // that implementation detail out of the client-facing error message.
+    const publicPayload = await publicResponse.json().catch(() => ({}));
     if (!publicResponse.ok)
       throw new Error(publicPayload.error || 'Portal indisponível.');
     setPublicPortal(publicPayload as PublicPortal);
@@ -491,7 +496,7 @@ export function ClientPortal({ slug }: { slug: string }) {
       setData(null);
       return;
     }
-    const dataPayload = await dataResponse.json();
+    const dataPayload = await dataResponse.json().catch(() => ({}));
     if (!dataResponse.ok)
       throw new Error(
         dataPayload.error || 'Não foi possível carregar o portal.'
@@ -532,6 +537,7 @@ export function ClientPortal({ slug }: { slug: string }) {
 
   useEffect(() => {
     async function bootstrapPortal() {
+      if (!slug.trim()) return;
       const params = new URLSearchParams(window.location.search);
       const tokenHash = params.get('portal_token');
       if (tokenHash) {
