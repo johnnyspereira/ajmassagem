@@ -49,3 +49,15 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
     portal: portal.data?.enabled ? portal.data : null,
   };
 });
+
+export const getDefaultPublicBusinessSlug = cache(async () => {
+  const admin = supabaseAdmin();
+  const { data } = await admin
+    .from('public_site_settings')
+    .select('slug')
+    .eq('enabled', true)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.slug || null;
+});

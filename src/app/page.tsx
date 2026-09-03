@@ -1,5 +1,8 @@
-import { redirect } from 'next/navigation';
+import { PublicBusinessPage } from './site/[slug]/page';
+import { getDefaultPublicBusinessSlug } from '@/lib/public-site/server';
 
-export default function RootPage() {
-  redirect('/dashboard');
+export default async function RootPage() {
+  const slug = await getDefaultPublicBusinessSlug();
+  if (!slug) return <PublicBusinessPage params={Promise.resolve({ slug: 'indisponivel' })} />;
+  return <PublicBusinessPage params={Promise.resolve({ slug })} />;
 }

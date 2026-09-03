@@ -370,6 +370,8 @@ export function ClinicSettings() {
     Record<string, ProfessionalWorkSession[]>
   >({});
   const [saving, setSaving] = useState(false);
+  const [uploadingServiceImage, setUploadingServiceImage] = useState(false);
+  const serviceImageInputRef = useRef<HTMLInputElement>(null);
   const [communication, setCommunication] = useState<CommunicationDraft>(
     DEFAULT_COMMUNICATION
   );
@@ -558,6 +560,24 @@ export function ClinicSettings() {
     setEditingServiceId(service.id);
     setServiceDraft(serviceDraftFromService(service));
     setServiceOpen(true);
+  }
+
+  async function uploadServiceImage(file?: File) {
+    if (!file || !accountId) return;
+    if (!file.type.startsWith('image/')) return toast.error('Selecione uma imagem válida.');
+    if (file.size > 5 * 1024 * 1024) return toast.error('A imagem deve ter no máximo 5 MB.');
+    setUploadingServiceImage(true);
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const path = `account-${accountId}/services/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from('branding-assets').upload(path, file, { cacheControl: '3600', upsert: false, contentType: file.type });
+      if (error) throw error;
+      const { data } = supabase.storage.from('branding-assets').getPublicUrl(path);
+      setServiceDraft((previous) => ({ ...previous, publicImageUrl: data.publicUrl }));
+      toast.success('Imagem carregada. Guarde o procedimento para publicar.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível carregar a imagem.');
+    } finally { setUploadingServiceImage(false); }
   }
 
   async function saveService() {
@@ -1322,7 +1342,7 @@ export function ClinicSettings() {
               </div>
               <div className="grid gap-3">
                 <Field label="Imagem (URL)">
-                  <Input value={serviceDraft.publicImageUrl} onChange={(event) => setServiceDraft((prev) => ({ ...prev, publicImageUrl: event.target.value }))} placeholder="https://.../imagem-da-modalidade.jpg" />
+                  <div className="flex gap-2"><Input value={serviceDraft.publicImageUrl} onChange={(event) => setServiceDraft((prev) => ({ ...prev, publicImageUrl: event.target.value }))} placeholder="Cole uma URL ou carregue um ficheiro" /><input ref={serviceImageInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => { void uploadServiceImage(event.target.files?.[0]); event.currentTarget.value = ''; }} /><Button type="button" variant="outline" onClick={() => serviceImageInputRef.current?.click()} disabled={uploadingServiceImage}>{uploadingServiceImage ? <Loader2 className="animate-spin" /> : <Upload />} Carregar</Button></div>
                 </Field>
                 <Field label="Apresentação completa">
                   <Textarea value={serviceDraft.publicPresentation} onChange={(event) => setServiceDraft((prev) => ({ ...prev, publicPresentation: event.target.value }))} placeholder="Explique a experiência, para quem é indicada e como funciona a sessão." />

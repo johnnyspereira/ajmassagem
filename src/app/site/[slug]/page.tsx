@@ -55,7 +55,7 @@ export async function generateMetadata({
     },
   };
 }
-export default async function PublicBusinessPage({
+export async function PublicBusinessPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
@@ -87,7 +87,7 @@ export default async function PublicBusinessPage({
     >
       <header className="site-header sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-18 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link href={`/site/${slug}`} className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3">
             {account.logo_url ? (
               <img
                 src={account.logo_url}
@@ -477,6 +477,8 @@ export default async function PublicBusinessPage({
     </div>
   );
 }
+
+export default PublicBusinessPage;
 function SectionHeading({
   eyebrow,
   title,
