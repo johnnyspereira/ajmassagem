@@ -108,6 +108,10 @@ export function PackCatalogSettings() {
       toast.error('Preencha o nome e todas as sessões do pack.');
       return;
     }
+    if (new Set(items.map((item) => item.serviceId)).size !== items.length) {
+      toast.error('Cada serviço pode aparecer apenas uma vez no pack. Ajuste o número de sessões.');
+      return;
+    }
     setSaving(true);
     const payload = {
       name: name.trim(),

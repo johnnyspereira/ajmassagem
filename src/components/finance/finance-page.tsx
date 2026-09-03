@@ -180,6 +180,7 @@ export function FinancePage({
   const [saleDiscount, setSaleDiscount] = useState(0);
   const [saleNotes, setSaleNotes] = useState('');
   const [payments, setPayments] = useState<PaymentDraft[]>([]);
+  const [alreadyPaidElsewhere, setAlreadyPaidElsewhere] = useState(false);
   const [checkoutAppointmentLabel, setCheckoutAppointmentLabel] = useState('');
   const checkoutLoadedRef = useRef(false);
 
@@ -725,6 +726,7 @@ export function FinancePage({
     setSaleDiscount(0);
     setSaleNotes('');
     setPayments([]);
+    setAlreadyPaidElsewhere(false);
   }
 
   async function deliverSaleVouchers(saleId: string) {
@@ -798,12 +800,12 @@ export function FinancePage({
       toast.error('Selecione um cliente para vender packs.');
       return;
     }
-    if (payments.some((payment) => payment.method === 'cash') && !cashSession) {
+    if (!alreadyPaidElsewhere && payments.some((payment) => payment.method === 'cash') && !cashSession) {
       toast.error('Abra o caixa antes de receber dinheiro.');
       setCashOpen(true);
       return;
     }
-    if (
+    if (!alreadyPaidElsewhere &&
       payments.some(
         (payment) =>
           payment.method === 'voucher' &&
@@ -813,14 +815,14 @@ export function FinancePage({
       toast.error('Informe o código e o PIN do voucher usado no pagamento.');
       return;
     }
-    if (paidNow > total + 0.001) {
+    if (!alreadyPaidElsewhere && paidNow > total + 0.001) {
       toast.error('Os pagamentos não podem ultrapassar o total.');
       return;
     }
     const walletPayment = payments
       .filter((payment) => payment.method === 'client_credit')
       .reduce((sum, payment) => sum + Number(payment.amount), 0);
-    if (walletPayment > clientWalletBalance) {
+    if (!alreadyPaidElsewhere && walletPayment > clientWalletBalance) {
       toast.error('O cartão-saldo do cliente não possui saldo suficiente.');
       return;
     }
@@ -854,6 +856,7 @@ export function FinancePage({
             pin_code: payment.pinCode || null,
           })),
         p_sale_discount: saleDiscount,
+        p_already_paid_elsewhere: alreadyPaidElsewhere,
         p_notes: saleNotes || null,
       }
     );
@@ -1546,6 +1549,8 @@ export function FinancePage({
               total,
               payments,
               setPayments,
+              alreadyPaidElsewhere,
+              setAlreadyPaidElsewhere,
               addPayment,
               paidNow,
               remaining,
@@ -2673,6 +2678,8 @@ function PosView(props: {
   total: number;
   payments: PaymentDraft[];
   setPayments: React.Dispatch<React.SetStateAction<PaymentDraft[]>>;
+  alreadyPaidElsewhere: boolean;
+  setAlreadyPaidElsewhere: (value: boolean) => void;
   addPayment: () => void;
   paidNow: number;
   remaining: number;
@@ -2708,6 +2715,8 @@ function PosView(props: {
     total,
     payments,
     setPayments,
+    alreadyPaidElsewhere,
+    setAlreadyPaidElsewhere,
     addPayment,
     paidNow,
     remaining,
@@ -3027,7 +3036,8 @@ function PosView(props: {
               {money(total, defaultCurrency)}
             </span>
           </div>
-          <div className="space-y-2">
+          <label className="flex cursor-pointer gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"><input type="checkbox" checked={alreadyPaidElsewhere} onChange={(event) => { setAlreadyPaidElsewhere(event.target.checked); if (event.target.checked) setPayments([]); }} /><span><strong>Já faturado anteriormente</strong><span className="mt-0.5 block text-xs text-amber-800">Importa voucher/pack de outra plataforma como ativo, sem criar pagamento nem movimento de caixa.</span></span></label>
+          <div className={alreadyPaidElsewhere ? 'pointer-events-none space-y-2 opacity-45' : 'space-y-2'}>
             {payments.map((payment) => (
               <div
                 key={payment.id}

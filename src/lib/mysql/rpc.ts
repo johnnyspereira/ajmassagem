@@ -811,6 +811,7 @@ export async function executeMysqlRpc(
         const payments = Array.isArray(args.p_payments)
           ? (args.p_payments as Record<string, unknown>[])
           : [];
+        const alreadyPaidElsewhere = args.p_already_paid_elsewhere === true;
         if (!items.length) throw new Error('Sale requires at least one item.');
         let subtotal = 0,
           itemDiscount = 0,
@@ -844,8 +845,10 @@ export async function executeMysqlRpc(
           (sum, p) => sum + Number(p.amount ?? 0),
           0
         );
-        if (paymentTotal > total || payments.some((p) => Number(p.amount) <= 0))
+        if ((!alreadyPaidElsewhere && paymentTotal > total) || payments.some((p) => Number(p.amount) <= 0))
           throw new Error('Invalid sale payments.');
+        if (alreadyPaidElsewhere && payments.length)
+          throw new Error('Imported benefits cannot register a local payment.');
         const saleId = randomUUID();
         await transaction(async (connection) => {
           await connection.execute(
@@ -1012,13 +1015,14 @@ export async function executeMysqlRpc(
             });
           // A complimentary voucher or pack has no payment to register, but
           // it is still a completed sale: issue its benefits immediately.
-          if (total === 0) {
+          if (total === 0 || alreadyPaidElsewhere) {
             await connection.execute(
               `UPDATE finance_sales
                SET status='paid',paid_amount=0,balance_due=0,
+                   notes=CONCAT_WS('\\n',notes,IF(?,'Pagamento efetuado anteriormente noutra plataforma.','')),
                    completed_at=COALESCE(completed_at,UTC_TIMESTAMP(3))
                WHERE id=? AND status='open'`,
-              [saleId]
+              [alreadyPaidElsewhere ? 1 : 0, saleId]
             );
           }
           const [sale] = await connection.execute<
