@@ -260,6 +260,14 @@
       "namedRegex": "^/api/invitations/(?<nxtPtoken>[^/]+?)/redeem(?:/)?$"
     },
     {
+      "page": "/api/marketing/campaigns/[id]/email",
+      "regex": "^/api/marketing/campaigns/([^/]+?)/email(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/marketing/campaigns/(?<nxtPid>[^/]+?)/email(?:/)?$"
+    },
+    {
       "page": "/api/portal/[slug]/appointments",
       "regex": "^/api/portal/([^/]+?)/appointments(?:/)?$",
       "routeKeys": {
