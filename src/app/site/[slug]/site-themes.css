@@ -467,3 +467,128 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Sistema visual comum: garante que o redesenho não depende do tema ativo. */
+.public-site .site-header {
+  top: 0.75rem;
+  width: min(calc(100% - 2rem), 86rem);
+  margin-inline: auto;
+  border: 1px solid rgb(226 232 240 / 80%);
+  border-radius: 1.25rem;
+  box-shadow: 0 12px 36px rgb(15 23 42 / 10%);
+}
+
+.public-site .site-header > div {
+  min-height: 4.5rem;
+}
+
+.public-site .site-header nav a {
+  position: relative;
+  font-weight: 500;
+}
+
+.public-site .site-header nav a::after {
+  position: absolute;
+  right: 0;
+  bottom: -0.55rem;
+  left: 0;
+  height: 2px;
+  content: '';
+  background: var(--brand);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 180ms ease;
+}
+
+.public-site .site-header nav a:hover::after {
+  transform: scaleX(1);
+}
+
+.public-site main {
+  overflow: hidden;
+}
+
+.public-site .site-hero {
+  width: min(calc(100% - 2rem), 90rem);
+  min-height: 720px;
+  margin: -4.5rem auto 1.25rem;
+  border-radius: 0 0 2.25rem 2.25rem;
+  box-shadow: 0 32px 80px rgb(15 23 42 / 16%);
+}
+
+.public-site .site-hero-inner {
+  min-height: 720px;
+  padding-top: 11rem;
+}
+
+.public-site .site-hero-title {
+  max-width: 13ch;
+  letter-spacing: -0.06em;
+}
+
+.public-site[data-site-theme='wellness'] .site-header + main {
+  margin-top: 0;
+}
+
+.public-site .site-card {
+  background: rgb(255 255 255 / 88%);
+}
+
+.public-site .site-card:hover {
+  box-shadow: 0 22px 48px rgb(15 23 42 / 13%);
+}
+
+.public-site .site-gallery {
+  padding: 0.75rem;
+  border-radius: calc(var(--site-radius) + 0.75rem);
+  background: color-mix(in srgb, var(--brand) 8%, white);
+}
+
+.public-site .site-gallery figure {
+  box-shadow: 0 12px 28px rgb(15 23 42 / 12%);
+}
+
+.public-site .site-team-card {
+  overflow: hidden;
+}
+
+.public-site .site-team-card img {
+  transition: transform 450ms ease;
+}
+
+.public-site .site-team-card:hover img {
+  transform: scale(1.04);
+}
+
+.public-site .site-contact {
+  position: relative;
+}
+
+.public-site .site-contact::before {
+  position: absolute;
+  top: 0;
+  right: 8%;
+  width: 12rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  content: '';
+  background: var(--brand);
+}
+
+@media (max-width: 767px) {
+  .public-site .site-header {
+    width: calc(100% - 1rem);
+    border-radius: 1rem;
+  }
+  .public-site .site-hero {
+    width: 100%;
+    min-height: 680px;
+    margin-top: -4.5rem;
+    border-radius: 0 0 1.5rem 1.5rem;
+  }
+  .public-site .site-hero-inner {
+    min-height: 680px;
+    padding-top: 9rem;
+  }
+  .public-site .site-hero-title { font-size: clamp(2.7rem, 12vw, 4.25rem); }
+}
