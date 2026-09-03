@@ -2952,33 +2952,40 @@ function PosView(props: {
                     <X />
                   </Button>
                 </div>
-                <div className="mt-2 grid grid-cols-[94px_1fr_1fr] gap-2">
-                  <div className="flex items-center">
-                    <Button
+                <div className="mt-3 grid gap-2 sm:grid-cols-[112px_1fr_1fr]">
+                  <div>
+                    <span className="text-muted-foreground mb-1 block text-[11px] font-medium uppercase">Quantidade</span>
+                    <div className="flex items-center">
+                      <Button
                       variant="outline"
                       size="icon-sm"
+                      aria-label={`Diminuir quantidade de ${item.name}`}
                       onClick={() =>
                         updateCart(item.key, {
                           quantity: Math.max(1, item.quantity - 1),
                         })
                       }
-                    >
-                      <Minus />
-                    </Button>
-                    <span className="w-8 text-center text-xs">
-                      {item.quantity}
-                    </span>
-                    <Button
+                      >
+                        <Minus />
+                      </Button>
+                      <span className="w-8 text-center text-xs font-semibold">
+                        {item.quantity}
+                      </span>
+                      <Button
                       variant="outline"
                       size="icon-sm"
+                      aria-label={`Aumentar quantidade de ${item.name}`}
                       onClick={() =>
                         updateCart(item.key, { quantity: item.quantity + 1 })
                       }
-                    >
-                      <Plus />
-                    </Button>
+                      >
+                        <Plus />
+                      </Button>
+                    </div>
                   </div>
-                  <Input
+                  <label className="text-muted-foreground grid gap-1 text-[11px] font-medium uppercase">
+                    Desconto (€)
+                    <Input
                     type="number"
                     min="0"
                     step="0.01"
@@ -2988,9 +2995,13 @@ function PosView(props: {
                         discountAmount: Number(event.target.value),
                       })
                     }
-                    title="Desconto"
-                  />
-                  <Input
+                    aria-label={`Desconto em euros para ${item.name}`}
+                    className="h-9 text-sm normal-case"
+                    />
+                  </label>
+                  <label className="text-muted-foreground grid gap-1 text-[11px] font-medium uppercase">
+                    IVA (%)
+                    <Input
                     type="number"
                     min="0"
                     step="0.1"
@@ -3000,9 +3011,12 @@ function PosView(props: {
                         taxRate: Number(event.target.value),
                       })
                     }
-                    title="IVA %"
-                  />
+                    aria-label={`IVA em percentagem para ${item.name}`}
+                    className="h-9 text-sm normal-case"
+                    />
+                  </label>
                 </div>
+                <div className="mt-3 flex items-center justify-between border-t border-dashed pt-2 text-xs"><span className="text-muted-foreground">Total deste item</span><strong>{money(Math.max(item.quantity * item.unitPrice - item.discountAmount, 0) * (1 + item.taxRate / 100), defaultCurrency)}</strong></div>
               </div>
             ))
           )}
@@ -3017,7 +3031,7 @@ function PosView(props: {
             <span className="text-right">
               -{money(itemDiscount, defaultCurrency)}
             </span>
-            <span className="text-muted-foreground">Desconto da venda</span>
+            <span className="text-muted-foreground">Desconto adicional da venda</span>
             <Input
               type="number"
               min="0"
@@ -3025,7 +3039,8 @@ function PosView(props: {
               step="0.01"
               value={saleDiscount}
               onChange={(event) => setSaleDiscount(Number(event.target.value))}
-              className="h-7 text-right"
+              aria-label="Desconto adicional da venda em euros"
+              className="h-8 text-right"
             />
             <span className="text-muted-foreground">IVA</span>
             <span className="text-right">{money(tax, defaultCurrency)}</span>
