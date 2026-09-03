@@ -163,6 +163,21 @@ export async function POST(
     .select('id')
     .single();
   if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (contactId) {
+    const { error: contactError } = await db
+      .from('contacts')
+      .update({
+        name: body.clientName.trim().slice(0, 160),
+        phone: body.clientPhone?.trim().slice(0, 40) || null,
+        birth_date: body.birthDate || null,
+      })
+      .eq('id', contactId)
+      .eq('account_id', settings.account_id);
+    if (contactError) {
+      console.error('[public-anamnesis] contact sync failed:', contactError.message);
+      return Response.json({ error: 'A ficha foi guardada, mas não foi possível atualizar os dados do cliente.' }, { status: 500 });
+    }
+  }
   await db.from('privacy_consent_events').insert([
     {
       id: crypto.randomUUID(),

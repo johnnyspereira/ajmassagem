@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Activity,
   Check,
@@ -97,7 +97,6 @@ export function PublicAnamnesis({
         setAnswers(
           (next.answers || {}) as Record<string, string | boolean | string[]>
         );
-        setSignature(next.signature_name || '');
       })
       .catch((loadError) =>
         setError(loadError.message || 'Ficha indisponível.')
@@ -147,8 +146,8 @@ export function PublicAnamnesis({
         clientPhone: identity.phone,
         birthDate: identity.birthDate,
         selectedModalities: modalities,
-        answers,
-        signatureName: signature,
+        answers: { ...answers, signature_data: signature },
+        signatureName: identity.name,
         healthConsent,
         privacyConsent,
       }),
@@ -442,11 +441,9 @@ export function PublicAnamnesis({
                 Ler a política de privacidade completa
               </a>
             )}
-            <Field label="Assinatura digital — nome completo *">
-              <Input
-                value={signature}
-                onChange={(e) => setSignature(e.target.value)}
-              />
+            <Field label="Assinatura digital *">
+              <SignaturePad value={signature} onChange={setSignature} />
+              <p className="text-muted-foreground mt-2 text-xs">Desenhe a sua assinatura. O nome informado acima será associado a esta confirmação.</p>
             </Field>
           </FormSection>
         </div>
@@ -459,6 +456,19 @@ export function PublicAnamnesis({
       </div>
     </main>
   );
+}
+
+function SignaturePad({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawing = useRef(false);
+  const last = useRef<{ x: number; y: number } | null>(null);
+  const point = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    return { x: (event.clientX - rect.left) * (canvas.width / rect.width), y: (event.clientY - rect.top) * (canvas.height / rect.height) };
+  };
+  const finish = () => { drawing.current = false; last.current = null; if (canvasRef.current) onChange(canvasRef.current.toDataURL('image/png')); };
+  return <div className="overflow-hidden rounded-xl border bg-white"><canvas ref={canvasRef} width={720} height={180} className="h-36 w-full touch-none cursor-crosshair" onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); drawing.current = true; last.current = point(event); }} onPointerMove={(event) => { if (!drawing.current || !last.current) return; const next = point(event); const canvas = canvasRef.current!; const context = canvas.getContext('2d')!; context.strokeStyle = '#172554'; context.lineWidth = 2.4; context.lineCap = 'round'; context.beginPath(); context.moveTo(last.current.x, last.current.y); context.lineTo(next.x, next.y); context.stroke(); last.current = next; }} onPointerUp={finish} onPointerCancel={finish} /><div className="flex items-center justify-between border-t bg-slate-50 px-3 py-2"><span className="text-muted-foreground text-xs">Assine dentro da área branca</span><button type="button" className="text-xs font-medium text-primary" onClick={() => { const canvas = canvasRef.current; if (!canvas) return; canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height); onChange(''); }}>Limpar assinatura</button></div>{value && <span className="sr-only">Assinatura registada</span>}</div>;
 }
 
 function FormSection({

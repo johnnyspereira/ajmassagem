@@ -13,7 +13,6 @@ type PainZone = {
 };
 
 export const BODY_PAIN_ZONES: PainZone[] = [
-  { id: 'front-head', label: 'Cabeça', view: 'front', x: 50, y: 9 },
   { id: 'front-neck', label: 'Pescoço', view: 'front', x: 50, y: 18 },
   {
     id: 'front-left-shoulder',
@@ -47,7 +46,6 @@ export const BODY_PAIN_ZONES: PainZone[] = [
   { id: 'front-abdomen', label: 'Abdómen', view: 'front', x: 50, y: 44 },
   { id: 'front-left-hand', label: 'Mão esquerda', view: 'front', x: 20, y: 55 },
   { id: 'front-right-hand', label: 'Mão direita', view: 'front', x: 80, y: 55 },
-  { id: 'front-pelvis', label: 'Anca / pélvis', view: 'front', x: 50, y: 57 },
   {
     id: 'front-left-thigh',
     label: 'Coxa esquerda',

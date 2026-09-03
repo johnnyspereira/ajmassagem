@@ -211,11 +211,15 @@ export async function POST(
       phone: body.clientPhone?.trim().slice(0, 40) || null,
       birth_date: body.birthDate || null,
     };
-    await db
+    const { error: contactError } = await db
       .from('contacts')
       .update(contactUpdate)
       .eq('id', existing.contact_id)
       .eq('account_id', existing.account_id);
+    if (contactError) {
+      console.error('[anamnesis] contact sync failed:', contactError.message);
+      return Response.json({ error: 'A ficha foi guardada, mas não foi possível atualizar os dados do cliente.' }, { status: 500 });
+    }
   }
 
   try {
