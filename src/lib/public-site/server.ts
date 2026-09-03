@@ -1,5 +1,7 @@
 import { cache } from 'react';
 import { supabaseAdmin } from '@/lib/flows/admin-client';
+import { resolveAuditUserId } from '@/lib/api/v1/contacts';
+import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 import type { PublicSiteSettings } from './types';
 export const getPublicBusinessSite = cache(async (slug: string) => {
   const admin = supabaseAdmin();
@@ -10,7 +12,7 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
     .eq('enabled', true)
     .maybeSingle();
   if (error || !settings) return null;
-  const [account, services, team, portal] = await Promise.all([
+  const [account, services, team, portal, whatsappConfig] = await Promise.all([
     admin
       .from('accounts')
       .select('id,name,logo_url,default_currency')
@@ -39,14 +41,30 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
       .select('slug,enabled,booking_enabled')
       .eq('account_id', settings.account_id)
       .maybeSingle(),
+    admin
+      .from('whatsapp_config')
+      .select('status,user_id')
+      .eq('account_id', settings.account_id)
+      .maybeSingle(),
   ]);
   if (account.error) return null;
+  let whatsappConnected = whatsappConfig.data?.status === 'connected';
+  if (remoteWhatsAppWorker.enabled()) {
+    try {
+      const status = await Promise.race([
+        remoteWhatsAppWorker.status({ accountId: settings.account_id, userId: whatsappConfig.data?.user_id || await resolveAuditUserId(admin, settings.account_id), autoStart: false }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 1_200)),
+      ]);
+      whatsappConnected = status.connected === true;
+    } catch { whatsappConnected = false; }
+  }
   return {
     settings: settings as PublicSiteSettings,
     account: account.data,
     services: services.data ?? [],
     team: team.data ?? [],
     portal: portal.data?.enabled ? portal.data : null,
+    whatsappConnected,
   };
 });
 

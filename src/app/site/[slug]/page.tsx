@@ -64,10 +64,16 @@ export async function PublicBusinessPage({
   const { slug } = await params,
     site = await getPublicBusinessSite(slug);
   if (!site) notFound();
-  const { settings, account, services, team, portal } = site;
+  const { settings, account, services, team, portal, whatsappConnected } = site;
   const bookingUrl = settings.show_booking && portal?.booking_enabled ? '/portal' : '#contacto';
   const bookingHref = `${bookingUrl}${bookingUrl.includes('?') ? '&' : '?'}book=1`;
   const whatsapp = settings.whatsapp_phone?.replace(/\D/g, '');
+  const faqs = settings.faqs.length ? settings.faqs : [
+    { question: 'Como funciona a primeira sessão?', answer: 'Escolha a modalidade, o profissional e o horário disponível. Antes do atendimento, pode partilhar preferências e informações relevantes para que a experiência seja ajustada ao seu conforto.' },
+    { question: 'Como posso reagendar ou cancelar?', answer: 'Depois de entrar no Portal 360, pode consultar os seus agendamentos e usar as opções disponíveis dentro das regras definidas pela clínica.' },
+    { question: 'Como funcionam os pagamentos?', answer: 'As opções de pagamento e benefícios aplicáveis são apresentadas durante a marcação ou no atendimento, conforme a modalidade escolhida.' },
+    { question: 'Como são tratados os meus dados?', answer: 'O Portal 360 permite consultar preferências e consentimentos. A política de privacidade explica como exercer os seus direitos e gerir comunicações.' },
+  ];
   const heroSlides = [
     ...(settings.hero_image_url
       ? [{ image: settings.hero_image_url, label: 'Destaque' }]
@@ -127,7 +133,7 @@ export async function PublicBusinessPage({
             <a href="#sobre">Sobre</a>
             {settings.show_team && team.length > 0 && <a href="#equipa">Equipa</a>}
             {settings.show_plans && <a href="#planos">Planos</a>}
-            {settings.show_faq && settings.faqs.length > 0 && <a href="#duvidas">Dúvidas</a>}
+            {settings.show_faq && <a href="#duvidas">Dúvidas</a>}
             <a href="#contacto">Contacto</a>
           </nav>
           <div className="flex gap-2">
@@ -425,11 +431,11 @@ export async function PublicBusinessPage({
             </div>
           </section>
         )}
-        {settings.show_faq && settings.faqs.length > 0 && (
+        {settings.show_faq && faqs.length > 0 && (
           <section id="duvidas" className="mx-auto max-w-4xl px-4 py-24 sm:px-6">
             <SectionHeading eyebrow="DÚVIDAS" title="Perguntas frequentes" />
             <div className="site-card mt-10 divide-y divide-slate-200 rounded-2xl border border-slate-200 px-6">
-              {settings.faqs.map((faq, index) => (
+              {faqs.map((faq, index) => (
                 <details key={index} className="group py-5">
                   <summary className="cursor-pointer list-none font-semibold">
                     {faq.question}
@@ -467,7 +473,7 @@ export async function PublicBusinessPage({
                   <ContactLine icon={Clock3} text={settings.opening_hours} />
                 )}
               </div>
-              {whatsapp && (
+              {whatsapp && whatsappConnected && (
                 <a
                   href={`https://wa.me/${whatsapp}`}
                   target="_blank"
