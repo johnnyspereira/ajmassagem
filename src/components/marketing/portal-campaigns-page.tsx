@@ -103,6 +103,7 @@ export function PortalCampaignsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [sendingCampaign, setSendingCampaign] = useState<string | null>(null);
   const load = useCallback(async () => {
     if (!accountId) return;
     setLoading(true);
@@ -196,6 +197,16 @@ export function PortalCampaignsPage() {
         : 'Campanha arquivada.'
     );
     await load();
+  }
+  async function sendEmail(item: Campaign) {
+    setSendingCampaign(item.id);
+    try {
+      const response = await fetch(`/api/marketing/campaigns/${item.id}/email`, { method: 'POST' });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Não foi possível enviar a campanha.');
+      toast.success(`Campanha enviada: ${result.sent} email(s), ${result.failed} falha(s).`);
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'Falha ao enviar campanha.'); }
+    finally { setSendingCampaign(null); }
   }
   const activeEnrollments = items.flatMap((item) =>
     item.enrollments.filter((entry) => entry.status !== 'cancelled')
@@ -327,6 +338,11 @@ export function PortalCampaignsPage() {
                     <Sparkles className="size-5 shrink-0" />
                     <strong>{item.benefit_text}</strong>
                   </div>
+                )}
+                {item.status === 'published' && canSendMessages && (
+                  <Button className="w-full" variant="outline" disabled={sendingCampaign === item.id} onClick={() => void sendEmail(item)}>
+                    {sendingCampaign === item.id ? <Loader2 className="animate-spin" /> : <Mail />} Enviar por email a clientes autorizados
+                  </Button>
                 )}
                 {item.enrollments.length > 0 && (
                   <div className="overflow-hidden rounded-xl border">

@@ -462,11 +462,15 @@ function SignaturePad({ value, onChange }: { value: string; onChange: (value: st
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
   const last = useRef<{ x: number; y: number } | null>(null);
+  const locallyDrawn = useRef('');
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const context = canvas.getContext('2d');
     if (!context) return;
+    // Do not clear a signature we have just drawn locally: React re-renders
+    // immediately after pointer release, before the data URL image is ready.
+    if (value && value === locallyDrawn.current) return;
     context.clearRect(0, 0, canvas.width, canvas.height);
     if (!value) return;
     const image = new Image();
@@ -478,8 +482,8 @@ function SignaturePad({ value, onChange }: { value: string; onChange: (value: st
     const rect = canvas.getBoundingClientRect();
     return { x: (event.clientX - rect.left) * (canvas.width / rect.width), y: (event.clientY - rect.top) * (canvas.height / rect.height) };
   };
-  const finish = () => { drawing.current = false; last.current = null; if (canvasRef.current) onChange(canvasRef.current.toDataURL('image/png')); };
-  return <div className="overflow-hidden rounded-xl border bg-white"><canvas ref={canvasRef} width={720} height={180} className="h-36 w-full touch-none cursor-crosshair" onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); drawing.current = true; last.current = point(event); }} onPointerMove={(event) => { if (!drawing.current || !last.current) return; const next = point(event); const canvas = canvasRef.current!; const context = canvas.getContext('2d')!; context.strokeStyle = '#172554'; context.lineWidth = 2.4; context.lineCap = 'round'; context.beginPath(); context.moveTo(last.current.x, last.current.y); context.lineTo(next.x, next.y); context.stroke(); last.current = next; }} onPointerUp={finish} onPointerCancel={finish} /><div className="flex items-center justify-between border-t bg-slate-50 px-3 py-2"><span className="text-muted-foreground text-xs">Assine dentro da área branca</span><button type="button" className="text-xs font-medium text-primary" onClick={() => { const canvas = canvasRef.current; if (!canvas) return; canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height); onChange(''); }}>Limpar assinatura</button></div>{value && <span className="sr-only">Assinatura registada</span>}</div>;
+  const finish = () => { drawing.current = false; last.current = null; if (canvasRef.current) { const next = canvasRef.current.toDataURL('image/png'); locallyDrawn.current = next; onChange(next); } };
+  return <div className="overflow-hidden rounded-xl border bg-white"><canvas ref={canvasRef} width={720} height={180} className="h-36 w-full touch-none cursor-crosshair" onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); drawing.current = true; last.current = point(event); }} onPointerMove={(event) => { if (!drawing.current || !last.current) return; const next = point(event); const canvas = canvasRef.current!; const context = canvas.getContext('2d')!; context.strokeStyle = '#172554'; context.lineWidth = 2.4; context.lineCap = 'round'; context.beginPath(); context.moveTo(last.current.x, last.current.y); context.lineTo(next.x, next.y); context.stroke(); last.current = next; }} onPointerUp={finish} onPointerCancel={finish} /><div className="flex items-center justify-between border-t bg-slate-50 px-3 py-2"><span className="text-muted-foreground text-xs">Assine dentro da área branca</span><button type="button" className="text-xs font-medium text-primary" onClick={() => { const canvas = canvasRef.current; if (!canvas) return; locallyDrawn.current = ''; canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height); onChange(''); }}>Limpar assinatura</button></div>{value && <span className="sr-only">Assinatura registada</span>}</div>;
 }
 
 function FormSection({
