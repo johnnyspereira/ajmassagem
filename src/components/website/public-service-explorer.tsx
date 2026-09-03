@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowRight, Check, Clock3, HeartPulse, Info, Sparkles, TriangleAlert } from 'lucide-react';
+import { ArrowRight, Check, Clock3, Info, Sparkles, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
@@ -16,8 +16,8 @@ export function PublicServiceExplorer({ services, bookingUrl }: { services: Publ
   return <>
     <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
       {services.map((service) => <button type="button" key={service.id} onClick={() => setSelected(service)} className="site-card site-service-card group overflow-hidden rounded-2xl border border-slate-200 text-left transition hover:-translate-y-1 hover:shadow-xl">
-        {service.public_image_url ? <img src={service.public_image_url} alt="" className="h-44 w-full object-cover transition duration-500 group-hover:scale-105" /> : <div className="flex h-32 items-center justify-center bg-[linear-gradient(135deg,color-mix(in_srgb,var(--brand)_18%,white),#fff)]"><Sparkles className="size-9 text-[var(--brand)]" /></div>}
-        <div className="p-6"><span className="flex size-10 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--brand)_12%,white)] text-[var(--brand)]"><HeartPulse className="size-5" /></span><h3 className="mt-4 text-xl font-semibold">{service.name}</h3>{service.description && <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500">{service.description}</p>}<div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4 text-sm"><span className="flex items-center gap-1 text-slate-500"><Clock3 className="size-4" />{service.duration_minutes} min</span><span className="font-semibold text-[var(--brand)]">{Number(service.price) > 0 ? new Intl.NumberFormat('pt-PT', { style: 'currency', currency: service.currency || 'EUR' }).format(Number(service.price)) : 'Sob consulta'}</span></div><span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[var(--brand)]">Ver detalhes <ArrowRight className="size-4" /></span></div>
+        {service.public_image_url && <img src={service.public_image_url} alt={service.name} className="h-44 w-full object-cover transition duration-500 group-hover:scale-105" />}
+        <div className="p-6"><p className="text-xs font-semibold tracking-[0.14em] text-[var(--brand)] uppercase">Experiência personalizada</p><h3 className="mt-2 text-xl font-semibold">{service.name}</h3><p className="mt-3 line-clamp-3 min-h-[4.5rem] text-sm leading-6 text-slate-500">{service.description || service.public_presentation || 'Conheça esta modalidade e descubra como a sessão pode ser adaptada às suas necessidades.'}</p><div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4 text-sm"><span className="flex items-center gap-1 text-slate-500"><Clock3 className="size-4" />{service.duration_minutes} min</span><span className="font-semibold text-[var(--brand)]">{Number(service.price) > 0 ? new Intl.NumberFormat('pt-PT', { style: 'currency', currency: service.currency || 'EUR' }).format(Number(service.price)) : 'Sob consulta'}</span></div><span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[var(--brand)]">Ver detalhes <ArrowRight className="size-4" /></span></div>
       </button>)}
     </div>
     <Dialog open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
