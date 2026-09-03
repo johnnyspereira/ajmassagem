@@ -573,12 +573,28 @@
       "namedRegex": "^/privacy/(?<nxtPslug>[^/]+?)(?:/)?$"
     },
     {
+      "page": "/profissionais/[professional]",
+      "regex": "^/profissionais/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPprofessional": "nxtPprofessional"
+      },
+      "namedRegex": "^/profissionais/(?<nxtPprofessional>[^/]+?)(?:/)?$"
+    },
+    {
       "page": "/refer/[code]",
       "regex": "^/refer/([^/]+?)(?:/)?$",
       "routeKeys": {
         "nxtPcode": "nxtPcode"
       },
       "namedRegex": "^/refer/(?<nxtPcode>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/servicos/[service]",
+      "regex": "^/servicos/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPservice": "nxtPservice"
+      },
+      "namedRegex": "^/servicos/(?<nxtPservice>[^/]+?)(?:/)?$"
     },
     {
       "page": "/site/[slug]",
@@ -1226,6 +1242,12 @@
       "namedRegex": "^/reset\\-password(?:/)?$"
     },
     {
+      "page": "/robots.txt",
+      "regex": "^/robots\\.txt(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/robots\\.txt(?:/)?$"
+    },
+    {
       "page": "/scheduled-messages",
       "regex": "^/scheduled\\-messages(?:/)?$",
       "routeKeys": {},
@@ -1260,6 +1282,12 @@
       "regex": "^/site(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/site(?:/)?$"
+    },
+    {
+      "page": "/sitemap.xml",
+      "regex": "^/sitemap\\.xml(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/sitemap\\.xml(?:/)?$"
     },
     {
       "page": "/social-planner",
