@@ -988,7 +988,9 @@ export async function executeMysqlRpc(
                   pin,
                   String(metadata.voucher_type ?? 'gift_card'),
                   metadata.remaining_uses == null
-                    ? null
+                    ? String(metadata.voucher_type ?? 'gift_card') === 'service'
+                      ? 1
+                      : null
                     : Number(metadata.remaining_uses),
                   face,
                   face,

@@ -1186,6 +1186,7 @@ export function FinancePage({
           face_value: saleValue,
           voucher_type: voucherType,
           service_id: selectedVoucherService?.id ?? null,
+          remaining_uses: voucherType === 'service' ? 1 : null,
           service_name: selectedVoucherService?.name ?? null,
           pin_code: voucherPin,
           recipient_name: voucherRecipient,
