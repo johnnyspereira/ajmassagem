@@ -20,6 +20,7 @@ import {
 import { getPublicBusinessSite } from '@/lib/public-site/server';
 import { PublicLeadForm } from '@/components/website/public-lead-form';
 import { PublicHeroSlider } from '@/components/website/public-hero-slider';
+import { PublicServiceExplorer } from '@/components/website/public-service-explorer';
 import './site-themes.css';
 export async function generateMetadata({
   params,
@@ -199,38 +200,7 @@ export default async function PublicBusinessPage({
               title="Serviços pensados para você"
               description="Conheça as opções disponíveis e escolha a experiência ideal."
             />
-            <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-              {services.map((service) => (
-                <article
-                  key={service.id}
-                  className="site-card site-service-card group rounded-2xl border border-slate-200 p-6 transition hover:-translate-y-1 hover:shadow-xl"
-                >
-                  <span className="flex size-11 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--brand)_12%,white)] text-[var(--brand)]">
-                    <Sparkles />
-                  </span>
-                  <h3 className="mt-5 text-xl font-semibold">{service.name}</h3>
-                  {service.description && (
-                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500">
-                      {service.description}
-                    </p>
-                  )}
-                  <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4 text-sm">
-                    <span className="text-slate-500">
-                      {service.duration_minutes} minutos
-                    </span>
-                    <span className="font-semibold text-[var(--brand)]">
-                      {Number(service.price) > 0
-                        ? new Intl.NumberFormat('pt-PT', {
-                            style: 'currency',
-                            currency:
-                              service.currency || account.default_currency,
-                          }).format(Number(service.price))
-                        : 'Sob consulta'}
-                    </span>
-                  </div>
-                </article>
-              ))}
-            </div>
+            <PublicServiceExplorer services={services} bookingUrl={bookingUrl} />
           </section>
         )}
         <section id="sobre" className="site-about bg-slate-50">

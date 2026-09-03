@@ -497,6 +497,11 @@ export interface ClinicService {
   reference?: string | null;
   category?: string | null;
   description?: string | null;
+  /** Conteúdo apresentado no modal público do site. */
+  public_presentation?: string | null;
+  public_benefits?: string[] | null;
+  public_considerations?: string[] | null;
+  public_image_url?: string | null;
   duration_minutes: number;
   price: number;
   currency: string;

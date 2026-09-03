@@ -18,7 +18,7 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
       .single(),
     admin
       .from('clinic_services')
-      .select('id,name,description,duration_minutes,price,currency,color')
+      .select('id,name,description,public_presentation,public_benefits,public_considerations,public_image_url,duration_minutes,price,currency,color')
       .eq('account_id', settings.account_id)
       .eq('is_active', true)
       .eq('online_enabled', true)

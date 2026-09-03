@@ -133,6 +133,10 @@ type ServiceDraft = {
   reference: string;
   category: string;
   description: string;
+  publicPresentation: string;
+  publicBenefits: string;
+  publicConsiderations: string;
+  publicImageUrl: string;
   durationMinutes: string;
   price: string;
   color: string;
@@ -200,6 +204,10 @@ function defaultServiceDraft(): ServiceDraft {
     reference: '',
     category: 'Massagem',
     description: '',
+    publicPresentation: '',
+    publicBenefits: '',
+    publicConsiderations: '',
+    publicImageUrl: '',
     durationMinutes: '60',
     price: '',
     color: COLORS[0],
@@ -220,6 +228,10 @@ function serviceDraftFromService(service: ClinicService): ServiceDraft {
     reference: service.reference ?? '',
     category: service.category ?? 'Massagem',
     description: service.description ?? '',
+    publicPresentation: service.public_presentation ?? '',
+    publicBenefits: (service.public_benefits ?? []).join('\n'),
+    publicConsiderations: (service.public_considerations ?? []).join('\n'),
+    publicImageUrl: service.public_image_url ?? '',
     durationMinutes: String(service.duration_minutes ?? 60),
     price: String(service.price ?? ''),
     color: service.color ?? COLORS[0],
@@ -562,6 +574,10 @@ export function ClinicSettings() {
       reference: serviceDraft.reference.trim() || null,
       category: serviceDraft.category.trim() || null,
       description: serviceDraft.description.trim() || null,
+      public_presentation: serviceDraft.publicPresentation.trim() || null,
+      public_benefits: serviceDraft.publicBenefits.split('\n').map((value) => value.trim()).filter(Boolean),
+      public_considerations: serviceDraft.publicConsiderations.split('\n').map((value) => value.trim()).filter(Boolean),
+      public_image_url: serviceDraft.publicImageUrl.trim() || null,
       duration_minutes: Math.max(
         5,
         Math.round(readNumber(serviceDraft.durationMinutes, 60))
@@ -1299,6 +1315,28 @@ export function ClinicSettings() {
                 }
               />
             </Field>
+            <div className="rounded-xl border border-violet-200 bg-violet-50/50 p-4">
+              <div className="mb-4">
+                <p className="font-semibold">Apresentação no site público</p>
+                <p className="text-muted-foreground text-xs">Aparece quando o visitante clicar na modalidade. Nos campos abaixo, use uma informação por linha.</p>
+              </div>
+              <div className="grid gap-3">
+                <Field label="Imagem (URL)">
+                  <Input value={serviceDraft.publicImageUrl} onChange={(event) => setServiceDraft((prev) => ({ ...prev, publicImageUrl: event.target.value }))} placeholder="https://.../imagem-da-modalidade.jpg" />
+                </Field>
+                <Field label="Apresentação completa">
+                  <Textarea value={serviceDraft.publicPresentation} onChange={(event) => setServiceDraft((prev) => ({ ...prev, publicPresentation: event.target.value }))} placeholder="Explique a experiência, para quem é indicada e como funciona a sessão." />
+                </Field>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Benefícios (um por linha)">
+                    <Textarea value={serviceDraft.publicBenefits} onChange={(event) => setServiceDraft((prev) => ({ ...prev, publicBenefits: event.target.value }))} placeholder={'Relaxamento profundo\nAlívio da tensão muscular\nMelhoria do bem-estar'} />
+                  </Field>
+                  <Field label="Cuidados / contraindicações (um por linha)">
+                    <Textarea value={serviceDraft.publicConsiderations} onChange={(event) => setServiceDraft((prev) => ({ ...prev, publicConsiderations: event.target.value }))} placeholder={'Informe-nos sobre gravidez\nEvitar em caso de febre\nAvise sobre lesões recentes'} />
+                  </Field>
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setServiceOpen(false)}>
