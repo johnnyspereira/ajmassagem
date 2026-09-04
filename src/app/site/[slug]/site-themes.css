@@ -592,3 +592,87 @@
   }
   .public-site .site-hero-title { font-size: clamp(2.7rem, 12vw, 4.25rem); }
 }
+
+/* 2026 public-site composition: a calmer editorial canvas with a decisive
+   booking path. Content remains entirely sourced from Website Builder. */
+.public-site-v2 {
+  background: #f8f7f4;
+}
+
+.public-site-v2 .site-header {
+  top: 1rem;
+  width: min(calc(100% - 2.5rem), 94rem);
+  border: 1px solid rgb(255 255 255 / 72%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 78%);
+  box-shadow: 0 14px 45px rgb(24 30 27 / 12%);
+}
+
+.public-site-v2 .site-hero {
+  width: min(calc(100% - 2.5rem), 94rem);
+  min-height: 780px;
+  margin-top: -4.65rem;
+  border-radius: 0 0 3rem 3rem;
+}
+
+.public-site-v2 .site-hero-inner {
+  min-height: 780px;
+  padding-top: 13rem;
+}
+
+.public-site-v2 .site-hero-title {
+  max-width: 11ch;
+  font-size: clamp(3.5rem, 7.4vw, 7.75rem);
+  font-weight: 500;
+  line-height: .93;
+  letter-spacing: -.075em;
+}
+
+.public-site-v2 .site-journey {
+  position: relative;
+  z-index: 4;
+  margin-top: -5.5rem;
+}
+
+.public-site-v2 .site-services,
+.public-site-v2 .site-about > div,
+.public-site-v2 .site-experience > div,
+.public-site-v2 .site-contact > div {
+  max-width: 88rem;
+}
+
+.public-site-v2 .site-services {
+  padding-top: 8rem;
+}
+
+.public-site-v2 .site-card {
+  border-color: rgb(25 38 31 / 10%);
+  background: rgb(255 255 255 / 72%);
+  box-shadow: none;
+}
+
+.public-site-v2 .site-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 55px rgb(23 38 29 / 11%);
+}
+
+.public-site-v2 .site-about,
+.public-site-v2 .site-contact {
+  background: #eceae3;
+}
+
+.public-site-v2 .site-team {
+  background: linear-gradient(130deg, var(--dark), color-mix(in srgb, var(--dark) 78%, var(--brand)));
+}
+
+.public-site-v2 .site-footer {
+  margin: 0;
+  border-radius: 0;
+}
+
+@media (max-width: 767px) {
+  .public-site-v2 .site-header { width: calc(100% - 1rem); }
+  .public-site-v2 .site-hero { width: 100%; min-height: 700px; border-radius: 0 0 2rem 2rem; }
+  .public-site-v2 .site-hero-inner { min-height: 700px; padding-top: 10.5rem; }
+  .public-site-v2 .site-journey { margin-top: -2rem; }
+}
