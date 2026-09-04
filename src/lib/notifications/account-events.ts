@@ -16,6 +16,10 @@ type Recipient = RowDataPacket & {
 
 function normalizedPhone(value: string) {
   const digits = value.replace(/\D/g, '');
+  // A clinic often stores Portuguese mobile numbers locally (9 digits).
+  // WhatsApp requires an international E.164 number, so make the safe,
+  // unambiguous Portuguese conversion before adding the plus sign.
+  if (/^9\d{8}$/.test(digits)) return `+351${digits}`;
   return digits ? `+${digits}` : '';
 }
 

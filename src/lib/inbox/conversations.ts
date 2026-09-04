@@ -42,6 +42,16 @@ export function normalizeConversations(
   return rows.map(normalizeConversation);
 }
 
+/**
+ * System notifications sent to the account owner use a private contact so
+ * they can travel through the same durable WhatsApp outbox as customer
+ * messages. They are operational records, not customer conversations, and
+ * must never appear in the agents' Inbox.
+ */
+export function isInternalAlertConversation(conversation: Conversation) {
+  return conversation.contact?.source === 'system_owner_alerts';
+}
+
 export interface ContactFilters {
   /** Tag ids; a conversation matches if its contact has ANY of them (OR). */
   tagIds: string[];

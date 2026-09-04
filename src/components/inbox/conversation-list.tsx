@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import {
   CONVERSATION_SELECT,
+  isInternalAlertConversation,
   matchesContactFilters,
   normalizeConversations,
 } from '@/lib/inbox/conversations';
@@ -163,7 +164,11 @@ export function ConversationList({
         return;
       }
 
-      onConversationsLoadedRef.current(normalizeConversations(data ?? []));
+      onConversationsLoadedRef.current(
+        normalizeConversations(data ?? []).filter(
+          (conversation) => !isInternalAlertConversation(conversation)
+        )
+      );
       setLoading(false);
     })();
 
@@ -427,15 +432,22 @@ export function ConversationList({
   const activeStage = stagesById.get(selectedStageId)?.name;
 
   return (
-    <div className="border-border bg-card flex h-full w-full flex-col border-r lg:w-80">
-      <div className="border-border space-y-2 border-b p-3">
+    <div className="bg-card flex h-full w-full flex-col lg:w-[21rem]">
+      <div className="border-border/70 space-y-3 border-b p-4">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-semibold tracking-[0.16em] text-primary uppercase">Fila de trabalho</p>
+            <h2 className="mt-1 text-sm font-semibold text-foreground">Conversas</h2>
+          </div>
+          <span className="bg-primary/10 text-primary rounded-full px-2 py-1 text-[10px] font-bold">{conversations.length}</span>
+        </div>
         <div className="relative">
           <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <Input
             value={search}
             onChange={handleSearchChange}
             placeholder={t('searchPlaceholder')}
-            className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 pl-9 text-sm"
+            className="border-border/70 bg-muted/60 text-foreground placeholder-muted-foreground focus:border-primary/50 h-10 rounded-xl pl-9 text-sm shadow-inner"
           />
         </div>
 
@@ -755,7 +767,7 @@ export function ConversationList({
         )}
       </div>
 
-      <ScrollArea className="min-h-0 flex-1">
+      <ScrollArea className="min-h-0 flex-1 p-1.5">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
@@ -767,7 +779,7 @@ export function ConversationList({
             </p>
           </div>
         ) : (
-          <div className="flex flex-col">
+          <div className="flex flex-col gap-1">
             {filtered.map((conv) => {
               const dealSummaries = dealsByContactId.get(conv.contact_id) ?? [];
               const appointmentSummaries =
@@ -843,11 +855,11 @@ function ConversationItem({
       type="button"
       onClick={handleClick}
       className={cn(
-        'hover:bg-muted/50 flex w-full items-start gap-3 px-3 py-3 text-left transition-colors',
-        isActive && 'border-primary bg-muted/70 border-l-2'
+        'hover:bg-muted/65 flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-all',
+        isActive && 'bg-primary/8 ring-primary/20 shadow-sm ring-1'
       )}
     >
-      <div className="bg-muted text-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-medium">
+      <div className="bg-muted text-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm font-medium shadow-sm">
         {contact?.avatar_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
