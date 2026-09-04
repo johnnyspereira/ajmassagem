@@ -129,7 +129,7 @@ export async function PublicBusinessPage({
             <span className="font-semibold">{account.name}</span>
           </Link>
           <nav className="hidden items-center gap-6 text-sm text-slate-600 md:flex">
-            <a href="/">Principal</a>
+            <Link href="/">Principal</Link>
             <a href="#servicos">Serviços</a>
             <a href="#sobre">Sobre</a>
             {settings.show_team && team.length > 0 && <a href="#equipa">Equipa</a>}
