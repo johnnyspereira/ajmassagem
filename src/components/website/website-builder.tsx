@@ -160,8 +160,8 @@ export function WebsiteBuilder() {
   }
   const siteUrl =
     typeof window !== 'undefined'
-      ? `${window.location.origin}/site/${form.slug}`
-      : `/site/${form.slug}`;
+      ? window.location.origin
+      : '/';
   if (loading)
     return (
       <div className="flex min-h-96 items-center justify-center">
@@ -275,10 +275,10 @@ export function WebsiteBuilder() {
                 </div>
               </div>
               <Field
-                label="Endereço público"
+                label="Identificador interno do site"
                 value={form.slug}
                 onChange={(v) => patch('slug', slugify(v))}
-                prefix="/site/"
+                prefix="site/"
               />
               <div className="grid gap-4 sm:grid-cols-2">
                 <ColorField
