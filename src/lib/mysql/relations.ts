@@ -26,6 +26,8 @@ const relations: Record<string, Record<string, Relation>> = {
   clinic_time_blocks: { room: r('clinic_rooms','room_id'), professional: r('profiles','professional_profile_id') },
   finance_appointment_benefits: { voucher: r('finance_vouchers','voucher_id'), client_pack: r('finance_client_packs','client_pack_id'), client_pack_balance: r('finance_client_pack_balances','client_pack_balance_id'), appointment: r('clinic_appointments','appointment_id') },
   finance_vouchers: { owner: r('contacts','owner_contact_id'), service: r('clinic_services','service_id'), account: r('accounts','account_id') },
+  finance_pack_catalog: { items: r('finance_pack_items','id','pack_id',true) },
+  finance_pack_items: { service: r('clinic_services','service_id') },
   finance_client_packs: { contact: r('contacts','contact_id'), pack: r('finance_pack_catalog','pack_id'), balances: r('finance_client_pack_balances','id','client_pack_id',true) },
   finance_client_pack_balances: { service: r('clinic_services','service_id') },
   finance_sales: { contact: r('contacts','contact_id'), appointment: r('clinic_appointments','appointment_id'), items: r('finance_sale_items','id','sale_id',true), payments: r('finance_payments','id','sale_id',true) },

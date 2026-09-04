@@ -308,15 +308,8 @@ export function PackCatalogSettings() {
               </PackField>
             </div>
             <div className="space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium">
-                    Serviços incluídos <span className="text-destructive">*</span>
-                  </p>
-                  <p className="text-muted-foreground mt-1 text-xs">
-                    O pack só pode ser usado nos serviços associados abaixo.
-                  </p>
-                </div>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">Serviços incluídos</p>
                 <Button
                   variant="outline"
                   size="sm"
@@ -358,7 +351,6 @@ export function PackCatalogSettings() {
                   <Input
                     type="number"
                     min="1"
-                    aria-label="Número de sessões incluídas"
                     value={item.sessions}
                     onChange={(event) =>
                       setItems((current) =>
@@ -384,11 +376,6 @@ export function PackCatalogSettings() {
                   </Button>
                 </div>
               ))}
-              {services.length === 0 ? (
-                <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-                  Ainda não existem serviços ativos. Crie primeiro o serviço na aba Serviços e depois associe-o a este pack.
-                </p>
-              ) : null}
             </div>
           </div>
           <DialogFooter>
