@@ -102,7 +102,7 @@ export async function PublicBusinessPage({
   };
   return (
     <div
-      className="public-site public-site-v2 min-h-screen bg-white text-slate-900"
+      className="public-site min-h-screen bg-white text-slate-900"
       data-site-theme={settings.site_theme || 'wellness'}
       style={
         {
