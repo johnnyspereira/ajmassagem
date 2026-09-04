@@ -218,8 +218,7 @@ function threadTimelineToneClass(tone: ThreadTimelineTone): string {
  * Defined once at module scope so the two render paths can't drift —
  * if we ever switch the asset, both spots update together.
  */
-const DOODLE_BG_CLASSES =
-  "bg-background bg-[url('/inbox-doodle.svg')] bg-repeat";
+const DOODLE_BG_CLASSES = 'bg-muted/30';
 
 export function MessageThread({
   conversation,
@@ -251,6 +250,10 @@ export function MessageThread({
   const [threadTimelineEvents, setThreadTimelineEvents] = useState<
     ThreadTimelineEvent[]
   >([]);
+  // Context is valuable, but it must never cover the conversation. Keep it
+  // available as a deliberate side panel inside the thread instead of a
+  // permanent wall above every message.
+  const [timelineOpen, setTimelineOpen] = useState(false);
   // Purely visual spin state for the manual-refresh button. The actual
   // refetch is fire-and-forget through `onRefresh` (which bumps the
   // parent's resyncToken); the 700ms spin is just feedback so the click
@@ -1084,7 +1087,7 @@ export function MessageThread({
     <div className={cn('flex min-w-0 flex-1 flex-col', DOODLE_BG_CLASSES)}>
       {/* Header — solid card surface sits on top of the doodle so the
           name/avatar/dropdowns stay legible. */}
-      <div className="border-border bg-card flex items-center justify-between gap-2 border-b px-3 py-3 sm:px-4">
+      <div className="border-border/70 bg-card/95 flex items-center justify-between gap-2 border-b px-4 py-3.5 backdrop-blur sm:px-5">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           {/* Back-to-list button — mobile only. Hidden on lg+ where the
               conversation list is always visible next to the thread. */}
@@ -1098,7 +1101,7 @@ export function MessageThread({
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
-          <div className="bg-muted text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-medium">
+          <div className="bg-primary/10 text-primary flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl text-sm font-semibold shadow-sm">
             {displayName.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
@@ -1124,6 +1127,27 @@ export function MessageThread({
         </div>
 
         <div className="flex items-center gap-2">
+          {threadTimelineEvents.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setTimelineOpen((open) => !open)}
+              aria-label="Mostrar contexto da conversa"
+              aria-pressed={timelineOpen}
+              title="Contexto da conversa"
+              className={cn(
+                'inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium transition-colors',
+                timelineOpen
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              <Activity className="h-3.5 w-3.5" />
+              <span className="hidden lg:inline">Contexto</span>
+              <span className="rounded-full bg-current/10 px-1.5 py-0.5 text-[9px]">
+                {threadTimelineEvents.length}
+              </span>
+            </button>
+          )}
           {/* Contact-panel toggle — desktop only. The contact sidebar
               eats a chunk of horizontal width that crowds the thread on
               smaller laptops; this lets agents reclaim it when they just
@@ -1283,12 +1307,21 @@ export function MessageThread({
       </div>
 
       {/* Messages Area */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
-        {threadTimelineEvents.length > 0 && (
-          <div className="border-border bg-card/95 mb-4 rounded-md border p-3 shadow-sm">
-            <div className="text-muted-foreground mb-2 flex items-center gap-2 text-[11px] font-semibold tracking-wide uppercase">
-              <Activity className="h-3.5 w-3.5" />
-              CRM timeline
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+        {timelineOpen && threadTimelineEvents.length > 0 && (
+          <div className="border-primary/15 bg-card mb-5 rounded-2xl border p-3.5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="text-muted-foreground flex items-center gap-2 text-[11px] font-semibold tracking-wide uppercase">
+                <Activity className="h-3.5 w-3.5 text-primary" />
+                Contexto CRM
+              </div>
+              <button
+                type="button"
+                onClick={() => setTimelineOpen(false)}
+                className="text-muted-foreground hover:text-foreground text-xs"
+              >
+                Ocultar
+              </button>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               {threadTimelineEvents.map((event) => {
@@ -1296,7 +1329,7 @@ export function MessageThread({
                 return (
                   <div
                     key={event.id}
-                    className="bg-muted/60 grid grid-cols-[20px_minmax(0,1fr)] gap-2 rounded-md px-2.5 py-2"
+                    className="bg-muted/55 grid grid-cols-[20px_minmax(0,1fr)] gap-2 rounded-xl px-3 py-2.5"
                   >
                     <Icon
                       className={cn(

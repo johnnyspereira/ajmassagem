@@ -430,6 +430,9 @@ export function ConversationList({
       ? 'Unassigned'
       : profiles.find((p) => p.user_id === selectedAssigneeId)?.full_name;
   const activeStage = stagesById.get(selectedStageId)?.name;
+  const unreadTotal = conversations.filter(
+    (conversation) => conversation.unread_count > 0
+  ).length;
 
   return (
     <div className="bg-card flex h-full w-full flex-col lg:w-[21rem]">
@@ -449,6 +452,45 @@ export function ConversationList({
             placeholder={t('searchPlaceholder')}
             className="border-border/70 bg-muted/60 text-foreground placeholder-muted-foreground focus:border-primary/50 h-10 rounded-xl pl-9 text-sm shadow-inner"
           />
+        </div>
+
+        <div className="grid grid-cols-3 gap-1 rounded-xl bg-muted/60 p-1 text-[11px] font-medium">
+          <button
+            type="button"
+            onClick={() => setFilter('all')}
+            className={cn(
+              'rounded-lg px-2 py-1.5 transition-colors',
+              filter === 'all'
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            Todas
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter('unread')}
+            className={cn(
+              'rounded-lg px-2 py-1.5 transition-colors',
+              filter === 'unread'
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            Não lidas{unreadTotal > 0 ? ` (${unreadTotal})` : ''}
+          </button>
+          <button
+            type="button"
+            onClick={() => setCrmFilter('needsReply')}
+            className={cn(
+              'rounded-lg px-2 py-1.5 transition-colors',
+              crmFilter === 'needsReply'
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            Responder
+          </button>
         </div>
 
         <div className="flex flex-wrap items-center gap-1">

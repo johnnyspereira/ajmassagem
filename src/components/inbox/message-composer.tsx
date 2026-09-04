@@ -625,7 +625,7 @@ export function MessageComposer({
   // ---- Render --------------------------------------------------------
 
   return (
-    <div className="border-border bg-card border-t p-3">
+    <div className="border-border/70 bg-card/95 border-t p-3.5 backdrop-blur sm:p-4">
       {replyTo && (
         <div className="mb-2">
           <ReplyQuote
@@ -719,7 +719,7 @@ export function MessageComposer({
           </Button>
         </div>
       ) : (
-        <div className="flex items-end gap-2">
+        <div className="flex items-end gap-2 rounded-2xl border border-border/70 bg-muted/45 p-1.5 shadow-inner">
           {/* Attach menu — photo / video / document / voice. */}
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -731,7 +731,7 @@ export function MessageComposer({
                     ? undefined
                     : t('attachMedia')
               }
-              className="text-muted-foreground hover:text-foreground inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md p-0 disabled:cursor-not-allowed disabled:opacity-50"
+              className="text-muted-foreground hover:bg-card hover:text-foreground inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl p-0 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -770,7 +770,7 @@ export function MessageComposer({
             <DropdownMenuTrigger
               disabled={readOnly}
               title={readOnly ? t('readOnlyTitle') : t('moreActions')}
-              className="text-muted-foreground hover:text-foreground inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md p-0 disabled:cursor-not-allowed disabled:opacity-50"
+              className="text-muted-foreground hover:bg-card hover:text-foreground inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl p-0 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Plus className="h-4 w-4" />
             </DropdownMenuTrigger>
@@ -803,7 +803,7 @@ export function MessageComposer({
             canAct={!readOnly}
             gateReason="send messages"
             title={readOnly ? undefined : 'Biblioteca'}
-            className="text-muted-foreground hover:text-primary h-9 w-9 shrink-0 p-0"
+            className="text-muted-foreground hover:bg-card hover:text-primary h-9 w-9 shrink-0 rounded-xl p-0"
             onClick={() => setLibraryOpen(true)}
           >
             <LibraryBig className="h-4 w-4" />
@@ -815,7 +815,7 @@ export function MessageComposer({
             canAct={!readOnly}
             gateReason="send messages"
             title={readOnly ? undefined : t('quickReplies')}
-            className="text-muted-foreground hover:text-foreground h-9 w-9 shrink-0 p-0"
+            className="text-muted-foreground hover:bg-card hover:text-foreground h-9 w-9 shrink-0 rounded-xl p-0"
             onClick={() => setQuickReplyOpen(true)}
           >
             <Zap className="h-4 w-4" />
@@ -828,7 +828,7 @@ export function MessageComposer({
             gateReason="send messages"
             disabled={drafting}
             title={readOnly ? undefined : t('draftWithAI')}
-            className="text-muted-foreground hover:text-primary h-9 w-9 shrink-0 p-0"
+            className="text-muted-foreground hover:bg-card hover:text-primary h-9 w-9 shrink-0 rounded-xl p-0"
             onClick={handleDraft}
           >
             {drafting ? (
@@ -857,7 +857,7 @@ export function MessageComposer({
             // The placeholder text also surfaces the read-only state.
             title={readOnly ? t('readOnlyTitle') : undefined}
             className={cn(
-              'border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 flex-1 resize-none rounded-xl border px-4 py-2.5 text-sm transition-colors outline-none',
+              'border-0 bg-transparent text-foreground placeholder-muted-foreground focus:ring-0 flex-1 resize-none px-2 py-2.5 text-sm transition-colors outline-none',
               textInputsDisabled && 'cursor-not-allowed opacity-50'
             )}
           />
@@ -868,7 +868,7 @@ export function MessageComposer({
             gateReason="send messages"
             disabled={!text.trim() || textInputsDisabled || sending}
             onClick={handleSend}
-            className="bg-primary hover:bg-primary/90 h-9 w-9 shrink-0 p-0 disabled:opacity-40"
+            className="bg-primary hover:bg-primary/90 h-9 w-9 shrink-0 rounded-xl p-0 shadow-md shadow-primary/20 disabled:opacity-40"
           >
             <Send className="h-4 w-4" />
           </GatedButton>
