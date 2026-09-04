@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { RebuiltPublicSite } from '@/components/website/rebuilt-public-site';
+import { JpPublicHome } from '@/components/website/jp-public-home';
 import { getPublicBusinessSite } from '@/lib/public-site/server';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -23,7 +23,7 @@ export async function PublicBusinessPage({ params }: { params: Promise<{ slug: s
   const { slug } = await params;
   const site = await getPublicBusinessSite(slug);
   if (!site) notFound();
-  return <RebuiltPublicSite site={site} />;
+  return <JpPublicHome site={site} />;
 }
 
 export default PublicBusinessPage;
