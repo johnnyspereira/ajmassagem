@@ -129,7 +129,7 @@ export async function PublicBusinessPage({
             <span className="font-semibold">{account.name}</span>
           </Link>
           <nav className="hidden items-center gap-6 text-sm text-slate-600 md:flex">
-            <a href="/">Principal</a>
+            <Link href="/">Principal</Link>
             <a href="#servicos">Serviços</a>
             <a href="#sobre">Sobre</a>
             {settings.show_team && team.length > 0 && <a href="#equipa">Equipa</a>}
@@ -223,6 +223,29 @@ export async function PublicBusinessPage({
                 <span className="text-white/60">Serviço, profissional e horário num só fluxo.</span>
               </div>
             </div>
+          </div>
+        </section>
+        <section className="site-journey mx-auto max-w-7xl px-4 py-8 sm:px-6">
+          <div className="grid overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_20px_60px_rgb(15_23_42_/_8%)] md:grid-cols-[0.82fr_1.18fr]">
+            <div className="bg-[var(--dark)] p-8 text-white sm:p-10">
+              <p className="text-xs font-semibold tracking-[.18em] text-white/55 uppercase">A sua experiência</p>
+              <h2 className="mt-3 text-3xl leading-tight font-semibold">Simples de marcar. Pensada para si.</h2>
+              <p className="mt-4 max-w-sm text-sm leading-7 text-white/65">Escolha o momento certo, partilhe o que procura e acompanhe tudo no Portal do Cliente.</p>
+              {settings.show_booking && portal?.booking_enabled && <Link href={bookingHref} className="site-button mt-7 inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-[var(--dark)]">Começar a marcação <ArrowRight className="size-4" /></Link>}
+            </div>
+            <ol className="grid divide-y divide-slate-100 md:grid-cols-3 md:divide-x md:divide-y-0">
+              {[
+                ['01', 'Escolha', 'Veja modalidades, valores e duração com clareza.'],
+                ['02', 'Reserve', 'Selecione profissional, data e hora disponíveis.'],
+                ['03', 'Desfrute', 'Receba a confirmação e prepare-se com tranquilidade.'],
+              ].map(([number, title, text]) => (
+                <li key={number} className="p-7 sm:p-8">
+                  <span className="text-sm font-semibold text-[var(--brand)]">{number}</span>
+                  <h3 className="mt-8 text-lg font-semibold text-slate-900">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">{text}</p>
+                </li>
+              ))}
+            </ol>
           </div>
         </section>
         {settings.show_services && services.length > 0 && (
