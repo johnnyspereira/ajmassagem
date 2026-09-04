@@ -888,6 +888,12 @@
       "namedRegex": "^/api/flows/templates(?:/)?$"
     },
     {
+      "page": "/api/health/mysql",
+      "regex": "^/api/health/mysql(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/health/mysql(?:/)?$"
+    },
+    {
       "page": "/api/inbox/conversations/clear",
       "regex": "^/api/inbox/conversations/clear(?:/)?$",
       "routeKeys": {},

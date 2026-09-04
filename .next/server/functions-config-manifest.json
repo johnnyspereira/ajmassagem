@@ -16,6 +16,7 @@
     "/api/finance/payment-links/stripe": {},
     "/api/finance/treasury/import": {},
     "/api/finance/webhooks/stripe": {},
+    "/api/health/mysql": {},
     "/api/mysql/query": {},
     "/api/mysql/rpc": {},
     "/api/storage/[bucket]": {},
