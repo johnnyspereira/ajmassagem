@@ -98,17 +98,24 @@ export function PackCatalogSettings() {
   }
 
   async function save() {
+    const selectedItems = items.filter(
+      (item) => item.serviceId && item.sessions >= 1
+    );
     if (
       !accountId ||
       !user?.id ||
       !canEditSettings ||
       !name.trim() ||
-      items.some((item) => !item.serviceId || item.sessions < 1)
+      selectedItems.length === 0 ||
+      selectedItems.length !== items.length
     ) {
       toast.error('Preencha o nome e todas as sessões do pack.');
       return;
     }
-    if (new Set(items.map((item) => item.serviceId)).size !== items.length) {
+    if (
+      new Set(selectedItems.map((item) => item.serviceId)).size !==
+      selectedItems.length
+    ) {
       toast.error('Cada serviço pode aparecer apenas uma vez no pack. Ajuste o número de sessões.');
       return;
     }
@@ -157,7 +164,7 @@ export function PackCatalogSettings() {
     const { error: itemsError } = await supabase
       .from('finance_pack_items')
       .insert(
-        items.map((item) => ({
+        selectedItems.map((item) => ({
           pack_id: packResult.data.id,
           service_id: item.serviceId,
           sessions: item.sessions,
@@ -301,8 +308,15 @@ export function PackCatalogSettings() {
               </PackField>
             </div>
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Serviços incluídos</p>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium">
+                    Serviços incluídos <span className="text-destructive">*</span>
+                  </p>
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    O pack só pode ser usado nos serviços associados abaixo.
+                  </p>
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
@@ -344,6 +358,7 @@ export function PackCatalogSettings() {
                   <Input
                     type="number"
                     min="1"
+                    aria-label="Número de sessões incluídas"
                     value={item.sessions}
                     onChange={(event) =>
                       setItems((current) =>
@@ -369,13 +384,26 @@ export function PackCatalogSettings() {
                   </Button>
                 </div>
               ))}
+              {services.length === 0 ? (
+                <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                  Ainda não existem serviços ativos. Crie primeiro o serviço na aba Serviços e depois associe-o a este pack.
+                </p>
+              ) : null}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={() => void save()} disabled={saving}>
+            <Button
+              onClick={() => void save()}
+              disabled={
+                saving ||
+                !name.trim() ||
+                !items.length ||
+                items.some((item) => !item.serviceId || item.sessions < 1)
+              }
+            >
               {saving ? <Loader2 className="animate-spin" /> : <PackageCheck />}{' '}
               Guardar pack
             </Button>

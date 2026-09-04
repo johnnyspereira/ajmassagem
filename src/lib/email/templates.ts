@@ -7,7 +7,55 @@ function escapeHtml(value: string) {
     .replace(/'/g, '&#039;');
 }
 
-export function brandedEmail(input: {
+type BrandedEmailInput = {
+  businessName: string;
+  logoUrl?: string | null;
+  signOffName?: string | null;
+  preheader: string;
+  eyebrow: string;
+  title: string;
+  greeting: string;
+  message: string;
+  details?: Array<{ label: string; value: string }>;
+  action?: { label: string; url: string } | null;
+  highlight?: { label: string; value: string } | null;
+  notice?: string;
+};
+
+function displayBusinessName(value: string) {
+  const trimmed = value.trim();
+  return !trimmed || /^cl[ií]nica$/i.test(trimmed) ? 'JP Massagem' : trimmed;
+}
+
+export function brandedEmail(input: BrandedEmailInput) {
+  const brand = displayBusinessName(input.businessName);
+  const initials = brand
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
+  const brandMark = input.logoUrl
+    ? `<img src="${escapeHtml(input.logoUrl)}" width="58" height="58" alt="${escapeHtml(brand)}" style="display:block;width:58px;height:58px;object-fit:contain;border-radius:18px;background:#fff">`
+    : `<div style="display:inline-block;box-sizing:border-box;width:58px;height:58px;padding-top:18px;border-radius:18px;background:#cf7658;color:#fff;font-size:16px;font-weight:800;letter-spacing:.06em;text-align:center">${escapeHtml(initials || 'JP')}</div>`;
+  const details = input.details?.length
+    ? `<div style="margin:30px 0;border:1px solid #e8dfd7;border-radius:18px;overflow:hidden;background:#fbfaf8">${input.details.map(({ label, value }) => `<div style="padding:16px 20px;border-bottom:1px solid #eee6df"><div style="margin-bottom:4px;color:#8c8279;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase">${escapeHtml(label)}</div><div style="color:#2b2521;font-size:15px;font-weight:650;line-height:22px">${escapeHtml(value)}</div></div>`).join('')}</div>`
+    : '';
+  const highlight = input.highlight
+    ? `<div style="margin:24px 0;padding:20px;border-radius:16px;background:#f3e5dc"><div style="color:#9d573f;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase">${escapeHtml(input.highlight.label)}</div><div style="margin-top:7px;color:#392018;font-size:24px;font-weight:800;letter-spacing:.08em">${escapeHtml(input.highlight.value)}</div></div>`
+    : '';
+  const action = input.action
+    ? `<div style="margin:30px 0 12px"><a href="${escapeHtml(input.action.url)}" style="display:inline-block;border-radius:999px;background:#2c211b;padding:14px 22px;color:#fff;font-size:14px;font-weight:800;text-decoration:none">${escapeHtml(input.action.label)}</a></div><p style="margin:0;color:#91877f;font-size:11px;line-height:17px;word-break:break-word">Se o botão não abrir, use este endereço: <a href="${escapeHtml(input.action.url)}" style="color:#9d573f">${escapeHtml(input.action.url)}</a></p>`
+    : '';
+  const notice = input.notice
+    ? `<div style="margin-top:24px;padding:14px 16px;border-left:3px solid #cf7658;background:#fff8f4;color:#695d55;font-size:12px;line-height:19px">${escapeHtml(input.notice)}</div>`
+    : '';
+  const signature = input.signOffName?.trim() || brand;
+  return `<!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(input.title)}</title></head><body style="margin:0;background:#f3efea;color:#2b2521;font-family:Arial,Helvetica,sans-serif"><div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(input.preheader)}</div><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3efea"><tr><td align="center" style="padding:34px 14px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:660px;overflow:hidden;border-radius:24px;background:#fff;box-shadow:0 18px 55px rgba(55,38,25,.12)"><tr><td style="padding:27px 30px;background:#2c211b"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td width="72" valign="middle">${brandMark}</td><td valign="middle"><div style="color:#fff;font-size:20px;font-weight:800;line-height:25px">${escapeHtml(brand)}</div><div style="margin-top:3px;color:#d8cbc0;font-size:11px;line-height:16px">O seu espaço de bem-estar</div></td><td align="right" valign="middle" style="color:#d8cbc0;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase">${escapeHtml(input.eyebrow)}</td></tr></table></td></tr><tr><td style="padding:40px 34px 34px"><p style="margin:0 0 14px;color:#7f746c;font-size:16px;line-height:24px">${escapeHtml(input.greeting)}</p><h1 style="margin:0 0 16px;color:#2c211b;font-family:Georgia,serif;font-size:31px;line-height:38px">${escapeHtml(input.title)}</h1><p style="margin:0;color:#5f554e;font-size:16px;line-height:26px">${escapeHtml(input.message)}</p>${details}${highlight}${action}${notice}<p style="margin:31px 0 0;color:#71665e;font-size:14px;line-height:22px">Até breve,<br><strong style="color:#2c211b">${escapeHtml(signature)}</strong></p></td></tr><tr><td style="padding:19px 34px;background:#fbfaf8;border-top:1px solid #eee6df;color:#90857c;font-size:11px;line-height:17px">Comunicação privada enviada por ${escapeHtml(brand)}. Não partilhe links, códigos ou palavras-passe.</td></tr></table></td></tr></table></body></html>`;
+}
+
+// Kept as a compatibility renderer for operators who may have imported it.
+export function legacyBrandedEmail(input: {
   businessName: string;
   logoUrl?: string | null;
   signOffName?: string | null;

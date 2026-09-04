@@ -86,7 +86,7 @@ function emailShell(input: {
   benefit?: AppointmentBenefitEmailInfo | null;
 }) {
   const details = appointmentDetails(input.appointment);
-  const brand = input.businessName.trim() || 'Clínica';
+  const brand = input.businessName.trim() || 'JP Massagem';
   const benefitDetails = input.benefit
     ? [
         { label: 'Forma de utilização', value: input.benefit.label },
