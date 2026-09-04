@@ -4,7 +4,6 @@ import { ArrowRight, Clock3, HeartHandshake, MapPin, Menu, Phone, Sparkles, Star
 import { PublicLeadForm } from '@/components/website/public-lead-form';
 import { serviceSlug } from '@/lib/public-site/service-slug';
 import type { getPublicBusinessSite } from '@/lib/public-site/server';
-import styles from './rebuilt-public-site.module.css';
 
 type Site = NonNullable<Awaited<ReturnType<typeof getPublicBusinessSite>>>;
 
@@ -13,7 +12,7 @@ export function RebuiltPublicSite({ site }: { site: Site }) {
   const bookingHref = settings.show_booking && portal?.booking_enabled ? '/portal?book=1' : '#contacto';
   const currency = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: account.default_currency || 'EUR' });
   const featured = services.filter((service) => !service.coming_soon).slice(0, 6);
-  return <div className={`${styles.atelier} min-h-screen bg-[#f5f2ec] text-[#17231d]`} style={{ '--brand': settings.primary_color, '--ink': settings.accent_color } as React.CSSProperties}>
+  return <div className="min-h-screen bg-[#f5f2ec] text-[#17231d]" style={{ '--brand': settings.primary_color, '--ink': settings.accent_color } as React.CSSProperties}>
     <header className="sticky top-0 z-50 border-b border-black/5 bg-[#f5f2ec]/90 backdrop-blur-xl">
       <div className="mx-auto flex h-20 max-w-[90rem] items-center justify-between px-5 sm:px-8">
         <Link href="/" className="flex items-center gap-3 font-semibold tracking-tight">{account.logo_url ? <img src={account.logo_url} alt="" className="size-10 rounded-full object-contain" /> : <span className="grid size-10 place-items-center rounded-full bg-[var(--ink)] text-sm text-white">{account.name.slice(0, 1)}</span>}<span>{account.name}</span></Link>
