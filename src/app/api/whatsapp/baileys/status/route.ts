@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import { createHash } from 'node:crypto';
 import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account';
+import { mutate } from '@/lib/mysql/db';
 import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 import {
   getPollingWorkerStatus,
@@ -15,6 +17,21 @@ export async function GET(request: Request) {
       return NextResponse.json(await getPollingWorkerStatus(ctx.accountId));
     }
     if (remoteWhatsAppWorker.enabled()) {
+      // Passenger can serve requests from more than one Node process. Keep
+      // the database fallback in sync whenever this authenticated call sees
+      // the current runtime secret, so worker callbacks are accepted by a
+      // process that has not reloaded its environment yet.
+      const secret = process.env['WHATSAPP_WORKER_SECRET']?.trim();
+      if (secret) {
+        await mutate(
+          `INSERT INTO whatsapp_worker_credentials(account_id,secret_hash)
+           VALUES(?,?) ON DUPLICATE KEY UPDATE secret_hash=VALUES(secret_hash)`,
+          [
+            ctx.accountId,
+            createHash('sha256').update(secret).digest('hex'),
+          ]
+        );
+      }
       const status = await remoteWhatsAppWorker.status({
         accountId: ctx.accountId,
         userId: ctx.userId,

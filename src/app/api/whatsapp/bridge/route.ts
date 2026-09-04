@@ -2,6 +2,7 @@ import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { RowDataPacket } from 'mysql2';
 
 import { mutate, selectRows, transaction } from '@/lib/mysql/db';
+import { notifyAccountEvent } from '@/lib/notifications/account-events';
 
 async function authorized(request: Request, accountId: string) {
   // Bracket access is intentional: this value only exists in Passenger's
@@ -391,9 +392,32 @@ export async function POST(request: Request) {
         return {
           messageId: stored[0]?.id ?? id,
           conversationId,
+          contactId,
           duplicate: !inserted,
+          inserted,
         };
       });
+      // Imported history belongs in the Inbox but should not interrupt the
+      // team. New customer messages receive the normal realtime/browser/push
+      // notification path.
+      if (result.inserted && direction === 'customer' && !body.historical) {
+        await notifyAccountEvent({
+          accountId,
+          type: 'new_message_received',
+          category: 'inbox',
+          priority: 'high',
+          title: `Nova mensagem de ${String(body.name ?? normalized)}`,
+          body: String(body.text ?? 'Nova mensagem recebida.'),
+          actionUrl: `/inbox?c=${result.conversationId}`,
+          contactId: result.contactId,
+          dedupeKey: `whatsapp-incoming:${externalId}`,
+        }).catch((notificationError) => {
+          console.error(
+            '[whatsapp-bridge] inbox notification failed:',
+            notificationError
+          );
+        });
+      }
       return Response.json(result);
     }
 
