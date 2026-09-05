@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { sendReactionMessage } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { sanitizePhoneForMeta } from '@/lib/whatsapp/phone-utils';
+import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -110,6 +111,22 @@ export async function POST(request: Request) {
       );
     }
 
+    // QR sessions react through the connected local worker. Meta remains the
+    // fallback for Cloud API installations.
+    if (remoteWhatsAppWorker.enabled()) {
+      try {
+        await remoteWhatsAppWorker.react({
+          accountId,
+          userId: user.id,
+          messageId: targetMessage.message_id,
+          emoji,
+        });
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'WhatsApp QR reaction failed';
+        return NextResponse.json({ error: message }, { status: 502 });
+      }
+    } else {
     // WhatsApp config + access token. Account-scoped post-multi-user.
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')
@@ -143,6 +160,7 @@ export async function POST(request: Request) {
         { error: `Meta API error: ${message}` },
         { status: 502 }
       );
+    }
     }
 
     // Mirror into DB. Empty emoji = removal.

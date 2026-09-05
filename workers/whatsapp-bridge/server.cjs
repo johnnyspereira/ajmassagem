@@ -264,7 +264,7 @@ async function persistSyncSnapshot(snapshot, media = {}) {
     phone: normalize(snapshot.phone),
     phoneAliases: snapshot.phoneAliases || [],
     name: snapshot.name || normalize(snapshot.phone),
-    profilePicUrl: null,
+    profilePicUrl: snapshot.profilePicUrl || null,
     contentType: snapshot.contentType,
     text: snapshot.text || '',
     timestamp: snapshot.timestamp,
@@ -420,6 +420,17 @@ async function send(input) {
     replyToMessageId: message.replyToMessageId || null,
   });
   return { messageId: stored.messageId, whatsappMessageId };
+}
+async function react(input) {
+  bind(input);
+  if (!client || !status().connected)
+    throw new Error('WhatsApp QR is not connected.');
+  const messageId = String(input.messageId || input.message_id || '');
+  if (!messageId) throw new Error('messageId is required.');
+  const target = await client.getMessageById(messageId).catch(() => null);
+  if (!target) throw new Error('Message is no longer available in WhatsApp.');
+  await target.react(String(input.emoji ?? ''));
+  return { success: true };
 }
 async function sendOutboxJob(job) {
   if (!client || !status().connected)
@@ -613,12 +624,19 @@ async function sync(input) {
     try {
       const resolution = await resolveConversationPhone(snapshot.phone);
       if (!resolution?.phone) continue;
-      const message = snapshot.hasMedia
-        ? await client.getMessageById(snapshot.messageId).catch(() => null)
-        : null;
+      const message = await client.getMessageById(snapshot.messageId).catch(() => null);
+      const contact = message
+        ? await message.getContact().catch(() => null)
+        : await client.getContactById(snapshot.chatId).catch(() => null);
+      const profilePicUrl = await contact?.getProfilePicUrl?.().catch(() => null);
       if (
         await persistSyncSnapshot(
-          { ...snapshot, phone: resolution.phone, phoneAliases: resolution.aliases },
+          {
+            ...snapshot,
+            phone: resolution.phone,
+            phoneAliases: resolution.aliases,
+            profilePicUrl: profilePicUrl || null,
+          },
           await inboundMediaPayload(message)
         )
       )
@@ -718,6 +736,8 @@ const server = http.createServer(async (req, res) => {
     const input = req.method === 'POST' ? await body(req) : {};
     if (req.method === 'POST' && url.pathname === '/send')
       return reply(res, 200, await send(input));
+    if (req.method === 'POST' && url.pathname === '/react')
+      return reply(res, 200, await react(input));
     if (req.method === 'POST' && url.pathname === '/restart') {
       await stop(false);
       return reply(res, 200, { success: true, status: await start(input) });

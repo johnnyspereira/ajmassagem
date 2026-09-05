@@ -172,4 +172,16 @@ export const remoteWhatsAppWorker = {
       body: JSON.stringify(input),
     });
   },
+
+  react(input: {
+    accountId: string;
+    userId: string;
+    messageId: string;
+    emoji: string;
+  }): Promise<{ success: true }> {
+    return workerFetch('/react', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
 };
