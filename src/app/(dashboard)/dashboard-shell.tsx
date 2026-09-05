@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ShoppingCart } from 'lucide-react';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
@@ -22,7 +22,12 @@ import { ContextualHelp } from '@/components/support/contextual-help';
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const { user, loading, account } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const navigationLayout = account?.navigation_layout ?? 'sidebar';
+  // Inbox is intentionally a focused workspace, not another dashboard
+  // panel. It keeps the authentication/providers from this shell while
+  // removing the global navigation chrome.
+  const isInboxWorkspace = pathname.startsWith('/inbox');
 
   // Sidebar drawer state — only used on mobile. On lg+ the sidebar is
   // always visible and this stays at `false` (ignored by the component).
@@ -59,27 +64,40 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
         <NotificationRealtimeAlerts />
         <PushNotifications />
         <ContextualHelp />
-        <Link
-          href="/finance?tab=pos"
-          aria-label="Abrir ponto de venda"
-          title="Abrir POS"
-          className="bg-primary text-primary-foreground hover:bg-primary-hover fixed right-5 bottom-20 z-40 flex size-12 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-offset-2 sm:right-5 sm:bottom-5"
-        >
-          <ShoppingCart className="size-5" />
-          <span className="sr-only">Abrir POS</span>
-        </Link>
-        <div
-          className={navigationLayout === 'topbar' ? 'lg:hidden' : 'contents'}
-        >
-          <Sidebar open={sidebarOpen} onClose={closeSidebar} />
-        </div>
+        {!isInboxWorkspace && (
+          <>
+            <Link
+              href="/finance?tab=pos"
+              aria-label="Abrir ponto de venda"
+              title="Abrir POS"
+              className="bg-primary text-primary-foreground hover:bg-primary-hover fixed right-5 bottom-20 z-40 flex size-12 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-offset-2 sm:right-5 sm:bottom-5"
+            >
+              <ShoppingCart className="size-5" />
+              <span className="sr-only">Abrir POS</span>
+            </Link>
+            <div
+              className={
+                navigationLayout === 'topbar' ? 'lg:hidden' : 'contents'
+              }
+            >
+              <Sidebar open={sidebarOpen} onClose={closeSidebar} />
+            </div>
+          </>
+        )}
         <div className="flex flex-1 flex-col overflow-hidden">
-          <Header
-            onOpenSidebar={() => setSidebarOpen(true)}
-            navigationLayout={navigationLayout}
-          />
-          {/* Thinner horizontal padding on mobile so cards have room to breathe. */}
-          <main className="flex-1 overflow-y-auto p-4 pb-28 sm:p-6 sm:pb-28">
+          {!isInboxWorkspace && (
+            <Header
+              onOpenSidebar={() => setSidebarOpen(true)}
+              navigationLayout={navigationLayout}
+            />
+          )}
+          <main
+            className={
+              isInboxWorkspace
+                ? 'flex-1 overflow-hidden'
+                : 'flex-1 overflow-y-auto p-4 pb-28 sm:p-6 sm:pb-28'
+            }
+          >
             {children}
           </main>
         </div>

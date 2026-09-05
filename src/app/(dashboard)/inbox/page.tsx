@@ -24,6 +24,7 @@ import { ContactSidebar } from '@/components/inbox/contact-sidebar';
 import {
   AlertTriangle,
   Loader2,
+  LayoutGrid,
   MessageCircleMore,
   Radio,
   Trash2,
@@ -837,9 +838,20 @@ export default function InboxPage() {
   ).length;
 
   return (
-    <div className="-m-4 flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden bg-muted/35 sm:-m-6">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-muted/35">
       <header className="flex shrink-0 flex-col gap-3 border-b border-border/70 bg-background/90 px-4 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => router.push('/dashboard')}
+            className="text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Voltar ao CRM"
+            title="Voltar ao CRM"
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
             <MessageCircleMore className="h-5 w-5" />
           </div>
