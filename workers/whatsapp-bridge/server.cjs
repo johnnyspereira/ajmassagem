@@ -90,6 +90,26 @@ function jidPhone(value) {
 function externalId(message) {
   return message?.id?._serialized || message?.id?.id || null;
 }
+function normalizedContentType(message) {
+  const type = String(message?.type || 'text');
+  if (type === 'chat') return 'text';
+  if (type === 'ptt') return 'audio';
+  if (type === 'sticker') return 'image';
+  return ['image', 'document', 'audio', 'video', 'location'].includes(type)
+    ? type
+    : 'text';
+}
+async function inboundMediaPayload(message) {
+  if (!message?.hasMedia || message?.fromMe) return {};
+  const media = await message.downloadMedia().catch(() => null);
+  if (!media?.data || !media?.mimetype) return {};
+  return {
+    mediaBase64: media.data,
+    mediaMimeType: media.mimetype,
+    mediaFilename:
+      media.filename || message.filename || `${externalId(message) || 'attachment'}`,
+  };
+}
 function rememberOutgoing(message) {
   if (!message?.fromMe || !externalId(message)) return;
   recentOutgoing.push({
@@ -207,13 +227,14 @@ async function persist(message) {
     name:
       contact?.pushname || contact?.name || contact?.shortName || resolvedPhone,
     profilePicUrl: profilePicUrl || null,
-    contentType: message.type === 'chat' ? 'text' : message.type,
+    contentType: normalizedContentType(message),
     text: message.body || message.caption || '',
     timestamp,
+    ...(await inboundMediaPayload(message)),
   });
   return result?.duplicate ? null : result;
 }
-async function persistSyncSnapshot(snapshot) {
+async function persistSyncSnapshot(snapshot, media = {}) {
   if (!snapshot?.messageId || !snapshot.phone) return null;
   const result = await crm('persist_message', {
     ...bind(),
@@ -222,10 +243,11 @@ async function persistSyncSnapshot(snapshot) {
     phone: normalize(snapshot.phone),
     name: snapshot.name || normalize(snapshot.phone),
     profilePicUrl: null,
-    contentType: snapshot.contentType === 'chat' ? 'text' : snapshot.contentType,
+    contentType: snapshot.contentType,
     text: snapshot.text || '',
     timestamp: snapshot.timestamp,
     historical: true,
+    ...media,
   });
   return result?.duplicate ? null : result;
 }
@@ -545,8 +567,16 @@ async function sync(input) {
               chat.formattedTitle ||
               phone,
             fromMe: Boolean(message.id?.fromMe),
-            contentType: message.type === 'chat' ? 'text' : message.type,
+            contentType:
+              message.type === 'chat'
+                ? 'text'
+                : message.type === 'ptt'
+                  ? 'audio'
+                  : message.type === 'sticker'
+                    ? 'image'
+                    : message.type,
             text: message.body || message.caption || '',
+            hasMedia: Boolean(message.hasMedia),
             timestamp: new Date(Number(message.t || Date.now() / 1000) * 1000).toISOString(),
           });
         }
@@ -560,7 +590,13 @@ async function sync(input) {
   for (const snapshot of snapshots.rows) {
     messagesScanned++;
     try {
-      if (await persistSyncSnapshot(snapshot)) messagesPersisted++;
+      const message = snapshot.hasMedia
+        ? await client.getMessageById(snapshot.messageId).catch(() => null)
+        : null;
+      if (
+        await persistSyncSnapshot(snapshot, await inboundMediaPayload(message))
+      )
+        messagesPersisted++;
     } catch (error) {
       console.warn('[bridge] sync skipped message:', snapshot.chatId, error?.message);
     }

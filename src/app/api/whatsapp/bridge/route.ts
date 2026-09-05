@@ -86,6 +86,26 @@ function messageDedupeKey(conversationId: string, externalId: string) {
     .digest('hex');
 }
 
+const MAX_BRIDGE_MEDIA_BYTES = 16 * 1024 * 1024;
+
+function bridgeMediaUrl(messageId: string) {
+  return `/api/whatsapp/bridge-media/${encodeURIComponent(messageId)}`;
+}
+
+function decodeBridgeMedia(value: unknown) {
+  if (typeof value !== 'string' || !value) return null;
+  // whatsapp-web.js returns base64 without a data-URL prefix. Reject
+  // malformed input before allocating a potentially unbounded buffer.
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(value)) {
+    throw new Error('Invalid media payload.');
+  }
+  const bytes = Buffer.from(value, 'base64');
+  if (!bytes.length || bytes.length > MAX_BRIDGE_MEDIA_BYTES) {
+    throw new Error('Media must be between 1 byte and 16 MB.');
+  }
+  return bytes;
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
@@ -326,8 +346,29 @@ export async function POST(request: Request) {
       const normalizedKey = phoneKey(normalized);
       const userId = String(body.userId ?? '');
       if (!userId) throw new Error('userId is required.');
+      const mediaBytes = decodeBridgeMedia(body.mediaBase64);
+      const mediaMimeType = String(body.mediaMimeType ?? '').slice(0, 255);
+      const mediaFilename = body.mediaFilename
+        ? String(body.mediaFilename).slice(0, 512)
+        : null;
+      if (mediaBytes && !mediaMimeType) {
+        throw new Error('Media MIME type is required.');
+      }
+      const mediaUrl = mediaBytes
+        ? bridgeMediaUrl(externalId)
+        : body.mediaUrl
+          ? String(body.mediaUrl)
+          : null;
 
       const result = await transaction(async (connection) => {
+        if (mediaBytes) {
+          await connection.execute(
+            `INSERT INTO whatsapp_bridge_media(message_id,account_id,mime_type,filename,data)
+             VALUES(?,?,?,?,?)
+             ON DUPLICATE KEY UPDATE mime_type=VALUES(mime_type),filename=VALUES(filename),data=VALUES(data)`,
+            [externalId, accountId, mediaMimeType, mediaFilename, mediaBytes]
+          );
+        }
         const [identities] = await connection.execute<
           (RowDataPacket & { contact_id: string })[]
         >(
@@ -407,7 +448,7 @@ export async function POST(request: Request) {
             direction,
             contentType,
             body.text ? String(body.text) : null,
-            body.mediaUrl ? String(body.mediaUrl) : null,
+            mediaUrl,
             externalId,
             dedupeKey,
             direction === 'customer' ? 'delivered' : 'sent',
@@ -415,6 +456,14 @@ export async function POST(request: Request) {
           ]
         );
         const inserted = insertResult.affectedRows > 0;
+        if (!inserted && mediaUrl) {
+          await connection.execute(
+            `UPDATE messages SET media_url=COALESCE(?,media_url),
+             content_text=COALESCE(NULLIF(?,''),content_text)
+             WHERE conversation_id=? AND dedupe_key=?`,
+            [mediaUrl, String(body.text ?? ''), conversationId, dedupeKey]
+          );
+        }
         if (inserted) {
           await connection.execute(
             `UPDATE conversations SET last_message_text=?,last_message_at=?,unread_count=unread_count+?,updated_at=UTC_TIMESTAMP(3) WHERE id=?`,
