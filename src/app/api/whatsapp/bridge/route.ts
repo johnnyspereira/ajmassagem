@@ -1,4 +1,9 @@
-import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import {
+  createHash,
+  createHmac,
+  randomUUID,
+  timingSafeEqual,
+} from 'node:crypto';
 import type { RowDataPacket } from 'mysql2';
 
 import { mutate, selectRows, transaction } from '@/lib/mysql/db';
@@ -22,12 +27,37 @@ async function authorized(
       .trim() ??
     request.headers.get('x-whatsapp-worker-secret')?.trim() ??
     (typeof bodySecret === 'string' ? bodySecret.trim() : undefined);
-  if (!supplied) return false;
   if (secret) {
-    const left = Buffer.from(secret);
-    const right = Buffer.from(supplied);
-    if (left.length === right.length && timingSafeEqual(left, right)) return true;
+    if (supplied) {
+      const left = Buffer.from(secret);
+      const right = Buffer.from(supplied);
+      if (left.length === right.length && timingSafeEqual(left, right)) return true;
+    }
+
+    // Shared hosting occasionally strips or rewrites request headers/body
+    // before Passenger receives them. Accept a short-lived HMAC in the URL
+    // as a proxy-safe transport without putting the worker secret in it.
+    const url = new URL(request.url);
+    const timestamp = Number(url.searchParams.get('worker_ts'));
+    const signature = url.searchParams.get('worker_sig');
+    const action = url.searchParams.get('worker_action') ?? '';
+    const isFresh =
+      Number.isFinite(timestamp) && Math.abs(Date.now() - timestamp) <= 300_000;
+    if (signature && isFresh) {
+      const expected = createHmac('sha256', secret)
+        .update(`${timestamp}.${accountId}.${action}`)
+        .digest('hex');
+      const signatureBuffer = Buffer.from(signature, 'hex');
+      const expectedBuffer = Buffer.from(expected, 'hex');
+      if (
+        signatureBuffer.length === expectedBuffer.length &&
+        timingSafeEqual(signatureBuffer, expectedBuffer)
+      ) {
+        return true;
+      }
+    }
   }
+  if (!supplied) return false;
   if (!accountId) return false;
   const rows = await selectRows<(RowDataPacket & { secret_hash: string })[]>(
     'SELECT secret_hash FROM whatsapp_worker_credentials WHERE account_id=? LIMIT 1',
