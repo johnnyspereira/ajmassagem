@@ -1074,6 +1074,12 @@
       "namedRegex": "^/api/whatsapp/webhook(?:/)?$"
     },
     {
+      "page": "/api/whatsapp/worker-diagnostics",
+      "regex": "^/api/whatsapp/worker\\-diagnostics(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/whatsapp/worker\\-diagnostics(?:/)?$"
+    },
+    {
       "page": "/api/work-time",
       "regex": "^/api/work\\-time(?:/)?$",
       "routeKeys": {},
