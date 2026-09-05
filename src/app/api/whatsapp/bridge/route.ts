@@ -411,6 +411,40 @@ export async function POST(request: Request) {
           );
           contactId = winner[0]?.contact_id ?? contactId;
         }
+        // Contacts may originate directly from an incoming WhatsApp message,
+        // so they must receive the same sequential internal reference as a
+        // contact created in the CRM. Fill only a blank value: imports and
+        // manually assigned references always win.
+        const [referenceRows] = await connection.execute<
+          (RowDataPacket & { client_reference: string | null })[]
+        >(
+          'SELECT client_reference FROM contacts WHERE id=? AND account_id=? LIMIT 1 FOR UPDATE',
+          [contactId, accountId]
+        );
+        if (!referenceRows[0]?.client_reference?.trim()) {
+          // Serialize allocation per account. Locking the account row is
+          // portable on MySQL and avoids relying on aggregate gap locks.
+          await connection.execute(
+            'SELECT id FROM accounts WHERE id=? FOR UPDATE',
+            [accountId]
+          );
+          const [maximumRows] = await connection.execute<
+            (RowDataPacket & { maximum_reference: number | string })[]
+          >(
+            `SELECT COALESCE(MAX(CASE WHEN client_reference REGEXP '^[0-9]+$'
+             THEN CAST(client_reference AS UNSIGNED) ELSE 0 END),0) AS maximum_reference
+             FROM contacts WHERE account_id=?`,
+            [accountId]
+          );
+          const nextReference = String(
+            Number(maximumRows[0]?.maximum_reference ?? 0) + 1
+          );
+          await connection.execute(
+            `UPDATE contacts SET client_reference=?
+             WHERE id=? AND account_id=? AND (client_reference IS NULL OR TRIM(client_reference)='')`,
+            [nextReference, contactId, accountId]
+          );
+        }
         const profilePicUrl = String(body.profilePicUrl ?? '');
         if (
           /^https:\/\//i.test(profilePicUrl) &&
