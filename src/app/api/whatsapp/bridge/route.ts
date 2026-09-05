@@ -4,7 +4,11 @@ import type { RowDataPacket } from 'mysql2';
 import { mutate, selectRows, transaction } from '@/lib/mysql/db';
 import { notifyAccountEvent } from '@/lib/notifications/account-events';
 
-async function authorized(request: Request, accountId: string) {
+async function authorized(
+  request: Request,
+  accountId: string,
+  bodySecret?: unknown
+) {
   // Bracket access is intentional: this value only exists in Passenger's
   // runtime environment and must never be folded into the GitHub build.
   const secret = process.env['WHATSAPP_WORKER_SECRET']?.trim();
@@ -15,7 +19,9 @@ async function authorized(request: Request, accountId: string) {
     request.headers
       .get('authorization')
       ?.replace(/^Bearer\s+/i, '')
-      .trim() ?? request.headers.get('x-whatsapp-worker-secret')?.trim();
+      .trim() ??
+    request.headers.get('x-whatsapp-worker-secret')?.trim() ??
+    (typeof bodySecret === 'string' ? bodySecret.trim() : undefined);
   if (!supplied) return false;
   if (secret) {
     const left = Buffer.from(secret);
@@ -56,7 +62,7 @@ export async function POST(request: Request) {
     const action = String(body.action ?? '');
     const accountId = String(body.accountId ?? '');
     if (!accountId) throw new Error('accountId is required.');
-    if (!(await authorized(request, accountId)))
+    if (!(await authorized(request, accountId, body.workerSecret)))
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     if (action === 'heartbeat') {
