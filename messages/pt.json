@@ -1201,6 +1201,22 @@
       }
     },
     "templates": {
+      "massage_welcome": {
+        "name": "Boas-vindas — Massagem",
+        "description": "Receba novos contactos com uma resposta acolhedora."
+      },
+      "massage_booking": {
+        "name": "Pedido de marcação — Massagem",
+        "description": "Responde a pedidos de agendamento e encaminha a conversa."
+      },
+      "massage_after_hours": {
+        "name": "Fora do horário — Massagem",
+        "description": "Confirma a receção da mensagem fora do horário de atendimento."
+      },
+      "massage_follow_up": {
+        "name": "Follow-up delicado — Massagem",
+        "description": "Retoma uma conversa de interesse após 24 horas."
+      },
       "welcome_message": {
         "name": "Mensagem de boas-vindas",
         "description": "Responda automaticamente ao primeiro contato com uma saudação."

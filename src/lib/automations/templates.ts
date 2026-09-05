@@ -6,7 +6,14 @@ import type {
 } from '@/types';
 
 export type TemplateSlug =
-  'welcome_message' | 'out_of_office' | 'lead_qualifier' | 'follow_up_reminder';
+  | 'welcome_message'
+  | 'out_of_office'
+  | 'lead_qualifier'
+  | 'follow_up_reminder'
+  | 'massage_welcome'
+  | 'massage_booking'
+  | 'massage_after_hours'
+  | 'massage_follow_up';
 
 export interface TemplateStepSeed {
   step_type: AutomationStepType;
@@ -118,6 +125,83 @@ export const AUTOMATION_TEMPLATES: Record<
         step_type: 'send_message',
         step_config: {
           text: 'Just circling back — did you have any other questions for us? Happy to help!',
+        },
+      },
+    ],
+  },
+  massage_welcome: {
+    slug: 'massage_welcome',
+    name: 'Boas-vindas — Massagem',
+    description: 'Receba novos contactos com uma resposta acolhedora.',
+    trigger_type: 'first_inbound_message',
+    trigger_config: {},
+    steps: [
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: 'Olá, {{ contact.name }}! 😊 Obrigado por contactar a nossa equipa. Como podemos ajudar: marcar uma massagem, saber preços ou tirar uma dúvida?',
+        },
+      },
+    ],
+  },
+  massage_booking: {
+    slug: 'massage_booking',
+    name: 'Pedido de marcação — Massagem',
+    description: 'Responde a pedidos de agendamento e encaminha a conversa.',
+    trigger_type: 'keyword_match',
+    trigger_config: {
+      keywords: ['marcar', 'agendar', 'marcação', 'marcacao', 'disponibilidade'],
+      match_type: 'contains',
+    },
+    steps: [
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: 'Claro, {{ contact.name }}! Para encontrarmos o melhor horário, diga-nos por favor o dia, período preferido e o tipo de massagem que procura.',
+        },
+      },
+      {
+        step_type: 'assign_conversation',
+        step_config: { mode: 'round_robin' },
+      },
+    ],
+  },
+  massage_after_hours: {
+    slug: 'massage_after_hours',
+    name: 'Fora do horário — Massagem',
+    description: 'Confirma a receção da mensagem fora do horário de atendimento.',
+    trigger_type: 'new_message_received',
+    trigger_config: {},
+    steps: [
+      {
+        step_type: 'condition',
+        step_config: { subject: 'time_of_day', operand: '20:00-09:00' },
+      },
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: 'Olá, {{ contact.name }}! Recebemos a sua mensagem. Neste momento estamos fora do horário, mas responderemos assim que possível. Obrigado pela compreensão. 🌿',
+        },
+        parent_index: 0,
+        branch: 'yes',
+      },
+    ],
+  },
+  massage_follow_up: {
+    slug: 'massage_follow_up',
+    name: 'Follow-up delicado — Massagem',
+    description: 'Retoma uma conversa de interesse após 24 horas.',
+    trigger_type: 'keyword_match',
+    trigger_config: {
+      keywords: ['preço', 'preco', 'valores', 'massagem'],
+      match_type: 'contains',
+    },
+    steps: [
+      { step_type: 'wait', step_config: { amount: 1, unit: 'days' } },
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: 'Olá, {{ contact.name }}! Ficou alguma dúvida sobre as nossas massagens ou horários? Estamos aqui para ajudar a encontrar o momento ideal para si. ✨',
         },
       },
     ],

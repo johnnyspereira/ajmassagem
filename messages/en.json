@@ -1201,6 +1201,22 @@
       }
     },
     "templates": {
+      "massage_welcome": {
+        "name": "Massage welcome",
+        "description": "Welcome new contacts with a warm reply."
+      },
+      "massage_booking": {
+        "name": "Massage booking request",
+        "description": "Reply to booking requests and route the conversation."
+      },
+      "massage_after_hours": {
+        "name": "Massage after hours",
+        "description": "Confirm receipt of messages outside business hours."
+      },
+      "massage_follow_up": {
+        "name": "Gentle massage follow-up",
+        "description": "Resume a conversation of interest after 24 hours."
+      },
       "welcome_message": {
         "name": "Welcome message",
         "description": "Auto-reply to first-time contacts with a greeting."

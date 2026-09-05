@@ -48,6 +48,10 @@ import { triggerMeta } from '@/lib/automations/trigger-meta';
 import { cn } from '@/lib/utils';
 
 const TEMPLATE_ORDER: TemplateSlug[] = [
+  'massage_welcome',
+  'massage_booking',
+  'massage_after_hours',
+  'massage_follow_up',
   'welcome_message',
   'out_of_office',
   'lead_qualifier',
@@ -55,6 +59,10 @@ const TEMPLATE_ORDER: TemplateSlug[] = [
 ];
 
 const TEMPLATE_ICON: Record<TemplateSlug, typeof Zap> = {
+  massage_welcome: MessageCircle,
+  massage_booking: Users,
+  massage_after_hours: Clock,
+  massage_follow_up: PhoneCall,
   welcome_message: MessageCircle,
   out_of_office: Clock,
   lead_qualifier: Users,
