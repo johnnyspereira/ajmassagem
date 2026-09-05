@@ -8,10 +8,14 @@ async function authorized(request: Request, accountId: string) {
   // Bracket access is intentional: this value only exists in Passenger's
   // runtime environment and must never be folded into the GitHub build.
   const secret = process.env['WHATSAPP_WORKER_SECRET']?.trim();
-  const supplied = request.headers
-    .get('authorization')
-    ?.replace(/^Bearer\s+/i, '')
-    .trim();
+  // Some shared-hosting proxy configurations do not forward the standard
+  // Authorization header to Passenger. Keep Bearer support, but accept the
+  // worker-specific header as a resilient authenticated transport too.
+  const supplied =
+    request.headers
+      .get('authorization')
+      ?.replace(/^Bearer\s+/i, '')
+      .trim() ?? request.headers.get('x-whatsapp-worker-secret')?.trim();
   if (!supplied) return false;
   if (secret) {
     const left = Buffer.from(secret);
