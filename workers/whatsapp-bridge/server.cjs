@@ -278,13 +278,12 @@ function wire(instance) {
     if (!message.fromMe) return;
     touch();
     rememberOutgoing(message);
-    setTimeout(
-      () =>
-        persist(message).catch((e) =>
-          console.error('[bridge] espelho:', e.message)
-        ),
-      1000
-    );
+    // Messages sent from the CRM are already represented by an outbox row.
+    // Persisting the same WhatsApp event here races with `complete_outbox`:
+    // the event can create the external-id row first, leaving the queued CRM
+    // message stuck as "sending" even though WhatsApp accepted it. The outbox
+    // completion is therefore the single source of truth for Inbox sends.
+    // Messages authored directly in WhatsApp are still picked up by Sync.
   });
   instance.on('message_ack', (message, ack) => {
     const next = ackStatus(Number(ack));
