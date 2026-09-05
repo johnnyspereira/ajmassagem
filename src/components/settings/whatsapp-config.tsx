@@ -139,12 +139,34 @@ export function WhatsAppConfig() {
   const [baileysLoading, setBaileysLoading] = useState(false);
   const [baileysError, setBaileysError] = useState<string | null>(null);
   const [baileysSyncing, setBaileysSyncing] = useState(false);
+  const [baileysSyncStartedAt, setBaileysSyncStartedAt] = useState<
+    number | null
+  >(null);
+  const [baileysSyncElapsed, setBaileysSyncElapsed] = useState(0);
+  const [baileysLastSync, setBaileysLastSync] = useState<{
+    chats: number;
+    scanned: number;
+    imported: number;
+  } | null>(null);
   const [baileysClearingAuth, setBaileysClearingAuth] = useState(false);
   const [baileysRestarting, setBaileysRestarting] = useState(false);
   const [baileysLastCheckedAt, setBaileysLastCheckedAt] = useState<
     string | null
   >(null);
   const baileysStatusInFlightRef = useRef(false);
+
+  useEffect(() => {
+    if (!baileysSyncing || !baileysSyncStartedAt) return;
+
+    const updateElapsed = () => {
+      setBaileysSyncElapsed(
+        Math.max(0, Math.floor((Date.now() - baileysSyncStartedAt) / 1000))
+      );
+    };
+    updateElapsed();
+    const interval = window.setInterval(updateElapsed, 350);
+    return () => window.clearInterval(interval);
+  }, [baileysSyncing, baileysSyncStartedAt]);
 
   // True once /register has succeeded on Meta's side (timestamp set
   // in the row). When false, the saved config is metadata-only and
@@ -630,6 +652,8 @@ export function WhatsAppConfig() {
   async function handleSyncBaileys() {
     setBaileysSyncing(true);
     setBaileysError(null);
+    setBaileysSyncStartedAt(Date.now());
+    setBaileysSyncElapsed(0);
 
     try {
       const res = await fetch('/api/whatsapp/baileys/sync', {
@@ -662,11 +686,17 @@ export function WhatsAppConfig() {
       toast.success(
         `Synced ${data.messagesPersisted ?? 0} new messages from ${data.chatsScanned ?? 0} chats.`
       );
+      setBaileysLastSync({
+        chats: data.chatsScanned ?? 0,
+        scanned: data.messagesScanned ?? 0,
+        imported: data.messagesPersisted ?? 0,
+      });
     } catch (err) {
       console.error('Failed to sync Baileys chats:', err);
       setBaileysError('Failed to sync WhatsApp chats.');
     } finally {
       setBaileysSyncing(false);
+      setBaileysSyncStartedAt(null);
     }
   }
 
@@ -744,6 +774,17 @@ export function WhatsAppConfig() {
         second: '2-digit',
       })
     : t('qrNeverChecked');
+  const syncSteps = [
+    'A comunicar com o WhatsApp',
+    'A listar conversas disponíveis',
+    'A ler mensagens recentes',
+    'A guardar mensagens no Inbox',
+  ];
+  const syncStepIndex = Math.min(
+    syncSteps.length - 1,
+    Math.floor(baileysSyncElapsed / 2)
+  );
+  const syncProgress = Math.min(92, 14 + baileysSyncElapsed * 7);
   const metaStatusClass =
     connectionStatus === 'connected'
       ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500'
@@ -870,6 +911,79 @@ export function WhatsAppConfig() {
             {baileysError && (
               <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
                 {baileysError}
+              </div>
+            )}
+
+            {baileysSyncing && (
+              <div
+                className="border-primary/20 bg-primary/5 overflow-hidden rounded-xl border p-4"
+                role="status"
+                aria-live="polite"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="bg-primary/10 text-primary relative flex size-10 shrink-0 items-center justify-center rounded-xl">
+                    <Radio className="size-4 animate-pulse" />
+                    <span className="bg-primary absolute size-2 animate-ping rounded-full" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-foreground text-sm font-semibold">
+                        A sincronizar conversas…
+                      </p>
+                      <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+                        {baileysSyncElapsed}s
+                      </span>
+                    </div>
+                    <p className="text-muted-foreground mt-0.5 text-xs">
+                      {syncSteps[syncStepIndex]}
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-primary/10 mt-4 h-1.5 overflow-hidden rounded-full">
+                  <div
+                    className="bg-primary h-full rounded-full transition-[width] duration-500 ease-out"
+                    style={{ width: `${syncProgress}%` }}
+                  />
+                </div>
+                <div className="mt-3 grid grid-cols-4 gap-2">
+                  {syncSteps.map((step, index) => (
+                    <div key={step} className="flex items-center gap-1.5">
+                      <span
+                        className={`size-1.5 rounded-full ${
+                          index <= syncStepIndex
+                            ? 'bg-primary animate-pulse'
+                            : 'bg-border'
+                        }`}
+                      />
+                      <span className="text-muted-foreground hidden truncate text-[10px] sm:block">
+                        {index === 0
+                          ? 'Ligação'
+                          : index === 1
+                            ? 'Conversas'
+                            : index === 2
+                              ? 'Mensagens'
+                              : 'Inbox'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {baileysLastSync && !baileysSyncing && (
+              <div className="border-emerald-500/20 bg-emerald-500/5 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border px-4 py-2.5 text-xs">
+                <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                  Última sincronização concluída
+                </span>
+                <span className="text-muted-foreground">
+                  {baileysLastSync.chats} conversas verificadas
+                </span>
+                <span className="text-muted-foreground">
+                  {baileysLastSync.scanned} mensagens analisadas
+                </span>
+                <span className="text-muted-foreground">
+                  {baileysLastSync.imported} novas no Inbox
+                </span>
               </div>
             )}
 
