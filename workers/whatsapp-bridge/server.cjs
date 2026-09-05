@@ -87,6 +87,28 @@ function normalize(value) {
 function jidPhone(value) {
   return normalize(String(value || '').split('@')[0]);
 }
+// WhatsApp is migrating private chats to LID identifiers.  A LID is not a
+// telephone number, despite looking numeric, so it must never become a CRM
+// contact key. whatsapp-web.js exposes the official paired phone lookup.
+async function resolveConversationPhone(jid) {
+  const raw = String(jid || '');
+  if (!raw.endsWith('@lid')) {
+    const phone = jidPhone(raw);
+    return phone ? { phone, aliases: [] } : null;
+  }
+  const alias = jidPhone(raw);
+  let pairs = [];
+  try {
+    pairs = await client.getContactLidAndPhone([raw]);
+  } catch {
+    return null;
+  }
+  const pairedPhone = String(pairs?.[0]?.pn || '');
+  const phone = pairedPhone.endsWith('@c.us') ? jidPhone(pairedPhone) : '';
+  // Do not fall back to the LID digits. Waiting for WhatsApp to resolve it
+  // is safer than creating a fictional customer conversation.
+  return phone ? { phone, aliases: alias ? [alias] : [] } : null;
+}
 function externalId(message) {
   return message?.id?._serialized || message?.id?.id || null;
 }
@@ -211,10 +233,8 @@ async function persist(message) {
   if (!/@(c\.us|lid)$/.test(String(jid || '')) || String(jid).includes('-'))
     return null;
   const contact = await message.getContact().catch(() => null);
-  const resolvedPhone = String(jid || '').endsWith('@lid')
-    ? normalize(contact?.number)
-    : jidPhone(jid);
-  if (!resolvedPhone) return null;
+  const resolution = await resolveConversationPhone(jid);
+  if (!resolution?.phone) return null;
   const profilePicUrl = await contact?.getProfilePicUrl?.().catch(() => null);
   const timestamp = new Date(
     Number(message.timestamp || Date.now() / 1000) * 1000
@@ -223,9 +243,10 @@ async function persist(message) {
     ...bind(),
     messageId: id,
     fromMe: Boolean(message.fromMe),
-    phone: resolvedPhone,
+    phone: resolution.phone,
+    phoneAliases: resolution.aliases,
     name:
-      contact?.pushname || contact?.name || contact?.shortName || resolvedPhone,
+      contact?.pushname || contact?.name || contact?.shortName || resolution.phone,
     profilePicUrl: profilePicUrl || null,
     contentType: normalizedContentType(message),
     text: message.body || message.caption || '',
@@ -241,6 +262,7 @@ async function persistSyncSnapshot(snapshot, media = {}) {
     messageId: snapshot.messageId,
     fromMe: Boolean(snapshot.fromMe),
     phone: normalize(snapshot.phone),
+    phoneAliases: snapshot.phoneAliases || [],
     name: snapshot.name || normalize(snapshot.phone),
     profilePicUrl: null,
     contentType: snapshot.contentType,
@@ -589,11 +611,16 @@ async function sync(input) {
   for (const snapshot of snapshots.rows) {
     messagesScanned++;
     try {
+      const resolution = await resolveConversationPhone(snapshot.phone);
+      if (!resolution?.phone) continue;
       const message = snapshot.hasMedia
         ? await client.getMessageById(snapshot.messageId).catch(() => null)
         : null;
       if (
-        await persistSyncSnapshot(snapshot, await inboundMediaPayload(message))
+        await persistSyncSnapshot(
+          { ...snapshot, phone: resolution.phone, phoneAliases: resolution.aliases },
+          await inboundMediaPayload(message)
+        )
       )
         messagesPersisted++;
     } catch (error) {

@@ -344,6 +344,9 @@ export async function POST(request: Request) {
       const normalized = phone(body.phone);
       if (!normalized) throw new Error('Valid phone is required.');
       const normalizedKey = phoneKey(normalized);
+      const phoneAliases = Array.isArray(body.phoneAliases)
+        ? [...new Set(body.phoneAliases.map(phoneKey).filter((key) => key && key !== normalizedKey))]
+        : [];
       const userId = String(body.userId ?? '');
       if (!userId) throw new Error('userId is required.');
       const mediaBytes = decodeBridgeMedia(body.mediaBase64);
@@ -376,6 +379,18 @@ export async function POST(request: Request) {
           [accountId, normalizedKey]
         );
         let contactId = identities[0]?.contact_id;
+        let legacyContactId: string | undefined;
+        if (phoneAliases.length) {
+          const [legacyIdentities] = await connection.execute<
+            (RowDataPacket & { contact_id: string })[]
+          >(
+            `SELECT contact_id FROM contact_phone_identities
+             WHERE account_id=? AND phone_key IN (${phoneAliases.map(() => '?').join(',')})
+             LIMIT 1 FOR UPDATE`,
+            [accountId, ...phoneAliases]
+          );
+          legacyContactId = legacyIdentities[0]?.contact_id;
+        }
         if (!contactId) {
           const candidateId = randomUUID();
           await connection.execute(
@@ -411,6 +426,7 @@ export async function POST(request: Request) {
           );
           contactId = winner[0]?.contact_id ?? contactId;
         }
+        if (legacyContactId && legacyContactId === contactId) legacyContactId = undefined;
         // Contacts may originate directly from an incoming WhatsApp message,
         // so they must receive the same sequential internal reference as a
         // contact created in the CRM. Fill only a blank value: imports and
@@ -467,6 +483,39 @@ export async function POST(request: Request) {
           await connection.execute(
             "INSERT INTO conversations(id,account_id,user_id,contact_id,status) VALUES(?,?,?,?,'open')",
             [conversationId, accountId, userId, contactId]
+          );
+        }
+        // A LID is an internal WhatsApp identifier, not a phone number. If
+        // an older worker created a conversation using one, move its message
+        // history into the resolved phone conversation and retire that empty
+        // duplicate thread. This keeps one Inbox row per actual number.
+        if (legacyContactId) {
+          const [legacyConversations] = await connection.execute<
+            (RowDataPacket & { id: string })[]
+          >(
+            `SELECT id FROM conversations WHERE account_id=? AND contact_id=?
+             LIMIT 1 FOR UPDATE`,
+            [accountId, legacyContactId]
+          );
+          const legacyConversationId = legacyConversations[0]?.id;
+          if (legacyConversationId && legacyConversationId !== conversationId) {
+            await connection.execute(
+              'UPDATE messages SET conversation_id=? WHERE conversation_id=?',
+              [conversationId, legacyConversationId]
+            );
+            await connection.execute(
+              'UPDATE whatsapp_outbox SET conversation_id=? WHERE conversation_id=?',
+              [conversationId, legacyConversationId]
+            );
+            await connection.execute(
+              'DELETE FROM conversations WHERE id=? AND account_id=?',
+              [legacyConversationId, accountId]
+            );
+          }
+          await connection.execute(
+            `UPDATE contact_phone_identities SET contact_id=?,source='whatsapp'
+             WHERE account_id=? AND phone_key IN (${phoneAliases.map(() => '?').join(',')})`,
+            [contactId, accountId, ...phoneAliases]
           );
         }
         const id = randomUUID();
