@@ -211,7 +211,6 @@ const navSections = [
     labelKey: 'groupOperation',
     hrefs: [
       '/dashboard',
-      '/inbox',
       '/notifications',
       '/agenda',
       '/tasks',
@@ -262,6 +261,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const totalUnread = useTotalUnread();
   const unreadNotifications = useUnreadNotifications();
   const navItemByHref = new Map(navItems.map((item) => [item.href, item]));
+  const workspaceItems = ['/inbox']
+    .map((href) => navItemByHref.get(href))
+    .filter((item): item is NavItem => Boolean(item));
   const systemItems = [
     ...['/support', '/website']
       .map((href) => navItemByHref.get(href))
@@ -364,6 +366,34 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         {/* Main navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <div className="space-y-4">
+            {/* Inbox is a dedicated workspace, deliberately kept above the
+                operational submenu so it is always one direct click away. */}
+            <ul className="flex flex-col gap-1">
+              {workspaceItems.map((item) => {
+                const isActive =
+                  pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const showUnreadDot = totalUnread > 0 && !isActive;
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors lg:py-2.5',
+                        isActive
+                          ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
+                          : 'bg-primary/10 text-primary hover:bg-primary/15'
+                      )}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span className="flex-1">{t(item.labelKey)}</span>
+                      {showUnreadDot && (
+                        <span className="bg-primary-foreground/90 relative flex h-2 w-2 rounded-full" />
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
             {navSections.map((section) => {
               const items = section.hrefs
                 .map((href) => navItemByHref.get(href))

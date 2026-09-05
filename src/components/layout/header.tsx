@@ -68,12 +68,12 @@ function getPageTitleKey(pathname: string): string {
   return match ? match[1] : 'dashboard';
 }
 
-const topbarDirectHrefs = ['/dashboard', '/agenda'];
+const topbarDirectHrefs = ['/dashboard', '/inbox', '/agenda'];
 
 const topbarGroupConfigs = [
   {
     labelKey: 'groupOperation',
-    hrefs: ['/inbox', '/notifications', '/tasks', '/contacts'],
+    hrefs: ['/notifications', '/tasks', '/contacts'],
   },
   {
     labelKey: 'groupCommercial',
