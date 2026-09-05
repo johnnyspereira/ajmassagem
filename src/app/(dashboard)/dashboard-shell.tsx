@@ -27,7 +27,10 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   // Inbox is intentionally a focused workspace, not another dashboard
   // panel. It keeps the authentication/providers from this shell while
   // removing the global navigation chrome.
-  const isInboxWorkspace = pathname.startsWith('/inbox');
+  // `usePathname` can transiently return null while a client navigation is
+  // hydrating. Treat that state as the normal dashboard shell instead of
+  // allowing a string call to take down every authenticated route.
+  const isInboxWorkspace = pathname?.startsWith('/inbox') ?? false;
 
   // Sidebar drawer state — only used on mobile. On lg+ the sidebar is
   // always visible and this stays at `false` (ignored by the component).
