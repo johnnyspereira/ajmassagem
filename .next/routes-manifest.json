@@ -485,6 +485,14 @@
       "namedRegex": "^/api/vouchers/(?<nxtPid>[^/]+?)/transfer(?:/)?$"
     },
     {
+      "page": "/api/whatsapp/bridge-media/[messageId]",
+      "regex": "^/api/whatsapp/bridge\\-media/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPmessageId": "nxtPmessageId"
+      },
+      "namedRegex": "^/api/whatsapp/bridge\\-media/(?<nxtPmessageId>[^/]+?)(?:/)?$"
+    },
+    {
       "page": "/api/whatsapp/media/[mediaId]",
       "regex": "^/api/whatsapp/media/([^/]+?)(?:/)?$",
       "routeKeys": {
