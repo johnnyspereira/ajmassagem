@@ -39,4 +39,9 @@ describe('local auth proxy', () => {
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: 'Unauthorized' });
   });
+
+  it('lets the signed worker callback reach its own authentication handler', () => {
+    const response = proxy(request('/api/whatsapp/bridge-v2'));
+    expect(response.status).not.toBe(401);
+  });
 });

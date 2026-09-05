@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 const SESSION_COOKIE = 'wacrm_session';
+const workerCallbackPaths = [
+  '/api/whatsapp/bridge',
+  '/api/whatsapp/bridge-v2',
+];
 
 const protectedPaths = [
   '/dashboard',
@@ -53,7 +57,8 @@ export function proxy(request: NextRequest) {
   if (
     !hasSessionCookie &&
     pathname.startsWith('/api/whatsapp/') &&
-    !pathname.includes('/webhook')
+    !pathname.includes('/webhook') &&
+    !workerCallbackPaths.includes(pathname)
   ) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
