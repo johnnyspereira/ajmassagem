@@ -112,6 +112,11 @@ interface ContactInsight {
   activePackCount: number;
 }
 
+type PortalAccessListRow = {
+  contact_id: string;
+  last_login_at: string | null;
+};
+
 type SavedAudienceConfig = {
   type: 'all' | 'tags' | 'custom_field' | 'csv';
   tagIds?: string[];
@@ -167,6 +172,9 @@ export default function ContactsPage() {
   const [contacts, setContacts] = useState<ContactWithTags[]>([]);
   const [contactInsights, setContactInsights] = useState<
     Record<string, ContactInsight>
+  >({});
+  const [portalAccessByContact, setPortalAccessByContact] = useState<
+    Record<string, PortalAccessListRow>
   >({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -232,6 +240,7 @@ export default function ContactsPage() {
     async (contactIds: string[], seq: number) => {
       if (contactIds.length === 0) {
         setContactInsights({});
+        setPortalAccessByContact({});
         return;
       }
 
@@ -243,6 +252,7 @@ export default function ContactsPage() {
         salesRes,
         vouchersRes,
         packsRes,
+        portalAccessRes,
       ] = await Promise.all([
         supabase
           .from('conversations')
@@ -274,6 +284,10 @@ export default function ContactsPage() {
         supabase
           .from('finance_client_packs')
           .select('contact_id, status')
+          .in('contact_id', contactIds),
+        supabase
+          .from('client_portal_access')
+          .select('contact_id,last_login_at')
           .in('contact_id', contactIds),
       ]);
 
@@ -369,6 +383,14 @@ export default function ContactsPage() {
       }
 
       setContactInsights(next);
+      setPortalAccessByContact(
+        Object.fromEntries(
+          ((portalAccessRes.data ?? []) as PortalAccessListRow[]).map((row) => [
+            row.contact_id,
+            row,
+          ])
+        )
+      );
     },
     [supabase]
   );
@@ -1587,6 +1609,7 @@ export default function ContactsPage() {
               ) : (
                 contacts.map((contact) => {
                   const insight = contactInsights[contact.id] ?? EMPTY_INSIGHT;
+                  const portalAccess = portalAccessByContact[contact.id];
                   const missingFields = getMissingContactFields(contact);
                   const score = getContactScore(contact);
 
@@ -1664,9 +1687,26 @@ export default function ContactsPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className="bg-muted text-foreground inline-flex min-w-20 justify-center rounded-md px-2 py-1 font-mono text-xs font-medium">
-                          {contact.client_reference || 'Sem ref.'}
-                        </span>
+                        <div className="space-y-1.5">
+                          <span className="bg-muted text-foreground inline-flex min-w-20 justify-center rounded-md px-2 py-1 font-mono text-xs font-medium">
+                            {contact.client_reference || 'Sem ref.'}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'h-5 text-[10px]',
+                              portalAccess
+                                ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                                : 'border-muted-foreground/20 text-muted-foreground'
+                            )}
+                          >
+                            {portalAccess
+                              ? portalAccess.last_login_at
+                                ? 'Portal ativo'
+                                : 'Portal criado'
+                              : 'Sem Portal'}
+                          </Badge>
+                        </div>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         <div className="min-w-36 space-y-2">
