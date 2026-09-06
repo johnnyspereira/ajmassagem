@@ -10,6 +10,11 @@ import {
   privacyNoticeVersion,
   requestConsentEvidence,
 } from '@/lib/privacy/consent-evidence';
+import {
+  deleteObjects,
+  publicStorageUrl,
+  saveObject,
+} from '@/lib/storage/local-storage';
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const AVATAR_TYPES = new Set([
@@ -224,30 +229,23 @@ export async function POST(
       .webp({ quality: 84 })
       .toBuffer();
     const path = `${user.id}/client-${access.contact_id}-${Date.now()}.webp`;
-    const { error: uploadError } = await admin.storage
-      .from('avatars')
-      .upload(path, optimized, {
-        contentType: 'image/webp',
-        cacheControl: '31536000',
-        upsert: false,
-      });
-    if (uploadError) throw uploadError;
-    const { data: publicData } = admin.storage
-      .from('avatars')
-      .getPublicUrl(path);
+    // Files stay on the cPanel host under LOCAL_UPLOAD_DIR. The legacy
+    // Supabase-shaped client is intentionally not used for storage here.
+    await saveObject('avatars', path, optimized);
+    const avatarUrl = publicStorageUrl('avatars', path);
     const { error: updateError } = await admin
       .from('contacts')
       .update({
-        avatar_url: publicData.publicUrl,
+        avatar_url: avatarUrl,
         updated_at: new Date().toISOString(),
       })
       .eq('account_id', access.account_id)
       .eq('id', access.contact_id);
     if (updateError) {
-      await admin.storage.from('avatars').remove([path]);
+      await deleteObjects('avatars', [path]);
       throw updateError;
     }
-    return Response.json({ avatarUrl: publicData.publicUrl });
+    return Response.json({ avatarUrl });
   } catch (error) {
     return portalErrorResponse(error);
   }
