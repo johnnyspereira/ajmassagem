@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import type { Message, MessageReaction } from '@/types';
 import {
-  Clock,
   Check,
   CheckCheck,
   XCircle,
@@ -33,7 +32,11 @@ interface MessageBubbleProps {
 function StatusIcon({ status }: { status: Message['status'] }) {
   switch (status) {
     case 'sending':
-      return <Clock className="text-muted-foreground h-3 w-3" />;
+      // A queued QR message can remain transiently marked "sending" while
+      // the worker confirms it. Do not show the tiny clock in history: at
+      // this size it reads as a literal "0" and makes accepted messages look
+      // failed. The composer already communicates active sending state.
+      return null;
     case 'sent':
       return <Check className="text-muted-foreground h-3 w-3" />;
     case 'delivered':
