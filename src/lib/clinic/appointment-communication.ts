@@ -103,6 +103,7 @@ export async function sendAppointmentCommunication({
     paymentMethods: settings?.payment_methods,
     anamnesisUrl,
     anamnesisIntro: settings?.anamnesis_intro,
+    benefit,
   });
   const deliveries = await deliverChannels({
     db,

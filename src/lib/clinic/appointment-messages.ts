@@ -10,6 +10,11 @@ export type AppointmentMessageOptions = {
   paymentMethods?: string | null;
   anamnesisUrl?: string | null;
   anamnesisIntro?: string | null;
+  benefit?: {
+    type: 'voucher' | 'pack' | 'referral' | 'wallet' | 'direct';
+    label: string;
+    detail: string;
+  } | null;
 };
 
 export type AppointmentMessageRow = Omit<
@@ -112,6 +117,8 @@ export function buildAppointmentMessage(
     style: 'currency',
     currency: appointment.currency || 'EUR',
   }).format(referralDiscount);
+  const hasVoucherOrPack =
+    options.benefit?.type === 'voucher' || options.benefit?.type === 'pack';
 
   if (action === 'pending_confirmation') {
     return [
@@ -149,7 +156,14 @@ export function buildAppointmentMessage(
     action === 'reminder'
       ? 'Esta é uma lembrança da sua sessão. Caso precise de apoio, responda a esta mensagem.'
       : 'Para confirmar a sua presença, responda *CONFIRMAR*. Para solicitar outro horário, responda *REAGENDAR*.',
-  ].filter((line): line is string => line !== null);
+  ]
+    .filter((line): line is string => line !== null)
+    .flatMap((line) =>
+      hasVoucherOrPack && line.includes(price)
+        ? [`Voucher/pack aplicado: ${options.benefit?.label}`, options.benefit?.detail ?? '']
+        : [line]
+    )
+    .filter(Boolean);
 
   if (options.anamnesisUrl) {
     details.push(
