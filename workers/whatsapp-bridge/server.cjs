@@ -439,8 +439,12 @@ async function sendOutboxJob(job) {
   const digits = normalize(job.phone).replace(/\D/g, '');
   if (!digits) throw new Error('Invalid recipient phone.');
   const registered = await client.getNumberId(digits).catch(() => null);
-  if (!registered) throw new Error('Recipient is not registered on WhatsApp.');
-  const jid = registered._serialized || `${digits}@c.us`;
+  // `getNumberId` can return null for the phone that owns the currently
+  // connected QR session, even though WhatsApp Web accepts that JID. This is
+  // the normal destination for owner alerts (for example Portal 360 access
+  // notifications). Let sendMessage be the authoritative validation instead
+  // of leaving a valid alert stuck in the CRM outbox.
+  const jid = registered?._serialized || `${digits}@c.us`;
   const type = message.contentType || 'text';
   const text = String(message.text || '');
   let content = text;
