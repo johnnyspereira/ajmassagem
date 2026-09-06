@@ -37,6 +37,12 @@
            WHERE account_id=? AND (
              (status IN ('pending','failed') AND available_at<=UTC_TIMESTAMP(3))
              OR (status='processing' AND lease_until<UTC_TIMESTAMP(3))
+             -- Older worker versions falsely rejected the connected owner's
+             -- own number before attempting a send. Reclaim only those
+             -- precise bot alerts once; a real new failure gets its normal
+             -- error and is not retried in a loop.
+             OR (status='dead' AND last_error='Recipient is not registered on WhatsApp.'
+                 AND JSON_UNQUOTE(JSON_EXTRACT(payload,'$.senderType'))='bot')
            )
            ORDER BY created_at ASC LIMIT 1 FOR UPDATE`,[k]),d=c[0];return d?(await b.execute(`UPDATE whatsapp_outbox SET status='processing',attempts=attempts+1,
            worker_id=?,lease_until=DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 90 SECOND),
