@@ -29,6 +29,21 @@ function boolean(value: unknown) {
   return value === true;
 }
 
+function isValidBirthDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const today = new Date();
+  return (
+    year >= today.getUTCFullYear() - 125 &&
+    year <= today.getUTCFullYear() &&
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day &&
+    date.getTime() <= Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
+  );
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
@@ -59,7 +74,7 @@ export async function PATCH(
     }
 
     const birthDate = text(body.birthDate, 10);
-    if (birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+    if (birthDate && !isValidBirthDate(birthDate)) {
       throw new PortalError('A data de nascimento é inválida.', 400);
     }
     const gender = text(body.gender, 24);

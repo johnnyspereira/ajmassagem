@@ -118,6 +118,18 @@ type Conversation = {
   created_at: string;
 };
 
+type PortalAccess = {
+  id: string;
+  last_login_at: string | null;
+  requires_password_change: boolean | null;
+  created_at: string;
+};
+
+type PortalSettings = {
+  slug: string;
+  enabled: boolean;
+};
+
 type DealRow = Deal & {
   stage?: { name?: string | null; color?: string | null } | null;
 };
@@ -369,6 +381,11 @@ export function Client360Page({
   const [broadcastEvents, setBroadcastEvents] = useState<
     BroadcastRecipientEvent[]
   >([]);
+  const [portalAccess, setPortalAccess] = useState<PortalAccess | null>(null);
+  const [portalSettings, setPortalSettings] = useState<PortalSettings | null>(null);
+  const [sendingPortalInvite, setSendingPortalInvite] = useState<
+    'email' | 'whatsapp' | null
+  >(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
@@ -428,6 +445,8 @@ export function Client360Page({
       tasksRes,
       scheduledMessagesRes,
       broadcastEventsRes,
+      portalAccessRes,
+      portalSettingsRes,
     ] = await Promise.all([
       supabase.from('contacts').select('*').eq('id', contactId).single(),
       supabase
@@ -559,6 +578,18 @@ export function Client360Page({
         .eq('contact_id', contactId)
         .order('created_at', { ascending: false })
         .limit(25),
+      supabase
+        .from('client_portal_access')
+        .select('id,last_login_at,requires_password_change,created_at')
+        .eq('account_id', accountId)
+        .eq('contact_id', contactId)
+        .maybeSingle(),
+      supabase
+        .from('client_portal_settings')
+        .select('slug,enabled')
+        .eq('account_id', accountId)
+        .eq('enabled', true)
+        .maybeSingle(),
     ]);
 
     if (contactRes.error) {
@@ -649,6 +680,16 @@ export function Client360Page({
         ? []
         : ((broadcastEventsRes.data as BroadcastRecipientEvent[] | null) ?? [])
     );
+    setPortalAccess(
+      portalAccessRes.error
+        ? null
+        : ((portalAccessRes.data as PortalAccess | null) ?? null)
+    );
+    setPortalSettings(
+      portalSettingsRes.error
+        ? null
+        : ((portalSettingsRes.data as PortalSettings | null) ?? null)
+    );
 
     const nextConversations =
       (conversationsRes.data as Conversation[] | null) ?? [];
@@ -669,6 +710,47 @@ export function Client360Page({
     }
     setLoading(false);
   }, [accountId, contactId, supabase]);
+
+  async function sendPortalInvite(delivery: 'email' | 'whatsapp') {
+    if (!contact || !portalSettings?.slug) {
+      toast.error('O Portal 360 não está publicado para esta conta.');
+      return;
+    }
+    if (!contact.email) {
+      toast.error('Adicione primeiro o email do cliente para criar o acesso seguro.');
+      return;
+    }
+    if (delivery === 'whatsapp' && !contact.phone) {
+      toast.error('Adicione primeiro o telefone do cliente.');
+      return;
+    }
+    setSendingPortalInvite(delivery);
+    try {
+      const response = await fetch(
+        `/api/portal/${encodeURIComponent(portalSettings.slug)}/password`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: contact.email, delivery }),
+        }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(payload.error || 'Não foi possível enviar o convite.');
+      toast.success(
+        delivery === 'email'
+          ? 'Convite do Portal 360 enviado por email.'
+          : 'Convite do Portal 360 enviado por WhatsApp.'
+      );
+      await loadClient();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Não foi possível enviar o convite.'
+      );
+    } finally {
+      setSendingPortalInvite(null);
+    }
+  }
 
   useEffect(() => {
     // Fetch the complete client record when its route identity changes.
@@ -1384,6 +1466,46 @@ export function Client360Page({
                     'dd/MM/yyyy HH:mm'
                   )}
                 />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Portal 360</CardTitle>
+                <CardDescription>
+                  Acesso privado a marcações, benefícios e dados pessoais.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                {portalAccess ? (
+                  <>
+                    <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
+                      {portalAccess.last_login_at ? 'Acesso ativo' : 'Convite criado'}
+                    </Badge>
+                    <p className="text-muted-foreground">
+                      {portalAccess.last_login_at
+                        ? `Último acesso: ${safeDate(portalAccess.last_login_at, 'dd/MM/yyyy HH:mm')}`
+                        : 'O cliente ainda não entrou no Portal 360.'}
+                    </p>
+                    {portalAccess.requires_password_change ? (
+                      <p className="text-amber-700">Aguarda a definição da palavra-passe pelo cliente.</p>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <Badge variant="secondary">Sem acesso criado</Badge>
+                    <p className="text-muted-foreground">
+                      Envie uma breve apresentação com um link pessoal para o cliente criar o acesso.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" disabled={!canOperate || sendingPortalInvite !== null} onClick={() => sendPortalInvite('email')}>
+                        <Mail /> {sendingPortalInvite === 'email' ? 'A enviar…' : 'Enviar por email'}
+                      </Button>
+                      <Button size="sm" disabled={!canOperate || sendingPortalInvite !== null} onClick={() => sendPortalInvite('whatsapp')}>
+                        <MessageCircle /> {sendingPortalInvite === 'whatsapp' ? 'A enviar…' : 'Enviar por WhatsApp'}
+                      </Button>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
             <Card className="xl:col-span-2">
