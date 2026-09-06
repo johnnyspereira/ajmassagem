@@ -123,14 +123,25 @@ function normalizedContentType(message) {
 }
 async function inboundMediaPayload(message) {
   if (!message?.hasMedia || message?.fromMe) return {};
-  const media = await message.downloadMedia().catch(() => null);
-  if (!media?.data || !media?.mimetype) return {};
-  return {
-    mediaBase64: media.data,
-    mediaMimeType: media.mimetype,
-    mediaFilename:
-      media.filename || message.filename || `${externalId(message) || 'attachment'}`,
-  };
+  // WhatsApp Web may report a message before its encrypted media is ready to
+  // download. Retry after reloading the message so photos are not persisted
+  // as a permanent "unavailable" placeholder in the Inbox.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const media = await message.downloadMedia().catch(() => null);
+    if (media?.data && media?.mimetype) {
+      return {
+        mediaBase64: media.data,
+        mediaMimeType: media.mimetype,
+        mediaFilename:
+          media.filename || message.filename || `${externalId(message) || 'attachment'}`,
+      };
+    }
+    if (attempt < 2) {
+      await message.reload?.().catch(() => null);
+      await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
+    }
+  }
+  return {};
 }
 function rememberOutgoing(message) {
   if (!message?.fromMe || !externalId(message)) return;
@@ -619,8 +630,10 @@ async function sync(input) {
       }
       return { chatsScanned: chats.length, rows };
     },
-    Math.max(1, Number(input.chatLimit || 50)),
-    Math.max(1, Number(input.messageLimit || 25))
+    // These defaults deliberately cover the full working history for a
+    // typical clinic. The UI can still pass a smaller number for a quick run.
+    Math.max(1, Number(input.chatLimit || 250)),
+    Math.max(1, Number(input.messageLimit || 100))
   );
   chatsScanned = snapshots.chatsScanned;
   for (const snapshot of snapshots.rows) {

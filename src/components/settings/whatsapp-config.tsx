@@ -661,7 +661,9 @@ export function WhatsAppConfig() {
         credentials: 'include',
         cache: 'no-store',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_limit: 100, message_limit: 30 }),
+        // Bring back the usable Inbox history, including older photos and
+        // attachments, rather than only the last few chats/messages.
+        body: JSON.stringify({ chat_limit: 250, message_limit: 100 }),
       });
       const text = await res.text();
       let data: {
