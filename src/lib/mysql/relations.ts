@@ -22,7 +22,7 @@ const relations: Record<string, Record<string, Relation>> = {
   messages: { conversation: r('conversations','conversation_id'), conversations: r('conversations','conversation_id') },
   conversations: { contact: r('contacts','contact_id') },
   public_site_settings: { account: r('accounts','account_id') },
-  clinic_appointments: { contact: r('contacts','contact_id'), service: r('clinic_services','service_id'), room: r('clinic_rooms','room_id'), professional: r('profiles','professional_profile_id'), anamnesis: r('clinic_anamnesis_forms','anamnesis_form_id'), benefits: r('finance_appointment_benefits','id','appointment_id',true), sales: r('finance_sales','id','appointment_id',true) },
+  clinic_appointments: { contact: r('contacts','contact_id'), service: r('clinic_services','service_id'), room: r('clinic_rooms','room_id'), professional: r('profiles','professional_profile_id'), account: r('accounts','account_id'), anamnesis: r('clinic_anamnesis_forms','anamnesis_form_id'), benefits: r('finance_appointment_benefits','id','appointment_id',true), sales: r('finance_sales','id','appointment_id',true) },
   clinic_time_blocks: { room: r('clinic_rooms','room_id'), professional: r('profiles','professional_profile_id') },
   finance_appointment_benefits: { voucher: r('finance_vouchers','voucher_id'), client_pack: r('finance_client_packs','client_pack_id'), client_pack_balance: r('finance_client_pack_balances','client_pack_balance_id'), appointment: r('clinic_appointments','appointment_id') },
   finance_vouchers: { owner: r('contacts','owner_contact_id'), service: r('clinic_services','service_id'), account: r('accounts','account_id') },

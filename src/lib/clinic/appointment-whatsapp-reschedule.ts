@@ -25,6 +25,7 @@ type AgendaEventRow = RowDataPacket & {
 };
 
 const RESCHEDULE_WORDS = /\b(reagendar|remarcar|alterar|mudar)(?:\s+(?:a|o|de|horario|horário|data))?\b/i;
+const CANCEL_WORDS = /\b(cancelar|cancela|cancelamento)\b/i;
 const TIME_ZONE = 'Europe/Lisbon';
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
@@ -90,6 +91,10 @@ function formatSlot(slot: Slot) {
 
 function isRescheduleRequest(message: string) {
   return RESCHEDULE_WORDS.test(message.normalize('NFD').replace(/\p{Diacritic}/gu, ''));
+}
+
+function isCancellationRequest(message: string) {
+  return CANCEL_WORDS.test(message.normalize('NFD').replace(/\p{Diacritic}/gu, ''));
 }
 
 function selectedOption(message: string) {
@@ -209,9 +214,31 @@ export async function handleWhatsAppRescheduleReply(input: {
     return { appointmentId: event.entity_id, replyText: `Recebemos a sua preferência: *${formatSlot(option)}*. O pedido foi enviado ao profissional. Assim que for aprovado, confirmamos por aqui.` };
   }
 
-  if (!isRescheduleRequest(input.messageText)) return null;
+  const cancellation = isCancellationRequest(input.messageText);
+  if (!cancellation && !isRescheduleRequest(input.messageText)) return null;
   const appointment = await pendingAppointment(input.accountId, input.contactId);
   if (!appointment) return null;
+  if (cancellation) {
+    await transaction(async (connection) => {
+      await connection.execute(
+        `UPDATE clinic_appointments SET confirmation_status='declined',confirmation_response_at=UTC_TIMESTAMP(3),updated_at=UTC_TIMESTAMP(3)
+         WHERE id=? AND account_id=?`,
+        [appointment.id, input.accountId]
+      );
+      await connection.execute(
+        `INSERT INTO clinic_agenda_events(id,account_id,user_id,entity_type,entity_id,action,reason,metadata,old_starts_at,old_ends_at,new_starts_at,new_ends_at)
+         VALUES(?,?,NULL,'appointment',?,'status_changed',?,?,?,?,?,?)`,
+        [randomUUID(), input.accountId, appointment.id, 'Cliente pediu cancelamento pelo WhatsApp; aguarda validação da equipa.', JSON.stringify({
+          kind: 'whatsapp_cancellation', state: 'awaiting_professional',
+          contact_id: input.contactId, conversation_id: input.conversationId, source_message_id: input.sourceMessageId,
+        }), appointment.scheduled_start, appointment.scheduled_end, appointment.scheduled_start, appointment.scheduled_end]
+      );
+    });
+    return {
+      appointmentId: appointment.id,
+      replyText: 'Recebemos o seu pedido de cancelamento. A marcação permanece pendente até validação pela nossa equipa; iremos confirmar consigo por aqui.',
+    };
+  }
   const options = await findSlots(input.accountId, appointment);
   if (!options.length) {
     return { appointmentId: appointment.id, replyText: 'Recebemos o seu pedido de reagendamento. Neste momento não encontramos horários disponíveis próximos; a equipa irá contactar consigo.' };

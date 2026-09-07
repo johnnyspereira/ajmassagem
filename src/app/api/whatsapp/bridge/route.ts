@@ -616,6 +616,9 @@ export async function POST(request: Request) {
         // reply of CONFIRMAR/REAGENDAR works for individual appointments.
         if (contentType === 'text' && body.text) {
           const messageText = String(body.text);
+          const appointmentRequest = /\b(reagendar|remarcar|alterar|mudar|cancelar|cancela)\b/i.test(
+            messageText.normalize('NFD').replace(/\p{Diacritic}/gu, '')
+          );
           const reschedule = await handleWhatsAppRescheduleReply({
             accountId,
             contactId: result.contactId,
@@ -626,7 +629,11 @@ export async function POST(request: Request) {
             console.error('[whatsapp-bridge] appointment reschedule failed:', rescheduleError);
             return null;
           });
-          if (reschedule?.replyText) {
+          const automaticReply = reschedule?.replyText ??
+            (appointmentRequest
+              ? 'Recebemos o seu pedido. A nossa equipa irá verificar a marcação e responder por aqui em breve.'
+              : null);
+          if (automaticReply) {
             await enqueueWhatsAppMessage({
               accountId,
               userId,
@@ -634,7 +641,7 @@ export async function POST(request: Request) {
               requestKey: `appointment-reschedule:${externalId}`,
               payload: {
                 contentType: 'text',
-                text: reschedule.replyText,
+                text: automaticReply,
                 senderType: 'bot',
               },
             }).catch((outboxError) => {

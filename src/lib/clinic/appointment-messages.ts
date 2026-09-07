@@ -101,7 +101,9 @@ export function buildAppointmentMessage(
   }).format(start);
   const professional = professionalLabel(appointment);
   const prefix = contactGreeting(appointment.contact);
-  const brand = businessName.trim() || 'nossa clínica';
+  // All client-facing messages must identify the business. This fallback is
+  // only used for legacy accounts whose account name was never populated.
+  const brand = businessName.trim() || 'JP Massagem';
   const price = new Intl.NumberFormat('pt-PT', {
     style: 'currency',
     currency: appointment.currency || 'EUR',
@@ -134,7 +136,6 @@ export function buildAppointmentMessage(
 
   const details = [
     '✨ *Detalhes do seu agendamento* ✨',
-    '',
     prefix,
     '',
     `💆 Serviço: ${service}`,
@@ -149,12 +150,10 @@ export function buildAppointmentMessage(
       : `💵 Total da sessão: ${price}`,
     `🙎🏻‍♂️ Profissional: ${professional}`,
     options.clinicAddress ? `📍 Morada: ${options.clinicAddress}` : null,
-    '',
     '*Para sua comodidade:*',
     options.directions ? `🚇 ${options.directions}` : null,
     options.parkingInfo ? `🚙 ${options.parkingInfo}` : null,
     options.paymentMethods ? `📲 Pagamento: ${options.paymentMethods}` : null,
-    '',
     action === 'reminder'
       ? 'Esta é uma lembrança da sua sessão. Caso precise de apoio, responda a esta mensagem.'
       : 'Para confirmar a sua presença, responda *CONFIRMAR*. Para solicitar outro horário, responda *REAGENDAR*.',
@@ -169,7 +168,6 @@ export function buildAppointmentMessage(
 
   if (options.anamnesisUrl) {
     details.push(
-      '',
       'Para uma experiência personalizada e segura, pedimos que preencha previamente a sua ficha de anamnese:',
       `👉 ${options.anamnesisUrl}`,
       '',
