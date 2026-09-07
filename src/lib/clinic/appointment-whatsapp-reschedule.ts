@@ -197,7 +197,7 @@ export async function handleWhatsAppRescheduleReply(input: {
     await transaction(async (connection) => {
       await connection.execute(
         `INSERT INTO clinic_agenda_events(id,account_id,user_id,entity_type,entity_id,action,reason,metadata,old_starts_at,old_ends_at,new_starts_at,new_ends_at)
-         SELECT ?,?,NULL,'appointment',a.id,'status_changed',?,CAST(? AS JSON),a.scheduled_start,a.scheduled_end,?,?
+         SELECT ?,?,NULL,'appointment',a.id,'status_changed',?,?,a.scheduled_start,a.scheduled_end,?,?
          FROM clinic_appointments a WHERE a.id=? AND a.account_id=?`,
         [randomUUID(), input.accountId, `Cliente escolheu a opção ${choice}; aguarda aprovação do profissional.`, JSON.stringify({
           kind: 'whatsapp_reschedule', state: 'awaiting_professional', selected_option: choice,
@@ -223,7 +223,7 @@ export async function handleWhatsAppRescheduleReply(input: {
     );
     await connection.execute(
       `INSERT INTO clinic_agenda_events(id,account_id,user_id,entity_type,entity_id,action,reason,metadata,old_starts_at,old_ends_at,new_starts_at,new_ends_at)
-       VALUES(?,?,NULL,'appointment',?,'status_changed',?,CAST(? AS JSON),?,?,?,?)`,
+       VALUES(?,?,NULL,'appointment',?,'status_changed',?,?,?,?,?,?)`,
       [randomUUID(), input.accountId, appointment.id, 'Cliente pediu reagendamento pelo WhatsApp; opções enviadas.', JSON.stringify({
         kind: 'whatsapp_reschedule', state: 'options_sent', options,
         contact_id: input.contactId, conversation_id: input.conversationId, source_message_id: input.sourceMessageId,
