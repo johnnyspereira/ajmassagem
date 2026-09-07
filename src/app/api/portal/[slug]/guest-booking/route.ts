@@ -44,7 +44,6 @@ export async function GET(
       .select('id,name,duration_minutes,price,currency')
       .eq('account_id', settings.account_id)
       .eq('is_active', true)
-      .eq('online_enabled', true)
       .eq('internal_booking_enabled', true)
       .order('name'),
     admin
@@ -121,7 +120,6 @@ export async function POST(
       .eq('id', body?.serviceId || '')
       .eq('account_id', settings.account_id)
       .eq('is_active', true)
-      .eq('online_enabled', true)
       .eq('internal_booking_enabled', true)
       .maybeSingle();
     if (!service)

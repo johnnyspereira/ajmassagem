@@ -41,6 +41,8 @@ import {
   UserRound,
   WalletCards,
   Megaphone,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -472,6 +474,19 @@ export function ClientPortal({ slug }: { slug: string }) {
   const [guestBookingProfessionalId, setGuestBookingProfessionalId] = useState('');
   const [privacyUnderstood, setPrivacyUnderstood] = useState(false);
   const [savingPrivacyNotice, setSavingPrivacyNotice] = useState(false);
+  const [portalTheme, setPortalTheme] = useState<'light' | 'dark'>('light');
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const previousDark = root.classList.contains('dark');
+    const previousColorScheme = root.style.colorScheme;
+    root.classList.toggle('dark', portalTheme === 'dark');
+    root.style.colorScheme = portalTheme;
+    return () => {
+      root.classList.toggle('dark', previousDark);
+      root.style.colorScheme = previousColorScheme;
+    };
+  }, [portalTheme]);
 
   const loadPortal = useCallback(async () => {
     if (!slug.trim()) {
@@ -870,6 +885,22 @@ export function ClientPortal({ slug }: { slug: string }) {
               <Button
                 variant="ghost"
                 size="icon"
+                onClick={() =>
+                  setPortalTheme((current) =>
+                    current === 'dark' ? 'light' : 'dark'
+                  )
+                }
+                title={
+                  portalTheme === 'dark'
+                    ? 'Usar tema claro'
+                    : 'Usar tema escuro'
+                }
+              >
+                {portalTheme === 'dark' ? <Sun /> : <Moon />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 className="relative"
                 onClick={() => setTab('notifications')}
                 title="Notificações"
@@ -886,6 +917,23 @@ export function ClientPortal({ slug }: { slug: string }) {
                 segura
               </span>
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() =>
+                setPortalTheme((current) =>
+                  current === 'dark' ? 'light' : 'dark'
+                )
+              }
+              title={
+                portalTheme === 'dark'
+                  ? 'Usar tema claro'
+                  : 'Usar tema escuro'
+              }
+              className="sm:hidden"
+            >
+              {portalTheme === 'dark' ? <Sun /> : <Moon />}
+            </Button>
             <Button
               variant="ghost"
               size="icon"

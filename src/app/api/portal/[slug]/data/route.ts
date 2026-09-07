@@ -68,7 +68,6 @@ export async function GET(
         .select('id,name,description,duration_minutes,price,currency,color')
         .eq('account_id', access.account_id)
         .eq('is_active', true)
-        .eq('online_enabled', true)
         .eq('internal_booking_enabled', true)
         .order('name'),
       admin
