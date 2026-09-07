@@ -36,7 +36,11 @@ export function JpMassagemPublicSite({ site }: { site: Site }) {
   return (
     <div
       className={styles.site}
-      style={{ '--brand': settings.primary_color || '#9d7144' } as React.CSSProperties}
+      data-site-theme={settings.site_theme}
+      style={{
+        '--brand': settings.primary_color || '#9d7144',
+        '--accent': settings.accent_color || '#1c241f',
+      } as React.CSSProperties}
     >
       <header className={styles.header}>
         <Link href="/" className={styles.logo} aria-label={`${account.name}, página principal`}>

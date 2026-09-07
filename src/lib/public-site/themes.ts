@@ -1,5 +1,14 @@
 export const PUBLIC_SITE_THEMES = [
   {
+    id: 'spa',
+    name: 'Spa editorial',
+    description: 'Sereno, sofisticado e pensado para reservas.',
+    industries: 'Spa, massagens, estética e bem-estar',
+    primary: '#a98355',
+    accent: '#243128',
+    preview: 'from-[#e9e0d2] via-[#f8f5ee] to-[#536050]',
+  },
+  {
     id: 'wellness',
     name: 'Bem-estar',
     description: 'Acolhedor, orgânico e próximo.',

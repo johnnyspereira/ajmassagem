@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ExternalLink,
   Globe2,
@@ -7,6 +7,7 @@ import {
   Plus,
   Save,
   Trash2,
+  Upload,
   UsersRound,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -29,6 +30,10 @@ import {
   getPublicSiteTheme,
   PUBLIC_SITE_THEMES,
 } from '@/lib/public-site/themes';
+import {
+  MEDIA_MAX_BYTES_BY_KIND,
+  uploadAccountMedia,
+} from '@/lib/storage/upload-media';
 type Lead = {
   id: string;
   name: string;
@@ -99,8 +104,10 @@ export function WebsiteBuilder() {
       useState<Omit<PublicSiteSettings, 'account_id'>>(DEFAULTS),
     [loading, setLoading] = useState(true),
     [saving, setSaving] = useState(false),
+    [uploadingHero, setUploadingHero] = useState(false),
     [schemaMissing, setSchemaMissing] = useState(false),
     [leads, setLeads] = useState<Lead[]>([]);
+  const heroInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!accountId) return;
     Promise.all([
@@ -134,6 +141,27 @@ export function WebsiteBuilder() {
   }, [account?.name, accountId, db]);
   function patch<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+  async function uploadHeroImage(file?: File) {
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      toast.error('Use uma imagem JPG, PNG ou WebP.');
+      return;
+    }
+    if (file.size > MEDIA_MAX_BYTES_BY_KIND.image) {
+      toast.error('A imagem não pode ultrapassar 5 MB.');
+      return;
+    }
+    setUploadingHero(true);
+    try {
+      const { publicUrl } = await uploadAccountMedia('chat-media', file);
+      patch('hero_image_url', publicUrl);
+      toast.success('Imagem principal carregada.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível carregar a imagem.');
+    } finally {
+      setUploadingHero(false);
+    }
   }
   async function save() {
     if (!accountId || !canEditSettings) return;
@@ -307,12 +335,38 @@ export function WebsiteBuilder() {
                 value={form.hero_subtitle ?? ''}
                 onChange={(v) => patch('hero_subtitle', v || null)}
               />
-              <Field
-                label="URL da imagem principal"
-                value={form.hero_image_url ?? ''}
-                onChange={(v) => patch('hero_image_url', v || null)}
-                placeholder="https://..."
-              />
+              <div>
+                <Label>Imagem principal</Label>
+                <div className="mt-2 flex gap-2">
+                  <Input
+                    value={form.hero_image_url ?? ''}
+                    onChange={(event) => patch('hero_image_url', event.target.value || null)}
+                    placeholder="Cole uma URL ou carregue uma imagem"
+                  />
+                  <input
+                    ref={heroInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(event) => {
+                      void uploadHeroImage(event.target.files?.[0]);
+                      event.currentTarget.value = '';
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={uploadingHero}
+                    onClick={() => heroInputRef.current?.click()}
+                  >
+                    {uploadingHero ? <Loader2 className="animate-spin" /> : <Upload />}
+                    Carregar
+                  </Button>
+                </div>
+                <p className="text-muted-foreground mt-2 text-xs">
+                  Tema Spa editorial: recomendado 2400 × 1600 px (3:2), JPG ou WebP, até 5 MB.
+                </p>
+              </div>
             </Panel>
           </TabsContent>
           <TabsContent value="content" className="pt-5">
