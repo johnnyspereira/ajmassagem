@@ -309,7 +309,7 @@ export function SalesView({
           <div className="bg-muted rounded-md p-3 text-sm">
             O CRM compara os vouchers emitidos com as quantidades da venda e
             cria somente os que faltarem. A venda, o pagamento e os vouchers
-            que j\u00e1 existem permanecem intactos.
+            existentes permanecem intactos.
           </div>
           <DialogFooter>
             <Button
