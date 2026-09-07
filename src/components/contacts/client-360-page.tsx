@@ -729,7 +729,10 @@ export function Client360Page({
     setLoading(false);
   }, [accountId, contactId, supabase]);
 
-  async function sendPortalInvite(delivery: 'email' | 'whatsapp') {
+  async function sendPortalInvite(
+    delivery: 'email' | 'whatsapp',
+    purpose: 'invite' | 'reset' = 'invite'
+  ) {
     if (!contact || !portalSettings?.slug) {
       toast.error('O Portal 360 não está publicado para esta conta.');
       return;
@@ -756,7 +759,9 @@ export function Client360Page({
       if (!response.ok)
         throw new Error(payload.error || 'Não foi possível enviar o convite.');
       toast.success(
-        delivery === 'email'
+        delivery === 'email' && purpose === 'reset'
+          ? 'Novo link para definir a palavra-passe enviado por email.'
+          : delivery === 'email'
           ? 'Convite do Portal 360 enviado por email.'
           : 'Convite do Portal 360 enviado por WhatsApp.'
       );
@@ -1586,6 +1591,26 @@ export function Client360Page({
                     </p>
                     {portalAccess.requires_password_change ? (
                       <p className="text-amber-700">Aguarda a definição da palavra-passe pelo cliente.</p>
+                    ) : null}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!canOperate || sendingPortalInvite !== null || !contact?.email}
+                        onClick={() => sendPortalInvite('email', 'reset')}
+                      >
+                        <Mail />
+                        {sendingPortalInvite === 'email'
+                          ? 'A enviar…'
+                          : portalAccess.requires_password_change
+                            ? 'Reenviar acesso por email'
+                            : 'Enviar link para nova palavra-passe'}
+                      </Button>
+                    </div>
+                    {!contact?.email ? (
+                      <p className="text-destructive text-xs">
+                        Adicione um email ao cliente para reenviar o acesso.
+                      </p>
                     ) : null}
                   </>
                 ) : (
