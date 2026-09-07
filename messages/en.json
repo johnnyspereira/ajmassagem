@@ -519,7 +519,8 @@
         "untagged": "No tag",
         "new_today": "New today",
         "with_conversations": "With conversation",
-        "with_deals": "With deal"
+        "with_deals": "With deal",
+        "with_portal": "With Portal"
       },
       "searchPlaceholder": "Search by reference, name, phone, or email...",
       "filterByTags": "Filter by tags",

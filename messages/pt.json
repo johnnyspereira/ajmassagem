@@ -519,7 +519,8 @@
         "untagged": "Sem etiqueta",
         "new_today": "Novos hoje",
         "with_conversations": "Com conversa",
-        "with_deals": "Com negócio"
+        "with_deals": "Com negócio",
+        "with_portal": "Com Portal"
       },
       "searchPlaceholder": "Pesquisar por referência, nome, telefone ou email...",
       "filterByTags": "Filtrar por etiquetas",

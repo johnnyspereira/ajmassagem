@@ -70,6 +70,7 @@ import {
   PackageCheck,
   BadgeEuro,
   GitMerge,
+  MonitorSmartphone,
 } from 'lucide-react';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ImportModal } from '@/components/contacts/import-modal';
@@ -94,7 +95,8 @@ type ContactSegment =
   | 'untagged'
   | 'new_today'
   | 'with_conversations'
-  | 'with_deals';
+  | 'with_deals'
+  | 'with_portal';
 
 interface ContactInsight {
   conversationCount: number;
@@ -160,6 +162,7 @@ const CONTACT_SEGMENTS = [
   { key: 'new_today', icon: Clock3 },
   { key: 'with_conversations', icon: MessageCircle },
   { key: 'with_deals', icon: Briefcase },
+  { key: 'with_portal', icon: MonitorSmartphone },
 ] satisfies { key: ContactSegment; icon: typeof Users }[];
 
 export default function ContactsPage() {
@@ -419,7 +422,7 @@ export default function ContactsPage() {
       const rows = (data ?? []) as Contact[];
       if (rows.length === 0) return rows;
 
-      const [contactTagsRes, conversationsRes, dealsRes] = await Promise.all([
+      const [contactTagsRes, conversationsRes, dealsRes, portalAccessRes] = await Promise.all([
         supabase.from('contact_tags').select('contact_id, tag_id').limit(10000),
         supabase.from('conversations').select('contact_id').limit(10000),
         supabase
@@ -427,6 +430,7 @@ export default function ContactsPage() {
           .select('contact_id, status')
           .eq('status', 'open')
           .limit(10000),
+        supabase.from('client_portal_access').select('contact_id').limit(10000),
       ]);
 
       const tagsByContact = new Map<string, Set<string>>();
@@ -466,6 +470,9 @@ export default function ContactsPage() {
         (dealsRes.data ?? [])
           .map((item) => item.contact_id)
           .filter((id): id is string => Boolean(id))
+      );
+      const contactsWithPortal = new Set(
+        (portalAccessRes.data ?? []).map((item) => item.contact_id)
       );
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
@@ -518,6 +525,9 @@ export default function ContactsPage() {
         }
         if (segment === 'with_deals') {
           return contactsWithOpenDeals.has(contact.id);
+        }
+        if (segment === 'with_portal') {
+          return contactsWithPortal.has(contact.id);
         }
         return true;
       });

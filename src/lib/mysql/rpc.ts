@@ -341,6 +341,10 @@ export async function executeMysqlRpc(
           conditions.push(
             "EXISTS(SELECT 1 FROM deals d WHERE d.contact_id=c.id AND COALESCE(d.status,'open')='open')"
           );
+        if (segment === 'with_portal')
+          conditions.push(
+            'EXISTS(SELECT 1 FROM client_portal_access pa WHERE pa.account_id=c.account_id AND pa.contact_id=c.id)'
+          );
         const where = conditions.join(' AND ');
         const totals = await selectRows<(RowDataPacket & { total: number })[]>(
           `SELECT COUNT(*) total FROM contacts c WHERE ${where}`,
