@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Archive,
@@ -18,6 +18,7 @@ import {
   Plus,
   Send,
   Sparkles,
+  Upload,
   UserRound,
   Users,
 } from 'lucide-react';
@@ -37,6 +38,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/use-auth';
 import { createClient } from '@/lib/supabase/client';
+import {
+  MEDIA_MAX_BYTES_BY_KIND,
+  uploadAccountMedia,
+} from '@/lib/storage/upload-media';
 
 type Campaign = {
   id: string;
@@ -99,10 +104,12 @@ export function PortalCampaignsPage() {
   const [items, setItems] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [portalSlug, setPortalSlug] = useState('');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const [sendingCampaign, setSendingCampaign] = useState<string | null>(null);
   const load = useCallback(async () => {
     if (!accountId) return;
@@ -155,6 +162,32 @@ export function PortalCampaignsPage() {
         : emptyDraft()
     );
     setOpen(true);
+  }
+
+  async function uploadCampaignImage(file?: File) {
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+      toast.error('Use uma imagem JPG, PNG, WebP ou GIF.');
+      return;
+    }
+    if (file.size > MEDIA_MAX_BYTES_BY_KIND.image) {
+      toast.error('A imagem não pode ultrapassar 5 MB.');
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const { publicUrl } = await uploadAccountMedia('chat-media', file);
+      setDraft((current) => ({ ...current, imageUrl: publicUrl }));
+      toast.success('Imagem carregada.');
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar a imagem.'
+      );
+    } finally {
+      setUploadingImage(false);
+    }
   }
   async function save() {
     if (!accountId || !profile || !draft.title.trim())
@@ -527,13 +560,34 @@ export function PortalCampaignsPage() {
                   setDraft({ ...draft, badgeText: e.target.value })
                 }
               />
-              <Input
-                placeholder="URL da imagem"
-                value={draft.imageUrl}
-                onChange={(e) =>
-                  setDraft({ ...draft, imageUrl: e.target.value })
-                }
-              />
+              <div className="flex gap-2">
+                <Input
+                  placeholder="URL da imagem ou carregue um ficheiro"
+                  value={draft.imageUrl}
+                  onChange={(e) =>
+                    setDraft({ ...draft, imageUrl: e.target.value })
+                  }
+                />
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={(event) => {
+                    void uploadCampaignImage(event.target.files?.[0]);
+                    event.currentTarget.value = '';
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={uploadingImage}
+                >
+                  {uploadingImage ? <Loader2 className="animate-spin" /> : <Upload />}
+                  Carregar
+                </Button>
+              </div>
               <Input
                 type="datetime-local"
                 value={draft.startsAt}

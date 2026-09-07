@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AudioLines,
   Copy,
@@ -18,6 +18,7 @@ import {
   Sparkles,
   Star,
   Trash2,
+  Upload,
   Video,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -50,6 +51,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { createClient } from '@/lib/supabase/client';
+import {
+  MEDIA_MAX_BYTES,
+  uploadAccountMedia,
+} from '@/lib/storage/upload-media';
 import { cn } from '@/lib/utils';
 
 type LibraryItemType = 'text' | 'link' | 'image' | 'video' | 'document' | 'audio';
@@ -581,6 +586,31 @@ function LibraryDialog({
   onClose: () => void;
   onSave: () => void;
 }) {
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function uploadAsset(file?: File) {
+    if (!file || !draft) return;
+    if (file.size > MEDIA_MAX_BYTES) {
+      toast.error('O ficheiro não pode ultrapassar 16 MB.');
+      return;
+    }
+    setUploading(true);
+    try {
+      const { publicUrl } = await uploadAccountMedia('chat-media', file);
+      onChange({ ...draft, asset_url: publicUrl });
+      toast.success('Ficheiro carregado.');
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar o ficheiro.'
+      );
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <Dialog open={Boolean(draft)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-2xl">
@@ -645,13 +675,38 @@ function LibraryDialog({
 
             {draft.item_type !== 'text' ? (
               <Field label="URL do material">
-                <Input
-                  value={draft.asset_url}
-                  onChange={(event) =>
-                    onChange({ ...draft, asset_url: event.target.value })
-                  }
-                  placeholder="https://..."
-                />
+                <div className="flex gap-2">
+                  <Input
+                    value={draft.asset_url}
+                    onChange={(event) =>
+                      onChange({ ...draft, asset_url: event.target.value })
+                    }
+                    placeholder="Cole uma URL ou carregue um ficheiro"
+                  />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept={
+                      draft.item_type === 'image'
+                        ? 'image/jpeg,image/png,image/webp,image/gif'
+                        : undefined
+                    }
+                    onChange={(event) => {
+                      void uploadAsset(event.target.files?.[0]);
+                      event.currentTarget.value = '';
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? <Loader2 className="animate-spin" /> : <Upload />}
+                    Carregar
+                  </Button>
+                </div>
               </Field>
             ) : null}
 
