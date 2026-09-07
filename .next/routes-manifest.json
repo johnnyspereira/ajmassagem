@@ -1004,6 +1004,12 @@
       "namedRegex": "^/api/whatsapp/baileys/logout(?:/)?$"
     },
     {
+      "page": "/api/whatsapp/baileys/logs",
+      "regex": "^/api/whatsapp/baileys/logs(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/whatsapp/baileys/logs(?:/)?$"
+    },
+    {
       "page": "/api/whatsapp/baileys/restart",
       "regex": "^/api/whatsapp/baileys/restart(?:/)?$",
       "routeKeys": {},
