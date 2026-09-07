@@ -26,11 +26,17 @@ export async function POST(request: Request) {
   if (!profile || !['owner', 'admin', 'agent'].includes(profile.account_role))
     return Response.json({ error: 'Sem permissão.' }, { status: 403 });
 
-  const [{ data: account }, { data: vouchers, error }] = await Promise.all([
+  const [{ data: account }, { data: sale }, { data: vouchers, error }] = await Promise.all([
     db
       .from('accounts')
       .select('name,logo_url,public_url')
       .eq('id', profile.account_id)
+      .maybeSingle(),
+    db
+      .from('finance_sales')
+      .select('id,status')
+      .eq('id', body.saleId)
+      .eq('account_id', profile.account_id)
       .maybeSingle(),
     db
       .from('finance_vouchers')
@@ -39,9 +45,10 @@ export async function POST(request: Request) {
       )
       .eq('account_id', profile.account_id)
       .eq('issued_sale_id', body.saleId)
-      .eq('status', 'active'),
+      .in('status', ['active', 'pending']),
   ]);
   if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (!sale) return Response.json({ error: 'Venda nao encontrada.' }, { status: 404 });
   if (!(vouchers ?? []).length)
     return Response.json({
       sent: 0,
@@ -50,12 +57,32 @@ export async function POST(request: Request) {
       notApplicable: true,
     });
 
+  const pendingVouchers = (vouchers ?? []).filter(
+    (voucher) => voucher.status === 'pending'
+  );
+  if (pendingVouchers.length && sale.status === 'paid') {
+    const { error: activationError } = await db
+      .from('finance_vouchers')
+      .update({ status: 'active' })
+      .eq('account_id', profile.account_id)
+      .eq('issued_sale_id', body.saleId)
+      .eq('status', 'pending');
+    if (activationError)
+      return Response.json({ error: activationError.message }, { status: 500 });
+  }
+
   let sent = 0;
   let skipped = 0;
   let attachments = 0;
   let attachmentBytes = 0;
   const failures: string[] = [];
+  if (pendingVouchers.length && sale.status !== 'paid') {
+    failures.push(
+      'O voucher esta pendente porque a venda ainda nao foi paga. Registe ou confirme o pagamento antes de o enviar.'
+    );
+  }
   for (const voucher of vouchers ?? []) {
+    if (voucher.status === 'pending' && sale.status !== 'paid') continue;
     const owner = Array.isArray(voucher.owner)
       ? voucher.owner[0]
       : voucher.owner;
