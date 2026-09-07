@@ -1309,6 +1309,29 @@ export function FinancePage({
     }
   }
 
+  async function repairSaleVoucherQuantity(sale: FinanceSale) {
+    if (!canOperate) return;
+    const response = await fetch('/api/finance/vouchers/reconcile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ saleId: sale.id }),
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { created?: number; error?: string }
+      | null;
+    if (!response.ok) {
+      toast.error(payload?.error || 'N\u00e3o foi poss\u00edvel corrigir os vouchers.');
+      return;
+    }
+    const created = Number(payload?.created ?? 0);
+    toast.success(
+      created
+        ? `${created} voucher${created === 1 ? '' : 's'} criado${created === 1 ? '' : 's'} sem alterar a venda.`
+        : 'A venda j\u00e1 tinha todos os vouchers emitidos.'
+    );
+    await loadFinance();
+  }
+
   if (loading)
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -1575,6 +1598,7 @@ export function FinancePage({
             onPayment={startLaterPayment}
             onApprove={approveComplimentarySale}
             onResendVoucher={resendSaleVoucher}
+            onRepairVoucherQuantity={repairSaleVoucherQuantity}
             onReverse={startReverseSale}
             canOperate={canOperate}
             canRefund={canEditSettings}

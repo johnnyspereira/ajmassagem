@@ -2,10 +2,18 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { BadgeCheck, ChevronRight, CircleDollarSign, Download, Mail, ReceiptText, RotateCcw, Search } from 'lucide-react';
+import { BadgeCheck, ChevronRight, CircleDollarSign, Download, Mail, ReceiptText, RotateCcw, Search, Wrench } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Empty, NativeSelect } from '@/components/finance/finance-ui';
 import { downloadReceiptPdf } from '@/lib/finance/receipt-pdf';
@@ -18,6 +26,7 @@ export function SalesView({
   onPayment,
   onApprove,
   onResendVoucher,
+  onRepairVoucherQuantity,
   onReverse,
   canOperate,
   canRefund,
@@ -28,6 +37,7 @@ export function SalesView({
   onPayment: (sale: FinanceSale) => void;
   onApprove: (sale: FinanceSale) => void;
   onResendVoucher: (sale: FinanceSale) => void;
+  onRepairVoucherQuantity: (sale: FinanceSale) => Promise<void>;
   onReverse: (sale: FinanceSale) => void;
   canOperate: boolean;
   canRefund: boolean;
@@ -35,6 +45,8 @@ export function SalesView({
 }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('active');
+  const [saleToRepair, setSaleToRepair] = useState<FinanceSale | null>(null);
+  const [repairing, setRepairing] = useState(false);
   const filtered = useMemo(() => {
     const term = query.trim().toLocaleLowerCase();
     return sales.filter((sale) => {
@@ -209,6 +221,7 @@ export function SalesView({
                     ) : null}
                     {sale.status === 'paid' &&
                     sale.items?.some((item) => item.item_type === 'voucher') ? (
+                      <div className="flex flex-col gap-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -222,6 +235,16 @@ export function SalesView({
                       >
                         <Mail /> Reenviar voucher
                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!canOperate}
+                        title="Cria apenas os vouchers em falta nesta venda"
+                        onClick={() => setSaleToRepair(sale)}
+                      >
+                        <Wrench /> Corrigir quantidade
+                      </Button>
+                      </div>
                     ) : null}
                     {sale.status !== 'paid' &&
                     Number(sale.total_amount) === 0 &&
@@ -268,6 +291,52 @@ export function SalesView({
           ))
         )}
       </div>
+      <Dialog
+        open={Boolean(saleToRepair)}
+        onOpenChange={(open) => {
+          if (!open && !repairing) setSaleToRepair(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Corrigir quantidade de vouchers</DialogTitle>
+            <DialogDescription>
+              {saleToRepair
+                ? `Venda #${saleToRepair.sale_number} · ${saleToRepair.contact?.name || saleToRepair.contact?.phone || 'Consumidor final'}`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-muted rounded-md p-3 text-sm">
+            O CRM compara os vouchers emitidos com as quantidades da venda e
+            cria somente os que faltarem. A venda, o pagamento e os vouchers
+            que j\u00e1 existem permanecem intactos.
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={repairing}
+              onClick={() => setSaleToRepair(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              disabled={!saleToRepair || repairing}
+              onClick={async () => {
+                if (!saleToRepair) return;
+                setRepairing(true);
+                try {
+                  await onRepairVoucherQuantity(saleToRepair);
+                  setSaleToRepair(null);
+                } finally {
+                  setRepairing(false);
+                }
+              }}
+            >
+              <Wrench /> {repairing ? 'A corrigir...' : 'Corrigir agora'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
