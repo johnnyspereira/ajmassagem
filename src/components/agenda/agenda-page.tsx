@@ -6172,6 +6172,7 @@ function AppointmentBlock({
               </span>
             ) : null}
           </span>
+          <AppointmentBenefitBadge appointment={appointment} />
           <p className="truncate text-[11px]">
             {appointment.service?.name ?? 'Procedimento'}
           </p>
@@ -6186,7 +6187,6 @@ function AppointmentBlock({
               appointment.currency || currency
             )}
           </p>
-          <AppointmentBenefitBadge appointment={appointment} />
         </div>
       </div>
     </button>
@@ -6233,7 +6233,25 @@ function AppointmentBenefitBadge({
         .map((payment) => paymentMethodLabel(payment.method)) ?? []
     )
   );
-  if (!benefit && !sale && !appointment.paid_at) return null;
+  const appointmentCurrency = appointment.currency || 'EUR';
+  const sessionPrice = Number(appointment.price ?? 0);
+  const voucher = benefit?.voucher;
+  const totalSessions = Number(
+    benefit?.client_pack_balance?.total_sessions ?? 0
+  );
+  const recordedRemainingSessions = Number(
+    benefit?.client_pack_balance?.remaining_sessions ?? 0
+  );
+  const reservedSessions = Number(benefit?.reserved_sessions ?? 1);
+  const remainingAfterThisAppointment = Math.max(
+    0,
+    recordedRemainingSessions -
+      (benefit?.status === 'reserved' ? reservedSessions : 0)
+  );
+  const sessionNumber = totalSessions
+    ? Math.min(totalSessions, totalSessions - remainingAfterThisAppointment)
+    : null;
+
   return (
     <span className="mt-1 flex max-w-full flex-wrap gap-1">
       {benefit?.benefit_type === 'pack' ? (
@@ -6241,14 +6259,27 @@ function AppointmentBenefitBadge({
           <PackageCheck className="size-3 shrink-0" />
           <span className="truncate">
             Pack {benefit.status === 'consumed' ? 'usado' : 'reservado'} ·{' '}
-            {benefit.client_pack_balance?.remaining_sessions ?? 0}/
-            {benefit.client_pack_balance?.total_sessions ?? 0}
+            {benefit.client_pack?.code ?? 'sem codigo'} | sessao{' '}
+            {sessionNumber ?? '-'}/{totalSessions || '-'} | restam{' '}
+            {remainingAfterThisAppointment}
           </span>
         </span>
       ) : benefit ? (
         <span className="inline-flex items-center gap-1 rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-semibold text-amber-950">
           <Gift className="size-3" /> Voucher{' '}
           {benefit.status === 'consumed' ? 'usado' : 'reservado'}
+          {voucher?.voucher_type === 'service'
+            ? ` | ${voucher.code} | uso 1/1`
+            : voucher
+              ? ` | ${voucher.code} | aplica ${formatCurrency(Number(benefit.reserved_amount ?? 0), appointmentCurrency)} | saldo ${formatCurrency(Number(voucher.current_balance ?? 0), voucher.currency || appointmentCurrency)}`
+              : ''}
+        </span>
+      ) : null}
+      {!benefit && sessionPrice > 0 ? (
+        <span className="inline-flex items-center gap-1 rounded bg-slate-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+          <CircleDollarSign className="size-3" /> Sessao{' '}
+          {formatCurrency(sessionPrice, appointmentCurrency)}
+          {appointment.paid_at ? ' | paga' : ''}
         </span>
       ) : null}
       {sale ? (
