@@ -1,7 +1,6 @@
 /*
   IMPORTAÇÃO MANUAL — CONTAS A PAGAR PRIVADAS
-  Execute no phpMyAdmin depois de substituir @account_id pelo ID da conta
-  apresentado por: SELECT id, name FROM accounts;
+  Preparado para a conta JP Massagem.
 
   Segurança:
   - Não altera nem elimina registos existentes.
@@ -12,7 +11,7 @@
 
 START TRANSACTION;
 
-SET @account_id = 'COLE_AQUI_O_ID_DA_CONTA';
+SET @account_id = '999933bb-5873-4612-abaf-40db59ca6ffc';
 SET @created_by_user_id = NULL;
 SET @card = 'Cartão terminado em 2387';
 
