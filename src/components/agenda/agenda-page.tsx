@@ -500,6 +500,33 @@ function isMissingAgendaSchema(error: { code?: string; message?: string }) {
   );
 }
 
+function pendingWhatsAppReschedule(events: ClinicAgendaEvent[]) {
+  for (const event of events) {
+    const metadata = event.metadata;
+    if (metadata?.whatsapp_reschedule_approved === true) return null;
+    if (
+      metadata?.kind === 'whatsapp_reschedule' &&
+      metadata?.state === 'awaiting_professional' &&
+      metadata.selected_slot &&
+      typeof metadata.selected_slot === 'object'
+    ) {
+      const slot = metadata.selected_slot as {
+        startsAt?: unknown;
+        endsAt?: unknown;
+        label?: unknown;
+      };
+      if (typeof slot.startsAt === 'string' && typeof slot.endsAt === 'string') {
+        return {
+          startsAt: slot.startsAt,
+          endsAt: slot.endsAt,
+          label: typeof slot.label === 'string' ? slot.label : null,
+        };
+      }
+    }
+  }
+  return null;
+}
+
 function calendarTop(iso: string) {
   const date = new Date(iso);
   const minutes =
@@ -710,6 +737,10 @@ export function AgendaPage({
   );
   const activeServices = services.filter((service) => service.is_active);
   const activeRooms = rooms.filter((room) => room.is_active);
+  const selectedWhatsAppReschedule = useMemo(
+    () => pendingWhatsAppReschedule(appointmentEvents),
+    [appointmentEvents]
+  );
   const professionals = team.filter((member) => member.is_professional);
   const visibleProfessionals = professionals.length > 0 ? professionals : team;
   const selectedService =
@@ -2578,6 +2609,10 @@ export function AgendaPage({
         source: scheduleChangeDraft.source,
         contact_id: appointment.contact_id,
         service_id: appointment.service_id,
+        whatsapp_reschedule_approved: Boolean(
+          selectedWhatsAppReschedule &&
+            scheduleChangeDraft.appointmentId === appointment.id
+        ),
         benefit_disposition:
           scheduleBenefit?.status === 'reserved'
             ? scheduleChangeDraft.benefitDisposition
@@ -4332,6 +4367,21 @@ export function AgendaPage({
                             >
                               <CalendarClock className="size-4" /> Remarcar
                             </ActionButton>
+                            {selectedWhatsAppReschedule ? (
+                              <ActionButton
+                                tone="emerald"
+                                disabled={editDraft.status === 'cancelled'}
+                                onClick={() =>
+                                  openScheduleChange(
+                                    selectedAppointment,
+                                    new Date(selectedWhatsAppReschedule.startsAt),
+                                    'manual'
+                                  )
+                                }
+                              >
+                                <CheckCircle2 className="size-4" /> Aprovar pedido
+                              </ActionButton>
+                            ) : null}
                             <ActionButton
                               tone="sky"
                               active={Boolean(
