@@ -3088,6 +3088,10 @@ function CampaignsView({
   onRefresh: () => Promise<void>;
 }) {
   const [joining, setJoining] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<{
+    url: string;
+    title: string;
+  } | null>(null);
 
   async function join(campaignId: string) {
     setJoining(campaignId);
@@ -3135,11 +3139,23 @@ function CampaignsView({
               className="group overflow-hidden rounded-3xl border border-violet-100 bg-white shadow-[0_18px_60px_-30px_rgba(109,40,217,.45)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_-28px_rgba(109,40,217,.55)]"
             >
               {campaign.image_url && (
-                <img
-                  src={campaign.image_url}
-                  alt=""
-                  className="h-56 w-full object-cover transition duration-500 group-hover:scale-[1.03]"
-                />
+                <button
+                  type="button"
+                  className="block w-full overflow-hidden"
+                  onClick={() =>
+                    setSelectedImage({
+                      url: campaign.image_url!,
+                      title: campaign.title,
+                    })
+                  }
+                  aria-label={`Abrir imagem completa da campanha ${campaign.title}`}
+                >
+                  <img
+                    src={campaign.image_url}
+                    alt={`Imagem da campanha ${campaign.title}`}
+                    className="aspect-[3/1] w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                  />
+                </button>
               )}
               {!campaign.image_url && (
                 <div className="relative flex h-40 items-center justify-center overflow-hidden bg-gradient-to-br from-violet-700 via-fuchsia-600 to-amber-400 text-white">
@@ -3214,6 +3230,20 @@ function CampaignsView({
           );
         })}
       </div>
+      <Dialog
+        open={Boolean(selectedImage)}
+        onOpenChange={(open) => !open && setSelectedImage(null)}
+      >
+        <DialogContent className="max-w-5xl border-0 bg-transparent p-0 shadow-none">
+          {selectedImage && (
+            <img
+              src={selectedImage.url}
+              alt={`Imagem completa da campanha ${selectedImage.title}`}
+              className="max-h-[85vh] w-full rounded-2xl object-contain"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

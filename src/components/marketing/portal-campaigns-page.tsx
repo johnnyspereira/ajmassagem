@@ -588,6 +588,11 @@ export function PortalCampaignsPage() {
                   Carregar
                 </Button>
               </div>
+              <p className="text-muted-foreground text-xs sm:col-span-2">
+                Tamanho recomendado: <strong>1500 × 500 px</strong> (proporção
+                3:1). Use JPG ou WebP, até 5 MB, e mantenha textos/logótipos
+                na zona central para não serem cortados em ecrãs pequenos.
+              </p>
               <Input
                 type="datetime-local"
                 value={draft.startsAt}
