@@ -144,7 +144,9 @@ export function buildAppointmentMessage(
     referralDiscount > 0
       ? `🎁 Benefício Indique & Ganhe: -${discountLabel}`
       : null,
-    `💵 Total da sessão: ${price}`,
+    hasVoucherOrPack
+      ? `🎟️ ${options.benefit?.label ?? 'Benefício aplicado'}`
+      : `💵 Total da sessão: ${price}`,
     `🙎🏻‍♂️ Profissional: ${professional}`,
     options.clinicAddress ? `📍 Morada: ${options.clinicAddress}` : null,
     '',
@@ -159,8 +161,8 @@ export function buildAppointmentMessage(
   ]
     .filter((line): line is string => line !== null)
     .flatMap((line) =>
-      hasVoucherOrPack && line.includes(price)
-        ? [`Voucher/pack aplicado: ${options.benefit?.label}`, options.benefit?.detail ?? '']
+      hasVoucherOrPack && line === `🎟️ ${options.benefit?.label ?? 'Benefício aplicado'}`
+        ? [line, options.benefit?.detail ?? '']
         : [line]
     )
     .filter(Boolean);
