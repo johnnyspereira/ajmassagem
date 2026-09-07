@@ -8,6 +8,8 @@ import type { RowDataPacket } from 'mysql2';
 
 import { mutate, selectRows, transaction } from '@/lib/mysql/db';
 import { notifyAccountEvent } from '@/lib/notifications/account-events';
+import { createClient } from '@/lib/supabase/server';
+import { handleAppointmentConfirmationReply } from '@/lib/clinic/appointment-confirmation';
 
 async function authorized(
   request: Request,
@@ -607,6 +609,22 @@ export async function POST(request: Request) {
       // team. New customer messages receive the normal realtime/browser/push
       // notification path.
       if (result.inserted && direction === 'customer' && !body.historical) {
+        // QR Worker messages bypass the old in-process WhatsApp listener.
+        // Run the same safe, contact-scoped confirmation handler here so a
+        // reply of CONFIRMAR/REAGENDAR works for individual appointments.
+        if (contentType === 'text' && body.text) {
+          const db = await createClient();
+          await handleAppointmentConfirmationReply({
+            db,
+            accountId,
+            contactId: result.contactId,
+            messageText: String(body.text),
+            conversationId: result.conversationId,
+            sourceMessageId: externalId,
+          }).catch((confirmationError) => {
+            console.error('[whatsapp-bridge] appointment confirmation failed:', confirmationError);
+          });
+        }
         await notifyAccountEvent({
           accountId,
           type: 'new_message_received',
