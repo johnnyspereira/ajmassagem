@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import { Component, type ReactNode } from 'react';
 import { ArrowLeft, Landmark, Loader2, ShieldCheck } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,43 @@ const OwnerTreasury = dynamic(
     ),
   },
 );
+
+class TreasuryErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('[private-management] treasury render failed:', error);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
+          <h2 className="font-semibold">A tesouraria não pôde ser aberta</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {this.state.error.message || 'Ocorreu um erro ao carregar este módulo.'}
+          </p>
+          <Button
+            className="mt-4"
+            variant="outline"
+            onClick={() => this.setState({ error: null })}
+          >
+            Tentar novamente
+          </Button>
+        </section>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 export function PrivateManagementPage() {
   const { isOwner, profileLoading } = useAuth();
@@ -69,7 +107,9 @@ export function PrivateManagementPage() {
           <ArrowLeft /> Financeiro
         </Button>
       </header>
-      <OwnerTreasury />
+      <TreasuryErrorBoundary>
+        <OwnerTreasury />
+      </TreasuryErrorBoundary>
     </div>
   );
 }

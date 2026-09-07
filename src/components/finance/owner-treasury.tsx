@@ -20,6 +20,7 @@ import {
   Pencil,
   Plus,
   ReceiptText,
+  RefreshCw,
   Search,
   TrendingUp,
   Users,
@@ -193,6 +194,7 @@ export function OwnerTreasury() {
     null
   );
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [schemaMissing, setSchemaMissing] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -216,6 +218,8 @@ export function OwnerTreasury() {
   const load = useCallback(async () => {
     if (!accountId || !isOwner) return;
     setLoading(true);
+    setLoadError(null);
+    try {
     const [
       payableResult,
       receivableResult,
@@ -298,12 +302,20 @@ export function OwnerTreasury() {
     setAppointments((appointmentsResult.data ?? []) as ClinicAppointment[]);
     setDeals((dealsResult.data ?? []) as Deal[]);
     setCashSession((cashResult.data as FinanceCashSession | null) ?? null);
-    setLoading(false);
+    } catch (error) {
+      console.error('[owner-treasury] load failed:', error);
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar os dados da gestão privada.'
+      );
+    } finally {
+      setLoading(false);
+    }
   }, [accountId, isOwner, supabase]);
 
   useEffect(() => {
     // Loading follows the authenticated owner workspace becoming available.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
@@ -680,6 +692,21 @@ export function OwnerTreasury() {
       <div className="flex min-h-52 items-center justify-center">
         <Loader2 className="size-6 animate-spin" />
       </div>
+    );
+  if (loadError)
+    return (
+      <Card>
+        <CardContent className="py-10 text-center">
+          <ReceiptText className="text-muted-foreground mx-auto mb-3 size-8" />
+          <p className="font-semibold">Não foi possível carregar a tesouraria</p>
+          <p className="text-muted-foreground mx-auto mt-1 max-w-lg text-sm">
+            {loadError}
+          </p>
+          <Button className="mt-5" variant="outline" onClick={() => void load()}>
+            <RefreshCw /> Tentar novamente
+          </Button>
+        </CardContent>
+      </Card>
     );
   if (schemaMissing)
     return (
