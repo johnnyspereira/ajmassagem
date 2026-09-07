@@ -30,6 +30,10 @@ let state = 'idle';
 let lastError = null;
 let connectedAt = null;
 let lastActivityAt = null;
+let lastIncomingAt = null;
+let lastOutgoingAt = null;
+let receivedCount = 0;
+let sentCount = 0;
 let lastRestartAt = null;
 let restartCount = 0;
 const recentOutgoing = [];
@@ -73,6 +77,10 @@ function status() {
     hasSavedAuth: saved(),
     isStarting: Boolean(starting),
     lastActivityAt,
+    lastIncomingAt,
+    lastOutgoingAt,
+    receivedCount,
+    sentCount,
     lastRestartAt,
     restartCount,
   };
@@ -303,6 +311,10 @@ function wire(instance) {
   });
   instance.on('message', (message) => {
     touch();
+    if (!message.fromMe) {
+      lastIncomingAt = new Date().toISOString();
+      receivedCount += 1;
+    }
     persist(message).catch((e) =>
       console.error('[bridge] entrada:', e.message)
     );
@@ -310,6 +322,8 @@ function wire(instance) {
   instance.on('message_create', (message) => {
     if (!message.fromMe) return;
     touch();
+    lastOutgoingAt = new Date().toISOString();
+    sentCount += 1;
     rememberOutgoing(message);
     // Messages sent from the CRM are already represented by an outbox row.
     // Persisting the same WhatsApp event here races with `complete_outbox`:

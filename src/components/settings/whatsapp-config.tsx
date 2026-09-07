@@ -25,6 +25,8 @@ import {
   Smartphone,
   Cloud,
   Radio,
+  Clock3,
+  MessageCircle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -59,12 +61,26 @@ type BaileysSessionStatus = {
   hasSavedAuth?: boolean;
   isStarting?: boolean;
   lastActivityAt?: string | null;
+  lastIncomingAt?: string | null;
+  lastOutgoingAt?: string | null;
+  receivedCount?: number;
+  sentCount?: number;
   lastRestartAt?: string | null;
   restartCount?: number;
 };
 
 const QR_STATUS_ACTIVE_POLL_MS = 5000;
 const QR_STATUS_CONNECTED_POLL_MS = 15000;
+
+function formatWorkerDuration(seconds: number) {
+  const total = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const remainingSeconds = total % 60;
+  if (hours) return `${hours}h ${minutes}m`;
+  if (minutes) return `${minutes}m ${remainingSeconds}s`;
+  return `${remainingSeconds}s`;
+}
 
 function StatusTile({
   icon,
@@ -776,6 +792,17 @@ export function WhatsAppConfig() {
         second: '2-digit',
       })
     : t('qrNeverChecked');
+  const qrUptimeLabel = baileysStatus?.connectedForSeconds
+    ? formatWorkerDuration(baileysStatus.connectedForSeconds)
+    : '—';
+  const workerTimeLabel = (value?: string | null) =>
+    value
+      ? new Date(value).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        })
+      : 'Sem atividade';
   const syncSteps = [
     'A comunicar com o WhatsApp',
     'A listar conversas disponíveis',
@@ -854,6 +881,27 @@ export function WhatsAppConfig() {
                   : t('webhookSummaryWaiting')
             }
             className={registrationStatusClass}
+          />
+          <StatusTile
+            icon={<Clock3 className="size-4" />}
+            label="Worker ligado"
+            value={qrConnected ? qrUptimeLabel : 'Parado'}
+            detail={qrConnected ? `Ultima atividade: ${qrLastActivityLabel}` : baileysStatus?.lastError || 'Sem ligacao ao WhatsApp'}
+            className={qrStatusClass}
+          />
+          <StatusTile
+            icon={<Download className="size-4" />}
+            label="Entradas nesta execucao"
+            value={String(baileysStatus?.receivedCount ?? 0)}
+            detail={`Ultima entrada: ${workerTimeLabel(baileysStatus?.lastIncomingAt)}`}
+            className="border-sky-500/30 bg-sky-500/10 text-sky-600"
+          />
+          <StatusTile
+            icon={<MessageCircle className="size-4" />}
+            label="Saidas nesta execucao"
+            value={String(baileysStatus?.sentCount ?? 0)}
+            detail={`Ultima saida: ${workerTimeLabel(baileysStatus?.lastOutgoingAt)}`}
+            className="border-violet-500/30 bg-violet-500/10 text-violet-600"
           />
         </div>
 
