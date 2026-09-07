@@ -8,7 +8,7 @@ type VoucherSaleItem = RowDataPacket & {
   id: string;
   quantity: number;
   unit_price: number;
-  metadata: string | null;
+  metadata: string | Record<string, unknown> | null;
 };
 
 type ExistingVoucher = RowDataPacket & {
@@ -59,12 +59,7 @@ export async function POST(request: Request) {
       const expectedByVoucherKind = new Map<string, number>();
 
       for (const item of items) {
-        let metadata: Record<string, unknown> = {};
-        try {
-          metadata = item.metadata ? JSON.parse(item.metadata) : {};
-        } catch {
-          throw new Error('Os dados de um voucher desta venda est\u00e3o inv\u00e1lidos.');
-        }
+        const metadata = parseVoucherMetadata(item.metadata);
 
         const voucherType = String(metadata.voucher_type ?? 'gift_card');
         const serviceId =
@@ -160,6 +155,34 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
+    if (error instanceof VoucherReconciliationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return toErrorResponse(error);
   }
+}
+
+class VoucherReconciliationError extends Error {}
+
+function parseVoucherMetadata(
+  value: VoucherSaleItem['metadata']
+): Record<string, unknown> {
+  if (!value) return {};
+  if (typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value !== 'string') {
+    throw new VoucherReconciliationError(
+      'Os dados do voucher nesta venda est\u00e3o inv\u00e1lidos. Abra a venda e confirme o item antes de tentar novamente.'
+    );
+  }
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // The controlled error below is safe to show to the finance operator.
+  }
+  throw new VoucherReconciliationError(
+    'Os dados do voucher nesta venda est\u00e3o inv\u00e1lidos. Abra a venda e confirme o item antes de tentar novamente.'
+  );
 }
