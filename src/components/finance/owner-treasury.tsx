@@ -449,7 +449,8 @@ export function OwnerTreasury() {
       !user ||
       !draft.description.trim() ||
       Number(draft.amount) <= 0 ||
-      !draft.dueDate
+      !draft.dueDate ||
+      (draft.kind === 'payable' && !draft.counterparty.trim())
     ) {
       toast.error('Preencha descrição, valor e vencimento.');
       return;
@@ -466,7 +467,7 @@ export function OwnerTreasury() {
         amount: editing.settled ? undefined : Number(draft.amount),
         due_date: editing.settled ? undefined : draft.dueDate,
         notes: draft.notes.trim() || null,
-        contact_id: draft.contactId || null,
+        contact_id: draft.kind === 'receivable' ? draft.contactId || null : null,
         appointment_id: draft.appointmentId || null,
         deal_id: draft.dealId || null,
         document_reference: draft.documentReference.trim() || null,
@@ -496,7 +497,7 @@ export function OwnerTreasury() {
       currency: defaultCurrency,
       notes: draft.notes.trim() || null,
       created_by_user_id: user.id,
-      contact_id: draft.contactId || null,
+      contact_id: draft.kind === 'receivable' ? draft.contactId || null : null,
       appointment_id: draft.appointmentId || null,
       deal_id: draft.dealId || null,
       document_reference: draft.documentReference.trim() || null,
@@ -847,6 +848,10 @@ export function OwnerTreasury() {
           />
         </TabsContent>
         <TabsContent value="payables">
+          <PayableSupplierSummary
+            payables={payables}
+            currency={defaultCurrency}
+          />
           <EntryFilters
             search={search}
             setSearch={setSearch}
@@ -1039,7 +1044,9 @@ export function OwnerTreasury() {
                       ...draft,
                       appointmentId: value,
                       contactId:
-                        draft.contactId || appointment?.contact_id || '',
+                        draft.kind === 'receivable'
+                          ? draft.contactId || appointment?.contact_id || ''
+                          : '',
                     });
                   }}
                   placeholder="Nenhuma marcação"
@@ -1059,7 +1066,10 @@ export function OwnerTreasury() {
                     setDraft({
                       ...draft,
                       dealId: value,
-                      contactId: draft.contactId || deal?.contact_id || '',
+                      contactId:
+                        draft.kind === 'receivable'
+                          ? draft.contactId || deal?.contact_id || ''
+                          : '',
                     });
                   }}
                   placeholder="Nenhum negócio"
@@ -1596,6 +1606,59 @@ function TreasuryOverview({
   );
 }
 
+function PayableSupplierSummary({
+  payables,
+  currency,
+}: {
+  payables: Payable[];
+  currency: string;
+}) {
+  const suppliers = Object.values(
+    payables
+      .filter((item) => item.status === 'pending')
+      .reduce<Record<string, { name: string; count: number; amount: number }>>(
+        (summary, item) => {
+          const name = item.supplier?.trim() || 'Fornecedor não identificado';
+          const key = name.toLocaleLowerCase('pt');
+          const current = summary[key] ?? { name, count: 0, amount: 0 };
+          current.count += 1;
+          current.amount += Number(item.amount);
+          summary[key] = current;
+          return summary;
+        },
+        {}
+      )
+  ).sort((left, right) => right.amount - left.amount);
+
+  if (!suppliers.length) return null;
+
+  return (
+    <section className="mb-4 rounded-xl border bg-muted/20 p-4">
+      <div className="mb-3">
+        <h3 className="font-semibold">Fornecedores e contas pendentes</h3>
+        <p className="text-muted-foreground text-sm">
+          Contas a pagar são agrupadas por fornecedor e categoria, nunca por cliente.
+        </p>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {suppliers.slice(0, 8).map((supplier) => (
+          <div key={supplier.name} className="rounded-lg border bg-background p-3">
+            <p className="truncate text-sm font-medium" title={supplier.name}>
+              {supplier.name}
+            </p>
+            <p className="text-muted-foreground mt-1 text-xs">
+              {supplier.count} conta{supplier.count === 1 ? '' : 's'} pendente{supplier.count === 1 ? '' : 's'}
+            </p>
+            <strong className="mt-2 block text-sm">
+              {formatCurrency(supplier.amount, currency)}
+            </strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function EntriesList({
   kind,
   entries,
@@ -1652,7 +1715,7 @@ function EntriesList({
                 {dateLabel(entry.due_date)}
               </p>
               <div className="mt-1 flex flex-wrap gap-2 text-xs">
-                {entry.contact_id && (
+                {kind === 'receivable' && entry.contact_id && (
                   <Link
                     className="text-primary inline-flex items-center gap-1 hover:underline"
                     href={`/contacts/${entry.contact_id}`}
