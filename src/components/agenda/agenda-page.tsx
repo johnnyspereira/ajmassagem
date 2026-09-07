@@ -378,11 +378,13 @@ function buildScheduleChangeConfirmationMessage({
   appointment,
   newStart,
   businessName,
+  changeType = 'rescheduled',
   clientRequested = false,
 }: {
   appointment: AppointmentRow;
   newStart: Date;
   businessName: string;
+  changeType?: ScheduleChangeType;
   clientRequested?: boolean;
 }) {
   const contactName = appointment.contact?.name?.trim();
@@ -391,15 +393,36 @@ function buildScheduleChangeConfirmationMessage({
   const newWhen = formatAppointmentDateTime(newStart);
   const greeting = contactName ? `Olá, ${contactName}.` : 'Olá.';
   const brand = businessName.trim() || 'JP Massagem';
+  const changeCopy: Record<
+    ScheduleChangeType,
+    { update: string; action: string }
+  > = {
+    rescheduled: {
+      update: `O seu agendamento de ${service} foi remarcado de ${oldWhen} para ${newWhen}.`,
+      action:
+        'Responda CONFIRMAR para aceitar a remarcação ou REAGENDAR para pedir outro horário.',
+    },
+    schedule_changed: {
+      update: `Houve uma alteração de horário no seu agendamento de ${service}: de ${oldWhen} para ${newWhen}.`,
+      action:
+        'Responda CONFIRMAR para validar esta alteração ou REAGENDAR para indicar outra preferência.',
+    },
+    wrong_booking_moved: {
+      update: `Corrigimos um detalhe no seu agendamento de ${service}. O horário correto é ${newWhen}.`,
+      action:
+        'Responda CONFIRMAR para confirmar que este horário está correto.',
+    },
+  };
+  const copy = changeCopy[changeType];
 
   return [
     greeting,
     clientRequested
       ? `O seu pedido de alteração para *${newWhen}* foi aprovado.`
-      : `O seu agendamento de ${service} foi alterado de ${oldWhen} para ${newWhen}.`,
+      : copy.update,
     clientRequested
       ? `A sua sessão de ${service} fica confirmada neste novo horário.`
-      : 'Responda CONFIRMAR para confirmar esta alteração ou REAGENDAR para pedir outro horário.',
+      : copy.action,
     clientRequested ? 'Se precisar de mais apoio, responda a esta mensagem.' : null,
     '',
     brand,
@@ -2467,6 +2490,7 @@ export function AgendaPage({
         appointment,
         newStart: startAt,
         clientRequested,
+        changeType: 'rescheduled',
         businessName: account?.name ?? 'nossa clínica',
       }),
     });
@@ -2525,6 +2549,7 @@ export function AgendaPage({
           appointment,
           newStart: appointmentDate(next.date, next.time),
           clientRequested: next.clientRequested,
+          changeType: next.type,
           businessName: account?.name ?? 'nossa clínica',
         }),
       };
@@ -5070,11 +5095,26 @@ export function AgendaPage({
                 <NativeSelect
                   value={scheduleChangeDraft.type}
                   onChange={(value) =>
-                    setScheduleChangeDraft((prev) =>
-                      prev
-                        ? { ...prev, type: value as ScheduleChangeType }
-                        : prev
-                    )
+                    setScheduleChangeDraft((prev) => {
+                      if (!prev) return prev;
+                      const type = value as ScheduleChangeType;
+                      const appointment = appointments.find(
+                        (item) => item.id === prev.appointmentId
+                      );
+                      const next = { ...prev, type };
+                      if (!appointment) return next;
+                      return {
+                        ...next,
+                        confirmationMessage:
+                          buildScheduleChangeConfirmationMessage({
+                            appointment,
+                            newStart: appointmentDate(next.date, next.time),
+                            changeType: type,
+                            clientRequested: next.clientRequested,
+                            businessName: account?.name ?? 'nossa clínica',
+                          }),
+                      };
+                    })
                   }
                 >
                   {SCHEDULE_CHANGE_OPTIONS.map((option) => (
