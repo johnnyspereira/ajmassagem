@@ -50,6 +50,17 @@ export interface TodayOperations {
   appointments: TodayAppointmentItem[];
 }
 
+export interface ExpiringBenefitItem {
+  id: string;
+  type: 'voucher' | 'pack';
+  contactId: string;
+  contactName: string;
+  label: string;
+  code: string | null;
+  expiresAt: string;
+  remainingLabel: string;
+}
+
 export interface WhatsAppHealth {
   qrConnected: boolean;
   qrState:

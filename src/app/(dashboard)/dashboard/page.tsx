@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
@@ -11,6 +12,9 @@ import {
   Send,
   RefreshCw,
   TriangleAlert,
+  Gift,
+  PackageCheck,
+  Clock3,
 } from 'lucide-react';
 
 import {
@@ -25,6 +29,7 @@ import {
   loadTeamPerformance,
   loadTodayOperations,
   loadWhatsAppHealth,
+  loadExpiringBenefits,
 } from '@/lib/dashboard/queries';
 import type {
   ActivityItem,
@@ -38,6 +43,7 @@ import type {
   TeamPerformance,
   TodayOperations,
   WhatsAppHealth,
+  ExpiringBenefitItem,
 } from '@/lib/dashboard/types';
 
 import { MetricCard } from '@/components/dashboard/metric-card';
@@ -112,6 +118,10 @@ export default function DashboardPage() {
   const [teamLoading, setTeamLoading] = useState(true);
   const [today, setToday] = useState<TodayOperations | null>(null);
   const [todayLoading, setTodayLoading] = useState(true);
+  const [expiringBenefits, setExpiringBenefits] = useState<
+    ExpiringBenefitItem[] | null
+  >(null);
+  const [expiringBenefitsLoading, setExpiringBenefitsLoading] = useState(true);
 
   const loadAll = useCallback(
     (rangeToLoad: RangeDays = 30, showLoading = true) => {
@@ -129,6 +139,7 @@ export default function DashboardPage() {
         setAutomationLoading(true);
         setTeamLoading(true);
         setTodayLoading(true);
+        setExpiringBenefitsLoading(true);
       }
       setLoadErrors({});
 
@@ -200,6 +211,10 @@ export default function DashboardPage() {
           .then((operations) => setToday(operations))
           .catch((err) => recordFailure('Operação diária', err))
           .finally(() => setTodayLoading(false)),
+        loadExpiringBenefits(db)
+          .then((benefits) => setExpiringBenefits(benefits))
+          .catch((err) => recordFailure('Validades', err))
+          .finally(() => setExpiringBenefitsLoading(false)),
       ];
 
       void Promise.allSettled(tasks).finally(() => {
@@ -395,6 +410,11 @@ export default function DashboardPage() {
         error={Boolean(loadErrors['Operação diária'])}
       />
 
+      <ExpiringBenefitsPanel
+        benefits={expiringBenefits}
+        loading={expiringBenefitsLoading}
+      />
+
       {/* Quick actions */}
       <QuickActions />
 
@@ -454,6 +474,80 @@ export default function DashboardPage() {
 }
 
 // ------------------------------------------------------------
+
+function ExpiringBenefitsPanel({
+  benefits,
+  loading,
+}: {
+  benefits: ExpiringBenefitItem[] | null;
+  loading: boolean;
+}) {
+  const [now] = useState(() => Date.now());
+  return (
+    <section className="border-border bg-card rounded-xl border p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 font-semibold">
+            <Clock3 className="size-4 text-amber-600" /> Vouchers e packs a vencer
+          </h2>
+          <p className="text-muted-foreground mt-1 text-xs">
+            Benefícios ativos com validade nos próximos 30 dias.
+          </p>
+        </div>
+        <Link
+          href="/finance?tab=vouchers"
+          className="text-primary text-xs font-semibold hover:underline"
+        >
+          Ver financeiro
+        </Link>
+      </div>
+      {loading ? (
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="bg-muted h-20 animate-pulse rounded-lg" />
+          ))}
+        </div>
+      ) : benefits?.length ? (
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {benefits.map((benefit) => {
+            const days = Math.max(
+              0,
+              Math.ceil((new Date(benefit.expiresAt).getTime() - now) / 86_400_000)
+            );
+            const Icon = benefit.type === 'voucher' ? Gift : PackageCheck;
+            return (
+              <Link
+                key={`${benefit.type}:${benefit.id}`}
+                href={`/contacts/${benefit.contactId}?tab=benefits`}
+                className="border-border hover:border-amber-400 hover:bg-amber-50/40 rounded-lg border p-3 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+                    <Icon className="size-4 shrink-0 text-amber-600" />
+                    <span className="truncate">{benefit.contactName}</span>
+                  </span>
+                  <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                    {days === 0 ? 'Hoje' : `${days} dia${days === 1 ? '' : 's'}`}
+                  </span>
+                </div>
+                <p className="text-muted-foreground mt-2 truncate text-xs">
+                  {benefit.type === 'voucher' ? 'Voucher' : 'Pack'} · {benefit.label}
+                </p>
+                <p className="mt-1 text-xs font-medium">
+                  {benefit.remainingLabel} · até {new Date(benefit.expiresAt).toLocaleDateString('pt-PT')}
+                </p>
+              </Link>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-muted-foreground mt-4 rounded-lg bg-muted/40 px-3 py-4 text-sm">
+          Não há vouchers ou packs ativos a vencer nos próximos 30 dias.
+        </p>
+      )}
+    </section>
+  );
+}
 
 function deltaLabel(
   delta: number,

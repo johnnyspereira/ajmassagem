@@ -21,6 +21,7 @@ import type {
   SalesInsights,
   TeamPerformance,
   TodayOperations,
+  ExpiringBenefitItem,
   WhatsAppHealth,
 } from './types';
 
@@ -67,6 +68,75 @@ type DashboardMessageRow = {
 
 const asSingle = <T>(value: T | T[] | null | undefined): T | null =>
   Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
+
+export async function loadExpiringBenefits(
+  db: DB
+): Promise<ExpiringBenefitItem[]> {
+  const now = new Date();
+  const until = new Date(now.getTime() + 30 * 86_400_000).toISOString();
+  const [vouchersRes, packsRes] = await Promise.all([
+    db
+      .from('finance_vouchers')
+      .select('id,owner_contact_id,code,voucher_type,remaining_uses,current_balance,currency,expires_at,owner:contacts(name,phone),service:clinic_services(name)')
+      .eq('status', 'active')
+      .not('expires_at', 'is', null)
+      .gt('expires_at', now.toISOString())
+      .lte('expires_at', until)
+      .order('expires_at', { ascending: true })
+      .limit(20),
+    db
+      .from('finance_client_packs')
+      .select('id,contact_id,code,expires_at,contact:contacts(name,phone),pack:finance_pack_catalog(name),balances:finance_client_pack_balances(remaining_sessions)')
+      .eq('status', 'active')
+      .not('expires_at', 'is', null)
+      .gt('expires_at', now.toISOString())
+      .lte('expires_at', until)
+      .order('expires_at', { ascending: true })
+      .limit(20),
+  ]);
+  throwFirstQueryError(vouchersRes, packsRes);
+  type VoucherRow = {
+    id: string; owner_contact_id: string | null; code: string | null;
+    voucher_type: string; remaining_uses: number | null; current_balance: number | null;
+    currency: string | null; expires_at: string; owner: { name: string | null; phone: string | null } | Array<{ name: string | null; phone: string | null }> | null;
+    service: { name: string | null } | Array<{ name: string | null }> | null;
+  };
+  type PackRow = {
+    id: string; contact_id: string; code: string | null; expires_at: string;
+    contact: { name: string | null; phone: string | null } | Array<{ name: string | null; phone: string | null }> | null;
+    pack: { name: string | null } | Array<{ name: string | null }> | null;
+    balances: Array<{ remaining_sessions: number | null }> | null;
+  };
+  const vouchers = ((vouchersRes.data ?? []) as unknown as VoucherRow[])
+    .filter((item) => (item.voucher_type === 'service' ? Number(item.remaining_uses) > 0 : Number(item.current_balance) > 0))
+    .map((item): ExpiringBenefitItem => {
+      const owner = asSingle(item.owner);
+      const service = asSingle(item.service);
+      return {
+        id: item.id, type: 'voucher', contactId: item.owner_contact_id ?? '',
+        contactName: owner?.name || owner?.phone || 'Cliente sem nome',
+        label: service?.name || 'Voucher', code: item.code, expiresAt: item.expires_at,
+        remainingLabel: item.voucher_type === 'service'
+          ? `${Number(item.remaining_uses ?? 0)} sessão`
+          : new Intl.NumberFormat('pt-PT', { style: 'currency', currency: item.currency || 'EUR' }).format(Number(item.current_balance ?? 0)),
+      };
+    });
+  const packs = ((packsRes.data ?? []) as unknown as PackRow[])
+    .map((item): ExpiringBenefitItem => {
+      const contact = asSingle(item.contact);
+      const pack = asSingle(item.pack);
+      const sessions = (item.balances ?? []).reduce((sum, balance) => sum + Number(balance.remaining_sessions ?? 0), 0);
+      return { id: item.id, type: 'pack', contactId: item.contact_id,
+        contactName: contact?.name || contact?.phone || 'Cliente sem nome',
+        label: pack?.name || 'Pack de sessões', code: item.code, expiresAt: item.expires_at,
+        remainingLabel: `${sessions} sessão${sessions === 1 ? '' : 'ões'}` };
+    })
+    .filter((item) => Number(item.remainingLabel.split(' ')[0]) > 0);
+  return [...vouchers, ...packs]
+    .filter((item) => item.contactId)
+    .sort((a, b) => new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime())
+    .slice(0, 12);
+}
 
 const safeCount = async (
   query: PromiseLike<{ count: number | null; error: unknown }>
