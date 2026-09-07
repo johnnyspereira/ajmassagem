@@ -331,6 +331,14 @@ function safeDate(value?: string | null, formatValue = 'dd/MM/yyyy HH:mm') {
     : format(date, formatValue);
 }
 
+// MySQL DATE values may arrive through JSON either as YYYY-MM-DD or as an
+// ISO timestamp. HTML date inputs accept only the first shape.
+function dateInputValue(value?: string | null) {
+  if (!value) return '';
+  const match = String(value).match(/^\d{4}-\d{2}-\d{2}/);
+  return match?.[0] ?? '';
+}
+
 function eventDot(tone: TimelineEvent['tone']) {
   return {
     message: 'bg-sky-500',
@@ -618,7 +626,7 @@ export function Client360Page({
       email: nextContact?.email ?? '',
       company: nextContact?.company ?? '',
       clientReference: nextContact?.client_reference ?? '',
-      birthDate: nextContact?.birth_date ?? '',
+      birthDate: dateInputValue(nextContact?.birth_date),
       taxId: nextContact?.tax_id ?? '',
       gender: nextContact?.gender ?? '',
       addressLine: nextContact?.address_line ?? '',
@@ -819,7 +827,7 @@ export function Client360Page({
         email: draft.email.trim() || null,
         company: draft.company.trim() || null,
         client_reference: draft.clientReference.trim() || null,
-        birth_date: draft.birthDate || null,
+        birth_date: dateInputValue(draft.birthDate) || null,
         tax_id: draft.taxId.trim() || null,
         gender: draft.gender || null,
         address_line: draft.addressLine.trim() || null,

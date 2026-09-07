@@ -3943,7 +3943,7 @@ function profileFormFromClient(client: PortalData['client']) {
     name: client.name || '',
     phone: client.phone || '',
     company: client.company || '',
-    birthDate: client.birth_date || '',
+    birthDate: dateInputValue(client.birth_date),
     taxId: client.tax_id || '',
     gender: client.gender || '',
     addressLine: client.address_line || '',
@@ -3955,6 +3955,11 @@ function profileFormFromClient(client: PortalData['client']) {
     marketingWhatsappConsent: Boolean(client.marketing_whatsapp_consent),
     whatsappConsent: Boolean(client.whatsapp_consent),
   };
+}
+
+function dateInputValue(value?: string | null) {
+  if (!value) return '';
+  return String(value).match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? '';
 }
 
 function profileCompleteness(client: PortalData['client']) {
