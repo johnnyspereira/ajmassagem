@@ -1,4 +1,6 @@
 const { createServer } = require('node:http');
+const { spawn } = require('node:child_process');
+const path = require('node:path');
 const next = require('next');
 
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
@@ -11,6 +13,43 @@ const handle = app.getRequestHandler();
 
 let server;
 let financeReminderTimer;
+
+function buildProductionAssets() {
+  if (
+    process.env.NODE_ENV !== 'production' ||
+    process.env.CPANEL_SKIP_BUILD_ON_START === 'true'
+  ) {
+    return Promise.resolve();
+  }
+
+  console.log('Building Next.js assets before starting the CRM...');
+  return new Promise((resolve, reject) => {
+    const build = spawn(
+      process.execPath,
+      [
+        path.join(process.cwd(), 'node_modules/next/dist/bin/next'),
+        'build',
+        '--webpack',
+      ],
+      {
+        cwd: process.cwd(),
+        env: process.env,
+        stdio: 'inherit',
+      }
+    );
+
+    build.once('error', reject);
+    build.once('exit', (code, signal) => {
+      if (code === 0) resolve();
+      else
+        reject(
+          new Error(
+            `Next.js build failed before startup (${signal ?? `exit ${code}`}).`
+          )
+        );
+    });
+  });
+}
 
 function startFinanceReminderScheduler() {
   const secret = process.env.AUTOMATION_CRON_SECRET;
@@ -45,6 +84,9 @@ function startFinanceReminderScheduler() {
 }
 
 async function start() {
+  // cPanel starts server.cjs directly. Building here ensures that a restart
+  // can never serve HTML from one release with static chunks from another.
+  await buildProductionAssets();
   await app.prepare();
 
   server = createServer((request, response) => {
