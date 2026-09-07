@@ -170,10 +170,19 @@ const emptyDraft = (): Draft => ({
   correctionReason: '',
 });
 
-function dateLabel(value: string) {
-  return new Intl.DateTimeFormat('pt-PT', { timeZone: 'UTC' }).format(
-    new Date(`${value}T12:00:00Z`)
-  );
+function toSafeDate(value: unknown) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const normalized = value.trim();
+  const date = /^\d{4}-\d{2}-\d{2}/.test(normalized)
+    ? new Date(`${normalized.slice(0, 10)}T12:00:00Z`)
+    : new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function dateLabel(value: unknown) {
+  const date = toSafeDate(value);
+  if (!date) return 'Data não definida';
+  return new Intl.DateTimeFormat('pt-PT', { timeZone: 'UTC' }).format(date);
 }
 
 function csvCell(value: unknown) {
