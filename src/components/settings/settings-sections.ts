@@ -44,6 +44,7 @@ export const SETTINGS_SECTIONS = [
   'whatsapp',
   'templates',
   'quick-replies',
+  'automated-messages',
   'fields',
   'deals',
   'referrals',
@@ -153,6 +154,13 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     icon: Zap,
     group: 'messaging',
     minRole: 'agent',
+  },
+  'automated-messages': {
+    id: 'automated-messages',
+    label: 'Mensagens automáticas',
+    icon: Zap,
+    group: 'messaging',
+    minRole: 'admin',
   },
   fields: {
     id: 'fields',
