@@ -107,6 +107,8 @@ type CommunicationDraft = {
   confirmation_reminder_hours: number;
   auto_send_confirmation: boolean;
   auto_send_pending_reminder: boolean;
+  benefit_expiry_reminder_days: number;
+  auto_send_benefit_expiry_reminder: boolean;
   anamnesis_enabled: boolean;
   anamnesis_public_slug: string;
   anamnesis_title: string;
@@ -123,6 +125,8 @@ const DEFAULT_COMMUNICATION: CommunicationDraft = {
   confirmation_reminder_hours: 24,
   auto_send_confirmation: true,
   auto_send_pending_reminder: true,
+  benefit_expiry_reminder_days: 7,
+  auto_send_benefit_expiry_reminder: true,
   anamnesis_enabled: true,
   anamnesis_public_slug: '',
   anamnesis_title: 'Ficha de anamnese',
@@ -971,6 +975,10 @@ export function ClinicSettings() {
           1,
           Math.min(168, Number(communication.confirmation_reminder_hours) || 24)
         ),
+        benefit_expiry_reminder_days: Math.max(
+          1,
+          Math.min(90, Number(communication.benefit_expiry_reminder_days) || 7)
+        ),
       });
     setSaving(false);
     if (error)
@@ -1751,6 +1759,18 @@ function CommunicationPanel({
             disabled={disabled}
           />
         </Field>
+        <Field label="Avisar validade de voucher/pack (dias antes)">
+          <Input
+            type="number"
+            min="1"
+            max="90"
+            value={value.benefit_expiry_reminder_days}
+            onChange={(event) =>
+              patch('benefit_expiry_reminder_days', Number(event.target.value))
+            }
+            disabled={disabled}
+          />
+        </Field>
         <div className="space-y-2">
           <ToggleLine
             label="Enviar confirmação ao criar marcação"
@@ -1762,6 +1782,14 @@ function CommunicationPanel({
             label="Relembrar confirmações pendentes"
             checked={value.auto_send_pending_reminder}
             onChange={(checked) => patch('auto_send_pending_reminder', checked)}
+            disabled={disabled}
+          />
+          <ToggleLine
+            label="Avisar quando voucher ou pack estiver perto de expirar"
+            checked={value.auto_send_benefit_expiry_reminder}
+            onChange={(checked) =>
+              patch('auto_send_benefit_expiry_reminder', checked)
+            }
             disabled={disabled}
           />
         </div>

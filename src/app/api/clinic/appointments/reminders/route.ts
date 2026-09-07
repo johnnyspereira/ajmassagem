@@ -9,6 +9,7 @@ import {
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { engineSendText } from '@/lib/automations/meta-send';
 import { sendAppointmentCommunication } from '@/lib/clinic/appointment-communication';
+import { sendBenefitExpiryReminders } from '@/lib/finance/expiry-reminders';
 
 const DEFAULT_WINDOW_MINUTES = 120;
 const MAX_WINDOW_MINUTES = 24 * 60;
@@ -211,6 +212,24 @@ export async function GET(request: Request) {
     }
   }
 
+  let benefitExpiry = {
+    checked: 0,
+    sent: 0,
+    skipped: 0,
+    failed: [] as Array<{ benefit_id: string; error: string }>,
+  };
+  try {
+    benefitExpiry = await sendBenefitExpiryReminders(limit);
+  } catch (benefitError) {
+    benefitExpiry.failed.push({
+      benefit_id: 'system',
+      error:
+        benefitError instanceof Error
+          ? benefitError.message
+          : String(benefitError),
+    });
+  }
+
   return NextResponse.json({
     checked: due.length,
     sent,
@@ -219,6 +238,7 @@ export async function GET(request: Request) {
     pending_confirmations_checked: pendingConfirmations?.length ?? 0,
     confirmation_reminders_sent: confirmationRemindersSent,
     confirmation_reminder_failures: confirmationReminderFailures,
+    benefit_expiry_reminders: benefitExpiry,
     window_minutes: windowMinutes,
   });
 }
