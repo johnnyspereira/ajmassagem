@@ -1,11 +1,29 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { ArrowLeft, Landmark, Loader2, ShieldCheck } from 'lucide-react';
 
-import { OwnerTreasury } from '@/components/finance/owner-treasury';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
+
+// A tesouraria inclui importação de ficheiros e vários diálogos. Carregá-la
+// apenas depois de a página estar no browser evita que uma falha desse módulo
+// derrube toda a rota /private-management durante a renderização inicial.
+const OwnerTreasury = dynamic(
+  () => import('@/components/finance/owner-treasury').then(({ OwnerTreasury }) => OwnerTreasury),
+  {
+    ssr: false,
+    loading: () => (
+      <section className="flex min-h-72 items-center justify-center rounded-2xl border bg-card p-8">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <Loader2 className="size-5 animate-spin" />
+          A carregar a gestão privada…
+        </div>
+      </section>
+    ),
+  },
+);
 
 export function PrivateManagementPage() {
   const { isOwner, profileLoading } = useAuth();
