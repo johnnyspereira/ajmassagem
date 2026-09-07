@@ -158,6 +158,29 @@ async function inboundMediaPayload(message) {
   }
   return {};
 }
+async function outboundMediaFromUrl(url, filename) {
+  let parsed;
+  try {
+    parsed = new URL(String(url));
+  } catch {
+    throw new Error('O endereço do ficheiro é inválido.');
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('O ficheiro deve usar um endereço http(s).');
+  }
+  const response = await fetch(parsed, { signal: AbortSignal.timeout(30000) });
+  if (!response.ok) {
+    throw new Error(`Não foi possível descarregar o ficheiro (HTTP ${response.status}).`);
+  }
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (!bytes.length || bytes.length > 16 * 1024 * 1024) {
+    throw new Error('O ficheiro deve ter entre 1 byte e 16 MB.');
+  }
+  const mime = (response.headers.get('content-type') || 'application/octet-stream')
+    .split(';')[0]
+    .trim();
+  return new MessageMedia(mime, bytes.toString('base64'), filename || undefined);
+}
 async function profilePicturePayload(contact) {
   const key = String(contact?.id?._serialized || contact?.id?.user || '');
   const cached = key ? profilePictureCache.get(key) : null;
@@ -478,10 +501,7 @@ async function send(input) {
   const options = { waitUntilMsgSent: true };
   if (['image', 'video', 'document', 'audio'].includes(type)) {
     if (!message.mediaUrl) throw new Error('mediaUrl is required.');
-    content = await MessageMedia.fromUrl(message.mediaUrl, {
-      unsafeMime: true,
-      filename: message.filename || undefined,
-    });
+    content = await outboundMediaFromUrl(message.mediaUrl, message.filename);
     if (text && type !== 'audio') options.caption = text;
     if (type === 'audio') options.sendAudioAsVoice = true;
     if (type === 'document') options.sendMediaAsDocument = true;
@@ -547,10 +567,7 @@ async function sendOutboxJob(job) {
   const options = { waitUntilMsgSent: true };
   if (['image', 'video', 'document', 'audio'].includes(type)) {
     if (!message.mediaUrl) throw new Error('mediaUrl is required.');
-    content = await MessageMedia.fromUrl(message.mediaUrl, {
-      unsafeMime: true,
-      filename: message.filename || undefined,
-    });
+    content = await outboundMediaFromUrl(message.mediaUrl, message.filename);
     if (text && type !== 'audio') options.caption = text;
     if (type === 'audio') options.sendAudioAsVoice = true;
     if (type === 'document') options.sendMediaAsDocument = true;
