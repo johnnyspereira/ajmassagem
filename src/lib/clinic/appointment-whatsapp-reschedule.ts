@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { RowDataPacket } from 'mysql2';
 
 import { selectRows, transaction } from '@/lib/mysql/db';
+import { notifyAccountEvent } from '@/lib/notifications/account-events';
 
 type Slot = { startsAt: string; endsAt: string; label: string };
 
@@ -234,6 +235,23 @@ export async function handleWhatsAppRescheduleReply(input: {
     const option = eventMetadata?.options && Array.isArray(eventMetadata.options)
       ? eventMetadata.options[choice - 1] as Slot | undefined : undefined;
     if (!event || !option?.startsAt || !option.endsAt) return null;
+    const appointmentRows = await selectRows<
+      (RowDataPacket & {
+        scheduled_start: Date | string;
+        scheduled_end: Date | string;
+        contact_id: string | null;
+        contact_name: string | null;
+        service_name: string | null;
+      })[]
+    >(
+      `SELECT a.scheduled_start,a.scheduled_end,a.contact_id,c.name contact_name,s.name service_name
+       FROM clinic_appointments a
+       LEFT JOIN contacts c ON c.id=a.contact_id
+       LEFT JOIN clinic_services s ON s.id=a.service_id
+       WHERE a.id=? AND a.account_id=? LIMIT 1`,
+      [event.entity_id, input.accountId]
+    );
+    const appointment = appointmentRows[0];
     await transaction(async (connection) => {
       await connection.execute(
         `INSERT INTO clinic_agenda_events(id,account_id,user_id,entity_type,entity_id,action,reason,metadata,old_starts_at,old_ends_at,new_starts_at,new_ends_at)
@@ -246,6 +264,36 @@ export async function handleWhatsAppRescheduleReply(input: {
         }), option.startsAt, option.endsAt, event.entity_id, input.accountId]
       );
     });
+    if (appointment) {
+      const currentSlot = formatSlot({
+        startsAt: new Date(appointment.scheduled_start).toISOString(),
+        endsAt: new Date(appointment.scheduled_end).toISOString(),
+        label: '',
+      });
+      const preferredSlot = formatSlot(option);
+      const clientName = appointment.contact_name?.trim() || 'Cliente';
+      await notifyAccountEvent({
+        accountId: input.accountId,
+        type: 'appointment_reschedule_preference',
+        category: 'clinic',
+        priority: 'high',
+        title: `Nova preferência de horário — ${clientName}`,
+        body: `${appointment.service_name || 'Sessão'}: de ${currentSlot} para ${preferredSlot}. Aguarda aprovação do profissional.`,
+        actionUrl: `/agenda?appointment=${event.entity_id}&date=${option.startsAt.slice(0, 10)}`,
+        contactId: appointment.contact_id,
+        dedupeKey: `appointment-reschedule-choice:${input.sourceMessageId}`,
+        metadata: {
+          appointment_id: event.entity_id,
+          old_starts_at: appointment.scheduled_start,
+          old_ends_at: appointment.scheduled_end,
+          preferred_starts_at: option.startsAt,
+          preferred_ends_at: option.endsAt,
+          selected_option: choice,
+        },
+      }).catch((notificationError) => {
+        console.error('[appointment-reschedule] preference notification failed:', notificationError);
+      });
+    }
     return { appointmentId: event.entity_id, replyText: `Recebemos a sua preferência: *${formatSlot(option)}*. O pedido foi enviado ao profissional. Assim que for aprovado, confirmamos por aqui.` };
   }
 
