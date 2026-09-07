@@ -876,6 +876,10 @@ const server = http.createServer(async (req, res) => {
     return reply(res, 404, { error: 'Not found' });
   } catch (e) {
     console.error('[bridge]', e);
+    logActivity('error', e?.message || String(e), {
+      path: req.url,
+      method: req.method,
+    });
     return reply(res, e.status || 500, { error: e.message || String(e) });
   }
 });
