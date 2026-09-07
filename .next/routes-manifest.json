@@ -872,6 +872,12 @@
       "namedRegex": "^/api/finance/vouchers/deliver(?:/)?$"
     },
     {
+      "page": "/api/finance/vouchers/reconcile",
+      "regex": "^/api/finance/vouchers/reconcile(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/finance/vouchers/reconcile(?:/)?$"
+    },
+    {
       "page": "/api/finance/webhooks/stripe",
       "regex": "^/api/finance/webhooks/stripe(?:/)?$",
       "routeKeys": {},
