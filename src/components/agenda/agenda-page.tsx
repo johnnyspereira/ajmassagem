@@ -226,6 +226,7 @@ type ScheduleChangeDraft = {
   type: ScheduleChangeType;
   reason: string;
   source: 'drag' | 'manual';
+  clientRequested: boolean;
   requestClientConfirmation: boolean;
   confirmationMessage: string;
   benefitDisposition: 'keep' | 'release';
@@ -377,25 +378,32 @@ function buildScheduleChangeConfirmationMessage({
   appointment,
   newStart,
   businessName,
+  clientRequested = false,
 }: {
   appointment: AppointmentRow;
   newStart: Date;
   businessName: string;
+  clientRequested?: boolean;
 }) {
   const contactName = appointment.contact?.name?.trim();
   const service = appointment.service?.name ?? 'seu atendimento';
   const oldWhen = formatAppointmentDateTime(appointment.scheduled_start);
   const newWhen = formatAppointmentDateTime(newStart);
   const greeting = contactName ? `Olá, ${contactName}.` : 'Olá.';
-  const brand = businessName.trim() || 'nossa clínica';
+  const brand = businessName.trim() || 'JP Massagem';
 
   return [
     greeting,
-    `O seu agendamento de ${service} foi alterado de ${oldWhen} para ${newWhen}.`,
-    'Responda CONFIRMAR para confirmar esta alteração ou REAGENDAR para pedir outro horário.',
+    clientRequested
+      ? `O seu pedido de alteração para *${newWhen}* foi aprovado.`
+      : `O seu agendamento de ${service} foi alterado de ${oldWhen} para ${newWhen}.`,
+    clientRequested
+      ? `A sua sessão de ${service} fica confirmada neste novo horário.`
+      : 'Responda CONFIRMAR para confirmar esta alteração ou REAGENDAR para pedir outro horário.',
+    clientRequested ? 'Se precisar de mais apoio, responda a esta mensagem.' : null,
     '',
     brand,
-  ].join('\n');
+  ].filter((line): line is string => line !== null).join('\n');
 }
 
 function formatRangeTitle(date: Date, view: CalendarView) {
@@ -2439,7 +2447,8 @@ export function AgendaPage({
   function openScheduleChange(
     appointment: AppointmentRow,
     targetStart?: Date,
-    source: 'drag' | 'manual' = 'manual'
+    source: 'drag' | 'manual' = 'manual',
+    clientRequested = false
   ) {
     const startAt = targetStart ?? new Date(appointment.scheduled_start);
     setScheduleChangeDraft({
@@ -2447,23 +2456,34 @@ export function AgendaPage({
       date: dateInputValue(startAt),
       time: timeInputValue(startAt),
       type: 'rescheduled',
-      reason: '',
+      reason: clientRequested ? 'Pedido de alteração de horário pelo cliente.' : '',
       source,
+      clientRequested,
       requestClientConfirmation: true,
       benefitDisposition: 'keep',
       confirmationMessage: buildScheduleChangeConfirmationMessage({
         appointment,
         newStart: startAt,
+        clientRequested,
         businessName: account?.name ?? 'nossa clínica',
       }),
     });
     setScheduleChangeOpen(true);
   }
 
-  async function sendUpdatedAppointmentConfirmation(appointmentId: string) {
+  async function sendUpdatedAppointmentConfirmation(
+    appointmentId: string,
+    message = '',
+    approvedClientRequest = false
+  ) {
     const response = await fetch(
       `/api/clinic/appointments/${appointmentId}/confirmation`,
-      { method: 'POST', signal: AbortSignal.timeout(12_000) }
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, approvedClientRequest }),
+        signal: AbortSignal.timeout(12_000),
+      }
     );
     const payload = (await response.json().catch(() => ({}))) as {
       error?: string;
@@ -2502,6 +2522,7 @@ export function AgendaPage({
         confirmationMessage: buildScheduleChangeConfirmationMessage({
           appointment,
           newStart: appointmentDate(next.date, next.time),
+          clientRequested: next.clientRequested,
           businessName: account?.name ?? 'nossa clínica',
         }),
       };
@@ -2656,7 +2677,11 @@ export function AgendaPage({
     let messageFailed = false;
     if (shouldRequestConfirmation) {
       try {
-        await sendUpdatedAppointmentConfirmation(appointment.id);
+        await sendUpdatedAppointmentConfirmation(
+          appointment.id,
+          scheduleChangeDraft.confirmationMessage,
+          scheduleChangeDraft.clientRequested
+        );
       } catch (error) {
         messageFailed = true;
         toast.error(
@@ -3790,7 +3815,8 @@ export function AgendaPage({
                             openScheduleChange(
                               selectedAppointment,
                               new Date(selectedWhatsAppReschedule.startsAt),
-                              'manual'
+                              'manual',
+                              true
                             )
                           }
                         >
@@ -4436,7 +4462,8 @@ export function AgendaPage({
                                   openScheduleChange(
                                     selectedAppointment,
                                     new Date(selectedWhatsAppReschedule.startsAt),
-                                    'manual'
+                                    'manual',
+                                    true
                                   )
                                 }
                               >
@@ -5151,12 +5178,14 @@ export function AgendaPage({
                 />
                 <span>
                   <span className="text-foreground block font-medium">
-                    Pedir confirmação do cliente pelo WhatsApp
+                    {scheduleChangeDraft.clientRequested
+                      ? 'Enviar aprovação do pedido pelo WhatsApp'
+                      : 'Pedir confirmação do cliente pelo WhatsApp'}
                   </span>
                   <span className="text-muted-foreground text-xs">
-                    Se o cliente responder “CONFIRMAR”, a marcação fica
-                    confirmada automaticamente. Se responder “REAGENDAR” ou
-                    “NÃO”, fica sinalizada como não confirmada.
+                    {scheduleChangeDraft.clientRequested
+                      ? 'Informa que o horário escolhido pelo cliente foi aprovado. Pode editar o texto antes de enviar.'
+                      : 'Se o cliente responder “CONFIRMAR”, a marcação fica confirmada automaticamente. Se responder “REAGENDAR” ou “NÃO”, fica sinalizada como não confirmada.'}
                   </span>
                 </span>
               </label>

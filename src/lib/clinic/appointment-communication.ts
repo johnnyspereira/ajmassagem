@@ -27,11 +27,15 @@ export async function sendAppointmentCommunication({
   appointmentId,
   origin,
   action = 'confirmation',
+  messageOverride,
+  confirmationApproved = false,
 }: {
   db: SupabaseClient;
   appointmentId: string;
   origin: string;
   action?: AppointmentMessageAction;
+  messageOverride?: string | null;
+  confirmationApproved?: boolean;
 }) {
   const { data: appointment, error } = await loadAppointment(db, appointmentId);
   if (error || !appointment)
@@ -96,7 +100,7 @@ export async function sendAppointmentCommunication({
     throw new Error('Não foi possível identificar o remetente da clínica.');
   const businessName = appointment.account?.name || '';
   const benefit = await loadAppointmentBenefit(db, appointment);
-  const text = buildAppointmentMessage(row, action, businessName, {
+  const generatedText = buildAppointmentMessage(row, action, businessName, {
     clinicAddress: settings?.clinic_address,
     directions: settings?.directions,
     parkingInfo: settings?.parking_info,
@@ -105,6 +109,7 @@ export async function sendAppointmentCommunication({
     anamnesisIntro: settings?.anamnesis_intro,
     benefit,
   });
+  const text = messageOverride?.trim() || generatedText;
   const deliveries = await deliverChannels({
     db,
     appointment: row,
@@ -127,7 +132,15 @@ export async function sendAppointmentCommunication({
       ? { confirmation_reminder_sent_at: now }
       : action === 'reminder'
         ? { reminder_sent_at: now }
-        : {
+        : confirmationApproved
+          ? {
+              confirmation_status: 'confirmed',
+              confirmation_requested_at: now,
+              confirmation_response_at: now,
+              confirmation_sent_at: now,
+              confirmation_request_message: text,
+            }
+          : {
             confirmation_status: 'pending',
             confirmation_requested_at: now,
             confirmation_response_at: null,

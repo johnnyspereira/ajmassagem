@@ -20,6 +20,12 @@ export async function POST(
     return Response.json({ error: 'Sem permissão.' }, { status: 403 });
   }
   const { id } = await params;
+  const body = (await request.json().catch(() => ({}))) as {
+    message?: unknown;
+    approvedClientRequest?: unknown;
+  };
+  const messageOverride =
+    typeof body.message === 'string' ? body.message.trim().slice(0, 4000) : '';
   const { data: appointment } = await db
     .from('clinic_appointments')
     .select('id')
@@ -36,6 +42,8 @@ export async function POST(
       db,
       appointmentId: id,
       origin: new URL(request.url).origin,
+      messageOverride: messageOverride || null,
+      confirmationApproved: body.approvedClientRequest === true,
     });
     return Response.json({
       ok: true,
