@@ -1268,6 +1268,12 @@
       "namedRegex": "^/privacidade(?:/)?$"
     },
     {
+      "page": "/private-management",
+      "regex": "^/private\\-management(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/private\\-management(?:/)?$"
+    },
+    {
       "page": "/referrals",
       "regex": "^/referrals(?:/)?$",
       "routeKeys": {},
