@@ -122,8 +122,15 @@ async function pendingAppointment(accountId: string, contactId: string) {
 
 async function findSlots(accountId: string, appointment: AppointmentRow): Promise<Slot[]> {
   const duration = Math.max(15, Number(appointment.duration_minutes ?? 60));
-  const start = new Date();
-  start.setMinutes(start.getMinutes() + 30, 0, 0);
+  const now = new Date();
+  now.setMinutes(now.getMinutes() + 30, 0, 0);
+  // A rebooking must never offer a time before the appointment it replaces.
+  // If the customer asks before today's session, start looking only after its
+  // scheduled end; if it is already over, use the next practical time.
+  const originalEnd = new Date(appointment.scheduled_end);
+  const start = new Date(
+    Math.max(now.getTime(), Number.isNaN(originalEnd.getTime()) ? 0 : originalEnd.getTime())
+  );
   const until = new Date(start.getTime() + 21 * 24 * 60 * 60 * 1000);
   const [appointments, blocks] = await Promise.all([
     selectRows<(RowDataPacket & { scheduled_start: Date | string; scheduled_end: Date | string; professional_profile_id: string | null; room_id: string | null })[]>(
@@ -139,9 +146,8 @@ async function findSlots(accountId: string, appointment: AppointmentRow): Promis
     ),
   ]);
   const hours = workingHours(appointment.working_hours);
-  const slots: Slot[] = [];
-  const slotsPerDay = new Map<string, number>();
-  for (let offset = 0; offset < 21 && slots.length < 4; offset += 1) {
+  const slotsByDate = new Map<string, Slot[]>();
+  for (let offset = 0; offset < 21; offset += 1) {
     const day = new Date(start.getTime() + offset * 86_400_000);
     const date = localDate(day);
     const dayKey = DAY_KEYS[new Date(`${date}T12:00:00Z`).getUTCDay()];
@@ -151,11 +157,8 @@ async function findSlots(accountId: string, appointment: AppointmentRow): Promis
     const close = clockMinutes(configured?.end, 21 * 60);
     const breakStart = clockMinutes(configured?.breakStart, -1);
     const breakEnd = clockMinutes(configured?.breakEnd, -1);
-    for (let minute = open; minute + duration <= close && slots.length < 4; minute += 30) {
-      // Present choices over more than one date. Two times on the earliest
-      // available day, followed by two on a later day, are easier for the
-      // client to decide between than four near-identical times.
-      if ((slotsPerDay.get(date) ?? 0) >= 2) break;
+    const daySlots: Slot[] = [];
+    for (let minute = open; minute + duration <= close; minute += 30) {
       if (breakStart >= 0 && breakEnd >= 0 && minute < breakEnd && minute + duration > breakStart) continue;
       const candidate = LisbonDate(date, Math.floor(minute / 60), minute % 60);
       const candidateEnd = new Date(candidate.getTime() + duration * 60_000);
@@ -170,12 +173,36 @@ async function findSlots(accountId: string, appointment: AppointmentRow): Promis
         return shared && new Date(item.starts_at) < candidateEnd && new Date(item.ends_at) > candidate;
       });
       if (!conflict) {
-        slots.push({ startsAt: candidate.toISOString(), endsAt: candidateEnd.toISOString(), label: formatSlot({ startsAt: candidate.toISOString(), endsAt: candidateEnd.toISOString(), label: '' }) });
-        slotsPerDay.set(date, (slotsPerDay.get(date) ?? 0) + 1);
+        daySlots.push({ startsAt: candidate.toISOString(), endsAt: candidateEnd.toISOString(), label: formatSlot({ startsAt: candidate.toISOString(), endsAt: candidateEnd.toISOString(), label: '' }) });
       }
     }
+    if (daySlots.length) slotsByDate.set(date, daySlots);
   }
-  return slots;
+  const days = [...slotsByDate.values()];
+  if (!days.length) return [];
+  // When there are at least four available dates, sample them across the
+  // three-week search window instead of listing consecutive time slots.
+  if (days.length >= 4) {
+    const indexes = [0, 1, 2, 3].map((position) =>
+      Math.round((position * (days.length - 1)) / 3)
+    );
+    return indexes.map((index) => days[index][0]);
+  }
+  // If availability exists on fewer dates, still spread times within a date
+  // (opening, middle, later) rather than sending four adjacent half-hours.
+  const mixed: Slot[] = [];
+  for (const daySlots of days) mixed.push(daySlots[0]);
+  for (const daySlots of days) {
+    if (mixed.length >= 4) break;
+    const later = daySlots[Math.floor((daySlots.length - 1) / 2)];
+    if (later && later.startsAt !== daySlots[0].startsAt) mixed.push(later);
+  }
+  for (const daySlots of days) {
+    if (mixed.length >= 4) break;
+    const later = daySlots[daySlots.length - 1];
+    if (later && !mixed.some((slot) => slot.startsAt === later.startsAt)) mixed.push(later);
+  }
+  return mixed.slice(0, 4);
 }
 
 async function latestOptionsEvent(accountId: string, contactId: string) {
@@ -248,7 +275,15 @@ export async function handleWhatsAppRescheduleReply(input: {
     };
   }
   const existing = await latestOptionsEvent(input.accountId, input.contactId);
-  if (existing) {
+  const existingOptions = existing ? metadata(existing.metadata).options : null;
+  const originalEnd = new Date(appointment.scheduled_end).getTime();
+  const existingStillValid = Array.isArray(existingOptions) && existingOptions.length > 0 &&
+    existingOptions.every((option) =>
+      typeof option === 'object' && option !== null &&
+      typeof (option as Slot).startsAt === 'string' &&
+      new Date((option as Slot).startsAt).getTime() >= originalEnd
+    );
+  if (existing && existingStillValid) {
     return {
       appointmentId: existing.entity_id,
       replyText: 'As opções de reagendamento já foram enviadas acima. Responda com o número da opção que prefere; a alteração continuará pendente de aprovação do profissional.',
