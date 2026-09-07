@@ -114,8 +114,22 @@ export function FinanceReminderSettings({ accountId }: { accountId: string }) {
       const response = await fetch('/api/finance/reminders/test', {
         method: 'POST',
       });
-      const payload = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(payload.error || 'Falha no teste.');
+      const raw = await response.text();
+      const contentType = response.headers.get('content-type') ?? '';
+      const payload = contentType.includes('application/json')
+        ? (JSON.parse(raw) as { error?: string })
+        : null;
+      if (!response.ok) {
+        throw new Error(
+          payload?.error ||
+            `O servidor respondeu ${response.status}. Tente novamente após reiniciar a aplicação.`
+        );
+      }
+      if (!payload) {
+        throw new Error(
+          'O servidor devolveu uma resposta inválida. Reinicie a aplicação Node e tente novamente.'
+        );
+      }
       setLastTest(new Date());
       toast.success('Mensagem de teste entregue ao worker do WhatsApp.');
     } catch (cause) {

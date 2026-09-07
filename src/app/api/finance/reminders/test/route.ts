@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { getPublicUrl } from '@/lib/public-url';
 import { createClient } from '@/lib/supabase/server';
 import { resolveConversationByPhone } from '@/lib/whatsapp/resolve-conversation';
+import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 
 export async function POST(request: Request) {
   const session = await createClient();
@@ -38,17 +39,28 @@ export async function POST(request: Request) {
       'Alertas financeiros'
     );
     const financeUrl = getPublicUrl('/finance', new URL(request.url).origin);
-    const sent = await engineSendText({
+    const testMessage = `Teste dos alertas financeiros\n\nA ligação entre o Centro Financeiro e o WhatsApp está operacional.\n\nAbrir o financeiro: ${financeUrl}`;
+    const sent = remoteWhatsAppWorker.enabled()
+      ? await remoteWhatsAppWorker.send({
+          accountId: profile.account_id,
+          userId: auth.user.id,
+          conversationId,
+          message: { text: testMessage, contentType: 'text', senderType: 'bot' },
+        })
+      : await engineSendText({
       accountId: profile.account_id,
       userId: auth.user.id,
       conversationId,
       contactId,
       text: `✅ *Teste dos alertas financeiros*\n\nA ligação entre o Centro Financeiro e o WhatsApp está operacional.\n\nAbrir o financeiro: ${financeUrl}`,
-    });
+        });
     return Response.json({
       ok: true,
       recipient: settings.whatsapp_phone,
-      messageId: sent.whatsapp_message_id,
+      messageId:
+        'whatsappMessageId' in sent
+          ? sent.whatsappMessageId
+          : sent.whatsapp_message_id,
       testedAt: new Date().toISOString(),
     });
   } catch (cause) {
