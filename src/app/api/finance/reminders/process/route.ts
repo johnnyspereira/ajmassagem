@@ -4,6 +4,7 @@ import { engineSendText } from '@/lib/automations/meta-send';
 import { sendPush, type StoredPushSubscription } from '@/lib/push/server';
 import { resolveConversationByPhone } from '@/lib/whatsapp/resolve-conversation';
 import { getPublicUrl } from '@/lib/public-url';
+import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 
 type CreatedNotification = {
   id: string;
@@ -132,19 +133,25 @@ export async function GET(request: Request) {
       if (!owner?.user_id)
         throw new Error('ProprietÃ¡rio da conta nÃ£o encontrado.');
       const message = `🔔 *${delivery.notification?.title ?? 'Alerta financeiro'}*\n\n${delivery.notification?.body ?? ''}\n\nAbra o CRM: ${financeUrl}`;
-      const sent = await engineSendText({
-        accountId: delivery.account_id,
-        userId: owner.user_id,
-        conversationId,
-        contactId,
-        text: message,
-      });
+      const sent = remoteWhatsAppWorker.enabled()
+        ? await remoteWhatsAppWorker.send({
+            accountId: delivery.account_id,
+            conversationId,
+            message: { text: message, contentType: 'text', senderType: 'bot' },
+          })
+        : await engineSendText({
+            accountId: delivery.account_id,
+            userId: owner.user_id,
+            conversationId,
+            contactId,
+            text: message,
+          });
       await admin
         .from('finance_reminder_deliveries')
         .update({
           status: 'sent',
           sent_at: new Date().toISOString(),
-          whatsapp_message_id: sent.whatsapp_message_id,
+          whatsapp_message_id: 'whatsappMessageId' in sent ? sent.whatsappMessageId : sent.whatsapp_message_id,
           last_error: null,
           updated_at: new Date().toISOString(),
         })

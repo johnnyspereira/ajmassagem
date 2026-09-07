@@ -1,5 +1,6 @@
 import {
   Bell,
+  Activity,
   BadgeEuro,
   BarChart3,
   Bot,
@@ -135,6 +136,7 @@ export const navItems: NavItem[] = [
   { href: '/agents', labelKey: 'aiAgents', icon: Bot },
   { href: '/support', labelKey: 'support', icon: LifeBuoy },
   { href: '/website', labelKey: 'website', icon: Globe2 },
+  { href: '/system-health', labelKey: 'systemHealth', icon: Activity },
 ];
 
 export const bottomNavItems: NavItem[] = [

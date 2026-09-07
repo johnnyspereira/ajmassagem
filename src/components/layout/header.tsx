@@ -58,6 +58,7 @@ const pageTitles: Record<string, string> = {
   '/support': 'support',
   '/help': 'help',
   '/website': 'website',
+  '/system-health': 'systemHealth',
 };
 
 function getPageTitleKey(pathname: string): string {
@@ -104,7 +105,7 @@ const topbarGroupConfigs = [
   },
   {
     labelKey: 'groupSystem',
-    hrefs: ['/settings', '/support', '/help', '/website'],
+    hrefs: ['/settings', '/support', '/help', '/website', '/system-health'],
   },
 ] as const;
 
@@ -119,6 +120,7 @@ const headerLabelFallbacks = {
     reports: 'Relatórios',
     referrals: 'Indicações',
     benefits: 'Packs e vouchers',
+    systemHealth: 'Diagnóstico do Sistema',
     groupOperation: 'Operacao',
     groupCommercial: 'Comercial',
     groupMarketing: 'Marketing',
@@ -135,6 +137,7 @@ const headerLabelFallbacks = {
     reports: 'Reports',
     referrals: 'Referrals',
     benefits: 'Packs and vouchers',
+    systemHealth: 'System diagnostics',
     groupOperation: 'Operation',
     groupCommercial: 'Commercial',
     groupMarketing: 'Marketing',

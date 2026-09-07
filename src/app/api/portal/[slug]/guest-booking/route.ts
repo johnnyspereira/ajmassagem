@@ -45,6 +45,7 @@ export async function GET(
       .eq('account_id', settings.account_id)
       .eq('is_active', true)
       .eq('online_enabled', true)
+      .eq('internal_booking_enabled', true)
       .order('name'),
     admin
       .from('profiles')
@@ -121,6 +122,7 @@ export async function POST(
       .eq('account_id', settings.account_id)
       .eq('is_active', true)
       .eq('online_enabled', true)
+      .eq('internal_booking_enabled', true)
       .maybeSingle();
     if (!service)
       return Response.json({ error: 'Serviço inválido.' }, { status: 400 });

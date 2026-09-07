@@ -146,6 +146,8 @@ type ServiceDraft = {
   price: string;
   color: string;
   onlineEnabled: boolean;
+  showOnSite: boolean;
+  internalBookingEnabled: boolean;
   comingSoon: boolean;
   ivaEnabled: boolean;
   commissionsEnabled: boolean;
@@ -218,6 +220,8 @@ function defaultServiceDraft(): ServiceDraft {
     price: '',
     color: COLORS[0],
     onlineEnabled: true,
+    showOnSite: true,
+    internalBookingEnabled: true,
     comingSoon: false,
     ivaEnabled: false,
     commissionsEnabled: false,
@@ -243,6 +247,8 @@ function serviceDraftFromService(service: ClinicService): ServiceDraft {
     price: String(service.price ?? ''),
     color: service.color ?? COLORS[0],
     onlineEnabled: service.online_enabled ?? true,
+    showOnSite: service.show_on_site ?? true,
+    internalBookingEnabled: service.internal_booking_enabled ?? true,
     comingSoon: service.coming_soon ?? false,
     ivaEnabled: service.iva_enabled ?? false,
     commissionsEnabled: service.commissions_enabled ?? false,
@@ -614,6 +620,8 @@ export function ClinicSettings() {
       currency: defaultCurrency,
       color: serviceDraft.color,
       online_enabled: serviceDraft.onlineEnabled,
+      show_on_site: serviceDraft.showOnSite,
+      internal_booking_enabled: serviceDraft.internalBookingEnabled,
       coming_soon: serviceDraft.comingSoon,
       iva_enabled: serviceDraft.ivaEnabled,
       commissions_enabled: serviceDraft.commissionsEnabled,
@@ -1265,6 +1273,23 @@ export function ClinicSettings() {
                   setServiceDraft((prev) => ({
                     ...prev,
                     onlineEnabled: checked,
+                  }))
+                }
+              />
+              <ServiceOption
+                label="Exibir no site público"
+                checked={serviceDraft.showOnSite}
+                onChange={(checked) =>
+                  setServiceDraft((prev) => ({ ...prev, showOnSite: checked }))
+                }
+              />
+              <ServiceOption
+                label="Permitir agendamento CRM/Portal"
+                checked={serviceDraft.internalBookingEnabled}
+                onChange={(checked) =>
+                  setServiceDraft((prev) => ({
+                    ...prev,
+                    internalBookingEnabled: checked,
                   }))
                 }
               />

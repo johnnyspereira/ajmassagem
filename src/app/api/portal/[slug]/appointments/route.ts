@@ -3,6 +3,7 @@ import {
   sendAppointmentCommunication,
   sendAppointmentStatusCommunication,
 } from '@/lib/clinic/appointment-communication';
+import { notifyAccountEvent } from '@/lib/notifications/account-events';
 
 export async function POST(
   request: Request,
@@ -10,7 +11,7 @@ export async function POST(
 ) {
   try {
     const { slug } = await params;
-    const { sessionClient, admin } = await requirePortalAccess(slug);
+    const { sessionClient, admin, access } = await requirePortalAccess(slug);
     const body = (await request.json()) as Record<string, unknown>;
     const { data, error } = await sessionClient.rpc(
       'portal_create_appointment',
@@ -25,6 +26,41 @@ export async function POST(
       }
     );
     if (error) return Response.json({ error: error.message }, { status: 400 });
+    let alertWarning: string | null = null;
+    try {
+      const { data: appointment } = await admin
+        .from('clinic_appointments')
+        .select('id,scheduled_start,contact:contacts(name,phone),service:clinic_services(name),professional:profiles!clinic_appointments_professional_profile_id_fkey(full_name)')
+        .eq('id', String(data))
+        .eq('account_id', access.account_id)
+        .maybeSingle();
+      if (appointment) {
+        const contact = Array.isArray(appointment.contact) ? appointment.contact[0] : appointment.contact;
+        const appointmentService = Array.isArray(appointment.service) ? appointment.service[0] : appointment.service;
+        const professionalRow = Array.isArray(appointment.professional) ? appointment.professional[0] : appointment.professional;
+        const client = contact?.name || contact?.phone || 'Cliente';
+        const service = appointmentService?.name || 'Serviço';
+        const professional = professionalRow?.full_name || 'Profissional';
+        const when = new Intl.DateTimeFormat('pt-PT', {
+          dateStyle: 'full', timeStyle: 'short', timeZone: 'Europe/Lisbon',
+        }).format(new Date(appointment.scheduled_start));
+        await notifyAccountEvent({
+          accountId: access.account_id,
+          type: 'portal_appointment_created',
+          category: 'clinic',
+          priority: 'high',
+          title: 'Nova marcação pelo Portal 360',
+          body: `${client} marcou ${service} para ${when} com ${professional}.`,
+          actionUrl: `/agenda?appointment=${appointment.id}`,
+          contactId: access.contact_id,
+          dedupeKey: `portal-appointment:${appointment.id}`,
+          whatsappText: `📅 *Nova marcação pelo Portal 360*\n\nCliente: *${client}*\nServiço: *${service}*\nData: *${when}*\nProfissional: *${professional}*\n\nAbra a Agenda para gerir a marcação.`,
+        });
+      }
+    } catch (alertError) {
+      alertWarning = alertError instanceof Error ? alertError.message : 'Falha no alerta ao responsável.';
+      console.error('[portal-appointment-alert]', alertError);
+    }
     let messageWarning: string | null = null;
     let messageSkipped = false;
     try {
@@ -41,7 +77,7 @@ export async function POST(
           : 'Falha no envio.';
     }
     return Response.json(
-      { appointmentId: data, messageWarning, messageSkipped },
+      { appointmentId: data, messageWarning, messageSkipped, alertWarning },
       { status: 201 }
     );
   } catch (error) {

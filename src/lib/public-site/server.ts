@@ -24,6 +24,7 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
       .eq('account_id', settings.account_id)
       .eq('is_active', true)
       .eq('online_enabled', true)
+      .eq('show_on_site', true)
       .order('name')
       .limit(24),
     admin

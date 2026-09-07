@@ -264,7 +264,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     .map((href) => navItemByHref.get(href))
     .filter((item): item is NavItem => Boolean(item));
   const systemItems = [
-    ...['/support', '/website']
+    ...['/support', '/website', '/system-health']
       .map((href) => navItemByHref.get(href))
       .filter((item): item is NavItem => Boolean(item)),
     ...bottomNavItems,

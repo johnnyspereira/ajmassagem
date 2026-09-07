@@ -751,7 +751,9 @@ export function AgendaPage({
     () => rangeBounds(selectedDate, view),
     [selectedDate, view]
   );
-  const activeServices = services.filter((service) => service.is_active);
+  const activeServices = services.filter(
+    (service) => service.is_active && service.internal_booking_enabled !== false
+  );
   const activeRooms = rooms.filter((room) => room.is_active);
   const selectedWhatsAppReschedule = useMemo(
     () => pendingWhatsAppReschedule(appointmentEvents),
