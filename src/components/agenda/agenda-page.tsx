@@ -837,6 +837,9 @@ export function AgendaPage({
   const selectedNewPackBalance = selectedNewPack?.balances?.find(
     (balance) => balance.service_id === appointmentDraft.serviceId
   );
+  const selectedNewVoucher = availableVouchers.find(
+    (voucher) => voucher.id === newBenefitSourceId
+  );
   const compatibleNewVouchers = availableVouchers.filter(
     (voucher) =>
       voucher.voucher_type !== 'service' ||
@@ -900,7 +903,23 @@ export function AgendaPage({
             price: referralQuote?.total ?? Number(selectedService.price ?? 0),
           } as AppointmentRow,
           'confirmation',
-          account?.name ?? 'nossa clínica'
+          account?.name ?? 'nossa clínica',
+          {
+            benefit:
+              newBenefitType === 'pack' && selectedNewPack
+                ? {
+                    type: 'pack',
+                    label: `Pack ${selectedNewPack.pack?.name || selectedNewPack.code}`,
+                    detail: '1 sessão será reservada para esta marcação',
+                  }
+                : newBenefitType === 'voucher' && selectedNewVoucher
+                  ? {
+                      type: 'voucher',
+                      label: `Voucher ${selectedNewVoucher.code}`,
+                      detail: 'Benefício será reservado para esta marcação',
+                    }
+                  : undefined,
+          }
         )
       : '';
   const selectedEditService =
