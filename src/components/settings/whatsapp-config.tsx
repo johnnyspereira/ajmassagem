@@ -170,6 +170,34 @@ export function WhatsAppConfig() {
     string | null
   >(null);
   const baileysStatusInFlightRef = useRef(false);
+  const [workerLogs, setWorkerLogs] = useState<
+    Array<{ at: string; type: string; message: string }>
+  >([]);
+  const [workerLogsLoading, setWorkerLogsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!accountId) return;
+    let alive = true;
+    const load = async () => {
+      setWorkerLogsLoading(true);
+      try {
+        const response = await fetch('/api/whatsapp/baileys/logs', {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (alive && response.ok) setWorkerLogs(payload.events ?? []);
+      } finally {
+        if (alive) setWorkerLogsLoading(false);
+      }
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 15000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [accountId]);
 
   useEffect(() => {
     if (!baileysSyncing || !baileysSyncStartedAt) return;
@@ -904,6 +932,33 @@ export function WhatsAppConfig() {
             className="border-violet-500/30 bg-violet-500/10 text-violet-600"
           />
         </div>
+
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
+            <div>
+              <CardTitle className="text-base">Registos do Worker</CardTitle>
+              <CardDescription>
+                Eventos recentes do WhatsApp: ligações, envios, entradas, sincronizações e erros.
+              </CardDescription>
+            </div>
+            {workerLogsLoading && <RefreshCw className="text-muted-foreground size-4 animate-spin" />}
+          </CardHeader>
+          <CardContent>
+            {workerLogs.length ? (
+              <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border p-2 font-mono text-xs">
+                {workerLogs.map((event, index) => (
+                  <div key={`${event.at}-${index}`} className="flex gap-3 rounded px-2 py-1.5 hover:bg-muted/60">
+                    <span className="text-muted-foreground shrink-0">{new Date(event.at).toLocaleTimeString()}</span>
+                    <span className="text-primary shrink-0 uppercase">{event.type}</span>
+                    <span className="text-foreground break-words">{event.message}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">Ainda não há registos nesta execução. Os eventos surgem assim que o Worker inicia ou processa uma ação.</p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Corrupted-token reset banner */}
         {showResetBanner && (

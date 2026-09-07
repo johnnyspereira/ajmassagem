@@ -38,6 +38,7 @@ let lastRestartAt = null;
 let restartCount = 0;
 const recentOutgoing = [];
 const profilePictureCache = new Map();
+const activityLog = [];
 let context = {
   accountId: process.env.ACCOUNT_ID || null,
   userId: process.env.USER_ID || null,
@@ -52,6 +53,11 @@ function reply(res, code, value) {
 }
 function touch() {
   lastActivityAt = new Date().toISOString();
+}
+function logActivity(type, message, details = null) {
+  activityLog.unshift({ at: new Date().toISOString(), type, message, details });
+  if (activityLog.length > 200) activityLog.length = 200;
+  console.log(`[bridge:${type}] ${message}`);
 }
 function saved() {
   return existsSync(path.join(AUTH_DIR, `session-${CLIENT_ID}`));
@@ -338,7 +344,7 @@ function wire(instance) {
     lastError = null;
     touch();
     qrcode.generate(value, { small: true });
-    console.log('[bridge] Leia o QR no WhatsApp.');
+    logActivity('qr', 'Novo QR gerado. Aguardando leitura.');
   });
   instance.on('ready', () => {
     qr = null;
@@ -346,13 +352,14 @@ function wire(instance) {
     connectedAt = new Date().toISOString();
     lastError = null;
     touch();
-    console.log('[bridge] WhatsApp conectado.');
+    logActivity('connection', 'WhatsApp conectado.');
   });
   instance.on('message', (message) => {
     touch();
     if (!message.fromMe) {
       lastIncomingAt = new Date().toISOString();
       receivedCount += 1;
+      logActivity('incoming', 'Mensagem recebida e enviada para o Inbox.');
     }
     persistWithMediaRecovery(message);
   });
@@ -361,6 +368,7 @@ function wire(instance) {
     touch();
     lastOutgoingAt = new Date().toISOString();
     sentCount += 1;
+    logActivity('outgoing', 'Mensagem enviada pelo WhatsApp.');
     rememberOutgoing(message);
     // Messages sent from the CRM are already represented by an outbox row.
     // Persisting the same WhatsApp event here races with `complete_outbox`:
@@ -382,12 +390,14 @@ function wire(instance) {
     state = 'error';
     lastError = String(value);
     connectedAt = null;
+    logActivity('error', `Falha de autenticação: ${String(value)}`);
   });
   instance.on('disconnected', (value) => {
     state = 'disconnected';
     lastError = String(value);
     connectedAt = null;
     client = null;
+    logActivity('connection', `WhatsApp desligado: ${String(value)}`);
   });
 }
 async function start(input = {}, restoreOnly = false) {
@@ -492,6 +502,7 @@ async function send(input) {
   }
   if (!whatsappMessageId && lastSendError) throw lastSendError;
   if (!whatsappMessageId) throw new Error('WhatsApp did not return an id.');
+  logActivity('send', 'Mensagem aceite pelo WhatsApp.', { conversationId });
   const stored = await crm('persist_outgoing', {
     ...context,
     conversationId,
@@ -749,6 +760,7 @@ async function sync(input) {
       console.warn('[bridge] sync skipped message:', snapshot.chatId, error?.message);
     }
   }
+  logActivity('sync', `Sincronização concluída: ${messagesPersisted} mensagem(ns) importada(s).`, { chatsScanned, messagesScanned, messagesPersisted, conversationId: conversationId || null });
   return { chatsScanned, messagesScanned, messagesPersisted };
 }
 
@@ -837,6 +849,10 @@ const server = http.createServer(async (req, res) => {
       if (url.searchParams.get('autostart') !== 'false') await start(input);
       return reply(res, 200, status());
     }
+    if (req.method === 'GET' && url.pathname === '/logs') {
+      bind(Object.fromEntries(url.searchParams.entries()));
+      return reply(res, 200, { events: activityLog });
+    }
     const input = req.method === 'POST' ? await body(req) : {};
     if (req.method === 'POST' && url.pathname === '/send')
       return reply(res, 200, await send(input));
@@ -864,7 +880,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`[bridge] http://127.0.0.1:${PORT}`);
+  logActivity('startup', `Worker iniciado na porta ${PORT}.`);
   if (context.accountId && context.userId) void start(context, true);
   setInterval(() => void pollOutbox(), 2000);
 });
