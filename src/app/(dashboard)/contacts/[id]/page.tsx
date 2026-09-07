@@ -14,6 +14,7 @@ export default async function ClientPage({
     'profile',
     'appointments',
     'commercial',
+    'benefits',
     'finance',
     'referrals',
     'history',

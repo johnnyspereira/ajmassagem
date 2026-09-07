@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -29,11 +29,12 @@ import {
   WalletCards,
   ExternalLink,
   AlertTriangle,
+  Camera,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -62,7 +63,8 @@ import {
   isUniqueViolation,
   type ExistingContact,
 } from '@/lib/contacts/dedupe';
-import { createClient } from '@/lib/supabase/client';
+import { createMysqlBrowserClient } from '@/lib/mysql/browser-client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { cn } from '@/lib/utils';
 import type {
   Contact,
@@ -243,6 +245,7 @@ const CLIENT_TABS = [
   'profile',
   'appointments',
   'commercial',
+  'benefits',
   'finance',
   'referrals',
   'history',
@@ -352,7 +355,12 @@ export function Client360Page({
   const router = useRouter();
   const { accountId, account, defaultCurrency, user } = useAuth();
   const canOperate = useCan('send-messages');
-  const supabase = useMemo(() => createClient(), []);
+  // Client 360 talks directly to the CRM MySQL API; no Supabase client or
+  // storage service is involved in this dashboard.
+  const supabase = useMemo(
+    () => createMysqlBrowserClient() as unknown as SupabaseClient,
+    []
+  );
   const [contact, setContact] = useState<Contact | null>(null);
   const [tags, setTags] = useState<ContactTag[]>([]);
   const [allTags, setAllTags] = useState<ContactTag[]>([]);
@@ -390,6 +398,8 @@ export function Client360Page({
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [savingClient, setSavingClient] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [mergeCandidate, setMergeCandidate] = useState<ExistingContact | null>(
     null
   );
@@ -786,6 +796,20 @@ export function Client360Page({
       return;
     }
 
+    if (draft.birthDate) {
+      const parsedBirthDate = new Date(`${draft.birthDate}T00:00:00Z`);
+      const today = new Date();
+      if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(draft.birthDate) ||
+        Number.isNaN(parsedBirthDate.getTime()) ||
+        parsedBirthDate > today ||
+        parsedBirthDate.getUTCFullYear() < today.getUTCFullYear() - 125
+      ) {
+        toast.error('Informe uma data de nascimento valida.');
+        return;
+      }
+    }
+
     setSavingClient(true);
     const { data, error } = await supabase
       .from('contacts')
@@ -834,6 +858,47 @@ export function Client360Page({
 
     setContact(data as Contact);
     toast.success('Dados do cliente guardados.');
+  }
+
+  async function uploadAvatar(file?: File) {
+    if (!file || !contact || !canOperate) return;
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+      toast.error('Use uma imagem JPG, PNG, WebP ou GIF com ate 2 MB.');
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const extension = file.type === 'image/png' ? 'png' : file.type === 'image/gif' ? 'gif' : file.type === 'image/webp' ? 'webp' : 'jpg';
+      const path = `contacts/${contact.id}/avatar-${Date.now()}.${extension}`;
+      const payload = new FormData();
+      payload.set('file', file);
+      payload.set('path', path);
+      payload.set('upsert', 'true');
+      const uploadResponse = await fetch('/api/storage/avatars', {
+        method: 'POST',
+        body: payload,
+      });
+      const upload = await uploadResponse.json().catch(() => null) as { error?: { message?: string } | null } | null;
+      if (!uploadResponse.ok || upload?.error) {
+        throw new Error(upload?.error?.message || 'Nao foi possivel guardar a fotografia.');
+      }
+      const avatarUrl = `/uploads/avatars/${path.split('/').map(encodeURIComponent).join('/')}`;
+      const { data, error } = await supabase
+        .from('contacts')
+        .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+        .eq('id', contact.id)
+        .select('*')
+        .single();
+      if (error || !data) throw new Error(error?.message || 'Nao foi possivel associar a fotografia ao cliente.');
+      setContact(data as Contact);
+      toast.success('Fotografia do cliente atualizada.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Falha ao atualizar a fotografia.');
+    } finally {
+      setUploadingAvatar(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
   }
 
   async function mergeIntoExistingContact() {
@@ -1277,11 +1342,35 @@ export function Client360Page({
       <Card className="gap-0 py-0">
         <CardContent className="flex flex-col gap-5 p-5 md:flex-row md:items-center md:justify-between">
           <div className="flex min-w-0 items-center gap-4">
-            <Avatar className="h-14 w-14 border">
+            <div className="relative shrink-0">
+              <Avatar className="h-14 w-14 border">
+                <AvatarImage
+                  src={contact.avatar_url || undefined}
+                  alt={contact.name || contact.phone || 'Cliente'}
+                />
               <AvatarFallback className="bg-primary/10 text-primary text-base font-semibold">
                 {initials(contact.name || contact.phone)}
               </AvatarFallback>
-            </Avatar>
+              </Avatar>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={(event) => void uploadAvatar(event.target.files?.[0])}
+              />
+              <Button
+                type="button"
+                size="icon"
+                variant="secondary"
+                className="absolute -right-2 -bottom-2 size-7 rounded-full shadow-sm"
+                disabled={!canOperate || uploadingAvatar}
+                title="Alterar fotografia"
+                onClick={() => avatarInputRef.current?.click()}
+              >
+                {uploadingAvatar ? <RefreshCw className="size-3.5 animate-spin" /> : <Camera className="size-3.5" />}
+              </Button>
+            </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="truncate text-xl font-semibold">
@@ -1399,6 +1488,7 @@ export function Client360Page({
           <TabsTrigger value="profile">Ficha</TabsTrigger>
           <TabsTrigger value="appointments">Agenda</TabsTrigger>
           <TabsTrigger value="commercial">Comercial</TabsTrigger>
+          <TabsTrigger value="benefits">Packs e vouchers</TabsTrigger>
           <TabsTrigger value="finance">Financeiro</TabsTrigger>
           <TabsTrigger value="referrals">Indicações</TabsTrigger>
           <TabsTrigger value="history">Linha do tempo</TabsTrigger>
@@ -2066,6 +2156,36 @@ export function Client360Page({
                     onClick={() => router.push('/pipelines')}
                   />
                 )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="benefits">
+          <div className="grid gap-4 xl:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><PackageCheck /> Packs do cliente</CardTitle>
+                <CardDescription>Sessoes disponiveis, utilizadas e validade de cada pack.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {clientPacks.length ? clientPacks.map((clientPack) => (
+                  <div key={clientPack.id} className="border-border rounded-xl border p-4">
+                    <div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{clientPack.pack?.name ?? 'Pack de servicos'}</p><p className="text-muted-foreground mt-1 text-xs">Codigo: {clientPack.code || '—'} {clientPack.expires_at ? `· Valido ate ${safeDate(clientPack.expires_at, 'dd/MM/yyyy')}` : ''}</p></div><Badge variant="outline">{labelFor(clientPack.status)}</Badge></div>
+                    <div className="mt-3 grid gap-2">{(clientPack.balances ?? []).map((balance) => <div key={balance.id} className="bg-muted/50 flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm"><span className="truncate">{balance.service?.name ?? 'Procedimento'}</span><strong className="shrink-0">{balance.remaining_sessions}/{balance.total_sessions} sessoes</strong></div>)}</div>
+                  </div>
+                )) : <Empty icon={PackageCheck} text="Este cliente ainda nao possui packs." />}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Gift /> Vouchers do cliente</CardTitle>
+                <CardDescription>Codigos, saldo ou sessoes e respetiva validade.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {regularVouchers.length ? regularVouchers.map((voucher) => (
+                  <div key={voucher.id} className="border-border rounded-xl border p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-mono font-semibold">{voucher.code}</p><p className="text-muted-foreground mt-1 text-xs">{voucher.voucher_type === 'service' ? `${Number(voucher.remaining_uses ?? 0)} sessao disponivel` : `Saldo ${formatCurrency(Number(voucher.current_balance), voucher.currency)}`}{voucher.expires_at ? ` · Valido ate ${safeDate(voucher.expires_at, 'dd/MM/yyyy')}` : ''}</p></div><Badge variant="outline">{labelFor(voucher.status)}</Badge></div></div>
+                )) : <Empty icon={Gift} text="Este cliente ainda nao possui vouchers." />}
               </CardContent>
             </Card>
           </div>
