@@ -962,6 +962,12 @@
       "namedRegex": "^/api/quick\\-replies(?:/)?$"
     },
     {
+      "page": "/api/system/health",
+      "regex": "^/api/system/health(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/system/health(?:/)?$"
+    },
+    {
       "page": "/api/v1/broadcasts",
       "regex": "^/api/v1/broadcasts(?:/)?$",
       "routeKeys": {},
@@ -1332,6 +1338,12 @@
       "regex": "^/support(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/support(?:/)?$"
+    },
+    {
+      "page": "/system-health",
+      "regex": "^/system\\-health(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/system\\-health(?:/)?$"
     },
     {
       "page": "/tasks",

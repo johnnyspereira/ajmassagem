@@ -31,7 +31,7 @@ export async function executePortalRpc(name: string, args: Record<string, unknow
       const id = randomUUID();
       await transaction(async (connection) => {
         const [services] = await connection.execute<(RowDataPacket & { duration_minutes: number; price: number })[]>(
-          'SELECT duration_minutes,price FROM clinic_services WHERE id=? AND account_id=? AND is_active=TRUE LIMIT 1',
+          'SELECT duration_minutes,price FROM clinic_services WHERE id=? AND account_id=? AND is_active=TRUE AND online_enabled=TRUE AND internal_booking_enabled=TRUE LIMIT 1',
           [String(args.p_service_id), access.account_id]
         );
         const service = services[0]; if (!service) throw new Error('Service unavailable.');
