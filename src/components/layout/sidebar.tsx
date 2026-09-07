@@ -219,7 +219,6 @@ const navSections = [
   {
     labelKey: 'groupCommercial',
     hrefs: [
-      '/contacts',
       '/pipelines',
       '/finance',
       '/benefits',
@@ -261,7 +260,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const totalUnread = useTotalUnread();
   const unreadNotifications = useUnreadNotifications();
   const navItemByHref = new Map(navItems.map((item) => [item.href, item]));
-  const workspaceItems = ['/inbox']
+  const workspaceItems = ['/inbox', '/contacts']
     .map((href) => navItemByHref.get(href))
     .filter((item): item is NavItem => Boolean(item));
   const systemItems = [

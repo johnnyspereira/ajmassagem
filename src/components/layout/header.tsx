@@ -68,7 +68,7 @@ function getPageTitleKey(pathname: string): string {
   return match ? match[1] : 'dashboard';
 }
 
-const topbarDirectHrefs = ['/dashboard', '/inbox', '/agenda'];
+const topbarDirectHrefs = ['/dashboard', '/inbox', '/agenda', '/contacts'];
 
 const topbarGroupConfigs = [
   {
@@ -78,7 +78,6 @@ const topbarGroupConfigs = [
   {
     labelKey: 'groupCommercial',
     hrefs: [
-      '/contacts',
       '/pipelines',
       '/finance',
       '/benefits',
