@@ -155,6 +155,7 @@ export const remoteWhatsAppWorker = {
     userId: string;
     chatLimit?: number;
     messageLimit?: number;
+    conversationId?: string;
   }): Promise<{ success: true } & WorkerSyncResult> {
     return workerFetch('/sync', {
       method: 'POST',

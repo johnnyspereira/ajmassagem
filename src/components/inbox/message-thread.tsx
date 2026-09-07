@@ -30,6 +30,7 @@ import {
   Check,
   Clock,
   ArrowLeft,
+  Download,
   RefreshCw,
   PanelRightOpen,
   PanelRightClose,
@@ -259,6 +260,7 @@ export function MessageThread({
   // parent's resyncToken); the 700ms spin is just feedback so the click
   // doesn't feel like a no-op. Cleared via the timer ref on unmount.
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSyncingConversation, setIsSyncingConversation] = useState(false);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     return () => {
@@ -276,6 +278,41 @@ export function MessageThread({
       refreshTimerRef.current = null;
     }, 700);
   }, [isRefreshing, onRefresh]);
+  const handleConversationSync = useCallback(async () => {
+    if (!conversation || isSyncingConversation) return;
+    setIsSyncingConversation(true);
+    try {
+      const response = await fetch('/api/whatsapp/baileys/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: conversation.id,
+          // A focused sync only needs a useful slice of this customer's
+          // history; it never scans or changes unrelated conversations.
+          chat_limit: 250,
+          message_limit: 150,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Não foi possível sincronizar esta conversa.');
+      }
+      toast.success(
+        payload.queued
+          ? 'Sincronização deste contacto colocada em fila.'
+          : `${payload.messagesPersisted ?? 0} mensagem(ns) sincronizada(s).`
+      );
+      onRefresh?.();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível sincronizar esta conversa.'
+      );
+    } finally {
+      setIsSyncingConversation(false);
+    }
+  }, [conversation, isSyncingConversation, onRefresh]);
   const [replyTo, setReplyTo] = useState<ReplyDraft | null>(null);
 
   // Profiles are bounded by RLS to rows the current user is allowed to
@@ -1205,6 +1242,23 @@ export function MessageThread({
             >
               <RefreshCw
                 className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')}
+              />
+            </button>
+          )}
+          {conversation && (
+            <button
+              type="button"
+              onClick={() => void handleConversationSync()}
+              disabled={isSyncingConversation}
+              aria-label="Sincronizar este contacto"
+              title="Sincronizar este contacto"
+              className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:opacity-60"
+            >
+              <Download
+                className={cn(
+                  'h-3.5 w-3.5',
+                  isSyncingConversation && 'animate-bounce'
+                )}
               />
             </button>
           )}

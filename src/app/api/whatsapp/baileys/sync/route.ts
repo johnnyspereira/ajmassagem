@@ -15,11 +15,16 @@ export async function POST(request: Request) {
       typeof body.chat_limit === 'number' ? body.chat_limit : undefined;
     const messageLimit =
       typeof body.message_limit === 'number' ? body.message_limit : undefined;
+    const conversationId =
+      typeof body.conversation_id === 'string' && body.conversation_id.trim()
+        ? body.conversation_id.trim()
+        : undefined;
 
     if (isPollingWorkerMode()) {
       await enqueueWorkerCommand(ctx.accountId, 'sync', {
         chatLimit,
         messageLimit,
+        conversationId,
       });
       return NextResponse.json({ success: true, queued: true });
     }
@@ -30,6 +35,7 @@ export async function POST(request: Request) {
         userId: ctx.userId,
         chatLimit,
         messageLimit,
+        conversationId,
       });
       return NextResponse.json(result);
     }

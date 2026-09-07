@@ -73,11 +73,12 @@ const topbarDirectHrefs = ['/dashboard', '/inbox', '/agenda'];
 const topbarGroupConfigs = [
   {
     labelKey: 'groupOperation',
-    hrefs: ['/notifications', '/tasks', '/contacts'],
+    hrefs: ['/notifications', '/tasks'],
   },
   {
     labelKey: 'groupCommercial',
     hrefs: [
+      '/contacts',
       '/pipelines',
       '/finance',
       '/benefits',

@@ -642,6 +642,16 @@ async function sync(input) {
   await start(input, true);
   if (!client || !status().connected)
     throw new Error('WhatsApp QR is not connected.');
+  let requestedPhone = null;
+  const conversationId = input.conversationId || input.conversation_id;
+  if (conversationId) {
+    const resolved = await crm('resolve_conversation', {
+      ...context,
+      conversationId,
+    });
+    requestedPhone = normalize(resolved.phone);
+    if (!requestedPhone) throw new Error('Conversation has an invalid recipient phone.');
+  }
   let chatsScanned = 0,
     messagesScanned = 0,
     messagesPersisted = 0;
@@ -715,6 +725,9 @@ async function sync(input) {
     try {
       const resolution = await resolveConversationPhone(snapshot.phone);
       if (!resolution?.phone) continue;
+      if (requestedPhone && normalize(resolution.phone) !== requestedPhone) {
+        continue;
+      }
       const message = await client.getMessageById(snapshot.messageId).catch(() => null);
       const contact = message
         ? await message.getContact().catch(() => null)

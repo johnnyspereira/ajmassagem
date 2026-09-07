@@ -214,12 +214,12 @@ const navSections = [
       '/notifications',
       '/agenda',
       '/tasks',
-      '/contacts',
     ],
   },
   {
     labelKey: 'groupCommercial',
     hrefs: [
+      '/contacts',
       '/pipelines',
       '/finance',
       '/benefits',
