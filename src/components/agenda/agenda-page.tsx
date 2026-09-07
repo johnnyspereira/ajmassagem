@@ -231,6 +231,12 @@ type ScheduleChangeDraft = {
   benefitDisposition: 'keep' | 'release';
 };
 
+type PendingReschedulePreference = {
+  startsAt: string;
+  endsAt: string;
+  label: string | null;
+};
+
 type BenefitStatusAction = 'no_show' | 'cancelled';
 type BenefitDisposition = 'release' | 'consume';
 
@@ -686,6 +692,8 @@ export function AgendaPage({
   const [appointmentEvents, setAppointmentEvents] = useState<
     ClinicAgendaEvent[]
   >([]);
+  const [pendingReschedulePreferences, setPendingReschedulePreferences] =
+    useState<Record<string, PendingReschedulePreference>>({});
   const [appointmentBenefit, setAppointmentBenefit] =
     useState<FinanceAppointmentBenefit | null>(null);
   const [benefitType, setBenefitType] = useState<'direct' | 'voucher' | 'pack'>(
@@ -1127,12 +1135,23 @@ export function AgendaPage({
     const loadedAppointments = (appointmentsRes.data ?? []) as AppointmentRow[];
     if (loadedAppointments.length) {
       const appointmentIds = loadedAppointments.map((item) => item.id);
-      const { data: forms } = await supabase
-        .from('clinic_anamnesis_forms')
-        .select('id,appointment_id,public_token,status,submitted_at')
-        .eq('account_id', accountId)
-        .in('appointment_id', appointmentIds)
-        .order('created_at', { ascending: false });
+      const [formsResult, eventsResult] = await Promise.all([
+        supabase
+          .from('clinic_anamnesis_forms')
+          .select('id,appointment_id,public_token,status,submitted_at')
+          .eq('account_id', accountId)
+          .in('appointment_id', appointmentIds)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('clinic_agenda_events')
+          .select('*')
+          .eq('account_id', accountId)
+          .eq('entity_type', 'appointment')
+          .in('entity_id', appointmentIds)
+          .eq('action', 'status_changed')
+          .order('created_at', { ascending: false }),
+      ]);
+      const forms = formsResult.data;
       const formByAppointment = new Map<string, AppointmentAnamnesis>();
       for (const form of forms ?? []) {
         if (
@@ -1151,6 +1170,20 @@ export function AgendaPage({
           appointment.anamnesis ??
           null;
       }
+      const eventsByAppointment = new Map<string, ClinicAgendaEvent[]>();
+      for (const event of (eventsResult.data ?? []) as ClinicAgendaEvent[]) {
+        const group = eventsByAppointment.get(event.entity_id) ?? [];
+        group.push(event);
+        eventsByAppointment.set(event.entity_id, group);
+      }
+      const preferences: Record<string, PendingReschedulePreference> = {};
+      for (const [appointmentId, events] of eventsByAppointment) {
+        const preference = pendingWhatsAppReschedule(events);
+        if (preference) preferences[appointmentId] = preference;
+      }
+      setPendingReschedulePreferences(preferences);
+    } else {
+      setPendingReschedulePreferences({});
     }
 
     setServices((servicesRes.data ?? []) as ClinicService[]);
@@ -3605,6 +3638,7 @@ export function AgendaPage({
           appointments={filteredAppointments}
           blocks={filteredTimeBlocks}
           currency={defaultCurrency}
+          pendingReschedulePreferences={pendingReschedulePreferences}
           onSelect={openAppointmentSheet}
           onMove={canOperate ? moveAppointmentToDateTime : undefined}
           onSelectBlock={openTimeBlockSheet}
@@ -3619,6 +3653,7 @@ export function AgendaPage({
           appointments={filteredAppointments}
           blocks={filteredTimeBlocks}
           currency={defaultCurrency}
+          pendingReschedulePreferences={pendingReschedulePreferences}
           selectedDate={selectedDate}
           onSelect={openAppointmentSheet}
           onMove={canOperate ? moveAppointmentToDateTime : undefined}
@@ -3738,6 +3773,32 @@ export function AgendaPage({
 
               <div className="via-background min-h-0 flex-1 overflow-y-auto bg-gradient-to-b from-violet-50/40 to-sky-50/30 p-5 dark:from-violet-950/10 dark:to-sky-950/10">
                 <div className="grid items-start gap-5">
+                  {selectedWhatsAppReschedule ? (
+                    <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-fuchsia-300 bg-fuchsia-50 p-4 dark:border-fuchsia-900 dark:bg-fuchsia-950/30">
+                      <div>
+                        <p className="text-sm font-semibold text-fuchsia-900 dark:text-fuchsia-100">
+                          Pedido de reagendamento do cliente
+                        </p>
+                        <p className="mt-1 text-xs text-fuchsia-800 dark:text-fuchsia-200">
+                          Pretende {new Date(selectedWhatsAppReschedule.startsAt).toLocaleString('pt-PT', { dateStyle: 'full', timeStyle: 'short' })}. A marcação atual não será alterada até aprovação.
+                        </p>
+                      </div>
+                      {canOperate ? (
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            openScheduleChange(
+                              selectedAppointment,
+                              new Date(selectedWhatsAppReschedule.startsAt),
+                              'manual'
+                            )
+                          }
+                        >
+                          <CalendarClock /> Rever e aprovar
+                        </Button>
+                      ) : null}
+                    </section>
+                  ) : null}
                   <section className="dark:to-background rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 to-white p-4 shadow-sm dark:border-sky-900/60 dark:from-sky-950/30">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                       <div>
@@ -5806,6 +5867,7 @@ function DayCalendar({
   appointments,
   blocks,
   currency,
+  pendingReschedulePreferences,
   selectedDate,
   onSelect,
   onMove,
@@ -5815,6 +5877,7 @@ function DayCalendar({
   appointments: AppointmentRow[];
   blocks: TimeBlockRow[];
   currency: string;
+  pendingReschedulePreferences: Record<string, PendingReschedulePreference>;
   selectedDate: Date;
   onSelect: (appointment: AppointmentRow) => void;
   onMove?: (appointmentId: string, targetStart: Date) => void;
@@ -5827,6 +5890,7 @@ function DayCalendar({
       appointments={appointments}
       blocks={blocks}
       currency={currency}
+      pendingReschedulePreferences={pendingReschedulePreferences}
       onSelect={onSelect}
       onMove={onMove}
       onSelectBlock={onSelectBlock}
@@ -5840,6 +5904,7 @@ function WeekCalendar({
   appointments,
   blocks,
   currency,
+  pendingReschedulePreferences,
   onSelect,
   onMove,
   onSelectBlock,
@@ -5849,6 +5914,7 @@ function WeekCalendar({
   appointments: AppointmentRow[];
   blocks: TimeBlockRow[];
   currency: string;
+  pendingReschedulePreferences: Record<string, PendingReschedulePreference>;
   onSelect: (appointment: AppointmentRow) => void;
   onMove?: (appointmentId: string, targetStart: Date) => void;
   onSelectBlock: (block: TimeBlockRow) => void;
@@ -5862,6 +5928,7 @@ function WeekCalendar({
       appointments={appointments}
       blocks={blocks}
       currency={currency}
+      pendingReschedulePreferences={pendingReschedulePreferences}
       onSelect={onSelect}
       onMove={onMove}
       onSelectBlock={onSelectBlock}
@@ -5875,6 +5942,7 @@ function CalendarTimeGrid({
   appointments,
   blocks,
   currency,
+  pendingReschedulePreferences,
   onSelect,
   onMove,
   onSelectBlock,
@@ -5884,6 +5952,7 @@ function CalendarTimeGrid({
   appointments: AppointmentRow[];
   blocks: TimeBlockRow[];
   currency: string;
+  pendingReschedulePreferences: Record<string, PendingReschedulePreference>;
   onSelect: (appointment: AppointmentRow) => void;
   onMove?: (appointmentId: string, targetStart: Date) => void;
   onSelectBlock: (block: TimeBlockRow) => void;
@@ -6106,6 +6175,7 @@ function CalendarTimeGrid({
                   key={appointment.id}
                   appointment={appointment}
                   currency={currency}
+                  pendingReschedule={pendingReschedulePreferences[appointment.id]}
                   onSelect={() => onSelect(appointment)}
                   canMove={Boolean(onMove)}
                   layout={appointmentLayout.get(appointment.id)}
@@ -6122,12 +6192,14 @@ function CalendarTimeGrid({
 function AppointmentBlock({
   appointment,
   currency,
+  pendingReschedule,
   onSelect,
   canMove,
   layout,
 }: {
   appointment: AppointmentRow;
   currency: string;
+  pendingReschedule?: PendingReschedulePreference;
   onSelect: () => void;
   canMove: boolean;
   layout?: { column: number; columns: number };
@@ -6216,6 +6288,14 @@ function AppointmentBlock({
                 ? 'Anamnese OK'
                 : 'Anamnese pendente'}
             </span>
+            {pendingReschedule ? (
+              <span
+                className="inline-flex items-center gap-0.5 rounded bg-fuchsia-600 px-1.5 py-0.5 text-[9px] font-bold text-white uppercase"
+                title={`Cliente pediu ${new Date(pendingReschedule.startsAt).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' })}. Clique para rever e aprovar.`}
+              >
+                <CalendarClock className="size-2.5" /> Pedido de horário
+              </span>
+            ) : null}
             {appointment.referral_id ? (
               <span
                 className="inline-flex items-center gap-0.5 rounded bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold text-white uppercase"
