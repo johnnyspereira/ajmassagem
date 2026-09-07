@@ -6131,7 +6131,10 @@ function AppointmentBlock({
           <p className="truncate text-xs font-bold">
             {appointmentContactLabel(appointment.contact)}
           </p>
-          <span className="mt-0.5 flex max-w-full flex-wrap items-center gap-1">
+          <p className="truncate text-[11px] font-medium">
+            {appointment.service?.name ?? 'Procedimento'}
+          </p>
+          <span className="mt-0.5 flex max-w-full flex-nowrap items-center gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <span
               className={cn(
                 'inline-flex rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wide uppercase',
@@ -6171,11 +6174,8 @@ function AppointmentBlock({
                 <HeartHandshake className="size-2.5" /> Indique & Ganhe
               </span>
             ) : null}
+            <AppointmentBenefitBadge appointment={appointment} />
           </span>
-          <AppointmentBenefitBadge appointment={appointment} />
-          <p className="truncate text-[11px]">
-            {appointment.service?.name ?? 'Procedimento'}
-          </p>
           <p className="truncate text-[11px]">
             {appointmentRange(appointment)} ·{' '}
             {professionalName(appointment.professional)}
@@ -6253,7 +6253,7 @@ function AppointmentBenefitBadge({
     : null;
 
   return (
-    <span className="mt-1 flex max-w-full flex-wrap gap-1">
+    <span className="inline-flex shrink-0 items-center gap-1">
       {benefit?.benefit_type === 'pack' ? (
         <span className="inline-flex max-w-full items-center gap-1 rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
           <PackageCheck className="size-3 shrink-0" />
