@@ -363,6 +363,16 @@ export async function POST(request: Request) {
       if (mediaBytes && !mediaMimeType) {
         throw new Error('Media MIME type is required.');
       }
+      const profilePictureBytes = decodeBridgeMedia(body.profilePicBase64);
+      const profilePictureMimeType = String(
+        body.profilePicMimeType ?? ''
+      ).slice(0, 255);
+      if (
+        profilePictureBytes &&
+        !/^image\//i.test(profilePictureMimeType)
+      ) {
+        throw new Error('Profile picture must be an image.');
+      }
       const mediaUrl = mediaBytes
         ? bridgeMediaUrl(externalId)
         : body.mediaUrl
@@ -468,7 +478,25 @@ export async function POST(request: Request) {
           );
         }
         const profilePicUrl = String(body.profilePicUrl ?? '');
-        if (
+        if (profilePictureBytes) {
+          const avatarMediaId = `avatar:${contactId}`;
+          await connection.execute(
+            `INSERT INTO whatsapp_bridge_media(message_id,account_id,mime_type,filename,data)
+             VALUES(?,?,?,?,?)
+             ON DUPLICATE KEY UPDATE mime_type=VALUES(mime_type),data=VALUES(data)`,
+            [
+              avatarMediaId,
+              accountId,
+              profilePictureMimeType,
+              'whatsapp-profile-picture',
+              profilePictureBytes,
+            ]
+          );
+          await connection.execute(
+            'UPDATE contacts SET avatar_url=?,updated_at=UTC_TIMESTAMP(3) WHERE id=? AND account_id=?',
+            [bridgeMediaUrl(avatarMediaId), contactId, accountId]
+          );
+        } else if (
           /^https:\/\//i.test(profilePicUrl) &&
           profilePicUrl.length <= 4096
         ) {

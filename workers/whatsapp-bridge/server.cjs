@@ -37,6 +37,7 @@ let sentCount = 0;
 let lastRestartAt = null;
 let restartCount = 0;
 const recentOutgoing = [];
+const profilePictureCache = new Map();
 let context = {
   accountId: process.env.ACCOUNT_ID || null,
   userId: process.env.USER_ID || null,
@@ -151,6 +152,44 @@ async function inboundMediaPayload(message) {
   }
   return {};
 }
+async function profilePicturePayload(contact) {
+  const key = String(contact?.id?._serialized || contact?.id?.user || '');
+  const cached = key ? profilePictureCache.get(key) : null;
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const url = await contact?.getProfilePicUrl?.().catch(() => null);
+  let value = { profilePicUrl: url || null };
+  if (url) {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
+      const contentType = response.headers.get('content-type') || '';
+      const bytes = Buffer.from(await response.arrayBuffer());
+      if (response.ok && /^image\//i.test(contentType) && bytes.length && bytes.length <= 2 * 1024 * 1024) {
+        value = {
+          profilePicUrl: url,
+          profilePicBase64: bytes.toString('base64'),
+          profilePicMimeType: contentType.split(';')[0],
+        };
+      }
+    } catch {
+      // The URL remains a best-effort fallback; a profile image failure must
+      // never prevent a WhatsApp message from reaching the Inbox.
+    }
+  }
+  if (key) profilePictureCache.set(key, { value, expiresAt: Date.now() + 15 * 60 * 1000 });
+  return value;
+}
+function persistWithMediaRecovery(message) {
+  persist(message).catch((e) => console.error('[bridge] entrada:', e.message));
+  if (!message?.hasMedia || message?.fromMe) return;
+  // WhatsApp Web often announces encrypted media before the download key is
+  // ready. Re-persisting the same external id safely fills media_url later.
+  for (const delay of [5000, 15000, 45000]) {
+    setTimeout(() => {
+      persist(message).catch((e) => console.error('[bridge] media retry:', e.message));
+    }, delay);
+  }
+}
 function rememberOutgoing(message) {
   if (!message?.fromMe || !externalId(message)) return;
   recentOutgoing.push({
@@ -254,7 +293,7 @@ async function persist(message) {
   const contact = await message.getContact().catch(() => null);
   const resolution = await resolveConversationPhone(jid);
   if (!resolution?.phone) return null;
-  const profilePicUrl = await contact?.getProfilePicUrl?.().catch(() => null);
+  const profilePicture = await profilePicturePayload(contact);
   const timestamp = new Date(
     Number(message.timestamp || Date.now() / 1000) * 1000
   ).toISOString();
@@ -266,7 +305,7 @@ async function persist(message) {
     phoneAliases: resolution.aliases,
     name:
       contact?.pushname || contact?.name || contact?.shortName || resolution.phone,
-    profilePicUrl: profilePicUrl || null,
+    ...profilePicture,
     contentType: normalizedContentType(message),
     text: message.body || message.caption || '',
     timestamp,
@@ -315,9 +354,7 @@ function wire(instance) {
       lastIncomingAt = new Date().toISOString();
       receivedCount += 1;
     }
-    persist(message).catch((e) =>
-      console.error('[bridge] entrada:', e.message)
-    );
+    persistWithMediaRecovery(message);
   });
   instance.on('message_create', (message) => {
     if (!message.fromMe) return;
@@ -682,14 +719,14 @@ async function sync(input) {
       const contact = message
         ? await message.getContact().catch(() => null)
         : await client.getContactById(snapshot.chatId).catch(() => null);
-      const profilePicUrl = await contact?.getProfilePicUrl?.().catch(() => null);
+      const profilePicture = await profilePicturePayload(contact);
       if (
         await persistSyncSnapshot(
           {
             ...snapshot,
             phone: resolution.phone,
             phoneAliases: resolution.aliases,
-            profilePicUrl: profilePicUrl || null,
+            ...profilePicture,
           },
           await inboundMediaPayload(message)
         )
