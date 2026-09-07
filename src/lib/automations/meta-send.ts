@@ -67,22 +67,14 @@ async function sendViaQr(
 ): Promise<{ whatsapp_message_id: string }> {
   await waitForQrConnection(input.accountId, input.userId);
 
-  const result = remoteWhatsAppWorker.enabled()
-    ? await remoteWhatsAppWorker.send({
-        accountId: input.accountId,
-        conversationId: input.conversationId,
-        message: {
-          text: input.text,
-          contentType: 'text',
-          senderType: 'bot',
-        },
-      })
-    : await sendTextViaLocalQr(
-        input.accountId,
-        input.conversationId,
-        input.text,
-        { senderType: 'bot' }
-      );
+  if (!remoteWhatsAppWorker.enabled()) {
+    throw new Error('WHATSAPP_MODE deve ser remote_worker para enviar mensagens.');
+  }
+  const result = await remoteWhatsAppWorker.send({
+    accountId: input.accountId,
+    conversationId: input.conversationId,
+    message: { text: input.text, contentType: 'text', senderType: 'bot' },
+  });
 
   return { whatsapp_message_id: result.whatsappMessageId };
 }
@@ -103,37 +95,7 @@ async function waitForQrConnection(accountId: string, userId: string) {
     return;
   }
 
-  const { getBaileysSessionStatus, startBaileysSession } = await import(
-    '@/lib/whatsapp/baileys'
-  );
-  let status = await startBaileysSession({
-    accountId,
-    userId,
-    autoStart: true,
-  });
-  const deadline = Date.now() + 25000;
-
-  while (!status.connected && status.state !== 'qr' && Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    status = await getBaileysSessionStatus();
-  }
-
-  if (!status.connected) {
-    throw new Error(
-      status.lastError ||
-        `WhatsApp QR session is not connected (state: ${status.state}).`
-    );
-  }
-}
-
-async function sendTextViaLocalQr(
-  accountId: string,
-  conversationId: string,
-  text: string,
-  options: { senderType?: 'agent' | 'bot'; replyToMessageId?: string | null }
-) {
-  const { sendTextViaBaileys } = await import('@/lib/whatsapp/baileys');
-  return sendTextViaBaileys(accountId, conversationId, text, options);
+  throw new Error('WHATSAPP_MODE deve ser remote_worker para enviar mensagens.');
 }
 
 function renderTemplateValue(

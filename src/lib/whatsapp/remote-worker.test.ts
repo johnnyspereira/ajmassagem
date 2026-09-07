@@ -19,14 +19,16 @@ afterEach(() => {
 describe('remoteWhatsAppWorker.enabled', () => {
   it('uses runtime remote_worker mode', () => {
     process.env.WHATSAPP_MODE = 'remote_worker';
-    expect(remoteWhatsAppWorker.enabled()).toBe(true);
-  });
-
-  it('recognizes a complete worker configuration when mode was lost', () => {
-    delete process.env.WHATSAPP_MODE;
     process.env.WHATSAPP_WORKER_URL = 'https://worker.example.test';
     process.env.WHATSAPP_WORKER_SECRET = 'secret';
     expect(remoteWhatsAppWorker.enabled()).toBe(true);
+  });
+
+  it('requires the explicit remote_worker mode', () => {
+    delete process.env.WHATSAPP_MODE;
+    process.env.WHATSAPP_WORKER_URL = 'https://worker.example.test';
+    process.env.WHATSAPP_WORKER_SECRET = 'secret';
+    expect(remoteWhatsAppWorker.enabled()).toBe(false);
   });
 
   it('does not override an explicit local mode', () => {
@@ -36,19 +38,19 @@ describe('remoteWhatsAppWorker.enabled', () => {
     expect(remoteWhatsAppWorker.enabled()).toBe(false);
   });
 
-  it('uses a configured endpoint with the legacy polling mode', () => {
+  it('rejects the legacy polling mode even when configured', () => {
     process.env.WHATSAPP_MODE = 'polling_worker';
     process.env.WHATSAPP_WORKER_URL = 'https://worker.example.test';
     process.env.WHATSAPP_WORKER_SECRET = 'secret';
-    expect(remoteWhatsAppWorker.enabled()).toBe(true);
+    expect(remoteWhatsAppWorker.enabled()).toBe(false);
   });
 
-  it('never falls back to the excluded local package in production', () => {
+  it('does not infer a transport in production', () => {
     delete process.env.WHATSAPP_MODE;
     delete process.env.WHATSAPP_WORKER_URL;
     delete process.env.WHATSAPP_WORKER_SECRET;
     Reflect.set(process.env, 'NODE_ENV', 'production');
-    expect(remoteWhatsAppWorker.enabled()).toBe(true);
+    expect(remoteWhatsAppWorker.enabled()).toBe(false);
   });
 });
 

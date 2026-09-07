@@ -40,6 +40,11 @@ export async function GET(request: Request) {
       return NextResponse.json(status);
     }
 
+    return NextResponse.json(
+      { error: 'WhatsApp remoto não configurado. Defina WHATSAPP_MODE=remote_worker.' },
+      { status: 503 }
+    );
+
     const {
       bindBaileysSessionContext,
       getBaileysSessionStatus,

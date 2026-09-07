@@ -136,6 +136,12 @@ export async function POST(
   }
   const contact = contacts[0];
   if (delivery === 'whatsapp' && !contact.phone) return generic;
+  if (delivery === 'whatsapp' && !remoteWhatsAppWorker.enabled()) {
+    return Response.json(
+      { error: 'O WhatsApp remoto não está configurado. Use remote_worker para enviar o acesso.' },
+      { status: 503 }
+    );
+  }
 
   const { data: qrConfig } = await admin
     .from('whatsapp_config')

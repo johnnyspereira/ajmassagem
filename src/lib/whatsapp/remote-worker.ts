@@ -43,34 +43,14 @@ function runtimeEnv(name: string) {
 
 function isRemoteWorkerMode() {
   const mode = runtimeEnv('WHATSAPP_MODE');
-  if (mode === 'remote_worker') return true;
-  if (mode === 'local_qr') return false;
-
-  // Older cPanel installations used `polling_worker` while already exposing
-  // a secured Worker URL. Prefer that live endpoint when both credentials
-  // are present: it returns the QR immediately instead of waiting for the
-  // optional database heartbeat transport.
-  if (mode === 'polling_worker') {
-    return Boolean(
-      runtimeEnv('WHATSAPP_WORKER_URL') &&
-        runtimeEnv('WHATSAPP_WORKER_SECRET')
-    );
-  }
-
-  // A fully configured remote worker is safer than silently falling back to
-  // whatsapp-web.js on shared hosting. This also keeps older cPanel installs
-  // working when WHATSAPP_MODE was not persisted after an application move.
-  if (
-    runtimeEnv('WHATSAPP_WORKER_URL') &&
-    runtimeEnv('WHATSAPP_WORKER_SECRET')
-  ) {
-    return true;
-  }
-
-  // Shared-hosting production deliberately excludes whatsapp-web.js and
-  // Chromium. Passenger does not always preserve the build-time mode, so a
-  // missing variable must never select the unavailable local transport.
-  return runtimeEnv('NODE_ENV') === 'production';
+  // One explicit transport is intentionally supported in production. This
+  // prevents an old `polling_worker` setting, an absent variable, or local
+  // Baileys from silently taking ownership of customer messages.
+  return (
+    mode === 'remote_worker' &&
+    Boolean(runtimeEnv('WHATSAPP_WORKER_URL')) &&
+    Boolean(runtimeEnv('WHATSAPP_WORKER_SECRET'))
+  );
 }
 
 function workerConfig() {

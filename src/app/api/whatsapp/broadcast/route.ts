@@ -429,19 +429,14 @@ async function sendQrInternalBroadcast({
     }
 
     try {
-      const result = remoteWhatsAppWorker.enabled()
-        ? await remoteWhatsAppWorker.send({
-            accountId,
-            conversationId,
-            message: {
-              text,
-              contentType: 'text',
-              senderType: 'bot',
-            },
-          })
-        : await sendTextViaLocalQr(accountId, conversationId, text, {
-            senderType: 'bot',
-          });
+      if (!remoteWhatsAppWorker.enabled()) {
+        throw new Error('WHATSAPP_MODE deve ser remote_worker para enviar transmissões.');
+      }
+      const result = await remoteWhatsAppWorker.send({
+        accountId,
+        conversationId,
+        message: { text, contentType: 'text', senderType: 'bot' },
+      });
 
       results.push({
         phone,
@@ -530,16 +525,6 @@ async function waitForQrConnection(accountId: string, userId: string) {
   }
 
   return status;
-}
-
-async function sendTextViaLocalQr(
-  accountId: string,
-  conversationId: string,
-  text: string,
-  options: { senderType?: 'agent' | 'bot'; replyToMessageId?: string | null }
-) {
-  const { sendTextViaBaileys } = await import('@/lib/whatsapp/baileys');
-  return sendTextViaBaileys(accountId, conversationId, text, options);
 }
 
 async function findOrCreateConversation(

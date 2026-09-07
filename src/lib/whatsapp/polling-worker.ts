@@ -6,15 +6,9 @@ import type { RowDataPacket } from 'mysql2';
 import { mutate, selectRows } from '@/lib/mysql/db';
 
 export function isPollingWorkerMode() {
-  // Read at request time: cPanel/Passenger owns this setting, not CI.
-  if (process.env['WHATSAPP_MODE']?.trim() !== 'polling_worker') return false;
-  // A configured endpoint can return the QR and connection state directly.
-  // Keep database polling only for a worker that deliberately has no public
-  // endpoint configured.
-  return !(
-    process.env['WHATSAPP_WORKER_URL']?.trim() &&
-    process.env['WHATSAPP_WORKER_SECRET']?.trim()
-  );
+  // Retained only for read compatibility with old records. New runtime code
+  // must use the secured remote_worker endpoint exclusively.
+  return false;
 }
 
 export async function getPollingWorkerStatus(accountId: string) {

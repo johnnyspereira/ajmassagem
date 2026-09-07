@@ -200,11 +200,5 @@ async function sendScheduledText(input: {
     });
   }
 
-  const { sendTextViaBaileys } = await import('@/lib/whatsapp/baileys');
-  return sendTextViaBaileys(
-    input.accountId,
-    input.conversationId,
-    input.contentText,
-    { senderType: 'agent' }
-  );
+  throw new Error('WHATSAPP_MODE deve ser remote_worker para processar mensagens agendadas.');
 }

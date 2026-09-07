@@ -5,7 +5,6 @@ import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 
 import { mutate, selectRows, transaction } from '@/lib/mysql/db';
 import { sendPush, type StoredPushSubscription } from '@/lib/push/server';
-import { enqueueWhatsAppMessage } from '@/lib/whatsapp/outbox';
 import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 
 type Recipient = RowDataPacket & {
@@ -181,35 +180,18 @@ export async function notifyAccountEvent(input: {
     // notifications appear in the CRM while waiting for a legacy worker.
     // Send them directly, exactly like Inbox messages; retain the outbox for
     // installations that intentionally operate without a public Worker.
-    if (remoteWhatsAppWorker.enabled()) {
-      await remoteWhatsAppWorker.send({
-        accountId: input.accountId,
-        conversationId,
-        message: {
-          text: input.whatsappText,
-          contentType: 'text',
-          senderType: 'bot',
-        },
-      });
-    } else {
-      await enqueueWhatsAppMessage({
-        accountId: input.accountId,
-        userId: owner.user_id,
-        conversationId,
-        requestKey: `account-event:${input.dedupeKey}`,
-        payload: {
-          contentType: 'text',
-          text: input.whatsappText,
-          senderType: 'bot',
-        },
-      });
+    if (!remoteWhatsAppWorker.enabled()) {
+      throw new Error('WHATSAPP_MODE deve ser remote_worker para enviar alertas.');
     }
+    await remoteWhatsAppWorker.send({
+      accountId: input.accountId,
+      conversationId,
+      message: { text: input.whatsappText, contentType: 'text', senderType: 'bot' },
+    });
     return {
       internal: insertedUsers.length,
       push: pushCount,
-      whatsapp: remoteWhatsAppWorker.enabled()
-        ? ('sent' as const)
-        : ('queued' as const),
+      whatsapp: 'sent' as const,
     };
   } catch (error) {
     console.error('[account-event] WhatsApp alert failed:', error);

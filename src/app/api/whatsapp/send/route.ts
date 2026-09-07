@@ -207,7 +207,10 @@ export async function POST(request: Request) {
     // fallback for installations that have no reachable remote Worker.
     if (
       process.env.WHATSAPP_MODE === 'polling_worker' &&
-      !remoteWhatsAppWorker.enabled()
+      !remoteWhatsAppWorker.enabled() &&
+      // Keep this branch type-compatible with historical queued records, but
+      // never allow it to execute again.
+      Boolean(false)
     ) {
       const requestKey =
         typeof client_request_id === 'string' && client_request_id.trim()
@@ -266,6 +269,13 @@ export async function POST(request: Request) {
       message_type === 'text' ||
       message_type === 'interactive' ||
       !hasMetaConfig;
+
+    if (!remoteWhatsAppWorker.enabled()) {
+      return NextResponse.json(
+        { error: 'WhatsApp remoto não configurado. Defina WHATSAPP_MODE=remote_worker.' },
+        { status: 503 }
+      );
+    }
 
     if (qrCapableTypes.includes(message_type)) {
       const useRemoteQr = remoteWhatsAppWorker.enabled();

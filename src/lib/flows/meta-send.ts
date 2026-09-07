@@ -493,7 +493,12 @@ async function sendInteractiveViaMeta(
 async function sendTextViaQrIfConnected(
   args: SendTextEngineArgs
 ): Promise<{ whatsapp_message_id: string } | null> {
-  if (!(await isQrConnectedFor(args.accountId, args.userId))) return null;
+  if (!remoteWhatsAppWorker.enabled()) {
+    throw new Error('WHATSAPP_MODE deve ser remote_worker para executar fluxos.');
+  }
+  if (!(await isQrConnectedFor(args.accountId, args.userId))) {
+    throw new Error('O remote_worker não está ligado ao WhatsApp.');
+  }
   const result = remoteWhatsAppWorker.enabled()
     ? await remoteWhatsAppWorker.send({
         accountId: args.accountId,
@@ -513,7 +518,12 @@ async function sendTextViaQrIfConnected(
 async function sendMediaViaQrIfConnected(
   args: SendMediaEngineArgs
 ): Promise<{ whatsapp_message_id: string } | null> {
-  if (!(await isQrConnectedFor(args.accountId, args.userId))) return null;
+  if (!remoteWhatsAppWorker.enabled()) {
+    throw new Error('WHATSAPP_MODE deve ser remote_worker para executar fluxos.');
+  }
+  if (!(await isQrConnectedFor(args.accountId, args.userId))) {
+    throw new Error('O remote_worker não está ligado ao WhatsApp.');
+  }
   const result = remoteWhatsAppWorker.enabled()
     ? await remoteWhatsAppWorker.send({
         accountId: args.accountId,
@@ -539,7 +549,12 @@ async function sendMediaViaQrIfConnected(
 async function sendInteractiveViaQrIfConnected(
   input: SendInput
 ): Promise<{ whatsapp_message_id: string } | null> {
-  if (!(await isQrConnectedFor(input.accountId, input.userId))) return null;
+  if (!remoteWhatsAppWorker.enabled()) {
+    throw new Error('WHATSAPP_MODE deve ser remote_worker para executar fluxos.');
+  }
+  if (!(await isQrConnectedFor(input.accountId, input.userId))) {
+    throw new Error('O remote_worker não está ligado ao WhatsApp.');
+  }
 
   const interactivePayload: InteractiveMessagePayload =
     input.kind === 'buttons'
