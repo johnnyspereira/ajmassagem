@@ -1,13 +1,6 @@
 import { NextResponse } from 'next/server';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
-import {
-  buildAppointmentMessage,
-  canMessageAppointment,
-  type AppointmentMessageRow,
-} from '@/lib/clinic/appointment-messages';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
-import { engineSendText } from '@/lib/automations/meta-send';
 import { sendAppointmentCommunication } from '@/lib/clinic/appointment-communication';
 import { sendBenefitExpiryReminders } from '@/lib/finance/expiry-reminders';
 
@@ -15,16 +8,6 @@ const DEFAULT_WINDOW_MINUTES = 120;
 const MAX_WINDOW_MINUTES = 24 * 60;
 const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 100;
-
-type AppointmentReminderRow = AppointmentMessageRow & {
-  account_id: string;
-  user_id?: string | null;
-  contact_id?: string | null;
-  account?: {
-    name?: string | null;
-    owner_user_id?: string | null;
-  } | null;
-};
 
 export async function GET(request: Request) {
   const expected = process.env.AUTOMATION_CRON_SECRET;
@@ -152,20 +135,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const due = (data ?? []) as unknown as AppointmentReminderRow[];
+  const due = (data ?? []) as unknown as Array<{ id: string }>;
   let sent = 0;
   let skipped = 0;
   const failed: Array<{ appointment_id: string; error: string }> = [];
 
   for (const appointment of due) {
-    const contactId = appointment.contact?.id ?? appointment.contact_id ?? null;
-    const userId = appointment.user_id ?? appointment.account?.owner_user_id;
-
-    if (!contactId || !userId || !canMessageAppointment(appointment)) {
-      skipped++;
-      continue;
-    }
-
     const claimedAt = new Date().toISOString();
     const { data: claim, error: claimError } = await db
       .from('clinic_appointments')
@@ -181,24 +156,11 @@ export async function GET(request: Request) {
     }
 
     try {
-      const conversationId = await findOrCreateConversation(
+      await sendAppointmentCommunication({
         db,
-        appointment.account_id,
-        contactId,
-        userId
-      );
-      const text = buildAppointmentMessage(
-        appointment,
-        'reminder',
-        appointment.account?.name ?? ''
-      );
-
-      await engineSendText({
-        accountId: appointment.account_id,
-        userId,
-        conversationId,
-        contactId,
-        text,
+        appointmentId: appointment.id,
+        origin: new URL(request.url).origin,
+        action: 'reminder',
       });
       sent++;
     } catch (err) {
@@ -251,51 +213,4 @@ function clampNumber(
 ) {
   if (!Number.isFinite(value)) return fallback;
   return Math.min(maximum, Math.max(minimum, Math.round(value)));
-}
-
-async function findOrCreateConversation(
-  db: SupabaseClient,
-  accountId: string,
-  contactId: string,
-  userId: string
-) {
-  const { data: existing, error: findError } = await db
-    .from('conversations')
-    .select('id')
-    .eq('account_id', accountId)
-    .eq('contact_id', contactId)
-    .order('created_at', { ascending: true })
-    .limit(1);
-
-  if (findError) {
-    throw new Error(`conversation lookup failed: ${findError.message}`);
-  }
-
-  if (existing?.[0]?.id) return existing[0].id as string;
-
-  const { data: created, error: createError } = await db
-    .from('conversations')
-    .insert({
-      account_id: accountId,
-      user_id: userId,
-      contact_id: contactId,
-    })
-    .select('id')
-    .single();
-
-  if (!createError && created?.id) return created.id as string;
-
-  const { data: raced } = await db
-    .from('conversations')
-    .select('id')
-    .eq('account_id', accountId)
-    .eq('contact_id', contactId)
-    .order('created_at', { ascending: true })
-    .limit(1);
-
-  if (raced?.[0]?.id) return raced[0].id as string;
-
-  throw new Error(
-    `conversation create failed: ${createError?.message ?? 'unknown error'}`
-  );
 }

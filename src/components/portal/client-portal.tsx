@@ -4056,7 +4056,9 @@ function BookingDialog({
   );
   const compatibleVouchers = data.benefits.vouchers.filter((item) =>
     item.status === 'active' &&
-    (item.voucher_type !== 'service' || one(item.service)?.id === serviceId)
+    (item.voucher_type === 'service'
+      ? one(item.service)?.id === serviceId && Number(item.remaining_uses) > 0
+      : Number(item.current_balance) > 0)
   );
   const compatiblePacks = data.benefits.packs.filter((pack) =>
     packIsAvailable(pack) && (pack.balances ?? []).some(

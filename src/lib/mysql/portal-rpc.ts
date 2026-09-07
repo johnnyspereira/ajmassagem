@@ -48,6 +48,124 @@ export async function executePortalRpc(name: string, args: Record<string, unknow
            VALUES(?,?,?,?,?,?,?,'scheduled',?,?,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))`,
           [id, access.account_id, access.contact_id, String(args.p_service_id), String(args.p_professional_profile_id), start, end, service.price, args.p_notes == null ? null : String(args.p_notes)]
         );
+        const benefitCode = String(args.p_benefit_code ?? '').trim();
+        const benefitPin = String(args.p_benefit_pin ?? '').trim();
+        if (!benefitCode) return;
+        if (!/^\d{4,8}$/.test(benefitPin)) {
+          throw new Error('A valid benefit PIN is required.');
+        }
+
+        const [vouchers] = await connection.execute<
+          (RowDataPacket & {
+            id: string;
+            voucher_type: string;
+            service_id: string | null;
+            remaining_uses: number | null;
+            current_balance: number;
+          })[]
+        >(
+          `SELECT id,voucher_type,service_id,remaining_uses,current_balance
+           FROM finance_vouchers
+           WHERE account_id=? AND owner_contact_id=? AND UPPER(code)=UPPER(?)
+             AND pin_code=? AND status='active'
+             AND (expires_at IS NULL OR expires_at>UTC_TIMESTAMP())
+           LIMIT 1 FOR UPDATE`,
+          [access.account_id, access.contact_id, benefitCode, benefitPin]
+        );
+        const voucher = vouchers[0];
+        if (voucher) {
+          if (
+            voucher.voucher_type === 'service' &&
+            (voucher.service_id !== String(args.p_service_id) ||
+              Number(voucher.remaining_uses) < 1)
+          ) {
+            throw new Error('This voucher is not valid for the selected service.');
+          }
+          const [reserved] = await connection.execute<
+            (RowDataPacket & { amount: number })[]
+          >(
+            "SELECT COALESCE(SUM(reserved_amount),0) amount FROM finance_appointment_benefits WHERE voucher_id=? AND status='reserved'",
+            [voucher.id]
+          );
+          const reservedAmount =
+            voucher.voucher_type === 'service'
+              ? Number(service.price)
+              : Math.min(
+                  Number(service.price),
+                  Number(voucher.current_balance) - Number(reserved[0].amount)
+                );
+          if (reservedAmount <= 0) {
+            throw new Error('This voucher has no available balance.');
+          }
+          await connection.execute(
+            `INSERT INTO finance_appointment_benefits(
+              id,account_id,appointment_id,contact_id,benefit_type,voucher_id,
+              service_id,reserved_amount
+            ) VALUES(?,?,?,?, 'voucher',?,?,?)`,
+            [
+              randomUUID(),
+              access.account_id,
+              id,
+              access.contact_id,
+              voucher.id,
+              String(args.p_service_id),
+              reservedAmount,
+            ]
+          );
+          return;
+        }
+
+        const [balances] = await connection.execute<
+          (RowDataPacket & { pack_id: string; balance_id: string; remaining_sessions: number })[]
+        >(
+          `SELECT p.id pack_id,b.id balance_id,b.remaining_sessions
+           FROM finance_client_packs p
+           JOIN finance_client_pack_balances b ON b.client_pack_id=p.id
+           WHERE p.account_id=? AND p.contact_id=? AND UPPER(p.code)=UPPER(?)
+             AND p.pin_code=? AND p.status='active'
+             AND (p.expires_at IS NULL OR p.expires_at>UTC_TIMESTAMP())
+             AND b.service_id=?
+           LIMIT 1 FOR UPDATE`,
+          [
+            access.account_id,
+            access.contact_id,
+            benefitCode,
+            benefitPin,
+            String(args.p_service_id),
+          ]
+        );
+        const balance = balances[0];
+        if (!balance) {
+          throw new Error('The voucher or pack is not available for this booking.');
+        }
+        const [reservedSessions] = await connection.execute<
+          (RowDataPacket & { sessions: number })[]
+        >(
+          "SELECT COALESCE(SUM(reserved_sessions),0) sessions FROM finance_appointment_benefits WHERE client_pack_balance_id=? AND status='reserved'",
+          [balance.balance_id]
+        );
+        if (
+          Number(balance.remaining_sessions) -
+            Number(reservedSessions[0].sessions) <
+          1
+        ) {
+          throw new Error('This pack has no available sessions.');
+        }
+        await connection.execute(
+          `INSERT INTO finance_appointment_benefits(
+            id,account_id,appointment_id,contact_id,benefit_type,client_pack_id,
+            client_pack_balance_id,service_id,reserved_sessions
+          ) VALUES(?,?,?,?, 'pack',?,?,?,1)`,
+          [
+            randomUUID(),
+            access.account_id,
+            id,
+            access.contact_id,
+            balance.pack_id,
+            balance.balance_id,
+            String(args.p_service_id),
+          ]
+        );
       });
       return { data: id, error: null };
     }
