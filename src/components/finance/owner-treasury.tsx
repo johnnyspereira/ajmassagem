@@ -185,6 +185,14 @@ function dateLabel(value: unknown) {
   return new Intl.DateTimeFormat('pt-PT', { timeZone: 'UTC' }).format(date);
 }
 
+function dateKey(value: unknown) {
+  if (typeof value !== 'string') return '';
+  const match = value.match(/^\d{4}-\d{2}-\d{2}/);
+  if (match) return match[0];
+  const date = toSafeDate(value);
+  return date ? date.toISOString().slice(0, 10) : '';
+}
+
 function csvCell(value: unknown) {
   return `"${String(value ?? '').replaceAll('"', '""')}"`;
 }
@@ -1742,8 +1750,21 @@ function TreasuryCalendar({
     ...payables.map((item) => ({ ...item, kind: 'payable' as const })),
     ...receivables.map((item) => ({ ...item, kind: 'receivable' as const })),
   ];
+  const pendingEvents = events.filter((event) => event.status === 'pending');
+  const monthPrefix = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+  const monthEvents = pendingEvents.filter((event) =>
+    dateKey(event.due_date).startsWith(monthPrefix)
+  );
+  const monthPayables = monthEvents
+    .filter((event) => event.kind === 'payable')
+    .reduce((sum, event) => sum + Number(event.amount), 0);
+  const monthReceivables = monthEvents
+    .filter((event) => event.kind === 'receivable')
+    .reduce((sum, event) => sum + Number(event.amount), 0);
   return (
-    <Card>
+    <Card
+      aria-label={`No mês: ${formatCurrency(monthPayables, currency)} a pagar e ${formatCurrency(monthReceivables, currency)} a receber.`}
+    >
       <CardHeader>
         <div className="flex items-center justify-between">
           <Button
@@ -1767,6 +1788,19 @@ function TreasuryCalendar({
             <ChevronRight />
           </Button>
         </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="text-muted-foreground">
+            Clique num dia para adicionar uma conta a pagar.
+          </span>
+          <span className="flex gap-3 font-medium">
+            <span className="text-red-700">
+              A pagar: {formatCurrency(monthPayables, currency)}
+            </span>
+            <span className="text-emerald-700">
+              A receber: {formatCurrency(monthReceivables, currency)}
+            </span>
+          </span>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-7 text-center text-xs font-medium">
@@ -1784,38 +1818,40 @@ function TreasuryCalendar({
               day > 0 && day <= days
                 ? `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
                 : '';
-            const dayEvents = events.filter(
-              (event) => event.due_date === key && event.status === 'pending'
+            const dayEvents = pendingEvents.filter(
+              (event) => dateKey(event.due_date) === key
             );
             return (
               <div
                 key={index}
-                onDoubleClick={() => key && onCreate(key)}
+                onClick={() => key && onCreate(key)}
                 className={cn(
-                  'border-border min-h-24 border p-1 transition-colors',
+                  'border-border min-h-28 border p-2 transition-colors',
                   key && 'hover:bg-primary/5 cursor-pointer',
                   !key && 'bg-muted/30'
                 )}
               >
                 <span className="text-xs">{key ? day : ''}</span>
-                {dayEvents.map((event) => (
+                {dayEvents.slice(0, 3).map((event) => (
                   <div
                     key={`${event.kind}-${event.id}`}
-                    title={event.description}
+                    title={`${event.description} · ${formatCurrency(Number(event.amount), event.currency || currency)}`}
                     className={cn(
-                      'mt-1 truncate rounded px-1 py-0.5 text-[10px]',
+                      'mt-1 truncate rounded px-1.5 py-1 text-[10px] font-medium',
                       event.kind === 'payable'
                         ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'
                         : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
                     )}
                   >
                     {event.kind === 'payable' ? '−' : '+'}{' '}
-                    {formatCurrency(
-                      Number(event.amount),
-                      event.currency || currency
-                    )}
+                    {event.description}
                   </div>
                 ))}
+                {dayEvents.length > 3 ? (
+                  <p className="text-muted-foreground mt-1 text-[10px]">
+                    +{dayEvents.length - 3} lançamento(s)
+                  </p>
+                ) : null}
               </div>
             );
           })}
