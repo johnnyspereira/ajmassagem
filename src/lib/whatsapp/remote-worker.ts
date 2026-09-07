@@ -167,7 +167,7 @@ export const remoteWhatsAppWorker = {
     });
   },
 
-  logs(input: { accountId: string }): Promise<{ events: Array<{ at: string; type: string; message: string; details?: unknown }> }> {
+  logs(input: { accountId: string }): Promise<{ events: Array<{ at: string; type: string; message: string; details?: Record<string, unknown> }> }> {
     return workerFetch('/logs', { query: { account_id: input.accountId } });
   },
 };

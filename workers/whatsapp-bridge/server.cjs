@@ -382,7 +382,13 @@ function wire(instance) {
     if (!message.fromMe) {
       lastIncomingAt = new Date().toISOString();
       receivedCount += 1;
-      logActivity('incoming', 'Mensagem recebida e enviada para o Inbox.');
+      logActivity('incoming', 'Mensagem recebida e enviada para o Inbox.', {
+        sender: String(message.from || '').endsWith('@c.us')
+          ? jidPhone(message.from)
+          : null,
+        contentType: normalizedContentType(message),
+        whatsappMessageId: externalId(message),
+      });
     }
     persistWithMediaRecovery(message);
   });
@@ -391,7 +397,13 @@ function wire(instance) {
     touch();
     lastOutgoingAt = new Date().toISOString();
     sentCount += 1;
-    logActivity('outgoing', 'Mensagem enviada pelo WhatsApp.');
+    logActivity('outgoing', 'Mensagem enviada pelo WhatsApp.', {
+      recipient: String(message.to || '').endsWith('@c.us')
+        ? jidPhone(message.to)
+        : null,
+      contentType: normalizedContentType(message),
+      whatsappMessageId: externalId(message),
+    });
     rememberOutgoing(message);
     // Messages sent from the CRM are already represented by an outbox row.
     // Persisting the same WhatsApp event here races with `complete_outbox`:
@@ -402,6 +414,15 @@ function wire(instance) {
   });
   instance.on('message_ack', (message, ack) => {
     const next = ackStatus(Number(ack));
+    if (next) {
+      logActivity('ack', `Estado da mensagem: ${next}.`, {
+        recipient: String(message.to || '').endsWith('@c.us')
+          ? jidPhone(message.to)
+          : null,
+        whatsappMessageId: externalId(message),
+        status: next,
+      });
+    }
     if (next && externalId(message))
       crm('ack', {
         ...bind(),
@@ -527,7 +548,12 @@ async function send(input) {
   }
   if (!whatsappMessageId && lastSendError) throw lastSendError;
   if (!whatsappMessageId) throw new Error('WhatsApp did not return an id.');
-  logActivity('send', 'Mensagem aceite pelo WhatsApp.', { conversationId });
+  logActivity('send', 'Mensagem aceite pelo WhatsApp.', {
+    conversationId,
+    recipient: normalize(resolved.phone),
+    contentType: type,
+    whatsappMessageId,
+  });
   const stored = await crm('persist_outgoing', {
     ...context,
     conversationId,

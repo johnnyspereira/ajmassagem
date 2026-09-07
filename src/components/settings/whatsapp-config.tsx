@@ -171,7 +171,18 @@ export function WhatsAppConfig() {
   >(null);
   const baileysStatusInFlightRef = useRef(false);
   const [workerLogs, setWorkerLogs] = useState<
-    Array<{ at: string; type: string; message: string }>
+    Array<{
+      at: string;
+      type: string;
+      message: string;
+      details?: {
+        recipient?: string | null;
+        sender?: string | null;
+        contentType?: string | null;
+        whatsappMessageId?: string | null;
+        status?: string | null;
+      };
+    }>
   >([]);
   const [workerLogsLoading, setWorkerLogsLoading] = useState(false);
 
@@ -947,10 +958,21 @@ export function WhatsAppConfig() {
             {workerLogs.length ? (
               <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border p-2 font-mono text-xs">
                 {workerLogs.map((event, index) => (
-                  <div key={`${event.at}-${index}`} className="flex gap-3 rounded px-2 py-1.5 hover:bg-muted/60">
+                  <div key={`${event.at}-${index}`} className="flex flex-wrap gap-x-3 gap-y-1 rounded px-2 py-1.5 hover:bg-muted/60">
                     <span className="text-muted-foreground shrink-0">{new Date(event.at).toLocaleTimeString()}</span>
                     <span className="text-primary shrink-0 uppercase">{event.type}</span>
                     <span className="text-foreground break-words">{event.message}</span>
+                    {event.details?.recipient || event.details?.sender ? (
+                      <span className="text-muted-foreground shrink-0">
+                        {event.details.recipient ? 'Para' : 'De'}:{' '}
+                        {event.details.recipient || event.details.sender}
+                      </span>
+                    ) : null}
+                    {event.details?.status ? (
+                      <span className="text-muted-foreground shrink-0">
+                        Estado: {event.details.status}
+                      </span>
+                    ) : null}
                   </div>
                 ))}
               </div>
