@@ -419,7 +419,12 @@ async function send(input) {
   // numeric JID; retain the numeric form as a safe fallback for the account
   // that owns the connected QR session.
   const registered = await client.getNumberId(digits).catch(() => null);
-  const jid = registered?._serialized || `${digits}@c.us`;
+  // Send direct conversations through the stable numeric identity first.
+  // Some WhatsApp accounts resolve to a transient @lid identity; it is a
+  // useful fallback but must not be the only destination attempted.
+  const recipientJids = [`${digits}@c.us`, registered?._serialized].filter(
+    (value, index, values) => value && values.indexOf(value) === index
+  );
   const type = message.contentType || 'text';
   const text = String(message.text || '');
   let content = text;
@@ -435,9 +440,20 @@ async function send(input) {
     if (type === 'document') options.sendMediaAsDocument = true;
   }
   const sendStartedAt = Date.now();
-  const sent = await client.sendMessage(jid, content, options);
-  const whatsappMessageId =
-    externalId(sent) || (await waitForOutgoingId(text, sendStartedAt));
+  let sent = null;
+  let whatsappMessageId = null;
+  let lastSendError = null;
+  for (const jid of recipientJids) {
+    try {
+      sent = await client.sendMessage(jid, content, options);
+      whatsappMessageId =
+        externalId(sent) || (await waitForOutgoingId(text, sendStartedAt));
+      if (whatsappMessageId) break;
+    } catch (error) {
+      lastSendError = error;
+    }
+  }
+  if (!whatsappMessageId && lastSendError) throw lastSendError;
   if (!whatsappMessageId) throw new Error('WhatsApp did not return an id.');
   const stored = await crm('persist_outgoing', {
     ...context,
