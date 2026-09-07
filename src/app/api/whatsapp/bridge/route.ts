@@ -643,6 +643,7 @@ export async function POST(request: Request) {
             if (remoteWhatsAppWorker.enabled()) {
               await remoteWhatsAppWorker.send({
                 accountId,
+                userId,
                 conversationId: result.conversationId,
                 message,
               }).catch((remoteError) => {

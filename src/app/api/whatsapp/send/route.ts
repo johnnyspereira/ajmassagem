@@ -321,6 +321,7 @@ export async function POST(request: Request) {
           const result = useRemoteQr
             ? await remoteWhatsAppWorker.send({
                 accountId,
+                userId: user.id,
                 conversationId,
                 message: {
                   text: textToSend,

@@ -136,6 +136,7 @@ export async function GET(request: Request) {
       const sent = remoteWhatsAppWorker.enabled()
         ? await remoteWhatsAppWorker.send({
             accountId: delivery.account_id,
+            userId: owner.user_id,
             conversationId,
             message: { text: message, contentType: 'text', senderType: 'bot' },
           })

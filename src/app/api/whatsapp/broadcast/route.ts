@@ -434,6 +434,7 @@ async function sendQrInternalBroadcast({
       }
       const result = await remoteWhatsAppWorker.send({
         accountId,
+        userId,
         conversationId,
         message: { text, contentType: 'text', senderType: 'bot' },
       });

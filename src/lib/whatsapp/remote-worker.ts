@@ -145,6 +145,7 @@ export const remoteWhatsAppWorker = {
 
   send(input: {
     accountId: string;
+    userId: string;
     conversationId: string;
     message: WorkerSendInput;
   }): Promise<WorkerSendResult> {

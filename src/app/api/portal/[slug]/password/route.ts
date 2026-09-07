@@ -345,6 +345,7 @@ export async function POST(
     } else if (remoteWhatsAppWorker.enabled()) {
       await remoteWhatsAppWorker.send({
         accountId: settings.account_id,
+        userId: auditUserId,
         conversationId: conversation.id,
         message: {
           text: accessText,

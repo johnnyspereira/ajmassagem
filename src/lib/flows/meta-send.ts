@@ -502,6 +502,7 @@ async function sendTextViaQrIfConnected(
   const result = remoteWhatsAppWorker.enabled()
     ? await remoteWhatsAppWorker.send({
         accountId: args.accountId,
+        userId: args.userId,
         conversationId: args.conversationId,
         message: {
           text: args.text,
@@ -527,6 +528,7 @@ async function sendMediaViaQrIfConnected(
   const result = remoteWhatsAppWorker.enabled()
     ? await remoteWhatsAppWorker.send({
         accountId: args.accountId,
+        userId: args.userId,
         conversationId: args.conversationId,
         message: {
           text: args.caption ?? '',
@@ -577,6 +579,7 @@ async function sendInteractiveViaQrIfConnected(
   const result = remoteWhatsAppWorker.enabled()
     ? await remoteWhatsAppWorker.send({
         accountId: input.accountId,
+        userId: input.userId,
         conversationId: input.conversationId,
         message: {
           text: interactivePayloadToText(interactivePayload),

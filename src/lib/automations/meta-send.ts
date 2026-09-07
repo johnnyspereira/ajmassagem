@@ -72,6 +72,7 @@ async function sendViaQr(
   }
   const result = await remoteWhatsAppWorker.send({
     accountId: input.accountId,
+    userId: input.userId,
     conversationId: input.conversationId,
     message: { text: input.text, contentType: 'text', senderType: 'bot' },
   });

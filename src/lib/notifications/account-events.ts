@@ -185,6 +185,7 @@ export async function notifyAccountEvent(input: {
     }
     await remoteWhatsAppWorker.send({
       accountId: input.accountId,
+      userId: owner.user_id,
       conversationId,
       message: { text: input.whatsappText, contentType: 'text', senderType: 'bot' },
     });

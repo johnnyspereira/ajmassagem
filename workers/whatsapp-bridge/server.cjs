@@ -473,6 +473,11 @@ async function stop(clear = false) {
     });
 }
 async function send(input) {
+  // A remote request must always carry its account/user identity. Depending
+  // on the mutable context from a previous request made scheduled and Portal
+  // sends unreliable when a staff member had used the Inbox first.
+  if (!(input.accountId || input.account_id) || !(input.userId || input.user_id))
+    throw new Error('accountId and userId are required for remote send.');
   bind(input);
   if (!client || !status().connected)
     throw new Error('WhatsApp QR is not connected.');
