@@ -131,6 +131,19 @@ async function addPayment(
     `UPDATE finance_sales SET paid_amount=?,balance_due=total_amount-?,status=?,completed_at=IF(?,UTC_TIMESTAMP(3),NULL) WHERE id=?`,
     [paid, paid, complete ? 'paid' : 'partially_paid', complete, input.saleId]
   );
+  // Benefits are created as pending while a sale is open. Payments can be
+  // registered later from the POS, agenda or receivables screen, so activate
+  // them here in the shared payment path once the sale is fully settled.
+  if (complete) {
+    await connection.execute(
+      "UPDATE finance_vouchers SET status='active' WHERE issued_sale_id=? AND status='pending'",
+      [input.saleId]
+    );
+    await connection.execute(
+      "UPDATE finance_client_packs SET status='active' WHERE sale_id=? AND status='pending'",
+      [input.saleId]
+    );
+  }
   if (complete && sale.appointment_id)
     await connection.execute(
       'UPDATE clinic_appointments SET paid_at=UTC_TIMESTAMP(3),updated_at=UTC_TIMESTAMP(3) WHERE id=? AND account_id=?',
