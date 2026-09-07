@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-import { JpMassagemPublicSite } from '@/components/website/jp-massagem-public-site';
+import { SpaPublicSite } from '@/components/website/spa-public-site';
 import { getPublicBusinessSite } from '@/lib/public-site/server';
 
 export async function generateMetadata({
@@ -50,7 +50,7 @@ export async function PublicBusinessPage({
 
   if (!site) notFound();
 
-  return <JpMassagemPublicSite site={site} />;
+  return <SpaPublicSite site={site} />;
 }
 
 export default PublicBusinessPage;
