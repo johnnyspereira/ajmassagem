@@ -18,6 +18,19 @@
       "static/chunks/ad2866b8.6c51983a1eb56136.js"
     ]
   },
+  "components/finance/private-management-page.tsx -> @/components/finance/owner-treasury": {
+    "id": 2984,
+    "files": [
+      "static/chunks/4878-42290fdab19147c5.js",
+      "static/chunks/6609-078a8cdc853f87c6.js",
+      "static/chunks/3997-fd5b7b2592e6bdfa.js",
+      "static/chunks/2317-0000867d15a4e4b7.js",
+      "static/chunks/465-ceaa04f05e73f7bc.js",
+      "static/chunks/8902-fa65129c30e4d366.js",
+      "static/chunks/9787.695ece1b0b888f0d.js",
+      "static/chunks/2984.b17ef6c86bd7a669.js"
+    ]
+  },
   "components/inbox/message-composer.tsx -> opus-recorder": {
     "id": 62297,
     "files": [
