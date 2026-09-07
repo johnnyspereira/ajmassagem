@@ -1,4 +1,5 @@
 import { FinancePage } from '@/components/finance/finance-page';
+import { redirect } from 'next/navigation';
 
 export default async function Page({
   searchParams,
@@ -10,6 +11,7 @@ export default async function Page({
   }>;
 }) {
   const { contact, appointment, tab } = await searchParams;
+  if (tab === 'treasury') redirect('/private-management');
   return (
     <FinancePage
       initialContactId={contact}

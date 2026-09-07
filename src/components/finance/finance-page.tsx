@@ -54,7 +54,6 @@ import { ContactSearchSelect } from '@/components/contacts/contact-search-select
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { formatCurrency } from '@/lib/currency';
-import { OwnerTreasury } from '@/components/finance/owner-treasury';
 import { CashView } from '@/components/finance/finance-cash-view';
 import { InvoiceRequestsView } from '@/components/finance/finance-invoice-requests-view';
 import { PacksView } from '@/components/finance/finance-packs-view';
@@ -116,6 +115,13 @@ export function FinancePage({
   initialTab?: string;
 }) {
   const supabase = useMemo(() => createClient(), []);
+  function navigateFinance(tab: string) {
+    if (tab === 'treasury') {
+      window.location.assign('/private-management');
+      return;
+    }
+    setActiveTab(tab);
+  }
   const {
     accountId,
     user,
@@ -135,7 +141,6 @@ export function FinancePage({
       'packs',
       'vouchers',
       'invoices',
-      'treasury',
       'pos',
     ].includes(initialTab)
       ? initialTab
@@ -1345,7 +1350,7 @@ export function FinancePage({
         <PageHeader
           cashSession={cashSession}
           onRefresh={loadFinance}
-          onNavigate={setActiveTab}
+          onNavigate={navigateFinance}
           isOwner={isOwner}
         />
         <div className="border-border bg-card rounded-lg border p-8 text-center">
@@ -1367,7 +1372,7 @@ export function FinancePage({
       <PageHeader
         cashSession={cashSession}
         onRefresh={loadFinance}
-        onNavigate={setActiveTab}
+        onNavigate={navigateFinance}
         isOwner={isOwner}
       />
       {activeTab === 'overview' && (
@@ -1519,20 +1524,6 @@ export function FinancePage({
                 </span>
               </span>
             </TabsTrigger>
-            {isOwner && (
-              <TabsTrigger
-                value="treasury"
-                className="bg-card min-h-16 justify-start rounded-xl border border-amber-500/30 px-3 py-2 shadow-sm data-active:border-amber-500 data-active:bg-amber-500/10"
-              >
-                <Landmark />
-                <span className="text-left">
-                  <span className="block font-semibold">Gestão privada</span>
-                  <span className="text-muted-foreground block text-[10px]">
-                    Só proprietários
-                  </span>
-                </span>
-              </TabsTrigger>
-            )}
           </TabsList>
         </div>
 
@@ -1545,7 +1536,7 @@ export function FinancePage({
             invoiceRequests={invoiceRequests}
             currency={defaultCurrency}
             isOwner={isOwner}
-            onNavigate={setActiveTab}
+            onNavigate={navigateFinance}
           />
         </TabsContent>
 
@@ -1683,11 +1674,6 @@ export function FinancePage({
             onCreate={() => window.location.assign('/settings?tab=clinic')}
           />
         </TabsContent>
-        {isOwner && (
-          <TabsContent value="treasury">
-            <OwnerTreasury />
-          </TabsContent>
-        )}
       </Tabs>
 
       <Dialog open={cashOpen} onOpenChange={setCashOpen}>
