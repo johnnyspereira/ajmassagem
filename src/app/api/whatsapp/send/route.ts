@@ -200,7 +200,15 @@ export async function POST(request: Request) {
       );
     }
 
-    if (process.env.WHATSAPP_MODE === 'polling_worker') {
+    // Older deployments used `polling_worker` as a DB outbox transport.
+    // When a secured remote Worker is available, sending it directly is both
+    // more reliable and truthful to the Inbox: a message is only shown as
+    // sent after WhatsApp Web accepts it. Keep the queue solely as a legacy
+    // fallback for installations that have no reachable remote Worker.
+    if (
+      process.env.WHATSAPP_MODE === 'polling_worker' &&
+      !remoteWhatsAppWorker.enabled()
+    ) {
       const requestKey =
         typeof client_request_id === 'string' && client_request_id.trim()
           ? client_request_id.trim().slice(0, 100)

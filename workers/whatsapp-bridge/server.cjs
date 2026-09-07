@@ -412,7 +412,14 @@ async function send(input) {
     ...context,
     conversationId,
   });
-  const jid = `${normalize(resolved.phone).replace(/\D/g, '')}@c.us`;
+  const digits = normalize(resolved.phone).replace(/\D/g, '');
+  if (!digits) throw new Error('Conversation has an invalid recipient phone.');
+  // WhatsApp may resolve a contact to its current canonical identity. Use it
+  // when available instead of assuming every modern account accepts a raw
+  // numeric JID; retain the numeric form as a safe fallback for the account
+  // that owns the connected QR session.
+  const registered = await client.getNumberId(digits).catch(() => null);
+  const jid = registered?._serialized || `${digits}@c.us`;
   const type = message.contentType || 'text';
   const text = String(message.text || '');
   let content = text;
