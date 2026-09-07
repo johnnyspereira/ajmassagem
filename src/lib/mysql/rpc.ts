@@ -982,42 +982,52 @@ export async function executeMysqlRpc(
               }
             }
             if (item.item_type === 'voucher') {
-              const code = String(
-                  metadata.code ?? randomBytes(5).toString('hex')
-                ).toUpperCase(),
-                pin = String(
-                  metadata.pin_code ?? Math.floor(Math.random() * 1_000_000)
-                ).padStart(6, '0'),
-                face = Number(metadata.face_value ?? unit),
-                validity =
-                  metadata.validity_days == null
-                    ? null
-                    : Number(metadata.validity_days);
-              await connection.execute(
-                `INSERT INTO finance_vouchers(id,account_id,issued_sale_id,owner_contact_id,service_id,code,pin_code,voucher_type,remaining_uses,initial_balance,current_balance,currency,status,recipient_name,message,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?, 'pending',?,?,IF(? IS NULL,NULL,DATE_ADD(UTC_TIMESTAMP(3),INTERVAL ? DAY)))`,
-                [
-                  randomUUID(),
-                  context.accountId,
-                  saleId,
-                  optionalText(args.p_contact_id),
-                  optionalText(metadata.service_id),
-                  code,
-                  pin,
-                  String(metadata.voucher_type ?? 'gift_card'),
-                  metadata.remaining_uses == null
-                    ? String(metadata.voucher_type ?? 'gift_card') === 'service'
-                      ? 1
-                      : null
-                    : Number(metadata.remaining_uses),
-                  face,
-                  face,
-                  String(args.p_currency ?? 'EUR'),
-                  optionalText(metadata.recipient_name),
-                  optionalText(metadata.message),
-                  validity,
-                  validity,
-                ]
-              );
+              // A quantity of two in POS means two independently redeemable
+              // vouchers, just as it already means two client packs. Do not
+              // collapse them into one one-use voucher: that loses a code,
+              // PIN, delivery record and audit trail for the second sale.
+              for (let n = 0; n < Math.ceil(quantity); n++) {
+                const code = String(
+                    n === 0 && metadata.code
+                      ? metadata.code
+                      : randomBytes(5).toString('hex')
+                  ).toUpperCase(),
+                  pin = String(
+                    n === 0 && metadata.pin_code != null
+                      ? metadata.pin_code
+                      : Math.floor(Math.random() * 1_000_000)
+                  ).padStart(6, '0'),
+                  face = Number(metadata.face_value ?? unit),
+                  validity =
+                    metadata.validity_days == null
+                      ? null
+                      : Number(metadata.validity_days);
+                await connection.execute(
+                  `INSERT INTO finance_vouchers(id,account_id,issued_sale_id,owner_contact_id,service_id,code,pin_code,voucher_type,remaining_uses,initial_balance,current_balance,currency,status,recipient_name,message,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?, 'pending',?,?,IF(? IS NULL,NULL,DATE_ADD(UTC_TIMESTAMP(3),INTERVAL ? DAY)))`,
+                  [
+                    randomUUID(),
+                    context.accountId,
+                    saleId,
+                    optionalText(args.p_contact_id),
+                    optionalText(metadata.service_id),
+                    code,
+                    pin,
+                    String(metadata.voucher_type ?? 'gift_card'),
+                    metadata.remaining_uses == null
+                      ? String(metadata.voucher_type ?? 'gift_card') === 'service'
+                        ? 1
+                        : null
+                      : Number(metadata.remaining_uses),
+                    face,
+                    face,
+                    String(args.p_currency ?? 'EUR'),
+                    optionalText(metadata.recipient_name),
+                    optionalText(metadata.message),
+                    validity,
+                    validity,
+                  ]
+                );
+              }
             }
           }
           for (const payment of payments)
