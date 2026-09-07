@@ -69,6 +69,7 @@ import {
   Gift,
   PackageCheck,
   BadgeEuro,
+  GitMerge,
 } from 'lucide-react';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ImportModal } from '@/components/contacts/import-modal';
@@ -201,6 +202,9 @@ export default function ContactsPage() {
   // Bulk selection (page-scoped — only the loaded rows are selectable)
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeTargetId, setMergeTargetId] = useState<string | null>(null);
+  const [merging, setMerging] = useState(false);
 
   // All tags for display
   const [tagsMap, setTagsMap] = useState<Record<string, Tag>>({});
@@ -754,6 +758,52 @@ export default function ContactsPage() {
       else next.add(id);
       return next;
     });
+  }
+
+  const selectedContacts = contacts.filter((contact) => selected.has(contact.id));
+  const canMergeSelectedContacts = selectedContacts.length === 2 && selected.size === 2;
+
+  function openMergeDialog() {
+    if (!canMergeSelectedContacts) {
+      toast.error('Selecione exatamente dois clientes da pagina para os unir.');
+      return;
+    }
+    const firstReferenceContact = [...selectedContacts].sort((left, right) => {
+      const leftReference = Number(left.client_reference);
+      const rightReference = Number(right.client_reference);
+      if (Number.isFinite(leftReference) && Number.isFinite(rightReference)) {
+        return leftReference - rightReference;
+      }
+      if (Number.isFinite(leftReference)) return -1;
+      if (Number.isFinite(rightReference)) return 1;
+      return left.created_at.localeCompare(right.created_at);
+    })[0];
+    setMergeTargetId(firstReferenceContact.id);
+    setMergeOpen(true);
+  }
+
+  async function handleMergeContacts() {
+    if (!mergeTargetId || !canMergeSelectedContacts) return;
+    const source = selectedContacts.find((contact) => contact.id !== mergeTargetId);
+    if (!source) return;
+
+    setMerging(true);
+    const { error } = await supabase.rpc('merge_contacts', {
+      p_source_contact_id: source.id,
+      p_target_contact_id: mergeTargetId,
+    });
+    setMerging(false);
+
+    if (error) {
+      toast.error(error.message || 'Nao foi possivel unir os clientes.');
+      return;
+    }
+
+    toast.success('Clientes unidos. O historico foi mantido no registo escolhido.');
+    setMergeOpen(false);
+    setMergeTargetId(null);
+    setSelected(new Set());
+    await fetchContacts();
   }
 
   async function handleBulkDelete() {
@@ -1519,6 +1569,20 @@ export default function ContactsPage() {
                 )}
                 Exportar seleção
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openMergeDialog}
+                disabled={!canMergeSelectedContacts || !canEdit}
+                title={
+                  canMergeSelectedContacts
+                    ? 'Unir os dois clientes selecionados'
+                    : 'Selecione exatamente dois clientes nesta pagina'
+                }
+              >
+                <GitMerge className="size-4" />
+                Unir clientes
+              </Button>
               <GatedButton
                 variant="destructive"
                 size="sm"
@@ -1538,8 +1602,9 @@ export default function ContactsPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="w-10">
+                <TableHead className="w-14 px-3 text-center">
                   <Checkbox
+                    className="size-5 rounded-md border-2"
                     checked={allOnPageSelected}
                     indeterminate={!allOnPageSelected && someOnPageSelected}
                     onCheckedChange={toggleSelectAll}
@@ -1619,8 +1684,12 @@ export default function ContactsPage() {
                       className="border-border hover:bg-muted/50 cursor-pointer"
                       onClick={() => openClient360(contact.id)}
                     >
-                      <TableCell onClick={(e) => e.stopPropagation()}>
+                      <TableCell
+                        className="w-14 px-3 text-center"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <Checkbox
+                          className="size-5 rounded-md border-2"
                           checked={selected.has(contact.id)}
                           onCheckedChange={() => toggleSelect(contact.id)}
                           aria-label={`Select ${contact.name || contact.phone}`}
@@ -2012,6 +2081,72 @@ export default function ContactsPage() {
             >
               {deleting && <Loader2 className="size-4 animate-spin" />}
               {t('deleteBtn')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={mergeOpen}
+        onOpenChange={(open) => {
+          if (!merging) setMergeOpen(open);
+        }}
+      >
+        <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GitMerge className="text-primary size-5" />
+              Unir clientes duplicados
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              A primeira Ref. cliente sera mantida como o registo principal. Todo o historico do outro cliente sera transferido para ele.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {selectedContacts.map((contact) => {
+              const isTarget = contact.id === mergeTargetId;
+              return (
+                <div
+                  key={contact.id}
+                  className={cn(
+                    'rounded-lg border p-3',
+                    isTarget
+                      ? 'border-primary bg-primary-soft/40'
+                      : 'border-border bg-muted/30'
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">
+                        {contact.name || contact.phone || 'Cliente sem nome'}
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        Ref. {contact.client_reference || 'sem referencia'}
+                        {contact.phone ? ` - ${contact.phone}` : ''}
+                      </p>
+                    </div>
+                    <Badge variant={isTarget ? 'default' : 'outline'}>
+                      {isTarget ? 'Registo a manter' : 'Sera unido'}
+                    </Badge>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <DialogFooter className="bg-popover border-border">
+            <Button
+              variant="outline"
+              onClick={() => setMergeOpen(false)}
+              disabled={merging}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => void handleMergeContacts()}
+              disabled={!canMergeSelectedContacts || !mergeTargetId || merging}
+            >
+              {merging ? <Loader2 className="size-4 animate-spin" /> : <GitMerge className="size-4" />}
+              Confirmar uniao
             </Button>
           </DialogFooter>
         </DialogContent>
