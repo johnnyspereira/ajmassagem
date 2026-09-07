@@ -555,12 +555,12 @@ async function sendOutboxJob(job) {
   const digits = normalize(job.phone).replace(/\D/g, '');
   if (!digits) throw new Error('Invalid recipient phone.');
   const registered = await client.getNumberId(digits).catch(() => null);
-  // `getNumberId` can return null for the phone that owns the currently
-  // connected QR session, even though WhatsApp Web accepts that JID. This is
-  // the normal destination for owner alerts (for example Portal 360 access
-  // notifications). Let sendMessage be the authoritative validation instead
-  // of leaving a valid alert stuck in the CRM outbox.
-  const jid = registered?._serialized || `${digits}@c.us`;
+  // Match the direct remote send path: numeric JIDs are stable while a
+  // returned @lid can be transient. Try both instead of accepting a queued
+  // message that WhatsApp never routes to the recipient.
+  const recipientJids = [`${digits}@c.us`, registered?._serialized].filter(
+    (value, index, values) => value && values.indexOf(value) === index
+  );
   const type = message.contentType || 'text';
   const text = String(message.text || '');
   let content = text;
@@ -573,9 +573,19 @@ async function sendOutboxJob(job) {
     if (type === 'document') options.sendMediaAsDocument = true;
   }
   const sendStartedAt = Date.now();
-  const sent = await client.sendMessage(jid, content, options);
-  const providerMessageId =
-    externalId(sent) || (await waitForOutgoingId(text, sendStartedAt));
+  let providerMessageId = null;
+  let lastSendError = null;
+  for (const jid of recipientJids) {
+    try {
+      const sent = await client.sendMessage(jid, content, options);
+      providerMessageId =
+        externalId(sent) || (await waitForOutgoingId(text, sendStartedAt));
+      if (providerMessageId) break;
+    } catch (error) {
+      lastSendError = error;
+    }
+  }
+  if (!providerMessageId && lastSendError) throw lastSendError;
   if (!providerMessageId)
     throw new Error('WhatsApp did not return a message id.');
   await crm('complete_outbox', {

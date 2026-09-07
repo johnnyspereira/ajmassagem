@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/server';
 import { handleAppointmentConfirmationReply } from '@/lib/clinic/appointment-confirmation';
 import { handleWhatsAppRescheduleReply } from '@/lib/clinic/appointment-whatsapp-reschedule';
 import { enqueueWhatsAppMessage } from '@/lib/whatsapp/outbox';
+import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 
 async function authorized(
   request: Request,
@@ -634,19 +635,35 @@ export async function POST(request: Request) {
               ? 'Recebemos o seu pedido. A nossa equipa irá verificar a marcação e responder por aqui em breve.'
               : null);
           if (automaticReply) {
-            await enqueueWhatsAppMessage({
-              accountId,
-              userId,
-              conversationId: result.conversationId,
-              requestKey: `appointment-reschedule:${externalId}`,
-              payload: {
-                contentType: 'text',
-                text: automaticReply,
-                senderType: 'bot',
-              },
-            }).catch((outboxError) => {
-              console.error('[whatsapp-bridge] appointment reschedule response failed:', outboxError);
-            });
+            const message = {
+              text: automaticReply,
+              contentType: 'text',
+              senderType: 'bot' as const,
+            };
+            if (remoteWhatsAppWorker.enabled()) {
+              await remoteWhatsAppWorker.send({
+                accountId,
+                conversationId: result.conversationId,
+                message,
+              }).catch((remoteError) => {
+                console.error('[whatsapp-bridge] remote appointment response failed:', remoteError);
+                return enqueueWhatsAppMessage({
+                  accountId,
+                  userId,
+                  conversationId: result.conversationId,
+                  requestKey: `appointment-reschedule:${externalId}`,
+                  payload: message,
+                });
+              });
+            } else {
+              await enqueueWhatsAppMessage({
+                accountId,
+                userId,
+                conversationId: result.conversationId,
+                requestKey: `appointment-reschedule:${externalId}`,
+                payload: message,
+              });
+            }
           } else {
             const db = await createClient();
             await handleAppointmentConfirmationReply({

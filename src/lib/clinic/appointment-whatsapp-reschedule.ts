@@ -99,7 +99,7 @@ function isCancellationRequest(message: string) {
 
 function selectedOption(message: string) {
   const normalized = message.trim().toLowerCase();
-  const match = /^(?:opcao|opção)?\s*([1-3])(?:\s*[.!])?$/.exec(normalized);
+  const match = /^(?:opcao|opção)?\s*([1-4])(?:\s*[.!])?$/.exec(normalized);
   return match ? Number(match[1]) : null;
 }
 
@@ -140,7 +140,8 @@ async function findSlots(accountId: string, appointment: AppointmentRow): Promis
   ]);
   const hours = workingHours(appointment.working_hours);
   const slots: Slot[] = [];
-  for (let offset = 0; offset < 21 && slots.length < 3; offset += 1) {
+  const slotsPerDay = new Map<string, number>();
+  for (let offset = 0; offset < 21 && slots.length < 4; offset += 1) {
     const day = new Date(start.getTime() + offset * 86_400_000);
     const date = localDate(day);
     const dayKey = DAY_KEYS[new Date(`${date}T12:00:00Z`).getUTCDay()];
@@ -150,7 +151,11 @@ async function findSlots(accountId: string, appointment: AppointmentRow): Promis
     const close = clockMinutes(configured?.end, 21 * 60);
     const breakStart = clockMinutes(configured?.breakStart, -1);
     const breakEnd = clockMinutes(configured?.breakEnd, -1);
-    for (let minute = open; minute + duration <= close && slots.length < 3; minute += 30) {
+    for (let minute = open; minute + duration <= close && slots.length < 4; minute += 30) {
+      // Present choices over more than one date. Two times on the earliest
+      // available day, followed by two on a later day, are easier for the
+      // client to decide between than four near-identical times.
+      if ((slotsPerDay.get(date) ?? 0) >= 2) break;
       if (breakStart >= 0 && breakEnd >= 0 && minute < breakEnd && minute + duration > breakStart) continue;
       const candidate = LisbonDate(date, Math.floor(minute / 60), minute % 60);
       const candidateEnd = new Date(candidate.getTime() + duration * 60_000);
@@ -164,7 +169,10 @@ async function findSlots(accountId: string, appointment: AppointmentRow): Promis
           (appointment.room_id && item.room_id === appointment.room_id);
         return shared && new Date(item.starts_at) < candidateEnd && new Date(item.ends_at) > candidate;
       });
-      if (!conflict) slots.push({ startsAt: candidate.toISOString(), endsAt: candidateEnd.toISOString(), label: formatSlot({ startsAt: candidate.toISOString(), endsAt: candidateEnd.toISOString(), label: '' }) });
+      if (!conflict) {
+        slots.push({ startsAt: candidate.toISOString(), endsAt: candidateEnd.toISOString(), label: formatSlot({ startsAt: candidate.toISOString(), endsAt: candidateEnd.toISOString(), label: '' }) });
+        slotsPerDay.set(date, (slotsPerDay.get(date) ?? 0) + 1);
+      }
     }
   }
   return slots;
@@ -239,6 +247,13 @@ export async function handleWhatsAppRescheduleReply(input: {
       replyText: 'Recebemos o seu pedido de cancelamento. A marcação permanece pendente até validação pela nossa equipa; iremos confirmar consigo por aqui.',
     };
   }
+  const existing = await latestOptionsEvent(input.accountId, input.contactId);
+  if (existing) {
+    return {
+      appointmentId: existing.entity_id,
+      replyText: 'As opções de reagendamento já foram enviadas acima. Responda com o número da opção que prefere; a alteração continuará pendente de aprovação do profissional.',
+    };
+  }
   const options = await findSlots(input.accountId, appointment);
   if (!options.length) {
     return { appointmentId: appointment.id, replyText: 'Recebemos o seu pedido de reagendamento. Neste momento não encontramos horários disponíveis próximos; a equipa irá contactar consigo.' };
@@ -261,6 +276,6 @@ export async function handleWhatsAppRescheduleReply(input: {
   const professional = appointment.professional_name ? ` com *${appointment.professional_name}*` : '';
   return {
     appointmentId: appointment.id,
-    replyText: `Claro! Temos estas opções${service}${professional}:\n\n${options.map((slot, index) => `*${index + 1}.* ${formatSlot(slot)}`).join('\n')}\n\nResponda apenas com *1*, *2* ou *3*. A alteração ficará pendente de confirmação do profissional.`,
+    replyText: `Claro! Temos estas opções${service}${professional}:\n\n${options.map((slot, index) => `*${index + 1}.* ${formatSlot(slot)}`).join('\n')}\n\nResponda apenas com *1*, *2*, *3* ou *4*. A alteração ficará pendente de confirmação do profissional.`,
   };
 }
