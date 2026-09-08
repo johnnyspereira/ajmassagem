@@ -13,7 +13,10 @@ import {
   ImageOff,
   CornerDownLeft,
   Sparkles,
+  Languages,
+  Loader2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ReplyQuote } from './reply-quote';
 import { MessageReactions } from './message-reactions';
@@ -290,6 +293,36 @@ export function MessageBubble({
   const isAgent =
     message.sender_type === 'agent' || message.sender_type === 'bot';
   const time = format(new Date(message.created_at), 'HH:mm');
+  const [translation, setTranslation] = useState<string | null>(null);
+  const [translating, setTranslating] = useState(false);
+
+  const canTranslate = !isAgent && Boolean(message.content_text?.trim());
+  const translateToPortuguese = useCallback(async () => {
+    const source = message.content_text?.trim();
+    if (!source || translating) return;
+    setTranslating(true);
+    try {
+      const res = await fetch('/api/ai/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: source, target_language: 'pt' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? 'Não foi possível traduzir a mensagem.');
+        return;
+      }
+      if (typeof data.translation !== 'string' || !data.translation.trim()) {
+        toast.error('A tradução não devolveu texto.');
+        return;
+      }
+      setTranslation(data.translation.trim());
+    } catch {
+      toast.error('Não foi possível contactar a tradução por IA.');
+    } finally {
+      setTranslating(false);
+    }
+  }, [message.content_text, translating]);
 
   // Row alignment + width cap are owned by <MessageActions> so its hover
   // group matches the bubble's content area, not the full row.
@@ -311,6 +344,33 @@ export function MessageBubble({
           />
         )}
         <MessageContent message={message} t={t} />
+        {canTranslate && (
+          <div className="mt-2 border-t border-border/60 pt-1.5">
+            {translation ? (
+              <div className="text-muted-foreground rounded-md bg-background/45 px-2 py-1.5 text-xs whitespace-pre-wrap">
+                <span className="mb-0.5 block text-[10px] font-semibold tracking-wide uppercase">
+                  Tradução para português
+                </span>
+                {translation}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void translateToPortuguese()}
+                disabled={translating}
+                className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-[11px] disabled:opacity-60"
+                title="Traduzir para português"
+              >
+                {translating ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Languages className="h-3 w-3" />
+                )}
+                {translating ? 'A traduzir…' : 'Traduzir para português'}
+              </button>
+            )}
+          </div>
+        )}
         <div
           className={cn(
             'mt-1 flex items-center gap-1',

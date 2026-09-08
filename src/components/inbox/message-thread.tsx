@@ -136,7 +136,17 @@ function groupMessagesByDate(messages: Message[]) {
   const groups: { date: string; messages: Message[] }[] = [];
   let currentDate = '';
 
-  for (const msg of messages) {
+  // Realtime delivery can arrive in a different order from the database
+  // fetch (and optimistic sends are appended locally). Always render one
+  // chronological stream, exactly like WhatsApp, without mutating parent
+  // state or separating messages by sender.
+  const chronological = [...messages].sort((a, b) => {
+    const byTime =
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    return byTime || a.id.localeCompare(b.id);
+  });
+
+  for (const msg of chronological) {
     const day = format(new Date(msg.created_at), 'yyyy-MM-dd');
     if (day !== currentDate) {
       currentDate = day;
@@ -344,6 +354,7 @@ export function MessageThread({
 
     // Find last customer message
     const lastCustomerMsg = [...messages]
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
       .reverse()
       .find((m) => m.sender_type === 'customer');
 

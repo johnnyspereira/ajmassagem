@@ -17,6 +17,7 @@ import {
   Plus,
   MessageSquareDashed,
   Zap,
+  Languages,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GatedButton } from '@/components/ui/gated-button';
@@ -143,6 +144,7 @@ export function MessageComposer({
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
+  const [translating, setTranslating] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Interactive-message builder dialog + quick-reply picker.
@@ -300,6 +302,42 @@ export function MessageComposer({
       setDrafting(false);
     }
   }, [drafting, conversationId, adjustHeight]);
+
+  // Translation only replaces the local draft. It does not send a WhatsApp
+  // message; the agent can still review and edit before pressing Send.
+  const handleTranslateDraft = useCallback(
+    async (targetLanguage: 'pt' | 'en') => {
+      const source = text.trim();
+      if (!source || translating) return;
+      setTranslating(true);
+      try {
+        const res = await fetch('/api/ai/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: source, target_language: targetLanguage }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast.error(data.error ?? 'Não foi possível traduzir o rascunho.');
+          return;
+        }
+        if (typeof data.translation !== 'string' || !data.translation.trim()) {
+          toast.error('A tradução não devolveu texto.');
+          return;
+        }
+        setText(data.translation.trim());
+        requestAnimationFrame(() => {
+          adjustHeight();
+          textareaRef.current?.focus();
+        });
+      } catch {
+        toast.error('Não foi possível contactar a tradução por IA.');
+      } finally {
+        setTranslating(false);
+      }
+    },
+    [text, translating, adjustHeight]
+  );
 
   // ---- Interactive message + quick replies --------------------------
 
@@ -808,6 +846,32 @@ export function MessageComposer({
           >
             <LibraryBig className="h-4 w-4" />
           </GatedButton>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              disabled={readOnly || !text.trim() || translating}
+              title={
+                readOnly
+                  ? t('readOnlyTitle')
+                  : 'Traduzir o rascunho sem o enviar'
+              }
+              className="text-muted-foreground hover:bg-card hover:text-primary inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl p-0 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {translating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Languages className="h-4 w-4" />
+              )}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="border-border bg-popover">
+              <DropdownMenuItem onClick={() => void handleTranslateDraft('en')}>
+                Traduzir para inglês
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void handleTranslateDraft('pt')}>
+                Traduzir para português
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <GatedButton
             variant="ghost"
