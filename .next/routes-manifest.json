@@ -752,12 +752,6 @@
       "namedRegex": "^/api/ai/knowledge/reindex(?:/)?$"
     },
     {
-      "page": "/api/ai/owner-commands",
-      "regex": "^/api/ai/owner\\-commands(?:/)?$",
-      "routeKeys": {},
-      "namedRegex": "^/api/ai/owner\\-commands(?:/)?$"
-    },
-    {
       "page": "/api/ai/playground",
       "regex": "^/api/ai/playground(?:/)?$",
       "routeKeys": {},
@@ -768,12 +762,6 @@
       "regex": "^/api/ai/test(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/ai/test(?:/)?$"
-    },
-    {
-      "page": "/api/ai/translate",
-      "regex": "^/api/ai/translate(?:/)?$",
-      "routeKeys": {},
-      "namedRegex": "^/api/ai/translate(?:/)?$"
     },
     {
       "page": "/api/ai/usage",
