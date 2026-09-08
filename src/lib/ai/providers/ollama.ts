@@ -18,17 +18,18 @@ interface OllamaResponse {
 }
 
 /**
- * Ollama is reached through the authenticated WhatsApp Worker, never by
- * exposing the local Ollama port to the public internet.
+ * Ollama is reached through the dedicated authenticated AI Worker, never by
+ * exposing the local Ollama port to the public internet or loading the
+ * WhatsApp Worker.
  */
 export async function generateOllama(
   args: ProviderArgs
 ): Promise<ProviderResult> {
-  const workerUrl = process.env.WHATSAPP_WORKER_URL?.replace(/\/+$/, '');
-  const workerSecret = process.env.WHATSAPP_WORKER_SECRET?.trim();
+  const workerUrl = process.env.AI_WORKER_URL?.replace(/\/+$/, '');
+  const workerSecret = process.env.AI_WORKER_SECRET?.trim();
   if (!workerUrl || !workerSecret) {
     throw new AiError(
-      'Ollama requires the configured local Worker connection.',
+      'Ollama requires a dedicated AI Worker connection.',
       {
         code: 'ollama_worker_not_configured',
         status: 503,
