@@ -48,11 +48,15 @@ const HANDOFF_QUEUE = '__queue__';
 const PROVIDER_LABEL: Record<AiProvider, string> = {
   openai: 'OpenAI',
   anthropic: 'Anthropic (Claude)',
+  gemini: 'Google Gemini',
+  ollama: 'Ollama local (via Worker)',
 };
 
 const KEY_PLACEHOLDER: Record<AiProvider, string> = {
   openai: 'sk-...',
   anthropic: 'sk-ant-...',
+  gemini: 'AIza...',
+  ollama: 'Não necessita de chave API',
 };
 
 export function AiConfig() {
@@ -119,7 +123,7 @@ export function AiConfig() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!accountId || loadedAccountIdRef.current === accountId) return;
@@ -142,7 +146,8 @@ export function AiConfig() {
     if (isDefaultModel) setModel(AI_PROVIDER_DEFAULT_MODEL[next]);
   };
 
-  const keyPayload = () => (keyEdited ? apiKey.trim() : undefined);
+  const keyPayload = () =>
+    provider === 'ollama' ? undefined : keyEdited ? apiKey.trim() : undefined;
 
   // undefined = leave unchanged; '' typed = null (clear); text = set.
   const embeddingsKeyPayload = () =>
@@ -187,7 +192,7 @@ export function AiConfig() {
       toast.error(t('missingModel'));
       return;
     }
-    if (!configured && !keyEdited) {
+    if (!configured && !keyEdited && provider !== 'ollama') {
       toast.error(t('missingApiKey'));
       return;
     }
@@ -287,6 +292,12 @@ export function AiConfig() {
                     <SelectItem value="anthropic">
                       {PROVIDER_LABEL.anthropic}
                     </SelectItem>
+                    <SelectItem value="gemini">
+                      {PROVIDER_LABEL.gemini}
+                    </SelectItem>
+                    <SelectItem value="ollama">
+                      {PROVIDER_LABEL.ollama}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -303,55 +314,80 @@ export function AiConfig() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="ai-key">{t('apiKey')}</Label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    id="ai-key"
-                    type={showKey ? 'text' : 'password'}
-                    value={apiKey}
-                    onChange={(e) => {
-                      setApiKey(e.target.value);
-                      setKeyEdited(true);
-                    }}
-                    onFocus={() => {
-                      if (!keyEdited && hasStoredKey) {
-                        setApiKey('');
-                        setKeyEdited(true);
-                      }
-                    }}
-                    placeholder={KEY_PLACEHOLDER[provider]}
-                    disabled={disabled}
-                    autoComplete="off"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowKey((s) => !s)}
-                    className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
-                    tabIndex={-1}
-                  >
-                    {showKey ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
+            {provider === 'ollama' ? (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5 text-sm">
+                <p className="font-medium">IA local e privada</p>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  O CRM contacta o Ollama através do seu Worker protegido. O
+                  computador onde o Worker está instalado deve permanecer ligado
+                  e o modelo indicado acima deve existir no Ollama.
+                </p>
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={handleTest}
                   disabled={disabled || testing}
+                  className="mt-3"
                 >
                   {testing ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <CheckCircle2 className="mr-2 h-4 w-4" />
                   )}
-                  {t('testKey')}
+                  Testar ligação local
                 </Button>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="ai-key">{t('apiKey')}</Label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      id="ai-key"
+                      type={showKey ? 'text' : 'password'}
+                      value={apiKey}
+                      onChange={(e) => {
+                        setApiKey(e.target.value);
+                        setKeyEdited(true);
+                      }}
+                      onFocus={() => {
+                        if (!keyEdited && hasStoredKey) {
+                          setApiKey('');
+                          setKeyEdited(true);
+                        }
+                      }}
+                      placeholder={KEY_PLACEHOLDER[provider]}
+                      disabled={disabled}
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowKey((s) => !s)}
+                      className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
+                      tabIndex={-1}
+                    >
+                      {showKey ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={handleTest}
+                    disabled={disabled || testing}
+                  >
+                    {testing ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                    )}
+                    {t('testKey')}
+                  </Button>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="ai-embeddings-key">

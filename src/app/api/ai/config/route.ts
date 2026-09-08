@@ -85,8 +85,10 @@ export async function POST(request: Request) {
     if (!body || typeof body !== 'object') return bad('Invalid request body');
 
     const provider = body.provider as AiProvider;
-    if (provider !== 'openai' && provider !== 'anthropic') {
-      return bad('provider must be "openai" or "anthropic"');
+    if (!['openai', 'anthropic', 'gemini', 'ollama'].includes(provider)) {
+      return bad(
+        'provider must be "openai", "anthropic", "gemini" or "ollama"'
+      );
     }
     const model = typeof body.model === 'string' ? body.model.trim() : '';
     if (!model) return bad('model is required');
@@ -145,6 +147,10 @@ export async function POST(request: Request) {
     let apiKeyPlain: string;
     if (rawKey) {
       apiKeyPlain = rawKey;
+    } else if (provider === 'ollama') {
+      // The local Worker authenticates the call; this placeholder is only
+      // retained because the shared configuration schema requires a key.
+      apiKeyPlain = 'ollama-local-worker';
     } else if (existing?.api_key) {
       try {
         apiKeyPlain = decrypt(existing.api_key);
@@ -209,7 +215,11 @@ export async function POST(request: Request) {
       }
     }
 
-    const encryptedKey = rawKey ? encrypt(rawKey) : null;
+    const encryptedKey = rawKey
+      ? encrypt(rawKey)
+      : provider === 'ollama' && (!existing || provider !== existing.provider)
+        ? encrypt(apiKeyPlain)
+        : null;
     const shared: Record<string, unknown> = {
       provider,
       model,

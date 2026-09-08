@@ -148,7 +148,9 @@ async function inboundMediaPayload(message) {
         mediaBase64: media.data,
         mediaMimeType: media.mimetype,
         mediaFilename:
-          media.filename || message.filename || `${externalId(message) || 'attachment'}`,
+          media.filename ||
+          message.filename ||
+          `${externalId(message) || 'attachment'}`,
       };
     }
     if (attempt < 2) {
@@ -170,16 +172,24 @@ async function outboundMediaFromUrl(url, filename) {
   }
   const response = await fetch(parsed, { signal: AbortSignal.timeout(30000) });
   if (!response.ok) {
-    throw new Error(`Não foi possível descarregar o ficheiro (HTTP ${response.status}).`);
+    throw new Error(
+      `Não foi possível descarregar o ficheiro (HTTP ${response.status}).`
+    );
   }
   const bytes = Buffer.from(await response.arrayBuffer());
   if (!bytes.length || bytes.length > 16 * 1024 * 1024) {
     throw new Error('O ficheiro deve ter entre 1 byte e 16 MB.');
   }
-  const mime = (response.headers.get('content-type') || 'application/octet-stream')
+  const mime = (
+    response.headers.get('content-type') || 'application/octet-stream'
+  )
     .split(';')[0]
     .trim();
-  return new MessageMedia(mime, bytes.toString('base64'), filename || undefined);
+  return new MessageMedia(
+    mime,
+    bytes.toString('base64'),
+    filename || undefined
+  );
 }
 async function profilePicturePayload(contact) {
   const key = String(contact?.id?._serialized || contact?.id?.user || '');
@@ -193,7 +203,12 @@ async function profilePicturePayload(contact) {
       const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
       const contentType = response.headers.get('content-type') || '';
       const bytes = Buffer.from(await response.arrayBuffer());
-      if (response.ok && /^image\//i.test(contentType) && bytes.length && bytes.length <= 2 * 1024 * 1024) {
+      if (
+        response.ok &&
+        /^image\//i.test(contentType) &&
+        bytes.length &&
+        bytes.length <= 2 * 1024 * 1024
+      ) {
         value = {
           profilePicUrl: url,
           profilePicBase64: bytes.toString('base64'),
@@ -205,7 +220,11 @@ async function profilePicturePayload(contact) {
       // never prevent a WhatsApp message from reaching the Inbox.
     }
   }
-  if (key) profilePictureCache.set(key, { value, expiresAt: Date.now() + 15 * 60 * 1000 });
+  if (key)
+    profilePictureCache.set(key, {
+      value,
+      expiresAt: Date.now() + 15 * 60 * 1000,
+    });
   return value;
 }
 function persistWithMediaRecovery(message) {
@@ -215,7 +234,9 @@ function persistWithMediaRecovery(message) {
   // ready. Re-persisting the same external id safely fills media_url later.
   for (const delay of [5000, 15000, 45000]) {
     setTimeout(() => {
-      persist(message).catch((e) => console.error('[bridge] media retry:', e.message));
+      persist(message).catch((e) =>
+        console.error('[bridge] media retry:', e.message)
+      );
     }, delay);
   }
 }
@@ -226,7 +247,8 @@ function rememberOutgoing(message) {
     text: String(message.body || message.caption || ''),
     createdAt: Date.now(),
   });
-  if (recentOutgoing.length > 100) recentOutgoing.splice(0, recentOutgoing.length - 100);
+  if (recentOutgoing.length > 100)
+    recentOutgoing.splice(0, recentOutgoing.length - 100);
 }
 async function waitForOutgoingId(text, startedAt, timeout = 10000) {
   const expected = String(text || '');
@@ -333,7 +355,10 @@ async function persist(message) {
     phone: resolution.phone,
     phoneAliases: resolution.aliases,
     name:
-      contact?.pushname || contact?.name || contact?.shortName || resolution.phone,
+      contact?.pushname ||
+      contact?.name ||
+      contact?.shortName ||
+      resolution.phone,
     ...profilePicture,
     contentType: normalizedContentType(message),
     text: message.body || message.caption || '',
@@ -497,7 +522,10 @@ async function send(input) {
   // A remote request must always carry its account/user identity. Depending
   // on the mutable context from a previous request made scheduled and Portal
   // sends unreliable when a staff member had used the Inbox first.
-  if (!(input.accountId || input.account_id) || !(input.userId || input.user_id))
+  if (
+    !(input.accountId || input.account_id) ||
+    !(input.userId || input.user_id)
+  )
     throw new Error('accountId and userId are required for remote send.');
   bind(input);
   if (!client || !status().connected)
@@ -719,7 +747,8 @@ async function sync(input) {
       conversationId,
     });
     requestedPhone = normalize(resolved.phone);
-    if (!requestedPhone) throw new Error('Conversation has an invalid recipient phone.');
+    if (!requestedPhone)
+      throw new Error('Conversation has an invalid recipient phone.');
   }
   let chatsScanned = 0,
     messagesScanned = 0,
@@ -732,7 +761,9 @@ async function sync(input) {
       const chats = window
         .require('WAWebCollections')
         .Chat.getModelsArray()
-        .filter((chat) => /@(c\.us|lid)$/.test(String(chat?.id?._serialized || '')))
+        .filter((chat) =>
+          /@(c\.us|lid)$/.test(String(chat?.id?._serialized || ''))
+        )
         .slice(0, chatLimit);
       const rows = [];
       for (const chat of chats) {
@@ -777,7 +808,9 @@ async function sync(input) {
                     : message.type,
             text: message.body || message.caption || '',
             hasMedia: Boolean(message.hasMedia),
-            timestamp: new Date(Number(message.t || Date.now() / 1000) * 1000).toISOString(),
+            timestamp: new Date(
+              Number(message.t || Date.now() / 1000) * 1000
+            ).toISOString(),
           });
         }
       }
@@ -797,7 +830,9 @@ async function sync(input) {
       if (requestedPhone && normalize(resolution.phone) !== requestedPhone) {
         continue;
       }
-      const message = await client.getMessageById(snapshot.messageId).catch(() => null);
+      const message = await client
+        .getMessageById(snapshot.messageId)
+        .catch(() => null);
       const contact = message
         ? await message.getContact().catch(() => null)
         : await client.getContactById(snapshot.chatId).catch(() => null);
@@ -815,10 +850,23 @@ async function sync(input) {
       )
         messagesPersisted++;
     } catch (error) {
-      console.warn('[bridge] sync skipped message:', snapshot.chatId, error?.message);
+      console.warn(
+        '[bridge] sync skipped message:',
+        snapshot.chatId,
+        error?.message
+      );
     }
   }
-  logActivity('sync', `Sincronização concluída: ${messagesPersisted} mensagem(ns) importada(s).`, { chatsScanned, messagesScanned, messagesPersisted, conversationId: conversationId || null });
+  logActivity(
+    'sync',
+    `Sincronização concluída: ${messagesPersisted} mensagem(ns) importada(s).`,
+    {
+      chatsScanned,
+      messagesScanned,
+      messagesPersisted,
+      conversationId: conversationId || null,
+    }
+  );
   return { chatsScanned, messagesScanned, messagesPersisted };
 }
 
@@ -879,11 +927,16 @@ async function sendWhatsAppProbe(input) {
     try {
       const sendStartedAt = Date.now();
       sent = await client.sendMessage(jid, text, { waitUntilMsgSent: true });
-      messageId = externalId(sent) || (await waitForOutgoingId(text, sendStartedAt));
+      messageId =
+        externalId(sent) || (await waitForOutgoingId(text, sendStartedAt));
       attempts.push({ jid, accepted: Boolean(messageId), id: messageId });
       if (messageId) break;
     } catch (error) {
-      attempts.push({ jid, accepted: false, error: error.message || String(error) });
+      attempts.push({
+        jid,
+        accepted: false,
+        error: error.message || String(error),
+      });
     }
   }
   return {
@@ -895,6 +948,64 @@ async function sendWhatsAppProbe(input) {
     returnedFields:
       sent && typeof sent === 'object' ? Object.keys(sent).slice(0, 12) : [],
   };
+}
+
+// Private Ollama bridge. This deliberately talks only to loopback: the CRM
+// reaches this Worker with its existing Bearer secret, never the Ollama port.
+async function ollamaChat(input) {
+  const model = String(input?.model || '').trim();
+  const messages = Array.isArray(input?.messages) ? input.messages : [];
+  if (!model || model.length > 120)
+    throw new Error('A valid Ollama model is required.');
+  const safeMessages = messages
+    .filter(
+      (message) =>
+        message &&
+        ['system', 'user', 'assistant'].includes(message.role) &&
+        typeof message.content === 'string'
+    )
+    .slice(-24)
+    .map((message) => ({
+      role: message.role,
+      content: message.content.slice(0, 16000),
+    }));
+  if (!safeMessages.length)
+    throw new Error('At least one message is required.');
+
+  const rawTimeout = Number(input?.timeout_ms);
+  const timeout = Number.isFinite(rawTimeout)
+    ? Math.min(60000, Math.max(5000, rawTimeout))
+    : 30000;
+  let response;
+  try {
+    response = await fetch('http://127.0.0.1:11434/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        messages: safeMessages,
+        stream: false,
+        max_tokens: Math.min(
+          1024,
+          Math.max(1, Number(input?.max_completion_tokens) || 1024)
+        ),
+      }),
+      signal: AbortSignal.timeout(timeout),
+    });
+  } catch (error) {
+    throw new Error(
+      `Ollama local is unavailable: ${error?.message || String(error)}`
+    );
+  }
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail =
+      payload?.error?.message || payload?.error || `HTTP ${response.status}`;
+    const error = new Error(`Ollama local error: ${detail}`);
+    error.status = response.status === 404 ? 400 : 502;
+    throw error;
+  }
+  return payload;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -928,9 +1039,17 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/sync')
       return reply(res, 200, { success: true, ...(await sync(input)) });
     if (req.method === 'POST' && url.pathname === '/probe')
-      return reply(res, 200, { success: true, ...(await whatsappProbe(input)) });
+      return reply(res, 200, {
+        success: true,
+        ...(await whatsappProbe(input)),
+      });
     if (req.method === 'POST' && url.pathname === '/probe/send')
-      return reply(res, 200, { success: true, ...(await sendWhatsAppProbe(input)) });
+      return reply(res, 200, {
+        success: true,
+        ...(await sendWhatsAppProbe(input)),
+      });
+    if (req.method === 'POST' && url.pathname === '/ai/chat')
+      return reply(res, 200, await ollamaChat(input));
     return reply(res, 404, { error: 'Not found' });
   } catch (e) {
     console.error('[bridge]', e);

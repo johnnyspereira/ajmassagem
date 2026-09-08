@@ -34,9 +34,9 @@ export async function POST(request: Request) {
     }
 
     const provider = body.provider as AiProvider;
-    if (provider !== 'openai' && provider !== 'anthropic') {
+    if (!['openai', 'anthropic', 'gemini', 'ollama'].includes(provider)) {
       return NextResponse.json(
-        { error: 'provider must be "openai" or "anthropic"' },
+        { error: 'Unsupported AI provider' },
         { status: 400 }
       );
     }
@@ -47,6 +47,9 @@ export async function POST(request: Request) {
 
     const rawKey = typeof body.api_key === 'string' ? body.api_key.trim() : '';
     let apiKeyPlain = rawKey;
+    if (provider === 'ollama' && !apiKeyPlain) {
+      apiKeyPlain = 'ollama-local-worker';
+    }
     if (!apiKeyPlain) {
       const { data: existing } = await supabase
         .from('ai_configs')

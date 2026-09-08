@@ -8,6 +8,8 @@ import {
 import { HANDOFF_SENTINEL, aiRequestTimeoutMs } from './defaults';
 import { generateOpenAi } from './providers/openai';
 import { generateAnthropic } from './providers/anthropic';
+import { generateGemini } from './providers/gemini';
+import { generateOllama } from './providers/ollama';
 
 export interface GenerateArgs {
   config: AiConfig;
@@ -42,6 +44,12 @@ export async function generateReply(
       break;
     case 'anthropic':
       result = await generateAnthropic(providerArgs);
+      break;
+    case 'gemini':
+      result = await generateGemini(providerArgs);
+      break;
+    case 'ollama':
+      result = await generateOllama(providerArgs);
       break;
     default:
       throw new AiError(`Unsupported AI provider: ${config.provider}`, {
