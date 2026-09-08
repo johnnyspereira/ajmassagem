@@ -607,16 +607,6 @@ async function getLocalQrStatus() {
   return getBaileysSessionStatus();
 }
 
-async function sendTextViaLocalQr(
-  accountId: string,
-  conversationId: string,
-  text: string,
-  options: { senderType?: 'agent' | 'bot'; replyToMessageId?: string | null }
-) {
-  const { sendTextViaBaileys } = await import('@/lib/whatsapp/baileys');
-  return sendTextViaBaileys(accountId, conversationId, text, options);
-}
-
 async function sendMessageViaLocalQr(
   accountId: string,
   conversationId: string,
