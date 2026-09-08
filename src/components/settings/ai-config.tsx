@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { AiKnowledgeCard } from './ai-knowledge';
+import { OwnerCommandSettings } from './owner-command-settings';
 import { AI_PROVIDER_DEFAULT_MODEL } from '@/lib/ai/defaults';
 import type { AiProvider } from '@/lib/ai/types';
 import type { AccountMember } from '@/types';
@@ -546,6 +547,8 @@ export function AiConfig() {
               : hasStoredEmbeddingsKey
           }
         />
+
+        <OwnerCommandSettings canEdit={canEdit} />
 
         <div className="flex items-center justify-between rounded-2xl border bg-card p-3 shadow-sm">
           {configured ? (

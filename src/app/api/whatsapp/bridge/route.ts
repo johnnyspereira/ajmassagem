@@ -13,6 +13,7 @@ import { handleAppointmentConfirmationReply } from '@/lib/clinic/appointment-con
 import { handleWhatsAppRescheduleReply } from '@/lib/clinic/appointment-whatsapp-reschedule';
 import { enqueueWhatsAppMessage } from '@/lib/whatsapp/outbox';
 import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
+import { handleOwnerInboxCommand } from '@/lib/ai/owner-inbox-commands';
 
 async function authorized(
   request: Request,
@@ -617,6 +618,30 @@ export async function POST(request: Request) {
         // reply of CONFIRMAR/REAGENDAR works for individual appointments.
         if (contentType === 'text' && body.text) {
           const messageText = String(body.text);
+          const ownerCommandReply = await handleOwnerInboxCommand({
+            accountId,
+            userId,
+            contactId: result.contactId,
+            conversationId: result.conversationId,
+            phone: normalized,
+            text: messageText,
+          }).catch((ownerCommandError) => {
+            console.error('[whatsapp-bridge] owner command failed:', ownerCommandError);
+            return null;
+          });
+          if (ownerCommandReply) {
+            await enqueueWhatsAppMessage({
+              accountId,
+              userId,
+              conversationId: result.conversationId,
+              requestKey: `owner-command:${externalId}`,
+              payload: {
+                text: ownerCommandReply,
+                contentType: 'text',
+                senderType: 'bot',
+              },
+            });
+          } else {
           const appointmentRequest = /\b(reagendar|remarcar|alterar|mudar|cancelar|cancela)\b/i.test(
             messageText.normalize('NFD').replace(/\p{Diacritic}/gu, '')
           );
@@ -677,6 +702,7 @@ export async function POST(request: Request) {
             }).catch((confirmationError) => {
               console.error('[whatsapp-bridge] appointment confirmation failed:', confirmationError);
             });
+          }
           }
         }
         await notifyAccountEvent({
