@@ -901,6 +901,8 @@ export interface ClinicAppointment {
   source: ClinicAppointmentSource;
   price: number;
   original_price?: number | null;
+  manual_discount_amount?: number | null;
+  manual_discount_reason?: string | null;
   referral_id?: string | null;
   referral_discount_type?: 'fixed_credit' | 'percentage' | 'service' | null;
   referral_discount_value?: number | null;

@@ -703,6 +703,12 @@ export function AgendaPage({
   const [appointmentSaveStage, setAppointmentSaveStage] = useState('');
   const [appointmentPreviewOpen, setAppointmentPreviewOpen] = useState(false);
   const [createSumUpCharge, setCreateSumUpCharge] = useState(false);
+  const [appointmentDurationMinutes, setAppointmentDurationMinutes] =
+    useState<number | ''>('');
+  const [manualDiscountAmount, setManualDiscountAmount] = useState<number | ''>(
+    ''
+  );
+  const [manualDiscountReason, setManualDiscountReason] = useState('');
   const [recurrenceCount, setRecurrenceCount] = useState(1);
   const [recentClientAppointments, setRecentClientAppointments] = useState<
     AppointmentRow[]
@@ -849,8 +855,28 @@ export function AgendaPage({
     appointmentDraft.date,
     appointmentDraft.time
   );
+  const effectiveAppointmentDuration = Math.min(
+    480,
+    Math.max(
+      5,
+      Number(appointmentDurationMinutes || selectedService?.duration_minutes || 0)
+    )
+  );
+  const servicePrice = Number(selectedService?.price ?? 0);
+  const effectiveManualDiscount = Math.min(
+    servicePrice,
+    Math.max(0, Number(manualDiscountAmount || 0))
+  );
+  const estimatedReferralDiscount = Math.min(
+    Math.max(0, servicePrice - effectiveManualDiscount),
+    Number(referralQuote?.discount ?? 0)
+  );
+  const appointmentTotal = Math.max(
+    0,
+    servicePrice - effectiveManualDiscount - estimatedReferralDiscount
+  );
   const newAppointmentEnd = selectedService
-    ? addMinutes(newAppointmentStart, selectedService.duration_minutes)
+    ? addMinutes(newAppointmentStart, effectiveAppointmentDuration)
     : newAppointmentStart;
   const newAppointmentConflicts = selectedService
     ? findAvailabilityConflicts(
@@ -899,8 +925,9 @@ export function AgendaPage({
             scheduled_end: newAppointmentEnd.toISOString(),
             currency: selectedService.currency || defaultCurrency,
             original_price: Number(selectedService.price ?? 0),
-            referral_discount_amount: referralQuote?.discount ?? 0,
-            price: referralQuote?.total ?? Number(selectedService.price ?? 0),
+            manual_discount_amount: effectiveManualDiscount,
+            referral_discount_amount: estimatedReferralDiscount,
+            price: appointmentTotal,
           } as AppointmentRow,
           'confirmation',
           account?.name ?? 'nossa clínica',
@@ -964,6 +991,9 @@ export function AgendaPage({
       setNewBenefitCodeLookup(null);
       setAppointmentPreviewOpen(false);
       setCreateSumUpCharge(false);
+      setAppointmentDurationMinutes(firstService?.duration_minutes ?? '');
+      setManualDiscountAmount('');
+      setManualDiscountReason('');
       setRecurrenceCount(1);
       setRecentClientAppointments([]);
       setAppointmentReferralId(referralId ?? null);
@@ -1497,7 +1527,7 @@ export function AgendaPage({
       appointmentDraft.date,
       appointmentDraft.time
     );
-    const endAt = addMinutes(startAt, selectedService.duration_minutes);
+    const endAt = addMinutes(startAt, effectiveAppointmentDuration);
 
     let isAvailable = false;
     try {
@@ -1533,14 +1563,17 @@ export function AgendaPage({
         status: appointmentDraft.status,
         source: appointmentReferralId ? 'referral' : 'manual',
         referral_id: appointmentReferralId,
-        price: Number(selectedService.price ?? 0),
+        original_price: servicePrice,
+        manual_discount_amount: effectiveManualDiscount,
+        manual_discount_reason: manualDiscountReason.trim() || null,
+        price: Math.max(0, servicePrice - effectiveManualDiscount),
         currency: selectedService.currency || defaultCurrency,
         notes: appointmentDraft.notes.trim() || null,
         original_scheduled_start: startAt.toISOString(),
         original_scheduled_end: endAt.toISOString(),
       })
       .select(
-        'id, scheduled_start, scheduled_end, price, original_price, referral_id, referral_discount_amount'
+        'id, scheduled_start, scheduled_end, price, original_price, manual_discount_amount, referral_id, referral_discount_amount'
       )
       .single();
     if (error) {
@@ -1590,7 +1623,7 @@ export function AgendaPage({
       const refreshed = await supabase
         .from('clinic_appointments')
         .select(
-          'id, scheduled_start, scheduled_end, price, original_price, referral_id, referral_discount_amount'
+          'id, scheduled_start, scheduled_end, price, original_price, manual_discount_amount, referral_id, referral_discount_amount'
         )
         .eq('id', data.id)
         .single();
@@ -1678,7 +1711,7 @@ export function AgendaPage({
         const recurringStart = addDays(startAt, occurrence * 7);
         const recurringEnd = addMinutes(
           recurringStart,
-          selectedService.duration_minutes
+          effectiveAppointmentDuration
         );
         if (
           !(await ensureAvailability({
@@ -1703,7 +1736,10 @@ export function AgendaPage({
             scheduled_end: recurringEnd.toISOString(),
             status: appointmentDraft.status,
             source: 'manual',
-            price: Number(selectedService.price ?? 0),
+            original_price: servicePrice,
+            manual_discount_amount: effectiveManualDiscount,
+            manual_discount_reason: manualDiscountReason.trim() || null,
+            price: Math.max(0, servicePrice - effectiveManualDiscount),
             currency: selectedService.currency || defaultCurrency,
             notes: appointmentDraft.notes.trim() || null,
             original_scheduled_start: recurringStart.toISOString(),
@@ -1743,6 +1779,9 @@ export function AgendaPage({
           referral_id: createdAppointment?.referral_id ?? appointmentReferralId,
           referral_discount_amount:
             createdAppointment?.referral_discount_amount ?? 0,
+          manual_discount_amount:
+            createdAppointment?.manual_discount_amount ?? effectiveManualDiscount,
+          duration_minutes: effectiveAppointmentDuration,
         },
       });
     }
@@ -5417,12 +5456,16 @@ export function AgendaPage({
                 <Field label="Procedimento">
                   <NativeSelect
                     value={appointmentDraft.serviceId}
-                    onChange={(value) =>
+                    onChange={(value) => {
                       setAppointmentDraft((prev) => ({
                         ...prev,
                         serviceId: value,
-                      }))
-                    }
+                      }));
+                      setAppointmentDurationMinutes(
+                        services.find((service) => service.id === value)
+                          ?.duration_minutes ?? ''
+                      );
+                    }}
                   >
                     <option value="">Selecione um procedimento</option>
                     {activeServices.map((service) => (
@@ -5515,11 +5558,31 @@ export function AgendaPage({
               </div>
 
               {selectedService ? (
+                <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Duração da sessão (minutos)">
+                    <Input
+                      type="number"
+                      min={5}
+                      max={480}
+                      step={5}
+                      value={appointmentDurationMinutes || selectedService.duration_minutes}
+                      onChange={(event) =>
+                        setAppointmentDurationMinutes(
+                          Math.min(480, Math.max(5, Number(event.target.value) || 5))
+                        )
+                      }
+                    />
+                  </Field>
+                  <div className="text-muted-foreground flex items-end pb-2 text-xs">
+                    Valor e procedimento mantêm-se; o fim previsto e a disponibilidade usam a duração escolhida.
+                  </div>
+                </div>
                 <div className="border-border bg-muted/30 grid gap-2 rounded-md border p-3 text-sm sm:grid-cols-3">
                   <div>
                     <p className="text-muted-foreground text-xs">Duração</p>
                     <p className="text-foreground font-medium">
-                      {selectedService.duration_minutes} minutos
+                      {effectiveAppointmentDuration} minutos
                     </p>
                   </div>
                   <div>
@@ -5542,12 +5605,13 @@ export function AgendaPage({
                             appointmentDraft.date,
                             appointmentDraft.time
                           ),
-                          selectedService.duration_minutes
+                          effectiveAppointmentDuration
                         )
                       )}
                     </p>
                   </div>
                 </div>
+                </>
               ) : null}
             </section>
 
@@ -5705,6 +5769,37 @@ export function AgendaPage({
                   </div>
                 )}
               </div>
+              <div className="border-border bg-muted/20 mt-4 grid gap-3 rounded-md border p-3 sm:grid-cols-[1fr_1fr]">
+                <Field label="Desconto manual">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={servicePrice}
+                    step="0.01"
+                    inputMode="decimal"
+                    value={manualDiscountAmount}
+                    onChange={(event) =>
+                      setManualDiscountAmount(
+                        event.target.value === ''
+                          ? ''
+                          : Math.min(servicePrice, Math.max(0, Number(event.target.value) || 0))
+                      )
+                    }
+                    placeholder="0,00"
+                  />
+                </Field>
+                <Field label="Motivo do desconto (opcional)">
+                  <Input
+                    value={manualDiscountReason}
+                    maxLength={255}
+                    onChange={(event) => setManualDiscountReason(event.target.value)}
+                    placeholder="Ex.: fidelização ou cortesia"
+                  />
+                </Field>
+                <p className="text-muted-foreground text-xs sm:col-span-2">
+                  Preço base {formatCurrency(servicePrice, selectedService?.currency || defaultCurrency)} · desconto manual {formatCurrency(effectiveManualDiscount, selectedService?.currency || defaultCurrency)} · total previsto {formatCurrency(appointmentTotal, selectedService?.currency || defaultCurrency)}.
+                </p>
+              </div>
             </div>
 
             <div className="grid gap-3 lg:grid-cols-2">
@@ -5816,10 +5911,10 @@ export function AgendaPage({
                   />
                   <span>
                     <span className="block font-medium">
-                      Abrir cobrança SumUp no POS
+                      Preparar cobrança no POS
                     </span>
                     <span className="text-muted-foreground text-xs">
-                      Abre o POS com cliente e agendamento selecionados.
+                      Abre o POS com cliente, agendamento e valor final selecionados.
                     </span>
                   </span>
                 </label>
@@ -5873,7 +5968,15 @@ export function AgendaPage({
                 </span>
                 <span>
                   <strong className="text-foreground">Total:</strong>{' '}
-                  {recurrenceCount} marcação(ões)
+                  {formatCurrency(appointmentTotal, selectedService?.currency || defaultCurrency)} · {recurrenceCount} marcação(ões)
+                </span>
+                <span>
+                  <strong className="text-foreground">Fim / POS:</strong>{' '}
+                  {timeInputValue(newAppointmentEnd)} · {createSumUpCharge ? 'abrirá após guardar' : 'não preparado'}
+                </span>
+                <span>
+                  <strong className="text-foreground">Mensagem:</strong>{' '}
+                  confirmação será enviada pelos canais disponíveis
                 </span>
                 {selectedNewPackBalance ? (
                   <span className="sm:col-span-2">

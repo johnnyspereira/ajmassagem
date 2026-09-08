@@ -1433,10 +1433,11 @@ export async function executeMysqlRpc(
               contact_id: string;
               price: number;
               original_price: number | null;
+              manual_discount_amount: number | null;
               service_id: string;
             })[]
           >(
-            `SELECT id,referral_id,contact_id,price,original_price,service_id FROM clinic_appointments WHERE id=? AND account_id=? FOR UPDATE`,
+            `SELECT id,referral_id,contact_id,price,original_price,manual_discount_amount,service_id FROM clinic_appointments WHERE id=? AND account_id=? FOR UPDATE`,
             [appointmentId, context.accountId]
           );
           const appointment = appointments[0];
@@ -1465,6 +1466,10 @@ export async function executeMysqlRpc(
           const original = Number(
             appointment.original_price ?? appointment.price
           );
+          const manualDiscount = Math.max(
+            0,
+            Math.min(original, Number(appointment.manual_discount_amount ?? 0))
+          );
           let discount = 0;
           if (
             reward &&
@@ -1480,7 +1485,10 @@ export async function executeMysqlRpc(
                   : 0;
             discount = Math.max(
               0,
-              Math.min(original, Math.round(discount * 100) / 100)
+              Math.min(
+                Math.max(0, original - manualDiscount),
+                Math.round(discount * 100) / 100
+              )
             );
             if (discount > 0)
               await connection.execute(
@@ -1495,14 +1503,14 @@ export async function executeMysqlRpc(
               reward?.reward_type ?? null,
               reward?.reward_value ?? 0,
               discount,
-              original - discount,
+              Math.max(0, original - manualDiscount - discount),
               appointmentId,
             ]
           );
           output = {
             original_price: original,
             discount_amount: discount,
-            price: original - discount,
+            price: Math.max(0, original - manualDiscount - discount),
             reward_type: reward?.reward_type ?? null,
             reward_value: Number(reward?.reward_value ?? 0),
           };

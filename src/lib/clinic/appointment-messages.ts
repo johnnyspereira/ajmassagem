@@ -111,6 +111,7 @@ export function buildAppointmentMessage(
   const referralDiscount = Number(
     appointment.referral_discount_amount ?? 0
   );
+  const manualDiscount = Number(appointment.manual_discount_amount ?? 0);
   const originalPrice = new Intl.NumberFormat('pt-PT', {
     style: 'currency',
     currency: appointment.currency || 'EUR',
@@ -121,6 +122,10 @@ export function buildAppointmentMessage(
   }).format(referralDiscount);
   const hasVoucherOrPack =
     options.benefit?.type === 'voucher' || options.benefit?.type === 'pack';
+  const manualDiscountLabel = new Intl.NumberFormat('pt-PT', {
+    style: 'currency',
+    currency: appointment.currency || 'EUR',
+  }).format(manualDiscount);
 
   if (action === 'pending_confirmation') {
     return [
@@ -141,7 +146,10 @@ export function buildAppointmentMessage(
     `💆 Serviço: ${service}`,
     `📅 Data: ${date}`,
     `🕕 Horário: ${time}`,
-    referralDiscount > 0 ? `🏷️ Valor original: ${originalPrice}` : null,
+    referralDiscount > 0 || manualDiscount > 0
+      ? `🏷️ Valor original: ${originalPrice}`
+      : null,
+    manualDiscount > 0 ? `💶 Desconto aplicado: -${manualDiscountLabel}` : null,
     referralDiscount > 0
       ? `🎁 Benefício Indique & Ganhe: -${discountLabel}`
       : null,
