@@ -2,5 +2,4 @@
 deployment:
   tasks:
     - /bin/mkdir -p /home/jpmassag/repositories/ajmassagem-v2/tmp
-    - /usr/bin/touch /home/jpmassag/repositories/ajmassagem-v2/server.js
     - /usr/bin/touch /home/jpmassag/repositories/ajmassagem-v2/tmp/restart.txt
