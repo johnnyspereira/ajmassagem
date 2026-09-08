@@ -9,6 +9,12 @@ import {
   Trash2,
   Eye,
   EyeOff,
+  Bot,
+  Cpu,
+  Cloud,
+  KeyRound,
+  MessageSquareText,
+  Save,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { canEditSettings } from '@/lib/auth/roles';
@@ -31,7 +37,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { SettingsPanelHead } from './settings-panel-head';
 import { AiKnowledgeCard } from './ai-knowledge';
 import { AI_PROVIDER_DEFAULT_MODEL } from '@/lib/ai/defaults';
 import type { AiProvider } from '@/lib/ai/types';
@@ -57,6 +62,16 @@ const KEY_PLACEHOLDER: Record<AiProvider, string> = {
   anthropic: 'sk-ant-...',
   gemini: 'AIza...',
   ollama: 'Não necessita de chave API',
+};
+
+const PROVIDER_META: Record<
+  AiProvider,
+  { description: string; badge: string; icon: typeof Bot }
+> = {
+  openai: { description: 'Modelos GPT para atendimento e rascunhos.', badge: 'Cloud', icon: Sparkles },
+  anthropic: { description: 'Claude para respostas longas e cuidadosas.', badge: 'Cloud', icon: MessageSquareText },
+  gemini: { description: 'Google Gemini com chave própria.', badge: 'Cloud', icon: Cloud },
+  ollama: { description: 'Privado no seu computador via Worker.', badge: 'Local', icon: Cpu },
 };
 
 export function AiConfig() {
@@ -255,8 +270,16 @@ export function AiConfig() {
   const disabled = !canEdit || saving;
 
   return (
-    <div>
-      <SettingsPanelHead title={t('title')} description={t('description')} />
+    <div className="space-y-5">
+      <div className="rounded-2xl border bg-gradient-to-r from-violet-500/10 via-fuchsia-500/5 to-transparent p-5">
+        <div className="flex items-start gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-600 text-white shadow-lg shadow-violet-500/25"><Bot className="h-5 w-5" /></span>
+          <div>
+            <h3 className="font-heading text-lg font-semibold">Configure o cérebro do seu agente</h3>
+            <p className="text-muted-foreground mt-1 text-sm">Escolha o fornecedor, defina as regras de atendimento e guarde. A chave fica cifrada e nunca volta a ser apresentada.</p>
+          </div>
+        </div>
+      </div>
 
       {!canEdit && (
         <p className="border-border bg-muted/40 text-muted-foreground mb-4 rounded-md border px-3 py-2 text-sm">
@@ -265,45 +288,28 @@ export function AiConfig() {
       )}
 
       <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="text-primary h-4 w-4" />{' '}
-              {t('providerAndKey')}
-            </CardTitle>
+        <Card className="border-violet-200/70 shadow-sm">
+          <CardHeader className="border-b bg-violet-500/[0.03]">
+            <CardTitle className="flex items-center gap-2 text-base"><Sparkles className="text-primary h-4 w-4" /> 1. Escolha o fornecedor</CardTitle>
             <CardDescription>{t('encryptionNotice')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {(Object.keys(PROVIDER_META) as AiProvider[]).map((item) => {
+                const meta = PROVIDER_META[item];
+                const Icon = meta.icon;
+                const selected = provider === item;
+                return <button key={item} type="button" disabled={disabled} onClick={() => handleProviderChange(item)} className={`relative rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 disabled:cursor-not-allowed disabled:opacity-60 ${selected ? 'border-violet-500 bg-violet-500/10 shadow-sm' : 'border-border bg-card hover:border-violet-300 hover:bg-violet-500/[0.03]'}`}>
+                  <div className="flex items-start justify-between gap-2"><span className={`grid h-8 w-8 place-items-center rounded-lg ${selected ? 'bg-violet-600 text-white' : 'bg-muted text-muted-foreground'}`}><Icon className="h-4 w-4" /></span><span className="text-muted-foreground rounded-full bg-background px-2 py-0.5 text-[10px] font-semibold">{meta.badge}</span></div>
+                  <p className="mt-3 text-sm font-semibold">{PROVIDER_LABEL[item]}</p><p className="text-muted-foreground mt-1 text-xs leading-4">{meta.description}</p>
+                  {selected && <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-violet-600" />}
+                </button>;
+              })}
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>{t('provider')}</Label>
-                <Select
-                  value={provider}
-                  onValueChange={(v) => handleProviderChange(v as AiProvider)}
-                  disabled={disabled}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="openai">
-                      {PROVIDER_LABEL.openai}
-                    </SelectItem>
-                    <SelectItem value="anthropic">
-                      {PROVIDER_LABEL.anthropic}
-                    </SelectItem>
-                    <SelectItem value="gemini">
-                      {PROVIDER_LABEL.gemini}
-                    </SelectItem>
-                    <SelectItem value="ollama">
-                      {PROVIDER_LABEL.ollama}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="ai-model">{t('model')}</Label>
+                <Label className="flex items-center gap-1.5" htmlFor="ai-model"><Cpu className="h-3.5 w-3.5" />{t('model')}</Label>
                 <Input
                   id="ai-model"
                   value={model}
@@ -311,6 +317,11 @@ export function AiConfig() {
                   placeholder={AI_PROVIDER_DEFAULT_MODEL[provider]}
                   disabled={disabled}
                 />
+              </div>
+
+              <div className="rounded-xl border border-dashed bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+                <p className="flex items-center gap-1.5 font-medium text-foreground"><KeyRound className="h-3.5 w-3.5 text-violet-600" /> Modelo editável</p>
+                <p className="mt-1">Pode escrever outro modelo disponível no fornecedor sem perder a configuração atual.</p>
               </div>
             </div>
 
@@ -423,9 +434,9 @@ export function AiConfig() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t('behaviour')}</CardTitle>
+        <Card className="shadow-sm">
+          <CardHeader className="border-b bg-muted/20">
+            <CardTitle className="flex items-center gap-2 text-base"><MessageSquareText className="text-primary h-4 w-4" /> 2. Regras de atendimento</CardTitle>
             <CardDescription>{t('behaviourDesc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -441,7 +452,7 @@ export function AiConfig() {
               />
             </div>
 
-            <div className="border-border flex items-center justify-between gap-4 rounded-md border p-3">
+            <div className="border-border flex items-center justify-between gap-4 rounded-xl border p-3.5">
               <div>
                 <p className="text-foreground text-sm font-medium">
                   {t('enableAssistant')}
@@ -457,7 +468,7 @@ export function AiConfig() {
               />
             </div>
 
-            <div className="border-border flex items-center justify-between gap-4 rounded-md border p-3">
+            <div className="border-border flex items-center justify-between gap-4 rounded-xl border p-3.5">
               <div>
                 <p className="text-foreground text-sm font-medium">
                   {t('autoReply')}
@@ -536,7 +547,7 @@ export function AiConfig() {
           }
         />
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between rounded-2xl border bg-card p-3 shadow-sm">
           {configured ? (
             <Button
               variant="ghost"
@@ -555,8 +566,8 @@ export function AiConfig() {
             <span />
           )}
 
-          <Button onClick={handleSave} disabled={disabled}>
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button onClick={handleSave} disabled={disabled} className="shadow-lg shadow-violet-500/20">
+            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             {t('save')}
           </Button>
         </div>

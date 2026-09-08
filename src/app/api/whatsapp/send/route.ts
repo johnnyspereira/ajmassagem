@@ -200,17 +200,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // Older deployments used `polling_worker` as a DB outbox transport.
-    // When a secured remote Worker is available, sending it directly is both
-    // more reliable and truthful to the Inbox: a message is only shown as
-    // sent after WhatsApp Web accepts it. Keep the queue solely as a legacy
-    // fallback for installations that have no reachable remote Worker.
+    // Route Inbox text through the durable outbox. Calling the remote Worker
+    // synchronously made the Inbox depend on a second HTTP hop and could turn
+    // a healthy QR session into a 502 in the browser. The Worker claims this
+    // queue every few seconds and updates this same message record.
     if (
-      process.env.WHATSAPP_MODE === 'polling_worker' &&
-      !remoteWhatsAppWorker.enabled() &&
-      // Keep this branch type-compatible with historical queued records, but
-      // never allow it to execute again.
-      Boolean(false)
+      remoteWhatsAppWorker.enabled() &&
+      ['text', 'interactive'].includes(message_type)
     ) {
       const requestKey =
         typeof client_request_id === 'string' && client_request_id.trim()
