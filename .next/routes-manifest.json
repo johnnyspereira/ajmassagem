@@ -764,6 +764,12 @@
       "namedRegex": "^/api/ai/test(?:/)?$"
     },
     {
+      "page": "/api/ai/translate",
+      "regex": "^/api/ai/translate(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ai/translate(?:/)?$"
+    },
+    {
       "page": "/api/ai/usage",
       "regex": "^/api/ai/usage(?:/)?$",
       "routeKeys": {},
