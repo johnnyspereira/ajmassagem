@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
-import { engineSendText } from '@/lib/automations/meta-send';
 import { sendPush, type StoredPushSubscription } from '@/lib/push/server';
 import { resolveConversationByPhone } from '@/lib/whatsapp/resolve-conversation';
 import { getPublicUrl } from '@/lib/public-url';
-import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
+import { enqueueWhatsAppMessage } from '@/lib/whatsapp/outbox';
 
 type CreatedNotification = {
   id: string;
@@ -117,7 +116,7 @@ export async function GET(request: Request) {
       .maybeSingle();
     if (!claim) continue;
     try {
-      const { conversationId, contactId } = await resolveConversationByPhone(
+      const { conversationId } = await resolveConversationByPhone(
         admin,
         delivery.account_id,
         delivery.recipient,
@@ -133,6 +132,27 @@ export async function GET(request: Request) {
       if (!owner?.user_id)
         throw new Error('ProprietÃ¡rio da conta nÃ£o encontrado.');
       const message = `🔔 *${delivery.notification?.title ?? 'Alerta financeiro'}*\n\n${delivery.notification?.body ?? ''}\n\nAbra o CRM: ${financeUrl}`;
+      const queued = await enqueueWhatsAppMessage({
+        accountId: delivery.account_id,
+        userId: owner.user_id,
+        conversationId,
+        requestKey: `finance-reminder-${delivery.id}`,
+        payload: { text: message, contentType: 'text', senderType: 'bot' },
+      });
+      await admin
+        .from('finance_reminder_deliveries')
+        .update({
+          status: 'sent',
+          sent_at: new Date().toISOString(),
+          whatsapp_message_id: queued.messageId,
+          last_error: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', delivery.id);
+      whatsappSent++;
+      continue;
+
+      /* Direct delivery is intentionally replaced by the durable outbox.
       const sent = remoteWhatsAppWorker.enabled()
         ? await remoteWhatsAppWorker.send({
             accountId: delivery.account_id,
@@ -158,6 +178,7 @@ export async function GET(request: Request) {
         })
         .eq('id', delivery.id);
       whatsappSent++;
+      */
     } catch (error) {
       const delayMinutes = Math.min(60, 5 * 2 ** delivery.attempts);
       await admin
