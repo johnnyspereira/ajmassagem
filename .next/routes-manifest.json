@@ -752,6 +752,12 @@
       "namedRegex": "^/api/ai/knowledge/reindex(?:/)?$"
     },
     {
+      "page": "/api/ai/owner-commands",
+      "regex": "^/api/ai/owner\\-commands(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ai/owner\\-commands(?:/)?$"
+    },
+    {
       "page": "/api/ai/playground",
       "regex": "^/api/ai/playground(?:/)?$",
       "routeKeys": {},
