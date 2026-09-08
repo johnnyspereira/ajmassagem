@@ -19,6 +19,7 @@ import {
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils';
 import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
+import { enqueueWhatsAppMessage } from '@/lib/whatsapp/outbox';
 import { supabaseAdmin } from './admin-client';
 
 // ------------------------------------------------------------
@@ -496,24 +497,16 @@ async function sendTextViaQrIfConnected(
   if (!remoteWhatsAppWorker.enabled()) {
     throw new Error('WHATSAPP_MODE deve ser remote_worker para executar fluxos.');
   }
-  if (!(await isQrConnectedFor(args.accountId, args.userId))) {
-    throw new Error('O remote_worker não está ligado ao WhatsApp.');
-  }
-  const result = remoteWhatsAppWorker.enabled()
-    ? await remoteWhatsAppWorker.send({
-        accountId: args.accountId,
-        userId: args.userId,
-        conversationId: args.conversationId,
-        message: {
-          text: args.text,
-          contentType: 'text',
-          senderType: 'bot',
-        },
-      })
-    : await sendTextViaLocalQr(args.accountId, args.conversationId, args.text, {
-        senderType: 'bot',
-      });
-  return { whatsapp_message_id: result.whatsappMessageId };
+  // Queue automatic text replies: a momentary Worker/proxy issue must not
+  // make the AI webhook fail after it has already generated a response.
+  const queued = await enqueueWhatsAppMessage({
+    accountId: args.accountId,
+    userId: args.userId,
+    conversationId: args.conversationId,
+    requestKey: `flow-text:${args.conversationId}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`,
+    payload: { text: args.text, contentType: 'text', senderType: 'bot' },
+  });
+  return { whatsapp_message_id: queued.messageId };
 }
 
 async function sendMediaViaQrIfConnected(
