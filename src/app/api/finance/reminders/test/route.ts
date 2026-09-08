@@ -1,8 +1,8 @@
-import { engineSendText } from '@/lib/automations/meta-send';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { getPublicUrl } from '@/lib/public-url';
 import { createClient } from '@/lib/supabase/server';
 import { resolveConversationByPhone } from '@/lib/whatsapp/resolve-conversation';
+import { enqueueWhatsAppMessage } from '@/lib/whatsapp/outbox';
 
 export async function POST(request: Request) {
   const session = await createClient();
@@ -31,17 +31,36 @@ export async function POST(request: Request) {
     );
 
   try {
-    const { conversationId, contactId } = await resolveConversationByPhone(
+    const { conversationId } = await resolveConversationByPhone(
       db,
       profile.account_id,
       settings.whatsapp_phone,
       'Alertas financeiros'
     );
     const financeUrl = getPublicUrl('/finance', new URL(request.url).origin);
-    // Kept as a readable record of the test text in the request log context.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const testMessage = `Teste dos alertas financeiros\n\nA ligação entre o Centro Financeiro e o WhatsApp está operacional.\n\nAbrir o financeiro: ${financeUrl}`;
-    const sent = await engineSendText({
+    const queued = await enqueueWhatsAppMessage({
+      accountId: profile.account_id,
+      userId: auth.user.id,
+      conversationId,
+      requestKey: `finance-reminder-test-${auth.user.id}-${Date.now()}`,
+      payload: {
+        contentType: 'text',
+        text: testMessage,
+        senderType: 'bot',
+      },
+    });
+    return Response.json({
+      ok: true,
+      queued: true,
+      recipient: settings.whatsapp_phone,
+      messageId: queued.messageId,
+      testedAt: new Date().toISOString(),
+    });
+
+    /* Direct delivery is deliberately disabled here: the connected worker
+       polls the durable outbox, avoiding CRM-to-worker network failures. */
+    /* const sent = await engineSendText({
       accountId: profile.account_id,
       userId: auth.user.id,
       conversationId,
@@ -54,6 +73,7 @@ export async function POST(request: Request) {
       messageId: sent.whatsapp_message_id,
       testedAt: new Date().toISOString(),
     });
+    */
   } catch (cause) {
     const error = cause instanceof Error ? cause.message : String(cause);
     console.error('[finance-reminder-test]', error);
