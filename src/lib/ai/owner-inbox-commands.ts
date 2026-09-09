@@ -4,6 +4,7 @@ import { selectRows, transaction } from '@/lib/mysql/db';
 
 type CommandContext = { accountId: string; userId: string; contactId: string; conversationId: string; phone: string; text: string };
 type PendingRow = RowDataPacket & { id: string; command_type: 'block_time' | 'unblock_time'; payload: string; confirmation_code: string };
+type TodayAppointmentRow = RowDataPacket & { scheduled_start: Date; scheduled_end: Date; contact_name: string | null; service_name: string | null };
 
 const MONTHS: Record<string, number> = { janeiro: 1, fevereiro: 2, marco: 3, abril: 4, maio: 5, junho: 6, julho: 7, agosto: 8, setembro: 9, outubro: 10, novembro: 11, dezembro: 12 };
 const clean = (value: string) => value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
@@ -22,6 +23,23 @@ function lisbonDate(year: number, month: number, day: number, hour: number, minu
 
 function format(value: Date) {
   return new Intl.DateTimeFormat('pt-PT', { timeZone: 'Europe/Lisbon', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(value);
+}
+
+function lisbonTodayRange() {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Lisbon', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
+  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
+  const year = get('year');
+  const month = get('month');
+  const day = get('day');
+  const start = lisbonDate(year, month, day, 0, 0);
+  const tomorrow = new Date(Date.UTC(year, month - 1, day + 1));
+  const end = lisbonDate(tomorrow.getUTCFullYear(), tomorrow.getUTCMonth() + 1, tomorrow.getUTCDate(), 0, 0);
+  return { start, end };
+}
+
+function time(value: Date) {
+  return new Intl.DateTimeFormat('pt-PT', { timeZone: 'Europe/Lisbon', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(value);
 }
 
 function parseBlock(text: string) {
@@ -51,6 +69,7 @@ export async function handleOwnerInboxCommand(input: CommandContext): Promise<st
   const text = clean(input.text);
   const confirmation = text.match(/^confirmar\s+(\d{6})\b/);
   if (confirmation) return confirm(input, confirmation[1]);
+  if (/\b(minha\s+)?agenda\s*(de\s+)?hoje\b|\bhorarios?\s+(da\s+)?agenda\s+(de\s+)?hoje\b/.test(text)) return listTodayAgenda(input.accountId);
   if (/\b(bloqueios|listar bloqueios|horarios bloqueados)\b/.test(text)) return listBlocks(input.accountId);
   const isUnblock = /\b(desbloquear|remover bloqueio|apagar bloqueio)\b/.test(text);
   const isBlock = /\b(bloquear|bloqueio)\b/.test(text);
@@ -93,4 +112,27 @@ async function listBlocks(accountId: string) {
   const blocks = await selectRows<(RowDataPacket & { starts_at: Date; ends_at: Date; reason: string | null })[]>('SELECT starts_at,ends_at,reason FROM clinic_time_blocks WHERE account_id=? AND ends_at>=UTC_TIMESTAMP(3) ORDER BY starts_at ASC LIMIT 8', [accountId]);
   if (!blocks.length) return 'Não existem bloqueios futuros na agenda.';
   return `Bloqueios futuros:\n${blocks.map((block) => `• ${format(new Date(block.starts_at))}–${new Intl.DateTimeFormat('pt-PT', { timeZone: 'Europe/Lisbon', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(block.ends_at))}${block.reason ? ` — ${block.reason}` : ''}`).join('\n')}`;
+}
+
+async function listTodayAgenda(accountId: string) {
+  const { start, end } = lisbonTodayRange();
+  const appointments = await selectRows<TodayAppointmentRow[]>(
+    `SELECT a.scheduled_start,a.scheduled_end,c.name AS contact_name,s.name AS service_name
+       FROM clinic_appointments a
+       LEFT JOIN contacts c ON c.id=a.contact_id
+       LEFT JOIN clinic_services s ON s.id=a.service_id
+      WHERE a.account_id=? AND a.scheduled_start>=? AND a.scheduled_start<?
+        AND a.status NOT IN ('cancelled','no_show')
+      ORDER BY a.scheduled_start ASC
+      LIMIT 30`,
+    [accountId, start, end]
+  );
+  if (!appointments.length) return 'N\u00e3o tem marca\u00e7\u00f5es na agenda de hoje.';
+  const date = new Intl.DateTimeFormat('pt-PT', { timeZone: 'Europe/Lisbon', day: '2-digit', month: '2-digit', year: 'numeric' }).format(start);
+  const entries = appointments.map((appointment) => {
+    const client = appointment.contact_name || 'Cliente sem nome';
+    const service = appointment.service_name ? ` \u2014 ${appointment.service_name}` : '';
+    return `\u2022 ${time(new Date(appointment.scheduled_start))}\u2013${time(new Date(appointment.scheduled_end))}: ${client}${service}`;
+  });
+  return `Agenda de hoje (${date}) \u2014 ${appointments.length} marca\u00e7\u00e3o(\u00f5es):\n${entries.join('\n')}`;
 }
