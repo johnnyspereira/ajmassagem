@@ -98,7 +98,10 @@ export async function POST(request: Request) {
         ? body.system_prompt.trim()
         : null;
     const isActive = body.is_active === true;
-    const autoReplyEnabled = body.auto_reply_enabled === true;
+    // An auto-reply without the master assistant switch is meaningless.
+    // Persist a coherent state even when an older browser submission sends
+    // the two switches out of sync.
+    const autoReplyEnabled = isActive && body.auto_reply_enabled === true;
 
     let maxPer = Number(body.auto_reply_max_per_conversation);
     if (!Number.isFinite(maxPer)) maxPer = 3;

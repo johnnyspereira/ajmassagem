@@ -464,7 +464,10 @@ export function AiConfig() {
               </div>
               <Switch
                 checked={isActive}
-                onCheckedChange={setIsActive}
+                onCheckedChange={(enabled) => {
+                  setIsActive(enabled);
+                  if (!enabled) setAutoReplyEnabled(false);
+                }}
                 disabled={disabled}
               />
             </div>
