@@ -95,7 +95,15 @@ async function confirm(input: CommandContext, code: string) {
     await transaction(async (connection) => {
       const blockId = randomUUID();
       await connection.execute('INSERT INTO clinic_time_blocks(id,account_id,user_id,starts_at,ends_at,reason,is_online_block) VALUES(?,?,?,?,?,?,TRUE)', [blockId, input.accountId, input.userId, new Date(payload.startsAt), new Date(payload.endsAt), 'Bloqueado por comando privado do proprietário']);
-      await connection.execute("INSERT INTO clinic_agenda_events(id,account_id,user_id,entity_type,entity_id,action,reason,new_start,new_end) VALUES(?,?,?,?,?,'created',?,?,?)", [randomUUID(), input.accountId, input.userId, 'time_block', blockId, 'Bloqueado por comando privado do proprietário', new Date(payload.startsAt), new Date(payload.endsAt)]);
+      await connection.execute(
+        "INSERT INTO clinic_agenda_events(id,account_id,user_id,entity_type,entity_id,action,reason,metadata,new_starts_at,new_ends_at) VALUES(?,?,?,?,?,'created',?,?,?,?,?)",
+        [
+          randomUUID(), input.accountId, input.userId, 'time_block', blockId,
+          'Bloqueado por comando privado do propriet\u00e1rio',
+          JSON.stringify({ source: 'owner_inbox_command' }),
+          new Date(payload.startsAt), new Date(payload.endsAt),
+        ]
+      );
       await connection.execute("UPDATE ai_owner_command_requests SET status='confirmed',confirmed_at=UTC_TIMESTAMP(3),executed_at=UTC_TIMESTAMP(3) WHERE id=?", [request.id]);
     });
     return `✓ Agenda bloqueada de ${format(new Date(payload.startsAt))} até ${format(new Date(payload.endsAt))}. O Portal 360 não mostrará esse horário.`;
