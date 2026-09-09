@@ -630,17 +630,38 @@ export async function POST(request: Request) {
             return null;
           });
           if (ownerCommandReply) {
-            await enqueueWhatsAppMessage({
-              accountId,
-              userId,
-              conversationId: result.conversationId,
-              requestKey: `owner-command:${externalId}`,
-              payload: {
-                text: ownerCommandReply,
-                contentType: 'text',
-                senderType: 'bot',
-              },
-            });
+            const message = {
+              text: ownerCommandReply,
+              contentType: 'text',
+              senderType: 'bot' as const,
+            };
+            // Commands must reach the owner's phone immediately. The outbox is
+            // only a fallback because shared hosting has no persistent queue worker.
+            if (remoteWhatsAppWorker.enabled()) {
+              await remoteWhatsAppWorker.send({
+                accountId,
+                userId,
+                conversationId: result.conversationId,
+                message,
+              }).catch((remoteError) => {
+                console.error('[whatsapp-bridge] remote owner command response failed:', remoteError);
+                return enqueueWhatsAppMessage({
+                  accountId,
+                  userId,
+                  conversationId: result.conversationId,
+                  requestKey: `owner-command:${externalId}`,
+                  payload: message,
+                });
+              });
+            } else {
+              await enqueueWhatsAppMessage({
+                accountId,
+                userId,
+                conversationId: result.conversationId,
+                requestKey: `owner-command:${externalId}`,
+                payload: message,
+              });
+            }
           } else {
           const appointmentRequest = /\b(reagendar|remarcar|alterar|mudar|cancelar|cancela)\b/i.test(
             messageText.normalize('NFD').replace(/\p{Diacritic}/gu, '')
