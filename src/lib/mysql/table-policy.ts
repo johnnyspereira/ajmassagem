@@ -60,6 +60,7 @@ const settingsTables = [
   'ai_configs',
   'ai_knowledge_documents',
   'ai_knowledge_chunks',
+  'clinic_appointment_reviews',
   'business_integration_settings',
   'client_portal_settings',
   'public_site_settings',
@@ -137,6 +138,10 @@ const policies: Record<string, TablePolicy> = {
     minimumWriteRole: 'admin',
   },
   privacy_audit_events: {
+    accountColumn: 'account_id',
+    minimumWriteRole: 'admin',
+  },
+  privacy_retention_runs: {
     accountColumn: 'account_id',
     minimumWriteRole: 'admin',
   },

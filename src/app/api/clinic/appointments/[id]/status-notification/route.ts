@@ -1,6 +1,7 @@
 import type { AppointmentStatus } from '@/lib/clinic/appointment-email';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { sendAppointmentStatusCommunication } from '@/lib/clinic/appointment-communication';
+import { sendAppointmentReviewRequest } from '@/lib/clinic/appointment-review';
 import { createClient } from '@/lib/supabase/server';
 
 const STATUSES = new Set<AppointmentStatus>([
@@ -49,13 +50,15 @@ export async function POST(
       { status: 409 }
     );
   try {
-    return Response.json(
-      await sendAppointmentStatusCommunication({
+    const notification = await sendAppointmentStatusCommunication({
         db,
         appointmentId: id,
         status: body.status as AppointmentStatus,
-      })
-    );
+      });
+    const review = body.status === 'completed'
+      ? await sendAppointmentReviewRequest(db, id, request.url).catch((error) => ({ error: error instanceof Error ? error.message : 'Falha ao enviar avalia\u00e7\u00e3o.' }))
+      : null;
+    return Response.json({ ...notification, review });
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : 'Falha no envio.' },
