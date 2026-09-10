@@ -1,0 +1,15 @@
+.logoImageGuard img {
+  display: block;
+  width: auto;
+  height: 34px;
+  max-width: 132px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+@media (max-width: 560px) {
+  .logoImageGuard img {
+    height: 29px;
+    max-width: 104px;
+  }
+}

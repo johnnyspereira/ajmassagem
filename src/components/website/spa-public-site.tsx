@@ -19,6 +19,7 @@ import { formatCurrency } from '@/lib/currency';
 import { serviceSlug } from '@/lib/public-site/service-slug';
 import type { getPublicBusinessSite } from '@/lib/public-site/server';
 import styles from './spa-public-site.module.css';
+import logoStyles from './spa-public-site-logo.module.css';
 
 type Site = NonNullable<Awaited<ReturnType<typeof getPublicBusinessSite>>>;
 
@@ -59,7 +60,7 @@ export function SpaPublicSite({ site }: { site: Site }) {
   return (
     <div className={styles.site} style={colors}>
       <header className={styles.header}>
-        <Link href="/" className={styles.logo} aria-label={account.name}>
+        <Link href="/" className={`${styles.logo} ${logoStyles.logoImageGuard}`} aria-label={account.name}>
           {account.logo_url ? <img src={account.logo_url} alt="" /> : <span>JP</span>}
           <strong>{account.name}</strong>
         </Link>
@@ -195,7 +196,7 @@ export function SpaPublicSite({ site }: { site: Site }) {
           <PublicLeadForm slug={settings.slug} primaryColor={settings.primary_color} />
         </section>
       </main>
-      <footer className={styles.footer}><div className={styles.logo}>{account.logo_url ? <img src={account.logo_url} alt="" /> : <span>JP</span>}<strong>{account.name}</strong></div><nav className={styles.footerLinks}><a href="#servicos">Serviços</a><a href="#testemunhos">Testemunhos</a><Link href="/portal">Área do cliente</Link><Link href="/login?access=professional">Acesso profissional</Link></nav><span>© {new Date().getFullYear()} · Todos os direitos reservados.</span></footer>
+      <footer className={styles.footer}><div className={`${styles.logo} ${logoStyles.logoImageGuard}`}>{account.logo_url ? <img src={account.logo_url} alt="" /> : <span>JP</span>}<strong>{account.name}</strong></div><nav className={styles.footerLinks}><a href="#servicos">Serviços</a><a href="#testemunhos">Testemunhos</a><Link href="/portal">Área do cliente</Link><Link href="/login?access=professional">Acesso profissional</Link></nav><span>© {new Date().getFullYear()} · Todos os direitos reservados.</span></footer>
     </div>
   );
 }
