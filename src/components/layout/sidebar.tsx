@@ -33,6 +33,7 @@ import {
   Shield,
   Sparkles,
   SquareCheckBig,
+  Star,
   Target,
   User,
   UserCog,
@@ -125,6 +126,7 @@ const navItems: NavItem[] = [
     newBadge: { key: 'client-tasks', ...TODAY_NEW_BADGE },
   },
   { href: '/agenda', labelKey: 'agenda', icon: CalendarDays },
+  { href: '/avaliacoes', labelKey: 'reviews', icon: Star },
   {
     href: '/contacts',
     labelKey: 'contacts',
@@ -213,6 +215,7 @@ const navSections = [
       '/dashboard',
       '/notifications',
       '/agenda',
+      '/avaliacoes',
       '/tasks',
     ],
   },
