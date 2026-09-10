@@ -35,6 +35,7 @@ function LoginPageInner() {
   // account. After a successful sign-in we send them to the join
   // page to accept rather than to /dashboard.
   const inviteToken = searchParams.get('invite');
+  const professionalAccess = searchParams.get('access') === 'professional';
   const t = useTranslations('LoginPage');
 
   const [email, setEmail] = useState('');
@@ -88,7 +89,7 @@ function LoginPageInner() {
     if (inviteToken) {
       router.push(`/join/${encodeURIComponent(inviteToken)}`);
     } else {
-      router.push('/dashboard');
+      router.push(professionalAccess ? '/agenda' : '/dashboard');
     }
     router.refresh();
   };
@@ -98,17 +99,25 @@ function LoginPageInner() {
       <Card className="border-border bg-card w-full max-w-md">
         <CardHeader className="items-center text-center">
           <div className="bg-primary/10 mb-2 flex h-12 w-12 items-center justify-center rounded-xl">
-            {inviteToken ? (
+            {inviteToken || professionalAccess ? (
               <UsersRound className="text-primary h-6 w-6" />
             ) : (
               <MessageSquare className="text-primary h-6 w-6" />
             )}
           </div>
           <CardTitle className="text-foreground text-xl">
-            {inviteToken ? t('titleAccept') : t('titleWelcome')}
+            {inviteToken
+              ? t('titleAccept')
+              : professionalAccess
+                ? 'Acesso profissional'
+                : t('titleWelcome')}
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-            {inviteToken ? t('descAccept') : t('descWelcome')}
+            {inviteToken
+              ? t('descAccept')
+              : professionalAccess
+                ? 'Entre para consultar a agenda, clientes e tarefas da sua equipa.'
+                : t('descWelcome')}
           </CardDescription>
         </CardHeader>
         <CardContent>

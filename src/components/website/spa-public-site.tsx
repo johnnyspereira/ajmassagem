@@ -67,13 +67,22 @@ export function SpaPublicSite({ site }: { site: Site }) {
           <a href="#servicos">Serviços</a>
           <a href="#sobre">A experiência</a>
           {settings.show_team && team.length > 0 && <a href="#equipa">Equipa</a>}
-          {hasTestimonials && <a href="#testemunhos">Testemunhos</a>}
+          <a href="#testemunhos">Testemunhos</a>
           <a href="#contacto">Contacto</a>
         </nav>
         <div className={styles.headerActions}>
           <Link href="/portal" className={styles.portalLink}>Área do cliente</Link>
+          <Link href="/login?access=professional" className={styles.staffLink}>Acesso profissional</Link>
           <Link href={bookingHref} className={styles.headerButton}>Agendar <ArrowRight /></Link>
-          <Menu className={styles.menu} />
+          <details className={styles.mobileMenu}>
+            <summary aria-label="Abrir menu"><Menu /></summary>
+            <nav aria-label="Menu móvel">
+              <a href="#servicos">Serviços</a><a href="#sobre">A experiência</a>
+              {settings.show_team && team.length > 0 && <a href="#equipa">Equipa</a>}
+              <a href="#testemunhos">Testemunhos</a><a href="#contacto">Contacto</a>
+              <Link href="/portal">Área do cliente</Link><Link href="/login?access=professional">Acesso profissional</Link><Link href={bookingHref}>Agendar sessão</Link>
+            </nav>
+          </details>
         </div>
       </header>
 
@@ -140,10 +149,10 @@ export function SpaPublicSite({ site }: { site: Site }) {
             <div className={styles.sectionHead}><div><p className={styles.eyebrow}>Em boas mãos</p><h2>Quem cuida de si.</h2></div></div>
             <div className={styles.teamGrid}>
               {team.slice(0, 4).map((person) => (
-                <article key={person.id} className={styles.person}>
+                <Link key={person.id} href={`/profissionais/${encodeURIComponent(person.professional_public_slug || person.id)}`} className={styles.person}>
                   <div className={styles.personImage}>{person.avatar_url ? <img src={person.avatar_url} alt={person.full_name || ''} /> : <span>{person.full_name?.slice(0, 1) || '•'}</span>}</div>
                   <h3>{person.full_name}</h3><p>{person.professional_title || 'Profissional de bem-estar'}</p>
-                </article>
+                </Link>
               ))}
             </div>
           </section>
@@ -160,8 +169,7 @@ export function SpaPublicSite({ site }: { site: Site }) {
           <section className={styles.benefits}>{settings.benefits.map((benefit, index) => <article key={`${benefit.title}-${index}`}><Star /><h3>{benefit.title}</h3><p>{benefit.description}</p></article>)}</section>
         )}
 
-        {hasTestimonials && (
-          <section id="testemunhos" className={styles.testimonials}>
+        <section id="testemunhos" className={styles.testimonials}>
             <div className={styles.testimonialHead}>
               <div><p className={styles.eyebrow}>Testemunhos</p><h2>Palavras de quem já nos visitou.</h2></div>
               <Link href="/testemunhos" className={styles.textLink}>Ver todas <ArrowRight /></Link>
@@ -174,9 +182,9 @@ export function SpaPublicSite({ site }: { site: Site }) {
                   <p>{item.name} <span>· {item.service}</span></p>
                 </article>
               ))}
+              {!hasTestimonials && <article className={styles.testimonialEmpty}>As primeiras avaliações aprovadas aparecerão aqui.</article>}
             </div>
           </section>
-        )}
 
         {settings.show_faq && settings.faqs.length > 0 && (
           <section className={styles.faq}><div><p className={styles.eyebrow}>Dúvidas frequentes</p><h2>Antes da sua visita.</h2></div><div>{settings.faqs.map((item, index) => <details key={`${item.question}-${index}`}><summary>{item.question}<ChevronDown /></summary><p>{item.answer}</p></details>)}</div></section>
@@ -187,7 +195,7 @@ export function SpaPublicSite({ site }: { site: Site }) {
           <PublicLeadForm slug={settings.slug} primaryColor={settings.primary_color} />
         </section>
       </main>
-      <footer className={styles.footer}><div className={styles.logo}>{account.logo_url ? <img src={account.logo_url} alt="" /> : <span>JP</span>}<strong>{account.name}</strong></div><span>© {new Date().getFullYear()} · Todos os direitos reservados.</span><Link href="/portal">Área do cliente</Link></footer>
+      <footer className={styles.footer}><div className={styles.logo}>{account.logo_url ? <img src={account.logo_url} alt="" /> : <span>JP</span>}<strong>{account.name}</strong></div><nav className={styles.footerLinks}><a href="#servicos">Serviços</a><a href="#testemunhos">Testemunhos</a><Link href="/portal">Área do cliente</Link><Link href="/login?access=professional">Acesso profissional</Link></nav><span>© {new Date().getFullYear()} · Todos os direitos reservados.</span></footer>
     </div>
   );
 }
