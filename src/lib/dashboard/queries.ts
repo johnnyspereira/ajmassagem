@@ -22,6 +22,7 @@ import type {
   TeamPerformance,
   TodayOperations,
   ExpiringBenefitItem,
+  PortalPendingConfirmationItem,
   WhatsAppHealth,
 } from './types';
 
@@ -136,6 +137,44 @@ export async function loadExpiringBenefits(
     .filter((item) => item.contactId)
     .sort((a, b) => new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime())
     .slice(0, 12);
+}
+
+export async function loadPortalPendingConfirmations(
+  db: DB
+): Promise<PortalPendingConfirmationItem[]> {
+  const { data, error } = await db
+    .from('clinic_appointments')
+    .select(
+      'id,scheduled_start,contact:contacts(name,phone),service:clinic_services(name),professional:profiles!clinic_appointments_professional_profile_id_fkey(full_name,email)'
+    )
+    .eq('source', 'client_portal')
+    .eq('confirmation_status', 'pending')
+    .in('status', ['scheduled', 'confirmed'])
+    .gte('scheduled_start', new Date().toISOString())
+    .order('scheduled_start', { ascending: true })
+    .limit(8);
+  if (error) throw error;
+
+  type PortalRow = {
+    id: string;
+    scheduled_start: string;
+    contact: { name: string | null; phone: string | null } | Array<{ name: string | null; phone: string | null }> | null;
+    service: { name: string | null } | Array<{ name: string | null }> | null;
+    professional: { full_name: string | null; email: string | null } | Array<{ full_name: string | null; email: string | null }> | null;
+  };
+  return ((data ?? []) as unknown as PortalRow[]).map((row) => {
+    const contact = asSingle(row.contact);
+    const service = asSingle(row.service);
+    const professional = asSingle(row.professional);
+    return {
+      id: row.id,
+      contactName: contact?.name || contact?.phone || 'Cliente sem nome',
+      serviceName: service?.name || 'Sessão',
+      scheduledStart: row.scheduled_start,
+      professionalName: professional?.full_name || professional?.email || 'Profissional',
+      href: `/agenda?appointment=${row.id}&date=${row.scheduled_start.slice(0, 10)}`,
+    };
+  });
 }
 
 const safeCount = async (

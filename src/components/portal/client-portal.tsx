@@ -4247,6 +4247,13 @@ function BookingDialog({
               ))}
             </select>
           </Field>
+          <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm">
+            <strong className="block">Pressão padrão: média</strong>
+            <p className="text-muted-foreground mt-0.5 text-xs">
+              A pressão é aplicada de forma uniforme em todas as modalidades.
+              Por segurança e conforto, o profissional pode ajustá-la durante a sessão quando necessário.
+            </p>
+          </div>
           <Field label="Profissional">
             {data.catalog.professionals.length ? (
               <div className="grid gap-2 sm:grid-cols-2">

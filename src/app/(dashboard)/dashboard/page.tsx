@@ -30,6 +30,7 @@ import {
   loadTodayOperations,
   loadWhatsAppHealth,
   loadExpiringBenefits,
+  loadPortalPendingConfirmations,
 } from '@/lib/dashboard/queries';
 import type {
   ActivityItem,
@@ -44,6 +45,7 @@ import type {
   TodayOperations,
   WhatsAppHealth,
   ExpiringBenefitItem,
+  PortalPendingConfirmationItem,
 } from '@/lib/dashboard/types';
 
 import { MetricCard } from '@/components/dashboard/metric-card';
@@ -55,6 +57,7 @@ import { ResponseTimeChart } from '@/components/dashboard/response-time-chart';
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
 import { FollowUpCommandCenter } from '@/components/dashboard/follow-up-command-center';
 import { TodayOperationsPanel } from '@/components/dashboard/today-operations';
+import { PortalPendingConfirmationsCard } from '@/components/dashboard/portal-pending-confirmations';
 import {
   AutomationInsightsPanel,
   DashboardAlertsPanel,
@@ -122,6 +125,10 @@ export default function DashboardPage() {
     ExpiringBenefitItem[] | null
   >(null);
   const [expiringBenefitsLoading, setExpiringBenefitsLoading] = useState(true);
+  const [portalPending, setPortalPending] = useState<
+    PortalPendingConfirmationItem[] | null
+  >(null);
+  const [portalPendingLoading, setPortalPendingLoading] = useState(true);
 
   const loadAll = useCallback(
     (rangeToLoad: RangeDays = 30, showLoading = true) => {
@@ -140,6 +147,7 @@ export default function DashboardPage() {
         setTeamLoading(true);
         setTodayLoading(true);
         setExpiringBenefitsLoading(true);
+        setPortalPendingLoading(true);
       }
       setLoadErrors({});
 
@@ -215,6 +223,10 @@ export default function DashboardPage() {
           .then((benefits) => setExpiringBenefits(benefits))
           .catch((err) => recordFailure('Validades', err))
           .finally(() => setExpiringBenefitsLoading(false)),
+        loadPortalPendingConfirmations(db)
+          .then((appointments) => setPortalPending(appointments))
+          .catch((err) => recordFailure('Marcações do Portal 360', err))
+          .finally(() => setPortalPendingLoading(false)),
       ];
 
       void Promise.allSettled(tasks).finally(() => {
@@ -408,6 +420,12 @@ export default function DashboardPage() {
         loading={todayLoading}
         currency={defaultCurrency}
         error={Boolean(loadErrors['Operação diária'])}
+      />
+
+      <PortalPendingConfirmationsCard
+        appointments={portalPending}
+        loading={portalPendingLoading}
+        error={Boolean(loadErrors['Marcações do Portal 360'])}
       />
 
       <ExpiringBenefitsPanel

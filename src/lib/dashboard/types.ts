@@ -61,6 +61,15 @@ export interface ExpiringBenefitItem {
   remainingLabel: string;
 }
 
+export interface PortalPendingConfirmationItem {
+  id: string;
+  contactName: string;
+  serviceName: string;
+  scheduledStart: string;
+  professionalName: string;
+  href: string;
+}
+
 export interface WhatsAppHealth {
   qrConnected: boolean;
   qrState:

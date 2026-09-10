@@ -83,10 +83,6 @@ export const DEFAULT_ANAMNESIS_CONFIG: AnamnesisFormConfig = {
       enabled: true,
       aliases: ['relaxante'],
       questions: [
-        long(
-          'relaxing_pressure',
-          'Que pressão prefere: suave, média ou intensa?'
-        ),
         bodyMap(
           'relaxing_avoid',
           'Existem zonas dolorosas, sensíveis ou que devem ser evitadas?'
@@ -295,9 +291,9 @@ export const DEFAULT_ANAMNESIS_CONFIG: AnamnesisFormConfig = {
           'lomi_oils',
           'Possui alergia ou sensibilidade a óleos e fragrâncias?'
         ),
-        long(
-          'lomi_pressure',
-          'Indique a pressão preferida e zonas que devem ser evitadas.'
+        bodyMap(
+          'lomi_avoid',
+          'Existem zonas dolorosas, sensíveis ou que devem ser evitadas?'
         ),
         yesNo(
           'lomi_mobility',
@@ -407,17 +403,33 @@ export function mergeAnamnesisConfig(
       question.id === 'relaxing_avoid'
         ? { ...question, type: 'body_map' as const }
         : question
-    ),
+    ).filter((question) => !isPressureQuestion(question)),
   }));
   const defaultIds = new Set(defaults.map((modality) => modality.id));
+  const extraModalities = storedModalities
+    .filter((modality) => !defaultIds.has(modality.id))
+    .map((modality) => ({
+      ...modality,
+      questions: (modality.questions || []).filter(
+        (question) => !isPressureQuestion(question)
+      ),
+    }));
 
   return {
     modalities: [
       ...defaults,
-      ...storedModalities.filter((modality) => !defaultIds.has(modality.id)),
+      ...extraModalities,
     ],
-    customQuestions: stored?.customQuestions || [],
+    customQuestions: (stored?.customQuestions || []).filter(
+      (question) => !isPressureQuestion(question)
+    ),
   };
+}
+
+// A pressão é média por padrão em todas as modalidades. Esta limpeza também
+// remove perguntas antigas guardadas nas definições da conta.
+function isPressureQuestion(question: AnamnesisQuestion) {
+  return /pressure|pressão|pressao/i.test(`${question.id} ${question.label}`);
 }
 
 function normalize(value: string) {

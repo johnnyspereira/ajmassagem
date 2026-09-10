@@ -487,7 +487,12 @@ export type ClinicAppointmentStatus =
   'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no_show';
 
 export type ClinicAppointmentSource =
-  'manual' | 'public_link' | 'whatsapp' | 'automation' | 'referral';
+  | 'manual'
+  | 'public_link'
+  | 'client_portal'
+  | 'whatsapp'
+  | 'automation'
+  | 'referral';
 
 export interface ClinicService {
   id: string;
