@@ -1,3 +1,10 @@
+.siteWidthGuard {
+  width: 100vw;
+  max-width: none;
+  margin-left: calc(50% - 50vw);
+  overflow-x: clip;
+}
+
 .logoImageGuard img {
   display: block;
   width: auto;

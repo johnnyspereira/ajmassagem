@@ -58,7 +58,7 @@ export function SpaPublicSite({ site }: { site: Site }) {
   } as React.CSSProperties;
 
   return (
-    <div className={styles.site} style={colors}>
+    <div className={`${styles.site} ${logoStyles.siteWidthGuard}`} style={colors}>
       <header className={styles.header}>
         <Link href="/" className={`${styles.logo} ${logoStyles.logoImageGuard}`} aria-label={account.name}>
           {account.logo_url ? <img src={account.logo_url} alt="" /> : <span>JP</span>}
