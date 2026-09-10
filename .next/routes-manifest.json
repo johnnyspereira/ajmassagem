@@ -421,6 +421,14 @@
       "namedRegex": "^/api/referrals/(?<nxtPcode>[^/]+?)(?:/)?$"
     },
     {
+      "page": "/api/reviews/[token]",
+      "regex": "^/api/reviews/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPtoken": "nxtPtoken"
+      },
+      "namedRegex": "^/api/reviews/(?<nxtPtoken>[^/]+?)(?:/)?$"
+    },
+    {
       "page": "/api/site/[slug]/contact",
       "regex": "^/api/site/([^/]+?)/contact(?:/)?$",
       "routeKeys": {
@@ -523,6 +531,14 @@
         "nxtPid": "nxtPid"
       },
       "namedRegex": "^/automations/(?<nxtPid>[^/]+?)/logs(?:/)?$"
+    },
+    {
+      "page": "/avaliar/[token]",
+      "regex": "^/avaliar/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPtoken": "nxtPtoken"
+      },
+      "namedRegex": "^/avaliar/(?<nxtPtoken>[^/]+?)(?:/)?$"
     },
     {
       "page": "/broadcasts/[id]",
@@ -980,6 +996,12 @@
       "namedRegex": "^/api/quick\\-replies(?:/)?$"
     },
     {
+      "page": "/api/reviews",
+      "regex": "^/api/reviews(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/reviews(?:/)?$"
+    },
+    {
       "page": "/api/system/health",
       "regex": "^/api/system/health(?:/)?$",
       "routeKeys": {},
@@ -1146,6 +1168,12 @@
       "regex": "^/automations/new(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/automations/new(?:/)?$"
+    },
+    {
+      "page": "/avaliacoes",
+      "regex": "^/avaliacoes(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/avaliacoes(?:/)?$"
     },
     {
       "page": "/benefits",
@@ -1374,6 +1402,12 @@
       "regex": "^/tasks(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/tasks(?:/)?$"
+    },
+    {
+      "page": "/testemunhos",
+      "regex": "^/testemunhos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/testemunhos(?:/)?$"
     },
     {
       "page": "/website",
