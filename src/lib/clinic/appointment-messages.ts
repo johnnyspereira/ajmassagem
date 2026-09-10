@@ -3,6 +3,20 @@ import type { ClinicAppointment, ClinicService, Contact } from '@/types';
 export type AppointmentMessageAction =
   'confirmation' | 'reminder' | 'pending_confirmation';
 
+export type AppointmentMessageTemplates = Record<
+  AppointmentMessageAction,
+  string
+>;
+
+export const defaultAppointmentMessageTemplates: AppointmentMessageTemplates = {
+  confirmation:
+    '✨ *Detalhes da sua marcação* ✨\nOlá, {cliente} 😊\n\n💆 *Serviço:* {servico}\n📅 *Data:* {data}\n🕘 *Horário:* {hora}\n🎟️ {beneficio}\n🙎🏻‍♂️ *Profissional:* {profissional}\n📍 *Morada:* {morada}\n\nPara confirmar responda *CONFIRMAR*. Para alterar responda *REAGENDAR*.\n\n{link_anamnese}\n\n*{empresa}*',
+  reminder:
+    'Olá, {cliente}. 😊\n\nLembramos a sua sessão de *{servico}* em {data}, às {hora}.\n{beneficio}\n\nCaso necessite de apoio, responda a esta mensagem.\n\n*{empresa}*',
+  pending_confirmation:
+    'Olá, {cliente}. 😊\n\nAinda aguardamos a confirmação da sua sessão de *{servico}*, em {data}, às {hora}.\n\nResponda *CONFIRMAR* ou *REAGENDAR*.\n\n*{empresa}*',
+};
+
 export type AppointmentMessageOptions = {
   clinicAddress?: string | null;
   directions?: string | null;
@@ -185,6 +199,62 @@ export function buildAppointmentMessage(
   }
   details.push('', `Com os melhores cumprimentos,\nEquipa ${brand} 💚`);
   return details.join('\n');
+}
+
+/**
+ * Renders the administrator-managed template used by automatic Agenda
+ * communications. Unknown placeholders are deliberately kept untouched so a
+ * typo is visible in the message instead of silently deleting content.
+ */
+export function renderAppointmentMessageTemplate(
+  template: string,
+  appointment: AppointmentMessageRow,
+  businessName: string,
+  options: AppointmentMessageOptions = {}
+) {
+  const start = new Date(appointment.scheduled_start);
+  const service = appointment.service?.name ?? 'seu atendimento';
+  const price = new Intl.NumberFormat('pt-PT', {
+    style: 'currency',
+    currency: appointment.currency || 'EUR',
+  }).format(Number(appointment.price ?? 0));
+  const client = appointment.contact?.name?.trim() || 'cliente';
+  const date = new Intl.DateTimeFormat('pt-PT', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  }).format(start);
+  const time = new Intl.DateTimeFormat('pt-PT', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(start);
+  const benefit = options.benefit
+    ? `${options.benefit.label}${options.benefit.detail ? ` — ${options.benefit.detail}` : ''}`
+    : `Valor da sessão: ${price}`;
+  const anamnesis = options.anamnesisUrl
+    ? `${options.anamnesisIntro || 'Preencha a ficha de anamnese antes da sessão:'}\n👉 ${options.anamnesisUrl}`
+    : '';
+  const values: Record<string, string> = {
+    cliente: client,
+    servico: service,
+    data: date,
+    hora: time,
+    valor: price,
+    beneficio: benefit,
+    profissional: professionalLabel(appointment),
+    morada: options.clinicAddress || '',
+    link_anamnese: anamnesis,
+    empresa: businessName.trim() || 'JP Massagem',
+  };
+
+  return template
+    .replace(/\{([a-z_]+)\}/gi, (placeholder, key: string) =>
+      Object.prototype.hasOwnProperty.call(values, key.toLowerCase())
+        ? values[key.toLowerCase()]
+        : placeholder
+    )
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 export function canMessageAppointment(appointment: AppointmentMessageRow) {

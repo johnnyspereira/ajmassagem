@@ -12,7 +12,10 @@ import {
 import {
   buildAppointmentMessage,
   canMessageAppointment,
+  defaultAppointmentMessageTemplates,
+  renderAppointmentMessageTemplate,
   type AppointmentMessageAction,
+  type AppointmentMessageTemplates,
   type AppointmentMessageRow,
 } from '@/lib/clinic/appointment-messages';
 import { sendLocalEmail } from '@/lib/email/smtp';
@@ -100,7 +103,7 @@ export async function sendAppointmentCommunication({
     throw new Error('Não foi possível identificar o remetente da clínica.');
   const businessName = appointment.account?.name || '';
   const benefit = await loadAppointmentBenefit(db, appointment);
-  const generatedText = buildAppointmentMessage(row, action, businessName, {
+  const messageOptions = {
     clinicAddress: settings?.clinic_address,
     directions: settings?.directions,
     parkingInfo: settings?.parking_info,
@@ -108,7 +111,34 @@ export async function sendAppointmentCommunication({
     anamnesisUrl,
     anamnesisIntro: settings?.anamnesis_intro,
     benefit,
-  });
+  };
+  const fallbackText = buildAppointmentMessage(
+    row,
+    action,
+    businessName,
+    messageOptions
+  );
+  const configuredTemplates = settings?.automated_message_templates as
+    | Partial<AppointmentMessageTemplates>
+    | null
+    | undefined;
+  const configuredTemplate = configuredTemplates?.[action];
+  const generatedText =
+    typeof configuredTemplate === 'string' && configuredTemplate.trim()
+      ? renderAppointmentMessageTemplate(
+          configuredTemplate,
+          row,
+          businessName,
+          messageOptions
+        )
+      : configuredTemplates
+        ? renderAppointmentMessageTemplate(
+            defaultAppointmentMessageTemplates[action],
+            row,
+            businessName,
+            messageOptions
+          )
+        : fallbackText;
   const text = messageOverride?.trim() || generatedText;
   const deliveries = await deliverChannels({
     db,
