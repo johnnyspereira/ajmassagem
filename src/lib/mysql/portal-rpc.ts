@@ -44,8 +44,8 @@ export async function executePortalRpc(name: string, args: Record<string, unknow
         );
         if (conflicts.length) throw new Error('The selected time is no longer available.');
         await connection.execute(
-          `INSERT INTO clinic_appointments(id,account_id,contact_id,service_id,professional_profile_id,scheduled_start,scheduled_end,status,price,notes,created_at,updated_at)
-           VALUES(?,?,?,?,?,?,?,'scheduled',?,?,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))`,
+          `INSERT INTO clinic_appointments(id,account_id,contact_id,service_id,professional_profile_id,scheduled_start,scheduled_end,status,source,price,notes,created_at,updated_at)
+           VALUES(?,?,?,?,?,?,?,'scheduled','client_portal',?,?,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))`,
           [id, access.account_id, access.contact_id, String(args.p_service_id), String(args.p_professional_profile_id), start, end, service.price, args.p_notes == null ? null : String(args.p_notes)]
         );
         const benefitCode = String(args.p_benefit_code ?? '').trim();
