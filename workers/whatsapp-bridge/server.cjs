@@ -689,6 +689,9 @@ async function pollOutbox() {
       lastActivityAt: current.lastActivityAt,
       lastError: current.lastError,
     });
+    // A previous transient CRM/proxy failure must not leave the dashboard
+    // permanently red after the worker has successfully reached the CRM.
+    lastError = null;
     const claimedCommand = await crm('claim_command', {
       ...context,
       workerId: WORKER_ID,
