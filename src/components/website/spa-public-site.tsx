@@ -29,6 +29,28 @@ export function SpaPublicSite({ site }: { site: Site }) {
   const bookingHref =
     settings.show_booking && portal?.booking_enabled ? '/portal?book=1' : '#contacto';
   const visibleServices = services.filter((service) => !service.coming_soon);
+  const publishedReviews = site.reviews.map((review) => {
+    const details = review as typeof review & {
+      contact?: { name?: string | null } | Array<{ name?: string | null }> | null;
+      appointment?: { service?: { name?: string | null } | Array<{ name?: string | null }> | null } | Array<{ service?: { name?: string | null } | Array<{ name?: string | null }> | null }> | null;
+    };
+    const contact = Array.isArray(details.contact) ? details.contact[0] : details.contact;
+    const appointment = Array.isArray(details.appointment)
+      ? details.appointment[0]
+      : details.appointment;
+    const service = Array.isArray(appointment?.service)
+      ? appointment?.service[0]
+      : appointment?.service;
+    return {
+      rating: Number(review.rating),
+      comment: review.comment,
+      name: contact?.name?.trim() ? `${contact.name.trim().split(' ')[0]}.` : 'Cliente',
+      service: service?.name || 'Sessão de bem-estar',
+    };
+  }).filter((review) => review.comment?.trim());
+  const hasTestimonials =
+    publishedReviews.length > 0 ||
+    (settings.show_testimonials && settings.testimonials.length > 0);
   const colors = {
     '--spa-brand': settings.primary_color || '#9b7650',
     '--spa-ink': settings.accent_color || '#1e2b22',
@@ -45,6 +67,7 @@ export function SpaPublicSite({ site }: { site: Site }) {
           <a href="#servicos">Serviços</a>
           <a href="#sobre">A experiência</a>
           {settings.show_team && team.length > 0 && <a href="#equipa">Equipa</a>}
+          {hasTestimonials && <a href="#testemunhos">Testemunhos</a>}
           <a href="#contacto">Contacto</a>
         </nav>
         <div className={styles.headerActions}>
@@ -137,8 +160,22 @@ export function SpaPublicSite({ site }: { site: Site }) {
           <section className={styles.benefits}>{settings.benefits.map((benefit, index) => <article key={`${benefit.title}-${index}`}><Star /><h3>{benefit.title}</h3><p>{benefit.description}</p></article>)}</section>
         )}
 
-        {settings.show_testimonials && settings.testimonials.length > 0 && (
-          <section className={styles.testimonials}><p className={styles.eyebrow}>Palavras de quem veio</p>{settings.testimonials.slice(0, 3).map((item, index) => <figure key={`${item.name}-${index}`} className={index === 0 ? undefined : styles.extraQuote}><blockquote>“{item.quote}”</blockquote><figcaption>{item.name}{item.role ? ` · ${item.role}` : ''}</figcaption></figure>)}</section>
+        {hasTestimonials && (
+          <section id="testemunhos" className={styles.testimonials}>
+            <div className={styles.testimonialHead}>
+              <div><p className={styles.eyebrow}>Testemunhos</p><h2>Palavras de quem já nos visitou.</h2></div>
+              <Link href="/testemunhos" className={styles.textLink}>Ver todas <ArrowRight /></Link>
+            </div>
+            <div className={styles.testimonialGrid}>
+              {(publishedReviews.length ? publishedReviews : settings.testimonials.map((item) => ({ rating: 5, comment: item.quote, name: item.name, service: item.role || 'Cliente JP Massagem' }))).slice(0, 3).map((item, index) => (
+                <article key={`${item.name}-${index}`} className={styles.testimonialCard}>
+                  <div className={styles.stars}>{'★'.repeat(Math.max(1, Math.min(5, item.rating)))}</div>
+                  <blockquote>“{item.comment}”</blockquote>
+                  <p>{item.name} <span>· {item.service}</span></p>
+                </article>
+              ))}
+            </div>
+          </section>
         )}
 
         {settings.show_faq && settings.faqs.length > 0 && (

@@ -12,7 +12,7 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
     .eq('enabled', true)
     .maybeSingle();
   if (error || !settings) return null;
-  const [account, services, team, portal, whatsappConfig] = await Promise.all([
+  const [account, services, team, portal, whatsappConfig, reviews] = await Promise.all([
     admin
       .from('accounts')
       .select('id,name,logo_url,default_currency')
@@ -47,6 +47,14 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
       .select('status,user_id')
       .eq('account_id', settings.account_id)
       .maybeSingle(),
+    admin
+      .from('clinic_appointment_reviews')
+      .select('rating,comment,submitted_at,contact:contacts(name),appointment:clinic_appointments(service:clinic_services(name))')
+      .eq('account_id', settings.account_id)
+      .not('published_at', 'is', null)
+      .eq('consent_to_publish', true)
+      .order('published_at', { ascending: false })
+      .limit(6),
   ]);
   if (account.error) return null;
   let whatsappConnected = whatsappConfig.data?.status === 'connected';
@@ -65,6 +73,7 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
     services: services.data ?? [],
     team: team.data ?? [],
     portal: portal.data?.enabled ? portal.data : null,
+    reviews: reviews.data ?? [],
     whatsappConnected,
   };
 });
