@@ -20,6 +20,7 @@ import { serviceSlug } from '@/lib/public-site/service-slug';
 import type { getPublicBusinessSite } from '@/lib/public-site/server';
 import styles from './spa-public-site.module.css';
 import logoStyles from './spa-public-site-logo.module.css';
+import layoutStyles from './spa-public-site-layout.module.css';
 
 type Site = NonNullable<Awaited<ReturnType<typeof getPublicBusinessSite>>>;
 
@@ -58,7 +59,7 @@ export function SpaPublicSite({ site }: { site: Site }) {
   } as React.CSSProperties;
 
   return (
-    <div className={`${styles.site} ${logoStyles.siteWidthGuard}`} style={colors}>
+    <div className={`${styles.site} ${logoStyles.siteWidthGuard} ${layoutStyles.layoutGuard}`} style={colors}>
       <header className={styles.header}>
         <Link href="/" className={`${styles.logo} ${logoStyles.logoImageGuard}`} aria-label={account.name}>
           {account.logo_url ? <img src={account.logo_url} alt="" /> : <span>JP</span>}
@@ -160,7 +161,7 @@ export function SpaPublicSite({ site }: { site: Site }) {
         )}
 
         {settings.show_plans && settings.plans.length > 0 && (
-          <section className={styles.plans}>
+          <section className={styles.plans} data-public-section="plans">
             <p className={styles.eyebrow}>Experiências para repetir</p><h2>Planos que acompanham o seu ritmo.</h2>
             <div className={styles.planGrid}>{settings.plans.map((plan, index) => <article key={`${plan.name}-${index}`} className={plan.highlighted ? styles.planFeatured : styles.plan}><p>{plan.name}</p><strong>{plan.price}</strong><span>{plan.description}</span><ul>{plan.features.map((feature) => <li key={feature}><Check />{feature}</li>)}</ul><Link href={bookingHref}>Quero saber mais <ArrowRight /></Link></article>)}</div>
           </section>
@@ -170,7 +171,7 @@ export function SpaPublicSite({ site }: { site: Site }) {
           <section className={styles.benefits}>{settings.benefits.map((benefit, index) => <article key={`${benefit.title}-${index}`}><Star /><h3>{benefit.title}</h3><p>{benefit.description}</p></article>)}</section>
         )}
 
-        <section id="testemunhos" className={styles.testimonials}>
+        <section id="testemunhos" className={styles.testimonials} data-public-section="testimonials">
             <div className={styles.testimonialHead}>
               <div><p className={styles.eyebrow}>Testemunhos</p><h2>Palavras de quem já nos visitou.</h2></div>
               <Link href="/testemunhos" className={styles.textLink}>Ver todas <ArrowRight /></Link>
@@ -191,7 +192,7 @@ export function SpaPublicSite({ site }: { site: Site }) {
           <section className={styles.faq}><div><p className={styles.eyebrow}>Dúvidas frequentes</p><h2>Antes da sua visita.</h2></div><div>{settings.faqs.map((item, index) => <details key={`${item.question}-${index}`}><summary>{item.question}<ChevronDown /></summary><p>{item.answer}</p></details>)}</div></section>
         )}
 
-        <section id="contacto" className={styles.contact}>
+        <section id="contacto" className={styles.contact} data-public-section="contact">
           <div className={styles.contactCopy}><p className={styles.eyebrow}>Vamos conversar</p><h2>O seu próximo momento começa aqui.</h2><p>Partilhe o que procura. A equipa ajuda a encontrar a experiência e o horário certos.</p><div className={styles.contactInfo}>{settings.contact_phone && <span><Phone /> {settings.contact_phone}</span>}{settings.address && <span><MapPin /> {settings.address}</span>}</div></div>
           <PublicLeadForm slug={settings.slug} primaryColor={settings.primary_color} />
         </section>
