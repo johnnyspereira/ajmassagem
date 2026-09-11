@@ -790,6 +790,15 @@ export function AgendaPage({
   );
   const professionals = team.filter((member) => member.is_professional);
   const visibleProfessionals = professionals.length > 0 ? professionals : team;
+  // A time block is an operational warning for the practitioner who owns the
+  // agenda, not an absolute prohibition. Public/Portal bookings do not use
+  // this screen and remain blocked. Appointments, however, are never allowed
+  // to overlap another appointment.
+  const canOverrideTimeBlocks = team.some(
+    (member) =>
+      member.is_professional &&
+      (member.id === profile?.id || member.user_id === user?.id)
+  );
   const selectedService =
     services.find((service) => service.id === appointmentDraft.serviceId) ??
     null;
@@ -909,6 +918,19 @@ export function AgendaPage({
         }
       )
     : [];
+  const newAppointmentAppointmentConflicts = newAppointmentConflicts.filter(
+    (conflict) => conflict.kind === 'appointment'
+  );
+  const newAppointmentTimeBlockConflicts = newAppointmentConflicts.filter(
+    (conflict) => conflict.kind === 'time_block'
+  );
+  const newAppointmentCanOverrideBlocks =
+    canOverrideTimeBlocks &&
+    newAppointmentAppointmentConflicts.length === 0 &&
+    newAppointmentTimeBlockConflicts.length > 0;
+  const newAppointmentHasBlockingConflict =
+    newAppointmentAppointmentConflicts.length > 0 ||
+    (!canOverrideTimeBlocks && newAppointmentTimeBlockConflicts.length > 0);
   const newAppointmentPreview =
     selectedService && selectedNewContact
       ? buildAppointmentMessage(
@@ -1079,7 +1101,10 @@ export function AgendaPage({
   ).length;
 
   const ensureAvailability = useCallback(
-    async (request: AvailabilityRequest) => {
+    async (
+      request: AvailabilityRequest,
+      options: { allowTimeBlockOverride?: boolean } = {}
+    ) => {
       if (!accountId) return false;
 
       const [appointmentsRes, blocksRes] = await Promise.all([
@@ -1128,14 +1153,18 @@ export function AgendaPage({
         })) as AgendaResource[]),
       ];
       const conflicts = findAvailabilityConflicts(resources, request);
-      const message = availabilityConflictMessage(conflicts);
+      const blockingConflicts =
+        options.allowTimeBlockOverride && canOverrideTimeBlocks
+          ? conflicts.filter((item) => item.kind !== 'time_block')
+          : conflicts;
+      const message = availabilityConflictMessage(blockingConflicts);
       if (message) {
         toast.error(message);
         return false;
       }
       return true;
     },
-    [accountId, supabase]
+    [accountId, canOverrideTimeBlocks, supabase]
   );
 
   const loadAgenda = useCallback(async () => {
@@ -1536,7 +1565,7 @@ export function AgendaPage({
         endsAt: endAt,
         professionalId: appointmentDraft.professionalProfileId || null,
         roomId: appointmentDraft.roomId || null,
-      });
+      }, { allowTimeBlockOverride: true });
     } catch (error) {
       toast.error(
         `Não foi possível validar a disponibilidade: ${error instanceof Error ? error.message : 'erro inesperado'}`
@@ -1719,7 +1748,7 @@ export function AgendaPage({
             endsAt: recurringEnd,
             professionalId: appointmentDraft.professionalProfileId || null,
             roomId: appointmentDraft.roomId || null,
-          }))
+          }, { allowTimeBlockOverride: true }))
         )
           break;
         const { data: recurring, error: recurringError } = await supabase
@@ -2678,7 +2707,7 @@ export function AgendaPage({
         professionalId: appointment.professional_profile_id || null,
         roomId: appointment.room_id || null,
         excludeAppointmentId: appointment.id,
-      }))
+      }, { allowTimeBlockOverride: true }))
     ) {
       return;
     }
@@ -3024,7 +3053,7 @@ export function AgendaPage({
         professionalId: editDraft.professionalProfileId || null,
         roomId: editDraft.roomId || null,
         excludeAppointmentId: selectedAppointment.id,
-      });
+      }, { allowTimeBlockOverride: true });
     } catch (error) {
       toast.error(
         `Não foi possível validar a disponibilidade: ${error instanceof Error ? error.message : 'erro inesperado'}`
@@ -5360,12 +5389,14 @@ export function AgendaPage({
               </div>
               <Badge
                 variant={
-                  newAppointmentConflicts.length ? 'destructive' : 'outline'
+                  newAppointmentHasBlockingConflict ? 'destructive' : 'outline'
                 }
               >
-                {newAppointmentConflicts.length
+                {newAppointmentHasBlockingConflict
                   ? 'Horário indisponível'
-                  : 'Pronto para validar'}
+                  : newAppointmentCanOverrideBlocks
+                    ? 'Exceção profissional'
+                    : 'Pronto para validar'}
               </Badge>
             </div>
             <div
@@ -5863,19 +5894,25 @@ export function AgendaPage({
                 <div
                   className={cn(
                     'mt-2 flex gap-2 rounded-md p-3 text-xs',
-                    newAppointmentConflicts.length
+                    newAppointmentHasBlockingConflict
                       ? 'bg-red-500/10 text-red-700 dark:text-red-300'
+                      : newAppointmentCanOverrideBlocks
+                        ? 'bg-amber-500/10 text-amber-800 dark:text-amber-200'
                       : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
                   )}
                 >
-                  {newAppointmentConflicts.length ? (
+                  {newAppointmentHasBlockingConflict ? (
+                    <AlertTriangle className="size-4 shrink-0" />
+                  ) : newAppointmentCanOverrideBlocks ? (
                     <AlertTriangle className="size-4 shrink-0" />
                   ) : (
                     <CheckCircle2 className="size-4 shrink-0" />
                   )}
                   <span>
-                    {newAppointmentConflicts.length
+                    {newAppointmentHasBlockingConflict
                       ? availabilityConflictMessage(newAppointmentConflicts)
+                      : newAppointmentCanOverrideBlocks
+                        ? `${availabilityConflictMessage(newAppointmentTimeBlockConflicts)} Como profissional, pode confirmar esta marcação mesmo durante o bloqueio.`
                       : 'Profissional, sala e horário disponíveis.'}
                   </span>
                 </div>
@@ -6009,8 +6046,10 @@ export function AgendaPage({
           <DialogFooter className="border-border bg-background z-10 m-0 shrink-0 items-center rounded-none border-t px-6 py-4 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] sm:justify-between">
             <div className="mr-auto hidden text-xs sm:block">
               <p className="font-medium">
-                {newAppointmentConflicts.length
+                {newAppointmentHasBlockingConflict
                   ? 'Resolva o conflito para continuar'
+                  : newAppointmentCanOverrideBlocks
+                    ? 'Bloqueio ultrapassável por profissional'
                   : selectedService && selectedNewContact
                     ? `${selectedNewContact.name} · ${selectedService.name}`
                     : 'Selecione cliente e procedimento'}
@@ -6029,7 +6068,7 @@ export function AgendaPage({
                 activeServices.length === 0 ||
                 !selectedService ||
                 !selectedNewContact ||
-                newAppointmentConflicts.length > 0
+                newAppointmentHasBlockingConflict
               }
             >
               {savingAppointment ? (
