@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { nextNumericClientReference } from '@/lib/contacts/client-reference';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
@@ -55,6 +54,17 @@ export function ContactForm({
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [taxId, setTaxId] = useState('');
+  const [city, setCity] = useState('');
+  const [source, setSource] = useState('');
+  const [address, setAddress] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [country, setCountry] = useState('Portugal');
+  const [gender, setGender] = useState('not_informed');
+  const [preferredContact, setPreferredContact] = useState('whatsapp');
+  const [marketingConsent, setMarketingConsent] = useState(false);
+  const [whatsappConsent, setWhatsappConsent] = useState(true);
   const [saving, setSaving] = useState(false);
 
   // Duplicate-phone detection for NEW contacts. `exact` (same digits)
@@ -84,6 +94,17 @@ export function ContactForm({
       setPhone(contact?.phone ?? '');
       setEmail(contact?.email ?? '');
       setCompany(contact?.company ?? '');
+      setBirthDate(contact?.birth_date ?? '');
+      setTaxId(contact?.tax_id ?? '');
+      setCity(contact?.city ?? '');
+      setSource(contact?.source ?? '');
+      setAddress(contact?.address_line ?? '');
+      setPostalCode(contact?.postal_code ?? '');
+      setCountry(contact?.country ?? 'Portugal');
+      setGender(contact?.gender ?? 'not_informed');
+      setPreferredContact(contact?.preferred_contact ?? 'whatsapp');
+      setMarketingConsent(contact?.marketing_consent ?? false);
+      setWhatsappConsent(contact?.whatsapp_consent ?? true);
       setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
       setTagQuery('');
       setDupMatch(null);
@@ -146,11 +167,6 @@ export function ContactForm({
     setSaving(true);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const user = session?.user;
-      if (!user) throw new Error('Not authenticated');
       if (!accountId)
         throw new Error('Your profile is not linked to an account.');
 
@@ -165,42 +181,58 @@ export function ContactForm({
             phone: phone.trim(),
             email: email.trim() || null,
             company: company.trim() || null,
+            birth_date: birthDate || null,
+            tax_id: taxId.trim() || null,
+            gender,
+            address_line: address.trim() || null,
+            postal_code: postalCode.trim() || null,
+            city: city.trim() || null,
+            country: country.trim() || 'Portugal',
+            source: source.trim() || null,
+            preferred_contact: preferredContact,
+            marketing_consent: marketingConsent,
+            whatsapp_consent: whatsappConsent,
             updated_at: new Date().toISOString(),
           })
           .eq('id', contactId);
         if (error) throw error;
       } else {
-        let reference = clientReference.trim();
-        if (!reference) {
-          const { data: historicalReferences, error: referenceError } =
-            await supabase
-              .from('contacts')
-              .select('client_reference')
-              .eq('account_id', accountId);
-          if (referenceError) throw referenceError;
-          reference = nextNumericClientReference(
-            (historicalReferences ?? []).map((row) => row.client_reference)
-          );
+        const response = await fetch('/api/contacts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            clientReference,
+            phone,
+            email,
+            company,
+            birthDate,
+            taxId,
+            city,
+            source,
+            address,
+            postalCode,
+            country,
+            gender,
+            preferredContact,
+            marketingConsent,
+            whatsappConsent,
+            tagIds: selectedTagIds,
+          }),
+        });
+        const payload = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          contactId?: string;
+        };
+        if (!response.ok || !payload.contactId) {
+          throw new Error(payload.error || 'Não foi possível criar o cliente.');
         }
-        const { data, error } = await supabase
-          .from('contacts')
-          .insert({
-            user_id: user.id,
-            account_id: accountId,
-            name: name.trim() || null,
-            client_reference: reference,
-            phone: phone.trim(),
-            email: email.trim() || null,
-            company: company.trim() || null,
-          })
-          .select('id')
-          .single();
-        if (error) throw error;
-        contactId = data.id;
+        contactId = payload.contactId;
       }
 
-      // Sync tags
-      if (contactId) {
+      // The create route saves tags atomically with the profile. Existing
+      // contacts retain this edit-time tag synchronisation.
+      if (contactId && isEdit) {
         await supabase
           .from('contact_tags')
           .delete()
@@ -356,6 +388,66 @@ export function ContactForm({
                 placeholder={t('companyPlaceholder')}
                 className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
               />
+            </div>
+
+            <div className="border-border bg-muted/20 space-y-4 rounded-xl border p-4 sm:col-span-2">
+              <div>
+                <h3 className="text-sm font-semibold">Dados do perfil</h3>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Estes dados ficam disponíveis imediatamente no Cliente 360.
+                </p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="cf-birth-date" className="text-muted-foreground">Data de nascimento</Label>
+                  <Input id="cf-birth-date" type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} className="bg-background" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cf-tax-id" className="text-muted-foreground">NIF</Label>
+                  <Input id="cf-tax-id" value={taxId} onChange={(e) => setTaxId(e.target.value)} placeholder="Opcional" className="bg-background" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cf-gender" className="text-muted-foreground">Género</Label>
+                  <select id="cf-gender" value={gender} onChange={(e) => setGender(e.target.value)} className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm">
+                    <option value="not_informed">Não informado</option>
+                    <option value="female">Feminino</option>
+                    <option value="male">Masculino</option>
+                    <option value="non_binary">Não binário</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cf-source" className="text-muted-foreground">Origem do contacto</Label>
+                  <Input id="cf-source" value={source} onChange={(e) => setSource(e.target.value)} placeholder="Ex.: Instagram, indicação" className="bg-background" />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="cf-address" className="text-muted-foreground">Morada</Label>
+                  <Input id="cf-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Rua, número, complemento" className="bg-background" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cf-postal-code" className="text-muted-foreground">Código postal</Label>
+                  <Input id="cf-postal-code" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder="0000-000" className="bg-background" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cf-city" className="text-muted-foreground">Localidade</Label>
+                  <Input id="cf-city" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Cidade" className="bg-background" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cf-country" className="text-muted-foreground">País</Label>
+                  <Input id="cf-country" value={country} onChange={(e) => setCountry(e.target.value)} className="bg-background" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cf-preferred-contact" className="text-muted-foreground">Contacto preferido</Label>
+                  <select id="cf-preferred-contact" value={preferredContact} onChange={(e) => setPreferredContact(e.target.value)} className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm">
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="phone">Telefone</option>
+                    <option value="email">Email</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 text-sm sm:flex-row sm:gap-5">
+                <label className="flex items-center gap-2"><input type="checkbox" checked={whatsappConsent} onChange={(e) => setWhatsappConsent(e.target.checked)} /> Aceita contacto por WhatsApp</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={marketingConsent} onChange={(e) => setMarketingConsent(e.target.checked)} /> Aceita comunicações de marketing</label>
+              </div>
             </div>
 
             <div className="border-border bg-muted/20 space-y-3 rounded-xl border p-4 sm:col-span-2">
