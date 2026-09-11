@@ -880,6 +880,12 @@
       "namedRegex": "^/api/clinic/external\\-calendars(?:/)?$"
     },
     {
+      "page": "/api/contacts",
+      "regex": "^/api/contacts(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/contacts(?:/)?$"
+    },
+    {
       "page": "/api/finance/packs/deliver",
       "regex": "^/api/finance/packs/deliver(?:/)?$",
       "routeKeys": {},
