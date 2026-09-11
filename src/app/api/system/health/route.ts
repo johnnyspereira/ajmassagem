@@ -21,10 +21,14 @@ export async function GET() {
     checks.push({ id: 'mysql', label: 'Base de dados MySQL', status: 'error', detail: error instanceof Error ? error.message : 'Não foi possível consultar a base de dados.' });
   }
 
+  const storageDirectory =
+    process.env.LOCAL_UPLOAD_DIR?.trim() || process.env.STORAGE_LOCAL_DIR?.trim();
   checks.push({
     id: 'storage', label: 'Armazenamento de ficheiros',
-    status: process.env.STORAGE_LOCAL_DIR ? 'ok' : 'warning',
-    detail: process.env.STORAGE_LOCAL_DIR ? 'Armazenamento local configurado.' : 'Verifique a configuração STORAGE_LOCAL_DIR para fotos e anexos.',
+    status: storageDirectory ? 'ok' : 'warning',
+    detail: storageDirectory
+      ? 'Armazenamento local configurado.'
+      : 'Verifique a configuração LOCAL_UPLOAD_DIR para fotos e anexos.',
   });
 
   if (!remoteWhatsAppWorker.enabled()) {
