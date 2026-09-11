@@ -68,6 +68,17 @@ export interface UploadAccountMediaResult {
   path: string;
 }
 
+function publicAbsoluteUrl(value: string): string {
+  if (/^https?:\/\//i.test(value)) return value;
+  // The local MySQL storage adapter intentionally returns `/uploads/...`.
+  // That works inside the browser, but the WhatsApp Worker runs on another
+  // process and must receive a URL it can download itself.
+  if (typeof window !== 'undefined') {
+    return new URL(value, window.location.origin).toString();
+  }
+  return value;
+}
+
 /**
  * Upload a file to an account-scoped Storage bucket and return its public
  * URL. Throws with a user-facing message on auth / account-resolution /
@@ -116,7 +127,7 @@ export async function uploadAccountMedia(
     data: { publicUrl },
   } = supabase.storage.from(bucket).getPublicUrl(path);
 
-  return { publicUrl, path };
+  return { publicUrl: publicAbsoluteUrl(publicUrl), path };
 }
 
 /**

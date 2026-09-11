@@ -161,6 +161,10 @@ async function inboundMediaPayload(message) {
   return {};
 }
 async function outboundMediaFromUrl(url, filename) {
+  // The CRM normally supplies an absolute public URL. Keep a proxy-safe
+  // fallback for drafts created by older browser bundles that stored the
+  // local `/uploads/...` path instead.
+  if (String(url || '').startsWith('/')) url = `${CRM_URL}${url}`;
   let parsed;
   try {
     parsed = new URL(String(url));
