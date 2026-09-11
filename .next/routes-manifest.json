@@ -445,6 +445,14 @@
       "namedRegex": "^/api/storage/(?<nxtPbucket>[^/]+?)(?:/)?$"
     },
     {
+      "page": "/api/storage/[bucket]/upload",
+      "regex": "^/api/storage/([^/]+?)/upload(?:/)?$",
+      "routeKeys": {
+        "nxtPbucket": "nxtPbucket"
+      },
+      "namedRegex": "^/api/storage/(?<nxtPbucket>[^/]+?)/upload(?:/)?$"
+    },
+    {
       "page": "/api/v1/broadcasts/[id]",
       "regex": "^/api/v1/broadcasts/([^/]+?)(?:/)?$",
       "routeKeys": {

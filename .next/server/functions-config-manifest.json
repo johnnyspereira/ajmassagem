@@ -20,6 +20,7 @@
     "/api/mysql/query": {},
     "/api/mysql/rpc": {},
     "/api/storage/[bucket]": {},
+    "/api/storage/[bucket]/upload": {},
     "/api/v1/broadcasts": {
       "maxDuration": 60
     },
