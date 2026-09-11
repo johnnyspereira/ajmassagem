@@ -532,7 +532,7 @@ export function FinancePage({
     void supabase
       .from('clinic_appointments')
       .select(
-        'id, contact_id, price, original_price, referral_id, referral_discount_amount, currency, scheduled_start, service:clinic_services(id, name, reference)'
+        'id, contact_id, price, original_price, referral_id, referral_discount_amount, manual_discount_amount, currency, scheduled_start, service:clinic_services(id, name, reference)'
       )
       .eq('account_id', accountId)
       .eq('id', initialAppointmentId)
@@ -559,7 +559,12 @@ export function FinancePage({
             reference: service.reference ?? undefined,
             quantity: 1,
             unitPrice: Number(data.original_price ?? data.price ?? 0),
-            discountAmount: Number(data.referral_discount_amount ?? 0),
+            // The booked price can include both an operator's manual discount
+            // and an Indique & Ganhe discount. The POS must start from the
+            // original service price and carry both reductions into the sale.
+            discountAmount:
+              Number(data.manual_discount_amount ?? 0) +
+              Number(data.referral_discount_amount ?? 0),
             taxRate: 0,
             metadata: {
               appointment_id: data.id,
@@ -567,6 +572,7 @@ export function FinancePage({
               referral_discount_amount: Number(
                 data.referral_discount_amount ?? 0
               ),
+              manual_discount_amount: Number(data.manual_discount_amount ?? 0),
             },
           },
         ]);
