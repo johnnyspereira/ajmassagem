@@ -95,7 +95,9 @@ export async function loadExpiringBenefits(
       .order('expires_at', { ascending: true })
       .limit(20),
   ]);
-  throwFirstQueryError(vouchersRes, packsRes);
+  // Finance is optional during an incremental deployment. A missing finance
+  // relation must not prevent the entire dashboard from loading.
+  if (vouchersRes.error || packsRes.error) return [];
   type VoucherRow = {
     id: string; owner_contact_id: string | null; code: string | null;
     voucher_type: string; remaining_uses: number | null; current_balance: number | null;
@@ -153,7 +155,9 @@ export async function loadPortalPendingConfirmations(
     .gte('scheduled_start', new Date().toISOString())
     .order('scheduled_start', { ascending: true })
     .limit(8);
-  if (error) throw error;
+  // The Portal 360 migration can be applied after the dashboard code. Until
+  // then there simply are no pending portal confirmations to show.
+  if (error) return [];
 
   type PortalRow = {
     id: string;
@@ -212,7 +216,7 @@ export async function loadTodayOperations(db: DB): Promise<TodayOperations> {
       db
         .from('clinic_appointments')
         .select(
-          'id, scheduled_start, scheduled_end, status, price, currency, arrived_at, paid_at, referral_id, contact:contacts(name, phone), service:clinic_services(name), professional:profiles!clinic_appointments_professional_profile_id_fkey(full_name, email), room:clinic_rooms(name), benefits:finance_appointment_benefits(benefit_type, status)'
+          'id, scheduled_start, scheduled_end, status, price, currency, arrived_at, paid_at, referral_id, contact:contacts(name, phone), service:clinic_services(name), professional:profiles!clinic_appointments_professional_profile_id_fkey(full_name, email), room:clinic_rooms(name)'
         )
         .gte('scheduled_start', startIso)
         .lt('scheduled_start', endIso)
@@ -236,12 +240,9 @@ export async function loadTodayOperations(db: DB): Promise<TodayOperations> {
         .maybeSingle(),
     ]);
 
-  const error =
-    appointmentsRes.error ??
-    paymentsRes.error ??
-    salesRes.error ??
-    cashSessionRes.error;
-  if (error) throw error;
+  // The agenda is the primary daily view. Finance widgets can be unavailable
+  // while their migrations catch up, but must not take the agenda down.
+  if (appointmentsRes.error) throw appointmentsRes.error;
 
   type AppointmentData = {
     id: string;
@@ -263,7 +264,7 @@ export async function loadTodayOperations(db: DB): Promise<TodayOperations> {
       | Array<{ full_name: string | null; email: string | null }>
       | null;
     room: { name: string | null } | Array<{ name: string | null }> | null;
-    benefits: Array<{
+    benefits?: Array<{
       benefit_type: 'voucher' | 'pack';
       status: string;
     }> | null;
@@ -300,7 +301,7 @@ export async function loadTodayOperations(db: DB): Promise<TodayOperations> {
     };
   });
 
-  const sales = (salesRes.data ?? []) as Array<{
+  const sales = (salesRes.error ? [] : salesRes.data ?? []) as Array<{
     status: string;
     balance_due: number | null;
   }>;
@@ -315,7 +316,7 @@ export async function loadTodayOperations(db: DB): Promise<TodayOperations> {
     expectedRevenue: rows
       .filter((row) => !['cancelled', 'no_show'].includes(row.status))
       .reduce((sum, row) => sum + Number(row.price ?? 0), 0),
-    receivedToday: (paymentsRes.data ?? []).reduce(
+    receivedToday: (paymentsRes.error ? [] : paymentsRes.data ?? []).reduce(
       (sum, payment) => sum + Number(payment.amount ?? 0),
       0
     ),
@@ -325,7 +326,7 @@ export async function loadTodayOperations(db: DB): Promise<TodayOperations> {
     outstandingToday: sales
       .filter((sale) => ['open', 'partially_paid'].includes(sale.status))
       .reduce((sum, sale) => sum + Number(sale.balance_due ?? 0), 0),
-    cashSessionOpen: Boolean(cashSessionRes.data),
+    cashSessionOpen: cashSessionRes.error ? false : Boolean(cashSessionRes.data),
     benefitsScheduled: appointments.filter((item) => item.benefit).length,
     appointments,
   };
