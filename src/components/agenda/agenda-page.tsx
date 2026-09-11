@@ -653,8 +653,15 @@ export function AgendaPage({
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
-  const { accountId, account, user, profile, defaultCurrency, profileLoading } =
-    useAuth();
+  const {
+    accountId,
+    account,
+    user,
+    profile,
+    defaultCurrency,
+    profileLoading,
+    isOwner,
+  } = useAuth();
   const canOperate = useCan('send-messages');
 
   const [view, setView] = useState<CalendarView>('day');
@@ -719,6 +726,11 @@ export function AgendaPage({
   const [editDraft, setEditDraft] = useState<AppointmentEditDraft | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editSaveStage, setEditSaveStage] = useState('');
+  const [ownerRestoreStatus, setOwnerRestoreStatus] =
+    useState<ClinicAppointmentStatus>('scheduled');
+  const [ownerRestoreReason, setOwnerRestoreReason] = useState('');
+  const [restoringCancelledAppointment, setRestoringCancelledAppointment] =
+    useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [blockEvents, setBlockEvents] = useState<ClinicAgendaEvent[]>([]);
@@ -2293,6 +2305,8 @@ export function AgendaPage({
     }
     setSelectedAppointment(resolvedAppointment);
     setEditDraft(editDraftFromAppointment(resolvedAppointment));
+    setOwnerRestoreStatus('scheduled');
+    setOwnerRestoreReason('');
     setAppointmentEvents(await loadAgendaEvents('appointment', appointment.id));
   }
 
@@ -2414,6 +2428,56 @@ export function AgendaPage({
     setBenefitDecisionOpen(false);
     setPendingBenefitAction(null);
     setBenefitDisposition('release');
+    setOwnerRestoreStatus('scheduled');
+    setOwnerRestoreReason('');
+  }
+
+  async function restoreCancelledAppointment() {
+    if (!selectedAppointment || selectedAppointment.status !== 'cancelled') return;
+    const reason = ownerRestoreReason.trim();
+    if (reason.length < 3) {
+      toast.error('Indique o motivo para reabrir a marcação.');
+      return;
+    }
+    setRestoringCancelledAppointment(true);
+    try {
+      const response = await fetch(
+        `/api/clinic/appointments/${selectedAppointment.id}/restore-status`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: ownerRestoreStatus, reason }),
+        }
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        status?: ClinicAppointmentStatus;
+      };
+      if (!response.ok) {
+        throw new Error(payload.error || 'Não foi possível alterar o estado.');
+      }
+      const status = payload.status ?? ownerRestoreStatus;
+      setSelectedAppointment((current) =>
+        current ? { ...current, status, cancelled_at: null } : current
+      );
+      setEditDraft((current) =>
+        current ? { ...current, status } : current
+      );
+      setOwnerRestoreReason('');
+      setAppointmentEvents(
+        await loadAgendaEvents('appointment', selectedAppointment.id)
+      );
+      void loadAgenda();
+      toast.success('Estado da marcação alterado e motivo registado.');
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível alterar o estado.'
+      );
+    } finally {
+      setRestoringCancelledAppointment(false);
+    }
   }
 
   function buildEditableAppointmentRow(): AppointmentRow | null {
@@ -4556,6 +4620,55 @@ export function AgendaPage({
                       title="Ações da marcação"
                       summary="Estado, mensagens e remarcação"
                     >
+                      {isOwner && selectedAppointment.status === 'cancelled' ? (
+                        <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-3">
+                          <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                            Reabrir marcação cancelada
+                          </p>
+                          <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">
+                            Ação exclusiva do proprietário. O motivo fica registado no histórico da marcação.
+                          </p>
+                          <div className="mt-3 grid gap-2 sm:grid-cols-[180px_1fr_auto]">
+                            <NativeSelect
+                              value={ownerRestoreStatus}
+                              onChange={(value) =>
+                                setOwnerRestoreStatus(
+                                  value as ClinicAppointmentStatus
+                                )
+                              }
+                              disabled={restoringCancelledAppointment}
+                            >
+                              <option value="scheduled">Agendado</option>
+                              <option value="confirmed">Confirmado</option>
+                              <option value="completed">Concluído</option>
+                              <option value="no_show">Falta</option>
+                            </NativeSelect>
+                            <Input
+                              value={ownerRestoreReason}
+                              maxLength={1000}
+                              onChange={(event) =>
+                                setOwnerRestoreReason(event.target.value)
+                              }
+                              disabled={restoringCancelledAppointment}
+                              placeholder="Motivo obrigatório da alteração"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={
+                                restoringCancelledAppointment ||
+                                ownerRestoreReason.trim().length < 3
+                              }
+                              onClick={restoreCancelledAppointment}
+                            >
+                              {restoringCancelledAppointment ? (
+                                <Loader2 className="size-4 animate-spin" />
+                              ) : null}
+                              Guardar estado
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
                       <div className="grid grid-cols-2 gap-2">
                         {canOperate ? (
                           <>
