@@ -87,6 +87,10 @@ export const DEFAULT_ANAMNESIS_CONFIG: AnamnesisFormConfig = {
           'relaxing_avoid',
           'Existem zonas dolorosas, sensíveis ou que devem ser evitadas?'
         ),
+        yesNo(
+          'relaxing_oils',
+          'Possui alergia ou sensibilidade a óleos, cremes ou fragrâncias?'
+        ),
       ],
     },
     {

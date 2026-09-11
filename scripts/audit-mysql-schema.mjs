@@ -57,7 +57,11 @@ for (const file of files) {
     errors.push(
       `${file}: generated columns are not allowed for cPanel MariaDB compatibility`
     );
+  // Comments frequently precede DDL in our migrations. Remove them before
+  // splitting so a valid CREATE/ALTER statement is not misclassified merely
+  // because it starts with a descriptive comment.
   const statements = source
+    .replace(/^\s*--.*$/gm, '')
     .split(/;\s*(?:\r?\n|$)/)
     .map((value) => value.trim())
     .filter(Boolean);
@@ -99,6 +103,9 @@ for (const file of files) {
       verifyForeignKeys(actions, name, file);
       continue;
     }
+    // Standalone indexes don't alter the table-column model used by this
+    // lightweight audit, but are valid MariaDB migration statements.
+    if (/^CREATE\s+(?:UNIQUE\s+)?INDEX\s+/i.test(sql)) continue;
     // Backfills and cleanup statements do not change the schema model.
     if (/^(INSERT|UPDATE|DELETE)\s+/i.test(sql)) continue;
     errors.push(

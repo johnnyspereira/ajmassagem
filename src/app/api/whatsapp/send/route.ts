@@ -266,7 +266,10 @@ export async function POST(request: Request) {
       message_type === 'interactive' ||
       !hasMetaConfig;
 
-    if (!remoteWhatsAppWorker.enabled()) {
+    // Templates and media can use Meta directly when that integration is
+    // configured. Only messages that require the QR session must fail when
+    // the remote Worker is unavailable.
+    if (!remoteWhatsAppWorker.enabled() && qrRequired) {
       return NextResponse.json(
         { error: 'WhatsApp remoto não configurado. Defina WHATSAPP_MODE=remote_worker.' },
         { status: 503 }

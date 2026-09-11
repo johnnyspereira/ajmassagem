@@ -4123,9 +4123,15 @@ function BookingDialog({
 
   useEffect(() => {
     if (!open) return;
-    setServiceId(data.catalog.services.some((service) => service.id === preferredServiceId) ? preferredServiceId : data.catalog.services.length === 1 ? data.catalog.services[0].id : '');
-    setProfessionalId(data.catalog.professionals.some((professional) => professional.id === preferredProfessionalId) ? preferredProfessionalId : data.catalog.professionals.length === 1 ? data.catalog.professionals[0].id : '');
-    setTime('');
+    // Defer the reset by one task. The dialog can open while its catalog is
+    // streaming in; synchronous state updates in this effect caused a second
+    // render during React's commit phase.
+    const reset = window.setTimeout(() => {
+      setServiceId(data.catalog.services.some((service) => service.id === preferredServiceId) ? preferredServiceId : data.catalog.services.length === 1 ? data.catalog.services[0].id : '');
+      setProfessionalId(data.catalog.professionals.some((professional) => professional.id === preferredProfessionalId) ? preferredProfessionalId : data.catalog.professionals.length === 1 ? data.catalog.professionals[0].id : '');
+      setTime('');
+    }, 0);
+    return () => window.clearTimeout(reset);
   }, [data.catalog.professionals, data.catalog.services, open, preferredProfessionalId, preferredServiceId]);
 
   const service = data.catalog.services.find((item) => item.id === serviceId);
@@ -4149,8 +4155,11 @@ function BookingDialog({
   useEffect(() => {
     if (!benefitCode) return;
     if (![...compatibleVouchers, ...compatiblePacks].some((item) => item.code === benefitCode)) {
-      setBenefitCode('');
-      setBenefitPin('');
+      const clear = window.setTimeout(() => {
+        setBenefitCode('');
+        setBenefitPin('');
+      }, 0);
+      return () => window.clearTimeout(clear);
     }
   }, [benefitCode, compatiblePacks, compatibleVouchers]);
   const slots = useMemo(
