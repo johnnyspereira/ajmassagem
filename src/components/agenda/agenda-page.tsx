@@ -84,6 +84,11 @@ import {
   type AppointmentMessageAction,
 } from '@/lib/clinic/appointment-messages';
 import { formatCurrency } from '@/lib/currency';
+import {
+  accountTimeInput,
+  accountDateTimeToUtc,
+  formatAccountDateTime,
+} from '@/lib/timezone';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import type {
@@ -817,6 +822,7 @@ export function AgendaPage({
   const selectedNewContact =
     contacts.find((contact) => contact.id === appointmentDraft.contactId) ??
     null;
+  const accountTimeZone = account?.timezone ?? 'Europe/Lisbon';
   useEffect(() => {
     if (!appointmentReferralId || !selectedService || !accountId) {
       setReferralQuote(null);
@@ -872,9 +878,10 @@ export function AgendaPage({
       voucher.voucher_type !== 'service' ||
       voucher.service_id === appointmentDraft.serviceId
   );
-  const newAppointmentStart = appointmentDate(
+  const newAppointmentStart = accountDateTimeToUtc(
     appointmentDraft.date,
-    appointmentDraft.time
+    appointmentDraft.time,
+    accountTimeZone
   );
   const effectiveAppointmentDuration = Math.min(
     480,
@@ -1564,9 +1571,10 @@ export function AgendaPage({
     setSavingAppointment(true);
     setAppointmentSaveStage('A validar disponibilidade…');
 
-    const startAt = appointmentDate(
+    const startAt = accountDateTimeToUtc(
       appointmentDraft.date,
-      appointmentDraft.time
+      appointmentDraft.time,
+      accountTimeZone
     );
     const endAt = addMinutes(startAt, effectiveAppointmentDuration);
 
@@ -3904,15 +3912,17 @@ export function AgendaPage({
                       <div className="text-muted-foreground mt-2 grid gap-1 text-xs sm:grid-cols-2">
                         <span>
                           Criada:{' '}
-                          {new Date(
-                            selectedAppointment.created_at
-                          ).toLocaleString('pt-PT')}
+                          {formatAccountDateTime(
+                            selectedAppointment.created_at,
+                            accountTimeZone
+                          )}
                         </span>
                         <span>
                           Modificada:{' '}
-                          {new Date(
-                            selectedAppointment.updated_at
-                          ).toLocaleString('pt-PT')}
+                          {formatAccountDateTime(
+                            selectedAppointment.updated_at,
+                            accountTimeZone
+                          )}
                         </span>
                       </div>
                     </div>
@@ -6111,10 +6121,7 @@ export function AgendaPage({
                 </span>
                 <span>
                   <strong className="text-foreground">Quando:</strong>{' '}
-                  {newAppointmentStart.toLocaleString('pt-PT', {
-                    dateStyle: 'short',
-                    timeStyle: 'short',
-                  })}
+                  {formatAccountDateTime(newAppointmentStart, accountTimeZone)}
                 </span>
                 <span>
                   <strong className="text-foreground">Total:</strong>{' '}
@@ -6122,7 +6129,7 @@ export function AgendaPage({
                 </span>
                 <span>
                   <strong className="text-foreground">Fim / POS:</strong>{' '}
-                  {timeInputValue(newAppointmentEnd)} · {createSumUpCharge ? 'abrirá após guardar' : 'não preparado'}
+                  {accountTimeInput(newAppointmentEnd, accountTimeZone)} · {createSumUpCharge ? 'abrirá após guardar' : 'não preparado'}
                 </span>
                 <span>
                   <strong className="text-foreground">Mensagem:</strong>{' '}
