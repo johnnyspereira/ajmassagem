@@ -1,5 +1,3 @@
-import { createClient } from '@/lib/supabase/client';
-
 /**
  * Shared media-upload helper for Supabase Storage buckets that use the
  * account-scoped path convention introduced in migration 020
@@ -91,43 +89,23 @@ export async function uploadAccountMedia(
   bucket: string,
   file: File
 ): Promise<UploadAccountMediaResult> {
-  const supabase = createClient();
-
-  const {
-    data: { user },
-    error: userErr,
-  } = await supabase.auth.getUser();
-  if (userErr || !user) {
-    throw new Error('Not signed in.');
+  const body = new FormData();
+  body.set('file', file);
+  const response = await fetch(
+    `/api/storage/${encodeURIComponent(bucket)}/upload`,
+    { method: 'POST', body, credentials: 'same-origin' }
+  );
+  const payload = (await response.json().catch(() => null)) as {
+    data?: { path?: string; publicUrl?: string };
+    error?: { message?: string };
+  } | null;
+  if (!response.ok || !payload?.data?.path || !payload.data.publicUrl) {
+    throw new Error(payload?.error?.message || 'Não foi possível guardar o ficheiro.');
   }
-
-  // Resolve account_id so the path is account-scoped (matches the
-  // bucket's RLS write policy from migration 020/023). User-scoped
-  // paths would be rejected.
-  const { data: profile, error: profileErr } = await supabase
-    .from('profiles')
-    .select('account_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (profileErr || !profile?.account_id) {
-    throw new Error('Could not resolve your account.');
-  }
-
-  const path = buildMediaPath(profile.account_id as string, file.name);
-  const { error: upErr } = await supabase.storage
-    .from(bucket)
-    .upload(path, file, {
-      cacheControl: '3600',
-      upsert: false,
-      contentType: file.type,
-    });
-  if (upErr) throw new Error(upErr.message);
-
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from(bucket).getPublicUrl(path);
-
-  return { publicUrl: publicAbsoluteUrl(publicUrl), path };
+  return {
+    path: payload.data.path,
+    publicUrl: publicAbsoluteUrl(payload.data.publicUrl),
+  };
 }
 
 /**
@@ -148,3 +126,4 @@ export async function deleteAccountMedia(
   const { error } = await supabase.storage.from(bucket).remove([path]);
   if (error) throw new Error(error.message);
 }
+import { createClient } from '@/lib/supabase/client';
