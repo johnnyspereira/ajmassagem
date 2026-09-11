@@ -196,6 +196,14 @@
       "namedRegex": "^/api/clinic/appointments/(?<nxtPid>[^/]+?)/confirmation(?:/)?$"
     },
     {
+      "page": "/api/clinic/appointments/[id]/restore-status",
+      "regex": "^/api/clinic/appointments/([^/]+?)/restore\\-status(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/clinic/appointments/(?<nxtPid>[^/]+?)/restore\\-status(?:/)?$"
+    },
+    {
       "page": "/api/clinic/appointments/[id]/status-notification",
       "regex": "^/api/clinic/appointments/([^/]+?)/status\\-notification(?:/)?$",
       "routeKeys": {
