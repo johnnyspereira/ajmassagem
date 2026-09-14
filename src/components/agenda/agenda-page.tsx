@@ -717,6 +717,9 @@ export function AgendaPage({
   const [createSumUpCharge, setCreateSumUpCharge] = useState(false);
   const [appointmentDurationMinutes, setAppointmentDurationMinutes] =
     useState<number | ''>('');
+  const [appointmentAdditionalAmount, setAppointmentAdditionalAmount] = useState<
+    number | ''
+  >('');
   const [manualDiscountAmount, setManualDiscountAmount] = useState<number | ''>(
     ''
   );
@@ -890,7 +893,14 @@ export function AgendaPage({
       Number(appointmentDurationMinutes || selectedService?.duration_minutes || 0)
     )
   );
-  const servicePrice = Number(selectedService?.price ?? 0);
+  // A different duration can have an agreed extra amount. The catalogue
+  // price always remains the base and the extra is retained by the
+  // appointment and POS before any discount is applied.
+  const servicePrice = Math.max(
+    0,
+    Number(selectedService?.price ?? 0) +
+      Number(appointmentAdditionalAmount || 0)
+  );
   const effectiveManualDiscount = Math.min(
     servicePrice,
     Math.max(0, Number(manualDiscountAmount || 0))
@@ -1033,6 +1043,7 @@ export function AgendaPage({
       setAppointmentPreviewOpen(false);
       setCreateSumUpCharge(false);
       setAppointmentDurationMinutes(firstService?.duration_minutes ?? '');
+      setAppointmentAdditionalAmount('');
       setManualDiscountAmount('');
       setManualDiscountReason('');
       setRecurrenceCount(1);
@@ -5619,6 +5630,7 @@ export function AgendaPage({
                         services.find((service) => service.id === value)
                           ?.duration_minutes ?? ''
                       );
+                      setAppointmentAdditionalAmount('');
                     }}
                   >
                     <option value="">Selecione um procedimento</option>
@@ -5728,9 +5740,26 @@ export function AgendaPage({
                       }
                     />
                   </Field>
-                  <div className="text-muted-foreground flex items-end pb-2 text-xs">
-                    Valor e procedimento mantêm-se; o fim previsto e a disponibilidade usam a duração escolhida.
-                  </div>
+                  <Field label="Acréscimo ao valor original">
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      inputMode="decimal"
+                      value={appointmentAdditionalAmount}
+                      onChange={(event) =>
+                        setAppointmentAdditionalAmount(
+                          event.target.value === ''
+                            ? ''
+                            : Math.max(0, Number(event.target.value) || 0)
+                        )
+                      }
+                      placeholder="0,00"
+                    />
+                    <p className="text-muted-foreground text-xs">
+                      Soma-se ao preço do procedimento antes do desconto.
+                    </p>
+                  </Field>
                 </div>
                 <div className="border-border bg-muted/30 grid gap-2 rounded-md border p-3 text-sm sm:grid-cols-3">
                   <div>
@@ -5743,7 +5772,7 @@ export function AgendaPage({
                     <p className="text-muted-foreground text-xs">Preço</p>
                     <p className="text-foreground font-medium">
                       {formatCurrency(
-                        Number(selectedService.price),
+                        servicePrice,
                         selectedService.currency || defaultCurrency
                       )}
                     </p>
@@ -5951,7 +5980,7 @@ export function AgendaPage({
                   />
                 </Field>
                 <p className="text-muted-foreground text-xs sm:col-span-2">
-                  Preço base {formatCurrency(servicePrice, selectedService?.currency || defaultCurrency)} · desconto manual {formatCurrency(effectiveManualDiscount, selectedService?.currency || defaultCurrency)} · total previsto {formatCurrency(appointmentTotal, selectedService?.currency || defaultCurrency)}.
+                  Valor original {formatCurrency(servicePrice, selectedService?.currency || defaultCurrency)} · desconto manual {formatCurrency(effectiveManualDiscount, selectedService?.currency || defaultCurrency)} · total previsto {formatCurrency(appointmentTotal, selectedService?.currency || defaultCurrency)}.
                 </p>
               </div>
             </div>
