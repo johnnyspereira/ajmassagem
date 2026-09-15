@@ -1,5 +1,68 @@
-import { selectRows } from '@/lib/mysql/db';
+import type { Metadata } from 'next';
+import Link from 'next/link';
 import type { RowDataPacket } from 'mysql2';
+
+import { selectRows } from '@/lib/mysql/db';
+import styles from './testemunhos.module.css';
+
 export const dynamic = 'force-dynamic';
-type Row=RowDataPacket&{rating:number;comment:string;client_name:string|null;service_name:string|null};
-export default async function Testimonials(){const rows=await selectRows<Row[]>(`SELECT r.rating,r.comment,LEFT(c.name,1) client_name,s.name service_name FROM clinic_appointment_reviews r JOIN contacts c ON c.id=r.contact_id JOIN clinic_appointments a ON a.id=r.appointment_id LEFT JOIN clinic_services s ON s.id=a.service_id WHERE r.published_at IS NOT NULL AND r.consent_to_publish=TRUE ORDER BY r.published_at DESC LIMIT 24`);return <main className="mx-auto max-w-5xl p-8"><h1 className="text-3xl font-bold">Opiniões de quem já nos visitou</h1><p className="mt-2 text-slate-600">Feedback publicado com autorização dos clientes.</p><div className="mt-8 grid gap-4 md:grid-cols-2">{rows.map((r,i)=><article key={i} className="rounded-2xl border p-5 shadow-sm"><p className="text-amber-500">{'★'.repeat(r.rating)}</p><p className="mt-3 whitespace-pre-wrap">“{r.comment}”</p><p className="mt-4 text-sm font-semibold">{r.client_name||'Cliente'}.</p><p className="text-xs text-slate-500">{r.service_name||'Sessão de bem-estar'}</p></article>)}</div>{!rows.length&&<p className="mt-8 text-slate-600">As primeiras opiniões serão publicadas em breve.</p>}</main>}
+export const metadata: Metadata = {
+  title: 'Testemunhos | JP Massagem',
+  description: 'Opiniões de clientes da JP Massagem publicadas com autorização.',
+  robots: { index: true, follow: true },
+};
+
+type Row = RowDataPacket & {
+  rating: number;
+  comment: string;
+  client_name: string | null;
+  service_name: string | null;
+};
+
+export default async function Testimonials() {
+  const rows = await selectRows<Row[]>(
+    `SELECT r.rating,r.comment,LEFT(c.name,1) client_name,s.name service_name
+       FROM clinic_appointment_reviews r
+       JOIN contacts c ON c.id=r.contact_id
+       JOIN clinic_appointments a ON a.id=r.appointment_id
+       LEFT JOIN clinic_services s ON s.id=a.service_id
+      WHERE r.published_at IS NOT NULL
+        AND r.consent_to_publish=TRUE
+        AND TRIM(COALESCE(r.comment,''))<>''
+      ORDER BY r.published_at DESC
+      LIMIT 24`
+  );
+
+  return (
+    <main className={styles.page}>
+      <header className={styles.header}>
+        <Link href="/" className={styles.back}>← Voltar ao site</Link>
+        <p>JP Massagem · Testemunhos</p>
+        <h1>Opiniões de quem já nos visitou.</h1>
+        <span>Feedback publicado apenas com autorização dos clientes.</span>
+      </header>
+      {rows.length ? (
+        <section className={styles.grid} aria-label="Testemunhos de clientes">
+          {rows.map((review, index) => (
+            <article key={`${review.client_name}-${index}`} className={styles.card}>
+              <div className={styles.stars} aria-label={`${review.rating} de 5 estrelas`}>
+                {'★'.repeat(Math.max(1, Math.min(5, Number(review.rating) || 5)))}
+              </div>
+              <blockquote>“{review.comment.trim()}”</blockquote>
+              <footer>
+                <strong>{review.client_name || 'Cliente'}.</strong>
+                <span>{review.service_name || 'Sessão de bem-estar'}</span>
+              </footer>
+            </article>
+          ))}
+        </section>
+      ) : (
+        <section className={styles.empty}>
+          <h2>As primeiras opiniões serão publicadas em breve.</h2>
+          <p>Quando clientes autorizarem a publicação das suas avaliações, elas aparecerão aqui.</p>
+          <Link href="/portal?book=1">Marcar uma sessão</Link>
+        </section>
+      )}
+    </main>
+  );
+}

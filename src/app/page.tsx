@@ -1,6 +1,20 @@
+import type { Metadata } from 'next';
 import { PublicBusinessPage } from './site/[slug]/page';
 import { notFound } from 'next/navigation';
-import { getDefaultPublicBusinessSlug } from '@/lib/public-site/server';
+import { getDefaultPublicBusinessSlug, getPublicBusinessSite } from '@/lib/public-site/server';
+
+export async function generateMetadata(): Promise<Metadata> {
+  const slug = await getDefaultPublicBusinessSlug();
+  const site = slug ? await getPublicBusinessSite(slug) : null;
+  const name = site?.account.name || 'JP Massagem';
+  const description = site?.settings.hero_subtitle || 'Massagens e experiências de bem-estar por marcação.';
+  return {
+    title: name,
+    description,
+    robots: { index: true, follow: true },
+    openGraph: { title: name, description, images: site?.settings.hero_image_url ? [site.settings.hero_image_url] : [] },
+  };
+}
 
 export default async function RootPage() {
   const slug = await getDefaultPublicBusinessSlug();
