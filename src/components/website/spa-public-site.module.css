@@ -64,6 +64,13 @@
 .intro { max-width: 780px; padding-bottom: 64px; text-align: center; }
 .intro h2, .sectionHead h2, .story h2, .contact h2, .plans > h2, .faq h2 { font-family: var(--font-display, Georgia, serif); font-size: clamp(32px, 3.5vw, 49px); letter-spacing: -.05em; line-height: 1.07; margin: 10px 0 0; }
 .intro > p:last-child { color: var(--muted); font-size: 16px; margin: 18px auto 0; max-width: 660px; }
+.bookingSteps { align-items: stretch; background: var(--accent); color: #fff; display: grid; gap: 1px; grid-template-columns: repeat(3, 1fr) auto; margin: 0 auto; max-width: 1124px; overflow: hidden; }
+.bookingSteps > div { background: color-mix(in srgb, var(--accent) 88%, #fff); display: grid; gap: 7px; padding: 25px; }
+.bookingSteps span { color: #e7c783; font-size: 11px; font-weight: 800; letter-spacing: .12em; }
+.bookingSteps strong { font-size: 15px; }
+.bookingSteps p { color: rgb(255 255 255 / 78%); font-size: 12px; line-height: 1.55; margin: 0; }
+.stepsCta { align-items: center; background: #e7c783; color: #263329; display: flex; font-size: 12px; font-weight: 800; gap: 8px; justify-content: center; padding: 22px; text-decoration: none; }
+.stepsCta svg { height: 16px; width: 16px; }
 .sectionHead, .testimonialHead { align-items: end; display: flex; gap: 26px; justify-content: space-between; margin-bottom: 32px; }
 .sectionHead h2, .testimonialHead h2 { max-width: 560px; }
 .textLink, .cardLink { align-items: center; color: var(--accent); display: inline-flex; font-size: 12px; font-weight: 800; gap: 7px; text-decoration: none; }
@@ -142,6 +149,10 @@
 .contactInfo { background: var(--ink); border-radius: 17px; color: #fff; display: grid; gap: 12px; margin-top: 28px; padding: 23px; }
 .contactInfo span { align-items: center; display: flex; font-size: 13px; gap: 10px; }
 .contactInfo svg { color: #e7c783; height: 17px; width: 17px; }
+.contactInfo a { align-items: center; color: #fff; display: inline-flex; font-size: 13px; font-weight: 800; gap: 8px; margin-top: 4px; text-decoration: none; }
+.contactInfo a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.contactInfo a svg { color: #e7c783; }
+.mobileBooking { display: none; }
 
 .footer { align-items: center; background: #1e2b20; color: #fff; display: flex; gap: 24px; justify-content: space-between; padding: 30px max(28px, calc((100vw - 1180px) / 2)); }
 .footer .logo { color: #fff; }
@@ -157,6 +168,7 @@
   .nav a, .portalLink, .staffLink { font-size: 11px; }
   .headerActions { gap: 9px; }
   .story, .contact, .faq { gap: 42px; }
+  .bookingSteps { margin-left: 22px; margin-right: 22px; }
 }
 
 @media (max-width: 850px) {
@@ -173,6 +185,8 @@
   .heroContent { padding: 88px 24px 80px; }
   .serviceGrid, .teamGrid, .planGrid, .testimonialGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .story, .contact, .faq { grid-template-columns: 1fr; }
+  .bookingSteps { grid-template-columns: repeat(3, 1fr); }
+  .stepsCta { grid-column: 1 / -1; padding: 15px; }
   .storyImage { height: 350px; }
   .faq { gap: 26px; }
   .footer { align-items: flex-start; flex-direction: column; }
@@ -199,6 +213,11 @@
   .benefits { border-left: 0; border-radius: 0; border-right: 0; grid-template-columns: 1fr; margin-bottom: 60px; }
   .benefits article + article { border-left: 0; border-top: 1px solid var(--line); }
   .contact { gap: 35px; }
+  .bookingSteps { grid-template-columns: 1fr; margin: 0; }
+  .bookingSteps > div { padding: 20px 22px; }
+  .stepsCta { grid-column: auto; }
+  .mobileBooking { align-items: center; background: var(--accent); border-radius: 999px; bottom: 18px; box-shadow: 0 10px 28px rgb(30 43 34 / 28%); color: #fff; display: flex; font-size: 13px; font-weight: 800; gap: 8px; justify-content: center; left: 18px; padding: 13px 18px; position: fixed; right: 18px; text-decoration: none; z-index: 25; }
+  .mobileBooking svg { height: 17px; width: 17px; }
   .footer { padding: 28px 22px; }
   .footer > span { white-space: normal; }
 }

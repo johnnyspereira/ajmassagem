@@ -58,6 +58,12 @@ export function SpaPublicSite({ site }: { site: Site }) {
   const hasTestimonials =
     displayReviews.length > 0 ||
     (settings.show_testimonials && settings.testimonials.length > 0);
+  const practicalFaqs = settings.faqs.length ? settings.faqs : [
+    { question: 'Como faço a minha marcação?', answer: 'Escolha o serviço, o profissional e o horário disponível. Receberá a confirmação pelos canais configurados.' },
+    { question: 'Posso alterar ou cancelar a sessão?', answer: 'Sim. No Portal do Cliente pode pedir uma alteração ou cancelar dentro do prazo definido pela clínica.' },
+    { question: 'Posso usar um voucher ou pack?', answer: 'Sim. No momento da marcação, indique o código e o PIN do seu benefício para o associar à sessão.' },
+  ];
+  const mapsHref = settings.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(settings.address)}` : null;
   const colors = {
     '--spa-brand': settings.primary_color || '#9b7650',
     '--spa-ink': settings.accent_color || '#1e2b22',
@@ -115,6 +121,13 @@ export function SpaPublicSite({ site }: { site: Site }) {
           <p className={styles.eyebrow}>O seu tempo, bem cuidado</p>
           <h2>{settings.about_title || 'Um momento para voltar a si.'}</h2>
           <p>{settings.about_text || 'Cada sessão é preparada para o seu corpo, o seu ritmo e aquilo de que precisa hoje.'}</p>
+        </section>
+
+        <section className={styles.bookingSteps} aria-label="Como agendar">
+          <div><span>01</span><strong>Escolha a experiência</strong><p>Conheça os serviços e encontre o cuidado certo para si.</p></div>
+          <div><span>02</span><strong>Escolha o horário</strong><p>Veja a disponibilidade e marque online em poucos minutos.</p></div>
+          <div><span>03</span><strong>Receba a confirmação</strong><p>Os detalhes ficam seguros no seu Portal do Cliente.</p></div>
+          <Link href={bookingHref} className={styles.stepsCta}>Marcar sessão <ArrowRight /></Link>
         </section>
 
         {settings.show_services && visibleServices.length > 0 && (
@@ -196,16 +209,17 @@ export function SpaPublicSite({ site }: { site: Site }) {
             </div>
           </section>
 
-        {settings.show_faq && settings.faqs.length > 0 && (
-          <section className={styles.faq}><div><p className={styles.eyebrow}>Dúvidas frequentes</p><h2>Antes da sua visita.</h2></div><div>{settings.faqs.map((item, index) => <details key={`${item.question}-${index}`}><summary>{item.question}<ChevronDown /></summary><p>{item.answer}</p></details>)}</div></section>
+        {settings.show_faq && (
+          <section className={styles.faq}><div><p className={styles.eyebrow}>Dúvidas frequentes</p><h2>Antes da sua visita.</h2></div><div>{practicalFaqs.map((item, index) => <details key={`${item.question}-${index}`}><summary>{item.question}<ChevronDown /></summary><p>{item.answer}</p></details>)}</div></section>
         )}
 
         <section id="contacto" className={styles.contact} data-public-section="contact">
-          <div className={styles.contactCopy}><p className={styles.eyebrow}>Vamos conversar</p><h2>O seu próximo momento começa aqui.</h2><p>Partilhe o que procura. A equipa ajuda a encontrar a experiência e o horário certos.</p><div className={styles.contactInfo}>{settings.contact_phone && <span><Phone /> {settings.contact_phone}</span>}{settings.address && <span><MapPin /> {settings.address}</span>}</div></div>
+          <div className={styles.contactCopy}><p className={styles.eyebrow}>Vamos conversar</p><h2>O seu próximo momento começa aqui.</h2><p>Partilhe o que procura. A equipa ajuda a encontrar a experiência e o horário certos.</p><div className={styles.contactInfo}>{settings.contact_phone && <span><Phone /> {settings.contact_phone}</span>}{settings.address && <span><MapPin /> {settings.address}</span>}{mapsHref && <a href={mapsHref} target="_blank" rel="noreferrer">Abrir rota no Google Maps <ArrowRight /></a>}</div></div>
           <PublicLeadForm slug={settings.slug} primaryColor={settings.primary_color} />
         </section>
       </main>
       <footer className={styles.footer}><div className={`${styles.logo} ${logoStyles.logoImageGuard}`}>{account.logo_url ? <img src={account.logo_url} alt="" /> : <span>JP</span>}<strong>{account.name}</strong></div><nav className={styles.footerLinks}><a href="#servicos">Serviços</a><a href="#testemunhos">Testemunhos</a><Link href="/portal">Área do cliente</Link><Link href="/login?access=professional">Acesso profissional</Link></nav><span>© {new Date().getFullYear()} · Todos os direitos reservados.</span></footer>
+      <Link href={bookingHref} className={styles.mobileBooking}>Marcar sessão <CalendarDays /></Link>
     </div>
   );
 }
