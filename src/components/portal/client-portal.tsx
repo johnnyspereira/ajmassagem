@@ -2002,6 +2002,40 @@ function AppointmentsView({
   const [requestedStart, setRequestedStart] = useState('');
   const [requestReason, setRequestReason] = useState('');
   const [requesting, setRequesting] = useState(false);
+  const rescheduleSuggestions = useMemo(() => {
+    if (!rescheduleTarget) return [];
+    const professionalId = one(rescheduleTarget.professional)?.id;
+    const professional = data.catalog.professionals.find(
+      (item) => item.id === professionalId
+    );
+    if (!professional) return [];
+
+    const serviceDuration = one(rescheduleTarget.service)?.duration_minutes;
+    const appointmentDuration = Math.round(
+      (new Date(rescheduleTarget.scheduled_end).getTime() -
+        new Date(rescheduleTarget.scheduled_start).getTime()) /
+        60_000
+    );
+    const duration = Math.max(15, appointmentDuration || serviceDuration || 60);
+    const suggestions: Array<{ date: string; time: string }> = [];
+    const cursor = new Date();
+    cursor.setHours(12, 0, 0, 0);
+    const maxDays = Math.min(Math.max(data.settings.bookingAdvanceDays, 1), 30);
+
+    for (let offset = 1; offset <= maxDays && suggestions.length < 6; offset += 1) {
+      const candidate = new Date(cursor);
+      candidate.setDate(cursor.getDate() + offset);
+      const date = portalDateInput(candidate);
+      const slots = buildSlots(date, professional, duration, data.availability);
+      if (!slots.length) continue;
+
+      // Show a few varied options instead of filling the dialog with the
+      // first hours from a single day.
+      const time = slots[Math.floor(slots.length / 2)] ?? slots[0];
+      suggestions.push({ date, time });
+    }
+    return suggestions;
+  }, [data.availability, data.catalog.professionals, data.settings.bookingAdvanceDays, rescheduleTarget]);
   const future = data.appointments
     .filter(
       (item) =>
@@ -2094,8 +2128,37 @@ function AppointmentsView({
               <strong>{one(rescheduleTarget?.service)?.name || 'Sessão'}</strong>
               <p className="text-muted-foreground mt-1">Atual: {rescheduleTarget ? formatPortalDate(rescheduleTarget.scheduled_start) : ''}</p>
             </div>
+            <div className="space-y-2">
+              <div>
+                <p className="text-sm font-medium">Sugestões com disponibilidade</p>
+                <p className="text-muted-foreground text-xs">Escolha uma opção livre ou indique abaixo outra data e hora.</p>
+              </div>
+              {rescheduleSuggestions.length ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {rescheduleSuggestions.map((suggestion) => {
+                    const value = `${suggestion.date}T${suggestion.time}`;
+                    const selected = requestedStart === value;
+                    return (
+                      <Button
+                        key={value}
+                        type="button"
+                        variant={selected ? 'default' : 'outline'}
+                        className="h-auto justify-start whitespace-normal px-3 py-2 text-left text-sm"
+                        onClick={() => setRequestedStart(value)}
+                      >
+                        <CalendarDays className="size-4 shrink-0" />
+                        {new Date(`${value}:00`).toLocaleString('pt-PT', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </Button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-muted-foreground rounded-md bg-muted/50 p-3 text-xs">Não encontrámos sugestões livres nos próximos dias. Pode indicar a data e hora que prefere.</p>
+              )}
+            </div>
             <label className="grid gap-1.5 text-sm font-medium">Data e hora pretendidas
-              <Input type="datetime-local" value={requestedStart} min={new Date().toISOString().slice(0, 16)} onChange={(event) => setRequestedStart(event.target.value)} />
+              <Input type="datetime-local" value={requestedStart} min={portalDateTimeInput(new Date())} max={`${maxBookingDate(data.settings.bookingAdvanceDays)}T23:59`} onChange={(event) => setRequestedStart(event.target.value)} />
+              <span className="text-muted-foreground text-xs font-normal">Também pode propor outro horário; a alteração só será aplicada após aprovação.</span>
             </label>
             <label className="grid gap-1.5 text-sm font-medium">Motivo <span className="font-normal text-muted-foreground">(opcional)</span>
               <Input value={requestReason} maxLength={500} onChange={(event) => setRequestReason(event.target.value)} placeholder="Ex.: indisponibilidade no horário atual" />
@@ -4775,7 +4838,16 @@ function formatPortalDate(value: string) {
 function maxBookingDate(days: number) {
   const date = new Date();
   date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  return portalDateInput(date);
+}
+function portalDateInput(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+function portalDateTimeInput(date: Date) {
+  return `${portalDateInput(date)}T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 function PortalLoading() {
   return (
