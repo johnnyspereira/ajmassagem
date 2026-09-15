@@ -20,7 +20,6 @@ import { serviceSlug } from '@/lib/public-site/service-slug';
 import type { getPublicBusinessSite } from '@/lib/public-site/server';
 import styles from './spa-public-site.module.css';
 import logoStyles from './spa-public-site-logo.module.css';
-import layoutStyles from './spa-public-site-layout.module.css';
 
 type Site = NonNullable<Awaited<ReturnType<typeof getPublicBusinessSite>>>;
 
@@ -59,7 +58,7 @@ export function SpaPublicSite({ site }: { site: Site }) {
   } as React.CSSProperties;
 
   return (
-    <div className={`${styles.site} ${logoStyles.siteWidthGuard} ${layoutStyles.layoutGuard}`} style={colors}>
+    <div className={`${styles.site} ${logoStyles.siteWidthGuard}`} style={colors}>
       <header className={styles.header}>
         <Link href="/" className={`${styles.logo} ${logoStyles.logoImageGuard}`} aria-label={account.name}>
           {account.logo_url ? <img src={account.logo_url} alt="" /> : <span>JP</span>}
@@ -153,7 +152,10 @@ export function SpaPublicSite({ site }: { site: Site }) {
               {team.slice(0, 4).map((person) => (
                 <Link key={person.id} href={`/profissionais/${encodeURIComponent(person.professional_public_slug || person.id)}`} className={styles.person}>
                   <div className={styles.personImage}>{person.avatar_url ? <img src={person.avatar_url} alt={person.full_name || ''} /> : <span>{person.full_name?.slice(0, 1) || '•'}</span>}</div>
-                  <h3>{person.full_name}</h3><p>{person.professional_title || 'Profissional de bem-estar'}</p>
+                  <div className={styles.personBody}>
+                    <h3>{person.full_name}</h3>
+                    <p>{person.professional_title || 'Profissional de bem-estar'}</p>
+                  </div>
                 </Link>
               ))}
             </div>
