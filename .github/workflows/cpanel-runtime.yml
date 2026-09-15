@@ -1,9 +1,11 @@
 name: Build cPanel runtime
 
 on:
-  # Publishing the cPanel runtime is deliberately manual while the current
-  # production runtime is being recovered. A source-code push must never
-  # replace a working Passenger release automatically.
+  # Every approved source change gets a matching deployable runtime. This
+  # only updates the Git branch; cPanel deployment/restart remains explicit.
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
