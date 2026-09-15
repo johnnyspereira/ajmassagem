@@ -205,7 +205,7 @@ export function Header({
       className={cn(
         'border-border bg-background shrink-0 border-b',
         navigationLayout === 'topbar'
-          ? 'grid h-[4.5rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 shadow-[0_1px_0_hsl(var(--border)),0_8px_24px_-22px_hsl(var(--foreground))] lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:px-5'
+          ? 'grid h-[4.5rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 shadow-[0_1px_0_hsl(var(--border)),0_8px_24px_-22px_hsl(var(--foreground))] lg:grid-cols-[minmax(0,1fr)_auto] lg:px-5 2xl:grid-cols-[auto_minmax(0,1fr)_auto]'
           : 'flex h-14 items-center justify-between gap-3 px-4 lg:px-6'
       )}
     >
@@ -221,7 +221,7 @@ export function Header({
         {navigationLayout === 'topbar' && (
           <Link
             href="/dashboard"
-            className="group hidden min-w-0 items-center gap-3 rounded-xl py-1 pr-3 lg:flex"
+            className="group hidden min-w-0 items-center gap-3 rounded-xl py-1 pr-3 2xl:flex"
             title={account?.name ?? 'CRM'}
           >
             <Avatar className="size-10 rounded-xl shadow-sm ring-1 ring-black/5 after:rounded-xl">
@@ -381,7 +381,12 @@ export function Header({
             'border-border/60 bg-background/70 rounded-2xl border p-1 shadow-sm'
         )}
       >
-        <WorkTimeClock />
+        {/* On tablets the header stays intentionally compact: the avatar
+            opens the full account menu, while the clock moves out of the
+            way so it cannot compete with navigation. */}
+        <div className="hidden 2xl:block">
+          <WorkTimeClock />
+        </div>
         <ModeToggle />
 
         <DropdownMenu>
@@ -402,7 +407,7 @@ export function Header({
             </Avatar>
             <span
               className={cn(
-                'text-foreground hidden max-w-28 truncate text-sm font-medium whitespace-nowrap xl:inline'
+                'text-foreground hidden max-w-28 truncate text-sm font-medium whitespace-nowrap 2xl:inline'
               )}
             >
               {profile?.full_name ?? t('defaultUser')}
