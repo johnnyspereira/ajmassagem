@@ -3938,7 +3938,11 @@ export function AgendaPage({
                       </div>
                     </div>
                   </div>
-                  <div className="grid w-full min-w-0 flex-1 grid-cols-2 gap-2 md:grid-cols-4 xl:w-auto xl:min-w-[520px] xl:flex-none">
+                  {/* Keep the status cards below the appointment title on
+                      tablets. A portrait tablet may have enough CSS pixels
+                      for an `xl` breakpoint, but not enough real room for a
+                      520px status row beside a long client/service title. */}
+                  <div className="grid w-full min-w-0 grid-cols-2 gap-2 2xl:w-auto 2xl:min-w-[520px] 2xl:flex-none 2xl:grid-cols-4">
                     <HeaderStatus
                       label="Estado"
                       value={STATUS_LABEL[editDraft.status]}
