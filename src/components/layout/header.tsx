@@ -214,7 +214,10 @@ export function Header({
           type="button"
           onClick={onOpenSidebar}
           aria-label={t('openMenu')}
-          className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-10 items-center justify-center rounded-xl transition-colors lg:hidden"
+          className={cn(
+            'text-muted-foreground hover:bg-muted hover:text-foreground flex size-10 items-center justify-center rounded-xl transition-colors',
+            navigationLayout === 'topbar' ? '2xl:hidden' : 'lg:hidden'
+          )}
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -249,7 +252,7 @@ export function Header({
         <h1
           className={cn(
             'text-foreground truncate text-base font-semibold sm:text-lg',
-            navigationLayout === 'topbar' && 'lg:hidden'
+            navigationLayout === 'topbar' && '2xl:hidden'
           )}
         >
           {t(titleKey as string)}
@@ -257,7 +260,7 @@ export function Header({
       </div>
 
       {navigationLayout === 'topbar' && (
-        <nav className="bg-muted/55 border-border/70 hidden min-w-0 items-center gap-0.5 overflow-visible rounded-2xl border p-1 shadow-inner lg:flex lg:justify-self-center">
+        <nav className="bg-muted/55 border-border/70 hidden min-w-0 items-center gap-0.5 overflow-visible rounded-2xl border p-1 shadow-inner 2xl:flex 2xl:justify-self-center">
           {topbarDirectItems.map((item) => {
             const active = isNavItemActive(pathname, item.href);
             const attentionLabel = getAttentionLabel(item);
