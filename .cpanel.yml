@@ -7,5 +7,10 @@ deployment:
     # assets that are missing from the current release.
     - /bin/mkdir -p /home/jpmassag/repositories/ajmassagem-v3/.next/static
     - /bin/cp -a /home/jpmassag/repositories/ajmassagem-v3/runtime-static/. /home/jpmassag/repositories/ajmassagem-v3/.next/static/
+    # Some Passenger/Apache configurations short-circuit /_next/static
+    # before the Node process. Keep a public mirror as a fallback so the
+    # browser never receives an HTML release whose CSS/JS is missing.
+    - /bin/mkdir -p /home/jpmassag/repositories/ajmassagem-v3/public/_next/static
+    - /bin/cp -a /home/jpmassag/repositories/ajmassagem-v3/runtime-static/. /home/jpmassag/repositories/ajmassagem-v3/public/_next/static/
     - /bin/mkdir -p /home/jpmassag/repositories/ajmassagem-v3/tmp
     - /usr/bin/touch /home/jpmassag/repositories/ajmassagem-v3/tmp/restart.txt
