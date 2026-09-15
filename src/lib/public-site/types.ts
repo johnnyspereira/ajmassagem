@@ -36,6 +36,9 @@ export type PublicSiteSettings = {
   show_plans: boolean;
   show_benefits: boolean;
   show_testimonials: boolean;
+  google_reviews_enabled: boolean;
+  google_place_id: string | null;
+  google_review_url: string | null;
   show_faq: boolean;
   show_booking: boolean;
   plans: SitePlan[];

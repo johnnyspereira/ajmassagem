@@ -49,8 +49,14 @@ export function SpaPublicSite({ site }: { site: Site }) {
       service: service?.name || 'Sessão de bem-estar',
     };
   }).filter((review) => review.comment?.trim());
+  const googleReviews = site.googleReviews.map((review) => ({ ...review, service: 'Avaliação Google' }));
+  const displayReviews = googleReviews.length
+    ? googleReviews
+    : publishedReviews.length
+      ? publishedReviews
+      : settings.testimonials.map((item) => ({ rating: 5, comment: item.quote, name: item.name, service: item.role || 'Cliente JP Massagem' }));
   const hasTestimonials =
-    publishedReviews.length > 0 ||
+    displayReviews.length > 0 ||
     (settings.show_testimonials && settings.testimonials.length > 0);
   const colors = {
     '--spa-brand': settings.primary_color || '#9b7650',
@@ -176,10 +182,10 @@ export function SpaPublicSite({ site }: { site: Site }) {
         <section id="testemunhos" className={styles.testimonials} data-public-section="testimonials">
             <div className={styles.testimonialHead}>
               <div><p className={styles.eyebrow}>Testemunhos</p><h2>Palavras de quem já nos visitou.</h2></div>
-              <Link href="/testemunhos" className={styles.textLink}>Ver todas <ArrowRight /></Link>
+              {site.googleMapsUrl ? <a href={site.googleMapsUrl} target="_blank" rel="noreferrer" className={styles.textLink}>Ver no Google <ArrowRight /></a> : <Link href="/testemunhos" className={styles.textLink}>Ver todas <ArrowRight /></Link>}
             </div>
             <div className={styles.testimonialGrid}>
-              {(publishedReviews.length ? publishedReviews : settings.testimonials.map((item) => ({ rating: 5, comment: item.quote, name: item.name, service: item.role || 'Cliente JP Massagem' }))).slice(0, 3).map((item, index) => (
+              {displayReviews.slice(0, 3).map((item, index) => (
                 <article key={`${item.name}-${index}`} className={styles.testimonialCard}>
                   <div className={styles.stars}>{'★'.repeat(Math.max(1, Math.min(5, item.rating)))}</div>
                   <blockquote>“{item.comment}”</blockquote>

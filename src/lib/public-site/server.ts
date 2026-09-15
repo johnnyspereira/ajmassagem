@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/flows/admin-client';
 import { resolveAuditUserId } from '@/lib/api/v1/contacts';
 import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 import type { PublicSiteSettings } from './types';
+import { getGooglePlaceReviews } from './google-reviews';
 export const getPublicBusinessSite = cache(async (slug: string) => {
   const admin = supabaseAdmin();
   const { data: settings, error } = await admin
@@ -12,7 +13,7 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
     .eq('enabled', true)
     .maybeSingle();
   if (error || !settings) return null;
-  const [account, services, team, portal, whatsappConfig, reviews] = await Promise.all([
+  const [account, services, team, portal, whatsappConfig, reviews, googleReviews] = await Promise.all([
     admin
       .from('accounts')
       .select('id,name,logo_url,default_currency')
@@ -55,6 +56,11 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
       .eq('consent_to_publish', true)
       .order('published_at', { ascending: false })
       .limit(6),
+    getGooglePlaceReviews(
+      (settings as PublicSiteSettings).google_reviews_enabled
+        ? (settings as PublicSiteSettings).google_place_id
+        : null
+    ),
   ]);
   if (account.error) return null;
   let whatsappConnected = whatsappConfig.data?.status === 'connected';
@@ -74,6 +80,8 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
     team: team.data ?? [],
     portal: portal.data?.enabled ? portal.data : null,
     reviews: reviews.data ?? [],
+    googleReviews: googleReviews.reviews,
+    googleMapsUrl: googleReviews.mapsUrl || (settings as PublicSiteSettings).google_review_url || null,
     whatsappConnected,
   };
 });

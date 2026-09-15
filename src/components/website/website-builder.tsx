@@ -74,6 +74,9 @@ const DEFAULTS: Omit<PublicSiteSettings, 'account_id'> = {
   show_plans: true,
   show_benefits: true,
   show_testimonials: true,
+  google_reviews_enabled: false,
+  google_place_id: null,
+  google_review_url: null,
   show_faq: true,
   show_booking: true,
   plans: [],
@@ -468,6 +471,12 @@ export function WebsiteBuilder() {
             </ArrayPanel>
           </TabsContent>
           <TabsContent value="social" className="space-y-5 pt-5">
+            <Panel title="Avaliações Google" description="Mostre avaliações verificadas do Google. A chave da API é configurada apenas no servidor.">
+              <Toggle label="Mostrar avaliações Google" description="Se a ligação Google não estiver disponível, o site mantém os testemunhos internos e manuais." checked={form.google_reviews_enabled} onChange={(value) => patch('google_reviews_enabled', value)} />
+              <Field label="Google Place ID" value={form.google_place_id ?? ''} onChange={(value) => patch('google_place_id', value.trim() || null)} placeholder="Ex.: ChIJ..." />
+              <Field label="Link para avaliar no Google" value={form.google_review_url ?? ''} onChange={(value) => patch('google_review_url', value.trim() || null)} placeholder="https://g.page/r/.../review" />
+              <p className="text-muted-foreground text-xs">No servidor, defina <code>GOOGLE_PLACES_API_KEY</code> com a Places API (New) ativada. A chave nunca é exposta no site.</p>
+            </Panel>
             <ArrayPanel
               title="Depoimentos"
               enabled={form.show_testimonials}
