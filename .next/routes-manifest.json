@@ -736,6 +736,12 @@
       "namedRegex": "^/api/account/members(?:/)?$"
     },
     {
+      "page": "/api/account/new-feature-badges",
+      "regex": "^/api/account/new\\-feature\\-badges(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/account/new\\-feature\\-badges(?:/)?$"
+    },
+    {
       "page": "/api/account/privacy",
       "regex": "^/api/account/privacy(?:/)?$",
       "routeKeys": {},
