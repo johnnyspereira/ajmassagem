@@ -545,9 +545,9 @@ function isMissingAgendaSchema(error: { code?: string; message?: string }) {
 function pendingWhatsAppReschedule(events: ClinicAgendaEvent[]) {
   for (const event of events) {
     const metadata = event.metadata;
-    if (metadata?.whatsapp_reschedule_approved === true) return null;
+    if (metadata?.whatsapp_reschedule_approved === true || metadata?.portal_reschedule_approved === true) return null;
     if (
-      metadata?.kind === 'whatsapp_reschedule' &&
+      ['whatsapp_reschedule', 'portal_reschedule'].includes(String(metadata?.kind)) &&
       metadata?.state === 'awaiting_professional' &&
       metadata.selected_slot &&
       typeof metadata.selected_slot === 'object'
@@ -2861,6 +2861,10 @@ export function AgendaPage({
         contact_id: appointment.contact_id,
         service_id: appointment.service_id,
         whatsapp_reschedule_approved: Boolean(
+          selectedWhatsAppReschedule &&
+            scheduleChangeDraft.appointmentId === appointment.id
+        ),
+        portal_reschedule_approved: Boolean(
           selectedWhatsAppReschedule &&
             scheduleChangeDraft.appointmentId === appointment.id
         ),

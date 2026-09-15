@@ -1998,6 +1998,10 @@ function AppointmentsView({
   onBook: () => void;
   onRefresh: () => Promise<void>;
 }) {
+  const [rescheduleTarget, setRescheduleTarget] = useState<PortalData['appointments'][number] | null>(null);
+  const [requestedStart, setRequestedStart] = useState('');
+  const [requestReason, setRequestReason] = useState('');
+  const [requesting, setRequesting] = useState(false);
   const future = data.appointments
     .filter(
       (item) =>
@@ -2034,6 +2038,31 @@ function AppointmentsView({
     toast.success('Marcação cancelada.');
     await onRefresh();
   }
+  function openReschedule(item: PortalData['appointments'][number]) {
+    setRescheduleTarget(item);
+    setRequestedStart('');
+    setRequestReason('');
+  }
+  async function requestReschedule() {
+    if (!rescheduleTarget || !requestedStart) {
+      toast.error('Escolha a data e hora pretendidas.');
+      return;
+    }
+    setRequesting(true);
+    try {
+      const response = await fetch(`/api/portal/${data.settings.slug || ''}/appointments`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId: rescheduleTarget.id, action: 'reschedule', requestedStart: new Date(requestedStart).toISOString(), reason: requestReason }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Não foi possível enviar o pedido.');
+      toast.success('Pedido enviado. A alteração aguarda aprovação do profissional.');
+      setRescheduleTarget(null);
+      await onRefresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível enviar o pedido.');
+    } finally { setRequesting(false); }
+  }
   return (
     <div className="space-y-6">
       <PageHeading
@@ -2051,8 +2080,33 @@ function AppointmentsView({
         title="Próximas"
         appointments={future}
         onCancel={cancel}
+        onReschedule={openReschedule}
       />
       <AppointmentList title="Histórico" appointments={past} />
+      <Dialog open={Boolean(rescheduleTarget)} onOpenChange={(open) => !open && setRescheduleTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Pedir alteração de horário</DialogTitle>
+            <DialogDescription>A marcação mantém-se como está até o profissional aprovar o pedido.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg bg-muted p-3 text-sm">
+              <strong>{one(rescheduleTarget?.service)?.name || 'Sessão'}</strong>
+              <p className="text-muted-foreground mt-1">Atual: {rescheduleTarget ? formatPortalDate(rescheduleTarget.scheduled_start) : ''}</p>
+            </div>
+            <label className="grid gap-1.5 text-sm font-medium">Data e hora pretendidas
+              <Input type="datetime-local" value={requestedStart} min={new Date().toISOString().slice(0, 16)} onChange={(event) => setRequestedStart(event.target.value)} />
+            </label>
+            <label className="grid gap-1.5 text-sm font-medium">Motivo <span className="font-normal text-muted-foreground">(opcional)</span>
+              <Input value={requestReason} maxLength={500} onChange={(event) => setRequestReason(event.target.value)} placeholder="Ex.: indisponibilidade no horário atual" />
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRescheduleTarget(null)} disabled={requesting}>Voltar</Button>
+            <Button onClick={() => void requestReschedule()} disabled={requesting}>{requesting && <Loader2 className="animate-spin" />} Enviar pedido</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -2061,10 +2115,12 @@ function AppointmentList({
   title,
   appointments,
   onCancel,
+  onReschedule,
 }: {
   title: string;
   appointments: PortalData['appointments'];
   onCancel?: (id: string) => void;
+  onReschedule?: (item: PortalData['appointments'][number]) => void;
 }) {
   return (
     <section>
@@ -2093,6 +2149,8 @@ function AppointmentList({
                   <Status status={item.status} />
                   {onCancel &&
                     ['scheduled', 'confirmed'].includes(item.status) && (
+                      <>
+                      {onReschedule && <Button variant="secondary" size="sm" onClick={() => onReschedule(item)}><Pencil /> Alterar horário</Button>}
                       <Button
                         variant="outline"
                         size="sm"
@@ -2100,6 +2158,7 @@ function AppointmentList({
                       >
                         Cancelar
                       </Button>
+                      </>
                     )}
                 </div>
               </div>
