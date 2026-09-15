@@ -250,8 +250,16 @@ export default function DashboardPage() {
   useEffect(() => {
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible') loadAll(range, false);
-    }, 60_000);
+    }, 30_000);
     return () => window.clearInterval(timer);
+  }, [loadAll, range]);
+
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') loadAll(range, false);
+    };
+    window.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => window.removeEventListener('visibilitychange', refreshWhenVisible);
   }, [loadAll, range]);
 
   // Range switch handler — kept in an event callback (not an effect)
@@ -310,7 +318,7 @@ export default function DashboardPage() {
             onClick={() => loadAll(range)}
             className="text-primary text-xs font-semibold hover:underline"
           >
-            Tentar novamente
+            Atualizar agora
           </button>
         </div>
       ) : null}

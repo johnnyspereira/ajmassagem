@@ -68,6 +68,8 @@ export interface PortalPendingConfirmationItem {
   scheduledStart: string;
   professionalName: string;
   href: string;
+  kind: 'confirmation' | 'reschedule';
+  requestedStart?: string | null;
 }
 
 export interface WhatsAppHealth {

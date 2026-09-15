@@ -152,7 +152,6 @@ export async function loadPortalPendingConfirmations(
     .eq('source', 'client_portal')
     .eq('confirmation_status', 'pending')
     .in('status', ['scheduled', 'confirmed'])
-    .gte('scheduled_start', new Date().toISOString())
     .order('scheduled_start', { ascending: true })
     .limit(8);
   // The Portal 360 migration can be applied after the dashboard code. Until
@@ -166,7 +165,7 @@ export async function loadPortalPendingConfirmations(
     service: { name: string | null } | Array<{ name: string | null }> | null;
     professional: { full_name: string | null; email: string | null } | Array<{ full_name: string | null; email: string | null }> | null;
   };
-  return ((data ?? []) as unknown as PortalRow[]).map((row) => {
+  const confirmations = ((data ?? []) as unknown as PortalRow[]).map((row) => {
     const contact = asSingle(row.contact);
     const service = asSingle(row.service);
     const professional = asSingle(row.professional);
@@ -177,8 +176,61 @@ export async function loadPortalPendingConfirmations(
       scheduledStart: row.scheduled_start,
       professionalName: professional?.full_name || professional?.email || 'Profissional',
       href: `/agenda?appointment=${row.id}&date=${row.scheduled_start.slice(0, 10)}`,
+      kind: 'confirmation' as const,
     };
   });
+
+  // A Portal 360 request to change time is also an approval task. Keep it
+  // beside normal confirmations, without changing the appointment itself.
+  const { data: events, error: eventsError } = await db
+    .from('clinic_agenda_events')
+    .select('entity_id,metadata,new_starts_at,created_at')
+    .eq('entity_type', 'appointment')
+    .eq('action', 'status_changed')
+    .order('created_at', { ascending: false })
+    .limit(80);
+  if (eventsError || !events?.length) return confirmations;
+
+  const pendingEvents = (events as Array<{
+    entity_id: string;
+    metadata: unknown;
+    new_starts_at: string | null;
+  }>).filter((event) => {
+    const metadata = typeof event.metadata === 'object' && event.metadata
+      ? event.metadata as Record<string, unknown>
+      : null;
+    return metadata?.kind === 'portal_reschedule' && metadata.state === 'awaiting_professional';
+  });
+  const eventByAppointment = new Map<string, (typeof pendingEvents)[number]>();
+  for (const event of pendingEvents) {
+    if (!eventByAppointment.has(event.entity_id)) eventByAppointment.set(event.entity_id, event);
+  }
+  const ids = [...eventByAppointment.keys()];
+  if (!ids.length) return confirmations;
+  const { data: requestedAppointments, error: requestedError } = await db
+    .from('clinic_appointments')
+    .select('id,scheduled_start,contact:contacts(name,phone),service:clinic_services(name),professional:profiles!clinic_appointments_professional_profile_id_fkey(full_name,email)')
+    .in('id', ids)
+    .in('status', ['scheduled', 'confirmed']);
+  if (requestedError) return confirmations;
+  const reschedules = ((requestedAppointments ?? []) as unknown as PortalRow[]).map((row) => {
+    const contact = asSingle(row.contact);
+    const service = asSingle(row.service);
+    const professional = asSingle(row.professional);
+    const event = eventByAppointment.get(row.id);
+    return {
+      id: row.id,
+      contactName: contact?.name || contact?.phone || 'Cliente sem nome',
+      serviceName: service?.name || 'Sessão',
+      scheduledStart: row.scheduled_start,
+      professionalName: professional?.full_name || professional?.email || 'Profissional',
+      href: `/agenda?appointment=${row.id}&date=${row.scheduled_start.slice(0, 10)}`,
+      kind: 'reschedule' as const,
+      requestedStart: event?.new_starts_at ?? null,
+    };
+  });
+  const existing = new Set(confirmations.map((item) => item.id));
+  return [...confirmations, ...reschedules.filter((item) => !existing.has(item.id))].slice(0, 8);
 }
 
 const safeCount = async (
