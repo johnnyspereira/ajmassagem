@@ -217,6 +217,7 @@ type PortalData = {
     vouchers: Array<{
       id: string;
       code: string;
+      pin_code: string | null;
       voucher_type: string;
       initial_balance: number;
       current_balance: number;
@@ -467,6 +468,7 @@ export function ClientPortal({ slug }: { slug: string }) {
   const [supportRequestKey, setSupportRequestKey] = useState(0);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [bookingBenefitCode, setBookingBenefitCode] = useState('');
+  const [bookingBenefitPin, setBookingBenefitPin] = useState('');
   const [bookingServiceId, setBookingServiceId] = useState('');
   const [bookingProfessionalId, setBookingProfessionalId] = useState('');
   const [guestBookingOpen, setGuestBookingOpen] = useState(false);
@@ -728,8 +730,10 @@ export function ClientPortal({ slug }: { slug: string }) {
     .flatMap((item) => item.balances ?? [])
     .reduce((sum, item) => sum + Number(item.remaining_sessions), 0);
 
-  function openBooking(benefitCode = '') {
+  function openBooking(benefitCode = '', serviceId = '', benefitPin = '') {
     setBookingBenefitCode(benefitCode);
+    setBookingBenefitPin(benefitPin);
+    setBookingServiceId(serviceId);
     setBookingOpen(true);
   }
 
@@ -1087,11 +1091,16 @@ export function ClientPortal({ slug }: { slug: string }) {
         open={bookingOpen}
         onOpenChange={(nextOpen) => {
           setBookingOpen(nextOpen);
-          if (!nextOpen) setBookingBenefitCode('');
+          if (!nextOpen) {
+            setBookingBenefitCode('');
+            setBookingBenefitPin('');
+            setBookingServiceId('');
+          }
         }}
         data={data}
         slug={slug}
         preferredBenefitCode={bookingBenefitCode}
+        preferredBenefitPin={bookingBenefitPin}
         preferredServiceId={bookingServiceId}
         preferredProfessionalId={bookingProfessionalId}
         onCreated={refreshData}
@@ -2277,7 +2286,7 @@ function BenefitsView({
   walletBalance: number;
   voucherBalance: number;
   packSessions: number;
-  onUse: (benefitCode?: string) => void;
+  onUse: (benefitCode?: string, serviceId?: string, benefitPin?: string) => void;
 }) {
   const [showArchived, setShowArchived] = useState(false);
   const activeVouchers = data.benefits.vouchers.filter(
@@ -2484,7 +2493,7 @@ function VoucherPortalCard({
 }: {
   item: PortalData['benefits']['vouchers'][number];
   data: PortalData;
-  onUse?: (benefitCode: string) => void;
+  onUse?: (benefitCode: string, serviceId?: string, benefitPin?: string) => void;
 }) {
   const monetary = item.voucher_type !== 'service';
   const initial = monetary
@@ -2528,7 +2537,19 @@ function VoucherPortalCard({
       </p>
       <div className="mt-auto pt-3">
         {onUse && item.status === 'active' && (
-          <Button className="w-full" size="sm" onClick={() => onUse(item.code)}>
+          <Button
+            className="w-full"
+            size="sm"
+            onClick={() =>
+              onUse(
+                item.code,
+                item.voucher_type === 'service'
+                  ? one(item.service)?.id
+                  : undefined,
+                item.pin_code ?? undefined
+              )
+            }
+          >
             <CalendarCheck /> Usar numa marcação
           </Button>
         )}
@@ -2548,7 +2569,7 @@ function PackPortalCard({
 }: {
   pack: PortalData['benefits']['packs'][number];
   data: PortalData;
-  onUse?: (benefitCode: string) => void;
+  onUse?: (benefitCode: string, serviceId?: string, benefitPin?: string) => void;
 }) {
   const total = (pack.balances || []).reduce(
     (sum, balance) => sum + Number(balance.total_sessions || 0),
@@ -2600,7 +2621,22 @@ function PackPortalCard({
       </div>
       <div className="mt-auto pt-3">
         {onUse && pack.status === 'active' && (
-          <Button className="w-full" size="sm" onClick={() => onUse(pack.code)}>
+          <Button
+            className="w-full"
+            size="sm"
+            onClick={() => {
+              const availableServices = (pack.balances ?? []).filter(
+                (balance) => Number(balance.remaining_sessions) > 0
+              );
+              onUse(
+                pack.code,
+                availableServices.length === 1
+                  ? one(availableServices[0].service)?.id
+                  : undefined,
+                pack.pin_code ?? undefined
+              );
+            }}
+          >
             <CalendarCheck /> Usar numa marcação
           </Button>
         )}
@@ -4093,6 +4129,7 @@ function BookingDialog({
   data,
   slug,
   preferredBenefitCode,
+  preferredBenefitPin,
   preferredServiceId,
   preferredProfessionalId,
   onCreated,
@@ -4102,6 +4139,7 @@ function BookingDialog({
   data: PortalData;
   slug: string;
   preferredBenefitCode: string;
+  preferredBenefitPin: string;
   preferredServiceId: string;
   preferredProfessionalId: string;
   onCreated: () => Promise<void>;
@@ -4117,7 +4155,7 @@ function BookingDialog({
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [benefitCode, setBenefitCode] = useState(preferredBenefitCode);
-  const [benefitPin, setBenefitPin] = useState('');
+  const [benefitPin, setBenefitPin] = useState(preferredBenefitPin);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -4129,10 +4167,12 @@ function BookingDialog({
     const reset = window.setTimeout(() => {
       setServiceId(data.catalog.services.some((service) => service.id === preferredServiceId) ? preferredServiceId : data.catalog.services.length === 1 ? data.catalog.services[0].id : '');
       setProfessionalId(data.catalog.professionals.some((professional) => professional.id === preferredProfessionalId) ? preferredProfessionalId : data.catalog.professionals.length === 1 ? data.catalog.professionals[0].id : '');
+      setBenefitCode(preferredBenefitCode);
+      setBenefitPin(preferredBenefitPin);
       setTime('');
     }, 0);
     return () => window.clearTimeout(reset);
-  }, [data.catalog.professionals, data.catalog.services, open, preferredProfessionalId, preferredServiceId]);
+  }, [data.catalog.professionals, data.catalog.services, open, preferredBenefitCode, preferredBenefitPin, preferredProfessionalId, preferredServiceId]);
 
   const service = data.catalog.services.find((item) => item.id === serviceId);
   const professional = data.catalog.professionals.find(
@@ -4174,7 +4214,18 @@ function BookingDialog({
   );
   function chooseBenefit(value: string) {
     setBenefitCode(value);
-    setBenefitPin('');
+    const benefit = [...data.benefits.vouchers, ...data.benefits.packs].find(
+      (item) => item.code === value
+    );
+    setBenefitPin(benefit?.pin_code ?? '');
+    const voucher = data.benefits.vouchers.find((item) => item.code === value);
+    if (voucher?.voucher_type === 'service') {
+      const voucherServiceId = one(voucher.service)?.id;
+      if (voucherServiceId) {
+        setServiceId(voucherServiceId);
+        setTime('');
+      }
+    }
   }
   async function submit() {
     if (!serviceId || !professionalId || !date || !time)
@@ -4410,6 +4461,11 @@ function BookingDialog({
                 </Field>
               )}
             </div>
+            {benefitCode && benefitPin && (
+              <p className="border-border bg-muted/40 border-t px-4 py-2.5 text-xs text-muted-foreground">
+                Benefício pronto para usar: o código e o PIN foram preenchidos automaticamente e serão associados à marcação.
+              </p>
+            )}
           </details>
         )}
         <Field label="Observações">

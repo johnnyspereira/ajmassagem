@@ -98,7 +98,7 @@ export async function GET(
         ? admin
             .from('finance_vouchers')
             .select(
-              'id,code,voucher_type,initial_balance,current_balance,currency,status,remaining_uses,expires_at,created_at,service:clinic_services(id,name)'
+              'id,code,pin_code,voucher_type,initial_balance,current_balance,currency,status,remaining_uses,expires_at,created_at,service:clinic_services(id,name)'
             )
             .eq('owner_contact_id', access.contact_id)
             .in('status', ['active', 'used', 'expired', 'cancelled'])
