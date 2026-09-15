@@ -1,5 +1,11 @@
 ---
 deployment:
   tasks:
+    # The deployable runtime keeps a visible copy because cPanel can omit
+    # fresh files in hidden `.next` directories during a Git deployment.
+    # Restore it before Passenger restarts so HTML never references CSS/JS
+    # assets that are missing from the current release.
+    - /bin/mkdir -p /home/jpmassag/repositories/ajmassagem-v3/.next/static
+    - /bin/cp -a /home/jpmassag/repositories/ajmassagem-v3/runtime-static/. /home/jpmassag/repositories/ajmassagem-v3/.next/static/
     - /bin/mkdir -p /home/jpmassag/repositories/ajmassagem-v3/tmp
     - /usr/bin/touch /home/jpmassag/repositories/ajmassagem-v3/tmp/restart.txt
