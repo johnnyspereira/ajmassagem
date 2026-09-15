@@ -32,6 +32,7 @@ interface AuthContextRow extends RowDataPacket {
   public_url: string | null;
   navigation_layout: 'sidebar' | 'topbar';
   logo_url: string | null;
+  new_feature_badges_enabled: boolean | number;
 }
 
 export async function authenticateUser(email: string, password: string) {
@@ -104,7 +105,8 @@ export async function getAuthContext(userId: string) {
        p.id AS profile_id, p.full_name, p.avatar_url, p.role,
        p.beta_features, p.account_id, p.account_role,
        a.name AS account_name, a.default_currency, a.crm_locale,
-       a.timezone, a.public_url, a.navigation_layout, a.logo_url
+       a.timezone, a.public_url, a.navigation_layout, a.logo_url,
+       a.new_feature_badges_enabled
      FROM app_users u
      JOIN profiles p ON p.user_id = u.id
      JOIN accounts a ON a.id = p.account_id
@@ -161,6 +163,7 @@ export async function getAuthContext(userId: string) {
       public_url: row.public_url,
       navigation_layout: row.navigation_layout,
       logo_url: row.logo_url,
+      new_feature_badges_enabled: Boolean(row.new_feature_badges_enabled),
     },
   };
 }

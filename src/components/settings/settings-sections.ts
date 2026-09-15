@@ -216,6 +216,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     label: 'New features',
     icon: Sparkles,
     group: 'system',
+    minRole: 'owner',
   },
 };
 

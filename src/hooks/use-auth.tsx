@@ -49,6 +49,7 @@ interface AccountSummary {
   public_url: string | null;
   navigation_layout: NavigationLayout;
   logo_url: string | null;
+  new_feature_badges_enabled: boolean;
 }
 
 interface LocalSessionPayload {

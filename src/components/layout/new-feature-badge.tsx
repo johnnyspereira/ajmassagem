@@ -1,14 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import type { MouseEvent } from 'react';
-import { X } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
-
-export const NEW_FEATURE_HIDDEN_STORAGE_KEY =
-  'wacrm.hiddenNewFeatureBadges.v1';
-export const NEW_FEATURE_SETTINGS_STORAGE_KEY =
-  'wacrm.newFeatureBadgeSettings.v1';
 
 export const NEW_FEATURE_BADGE_STYLES = {
   emerald:
@@ -23,51 +16,6 @@ export const NEW_FEATURE_BADGE_STYLES = {
 
 export type NewFeatureBadgeStyle = keyof typeof NEW_FEATURE_BADGE_STYLES;
 
-export interface NewFeatureBadgeSettings {
-  label: string;
-  style: NewFeatureBadgeStyle;
-}
-
-export const DEFAULT_NEW_FEATURE_BADGE_SETTINGS: NewFeatureBadgeSettings = {
-  label: 'NOVO',
-  style: 'emerald',
-};
-
-function readHiddenBadges(): string[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const parsed = JSON.parse(
-      window.localStorage.getItem(NEW_FEATURE_HIDDEN_STORAGE_KEY) ?? '[]'
-    );
-    return Array.isArray(parsed)
-      ? parsed.filter((item): item is string => typeof item === 'string')
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-export function readNewFeatureBadgeSettings(): NewFeatureBadgeSettings {
-  if (typeof window === 'undefined') return DEFAULT_NEW_FEATURE_BADGE_SETTINGS;
-  try {
-    const parsed = JSON.parse(
-      window.localStorage.getItem(NEW_FEATURE_SETTINGS_STORAGE_KEY) ?? '{}'
-    ) as Partial<NewFeatureBadgeSettings>;
-    return {
-      label:
-        typeof parsed.label === 'string' && parsed.label.trim()
-          ? parsed.label.trim().slice(0, 14)
-          : DEFAULT_NEW_FEATURE_BADGE_SETTINGS.label,
-      style:
-        parsed.style && parsed.style in NEW_FEATURE_BADGE_STYLES
-          ? parsed.style
-          : DEFAULT_NEW_FEATURE_BADGE_SETTINGS.style,
-    };
-  } catch {
-    return DEFAULT_NEW_FEATURE_BADGE_SETTINGS;
-  }
-}
-
 interface NewFeatureBadgeProps {
   badge: {
     key: string;
@@ -78,62 +26,23 @@ interface NewFeatureBadgeProps {
 }
 
 export function NewFeatureBadge({ badge, compact }: NewFeatureBadgeProps) {
-  const [hidden, setHidden] = useState(true);
-  const [settings, setSettings] = useState<NewFeatureBadgeSettings>(
-    DEFAULT_NEW_FEATURE_BADGE_SETTINGS
-  );
+  const { account, profileLoading } = useAuth();
 
-  useEffect(() => {
-    // Hydrate browser-persisted preferences after the component mounts.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setHidden(readHiddenBadges().includes(badge.key));
-    setSettings(readNewFeatureBadgeSettings());
-
-    const onStorage = () => {
-      setHidden(readHiddenBadges().includes(badge.key));
-      setSettings(readNewFeatureBadgeSettings());
-    };
-    window.addEventListener('storage', onStorage);
-    window.addEventListener('wacrm:new-feature-badges-changed', onStorage);
-    return () => {
-      window.removeEventListener('storage', onStorage);
-      window.removeEventListener('wacrm:new-feature-badges-changed', onStorage);
-    };
-  }, [badge.key]);
-
-  function hideBadge(event: MouseEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const next = [...new Set([...readHiddenBadges(), badge.key])];
-    window.localStorage.setItem(
-      NEW_FEATURE_HIDDEN_STORAGE_KEY,
-      JSON.stringify(next)
-    );
-    window.dispatchEvent(new Event('wacrm:new-feature-badges-changed'));
-    setHidden(true);
-  }
-
-  if (hidden) return null;
+  // The account controls this server-backed preference. Nothing is kept in
+  // browser storage, so clearing cookies/cache cannot make labels return.
+  if (profileLoading || !account?.new_feature_badges_enabled) return null;
 
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-black tracking-[0.16em] uppercase',
-        NEW_FEATURE_BADGE_STYLES[settings.style],
-        compact && 'px-1 py-0 text-[8px]'
+        'inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[9px] font-black tracking-[0.16em] uppercase',
+        NEW_FEATURE_BADGE_STYLES.emerald,
+        compact && 'px-1 py-0 text-[8px]',
+        badge.className
       )}
       title="Nova funcionalidade"
     >
-      {settings.label || badge.label || 'NOVO'}
-      <button
-        type="button"
-        aria-label="Ocultar novidade"
-        onClick={hideBadge}
-        className="rounded-full opacity-70 transition hover:bg-current/10 hover:opacity-100"
-      >
-        <X className={compact ? 'size-2.5' : 'size-3'} />
-      </button>
+      {badge.label || 'NOVO'}
     </span>
   );
 }
