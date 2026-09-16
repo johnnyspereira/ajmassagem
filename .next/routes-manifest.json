@@ -976,6 +976,18 @@
       "namedRegex": "^/api/install(?:/)?$"
     },
     {
+      "page": "/api/integrations/google/callback",
+      "regex": "^/api/integrations/google/callback(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/integrations/google/callback(?:/)?$"
+    },
+    {
+      "page": "/api/integrations/google/start",
+      "regex": "^/api/integrations/google/start(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/integrations/google/start(?:/)?$"
+    },
+    {
       "page": "/api/marketing/automation-rules/process",
       "regex": "^/api/marketing/automation\\-rules/process(?:/)?$",
       "routeKeys": {},
