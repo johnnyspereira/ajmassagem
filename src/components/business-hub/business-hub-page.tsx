@@ -665,13 +665,13 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
       .join(', ');
     return [
       `Olá ${client} 👋`,
-      `A sua ${services ? `sessão de *${services}*` : 'sessão'} na *AJ Massagem* está pronta para pagamento.`,
+      `A sua ${services ? `sessão de *${services}*` : 'sessão'} na *JP Massagem* está pronta para pagamento.`,
       `Total a pagar: *${formatCurrency(Number(link.amount), link.currency)}*`,
       'Para pagar online de forma segura, use este link:',
       link.payment_url || '',
       'Assim que o pagamento for confirmado, a sua marcação fica validada.',
       'Se precisar de ajuda, responda a esta mensagem.',
-      'Obrigado,\n*AJ Massagem*',
+      'Obrigado,\n*JP Massagem*',
     ]
       .filter(Boolean)
       .join('\n\n');
