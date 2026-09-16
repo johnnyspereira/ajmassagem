@@ -1,6 +1,9 @@
 ---
 deployment:
   tasks:
+    # Apply versioned MySQL migrations before restarting Passenger. This keeps
+    # new dashboard features and their tables in the same release.
+    - /usr/bin/env node /home/jpmassag/repositories/ajmassagem-v3/scripts/mysql-migrate.mjs
     # The deployable runtime keeps a visible copy because cPanel can omit
     # fresh files in hidden `.next` directories during a Git deployment.
     # Restore it before Passenger restarts so HTML never references CSS/JS
