@@ -13,10 +13,7 @@ export async function GET(request: Request) {
   const auth = session ? await getAuthContext(session.user.id) : null;
   if (!auth || auth.profile.account_role !== 'owner') return NextResponse.redirect(new URL('/login', origin));
   const state = randomBytes(32).toString('base64url');
-  const response = NextResponse.redirect(new URL('https://accounts.google.com/o/oauth2/v2/auth'));
-  response.cookies.set(STATE_COOKIE, state, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 600 });
-  const url = response.headers.get('location')!;
-  const authorize = new URL(url);
+  const authorize = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   authorize.searchParams.set('client_id', clientId);
   authorize.searchParams.set('redirect_uri', `${origin}/api/integrations/google/callback`);
   authorize.searchParams.set('response_type', 'code');
@@ -24,5 +21,13 @@ export async function GET(request: Request) {
   authorize.searchParams.set('access_type', 'offline');
   authorize.searchParams.set('prompt', 'consent');
   authorize.searchParams.set('state', state);
-  return NextResponse.redirect(authorize);
+  const response = NextResponse.redirect(authorize);
+  response.cookies.set(STATE_COOKIE, state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 600,
+  });
+  return response;
 }
