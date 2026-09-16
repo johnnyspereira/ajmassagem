@@ -250,6 +250,7 @@ type CommunicationEventRow = {
 type ReportData = {
   sales: SaleRow[];
   payments: FinancePayment[];
+  paymentLinks: Array<{ id: string; provider: string; status: string; amount: number; currency: string; paid_at: string | null; created_at: string }>;
   cashMovements: FinanceCashMovement[];
   appointments: AppointmentRow[];
   contacts: ContactRow[];
@@ -283,6 +284,7 @@ type ReportTab =
 const EMPTY_DATA: ReportData = {
   sales: [],
   payments: [],
+  paymentLinks: [],
   cashMovements: [],
   appointments: [],
   contacts: [],
@@ -608,6 +610,14 @@ export function ReportsPage() {
         .lte('created_at', range.currentEnd)
         .order('created_at', { ascending: false })
         .limit(5000),
+      supabase
+        .from('finance_payment_links')
+        .select('id,provider,status,amount,currency,paid_at,created_at')
+        .eq('account_id', accountId)
+        .gte('created_at', range.previousStart)
+        .lte('created_at', range.currentEnd)
+        .order('created_at', { ascending: false })
+        .limit(5000),
     ] as const;
 
     const results = await Promise.all(queries);
@@ -656,6 +666,7 @@ export function ReportsPage() {
       benefitLogs: (results[16].data ?? []) as unknown as FinanceBenefitLog[],
       wallets: (results[17].data ?? []) as unknown as WalletRow[],
       communicationEvents: (results[18].data ?? []) as CommunicationEventRow[],
+      paymentLinks: (results[19].data ?? []) as ReportData['paymentLinks'],
       warnings,
     });
     if (warnings.length) {
@@ -780,6 +791,19 @@ export function ReportsPage() {
         value,
       }))
       .sort((left, right) => right.value - left.value);
+
+    const sumUpLinkIds = new Set(
+      data.paymentLinks
+        .filter((link) => link.provider === 'sumup' && link.status === 'paid')
+        .map((link) => link.id)
+    );
+    const sumUpPayments = currentPayments.filter((payment) =>
+      sumUpLinkIds.has(payment.reference_code || '')
+    );
+    const sumUpReceived = sumUpPayments.reduce(
+      (sum, payment) => sum + numberValue(payment.amount),
+      0
+    );
 
     const itemSales = new Map<
       string,
@@ -1045,6 +1069,8 @@ export function ReportsPage() {
       responseSamples,
       responseAverage: average(responseSamples),
       paymentMethods,
+      sumUpPayments,
+      sumUpReceived,
       itemSales: Array.from(itemSales.values()).sort(
         (a, b) => b.revenue - a.revenue
       ),
@@ -1473,7 +1499,7 @@ export function ReportsPage() {
           </TabsContent>
 
           <TabsContent value="finance" className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
               <MetricCard
                 icon={Banknote}
                 label="Recebido"
@@ -1481,6 +1507,13 @@ export function ReportsPage() {
                 change={analytics.receivedChange}
                 detail="Pagamentos confirmados"
                 tone="emerald"
+              />
+              <MetricCard
+                icon={WalletCards}
+                label="SumUp online"
+                value={formatCurrency(analytics.sumUpReceived, defaultCurrency)}
+                detail={`${analytics.sumUpPayments.length} pagamento(s) confirmados`}
+                tone="violet"
               />
               <MetricCard
                 icon={ReceiptText}

@@ -310,6 +310,18 @@ type PortalData = {
         paid_at: string;
       }>;
     }>;
+    paymentLinks: Array<{
+      id: string;
+      sale_id: string | null;
+      status: string;
+      amount: number;
+      currency: string;
+      description: string | null;
+      payment_url: string | null;
+      provider: string;
+      paid_at: string | null;
+      created_at: string;
+    }>;
     invoiceRequests: Array<{
       id: string;
       sale_id: string;
@@ -571,10 +583,21 @@ export function ClientPortal({ slug }: { slug: string }) {
         if (!response.ok) {
           throw new Error(payload.error || 'Não foi possível validar o link.');
         }
+        params.delete('portal_token');
         setPasswordChangeRequired(payload.requiresPasswordChange === true);
         toast.success('Acesso confirmado. Bem-vindo ao Portal 360.');
       }
       await loadPortal();
+      if (params.get('tab') === 'finance') {
+        setTab('finance');
+        params.delete('tab');
+        const search = params.toString();
+        window.history.replaceState(
+          {},
+          '',
+          `${window.location.pathname}${search ? `?${search}` : ''}`
+        );
+      }
       if (params.get('book') === '1') {
         const serviceId = params.get('service') || '';
         const professionalId = params.get('professional') || '';
@@ -2924,6 +2947,12 @@ function FinanceView({
             const invoice = data.finance.invoiceRequests.find(
               (item) => item.sale_id === sale.id
             );
+            const paymentLink = data.finance.paymentLinks.find(
+              (item) =>
+                item.sale_id === sale.id &&
+                ['pending', 'open', 'created'].includes(item.status) &&
+                Boolean(item.payment_url)
+            );
             return (
               <details key={sale.id} className="group">
                 <summary className="flex cursor-pointer items-center gap-3 px-4 py-3">
@@ -2973,6 +3002,28 @@ function FinanceView({
                           sale.currency
                         )}
                       </strong>
+                    </div>
+                  )}
+                  {paymentLink?.payment_url && Number(sale.balance_due) > 0 && (
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                      <div>
+                        <p className="font-semibold text-emerald-900">Pagamento online disponível</p>
+                        <p className="mt-1 text-xs text-emerald-800">
+                          Pague {formatCurrency(Number(paymentLink.amount), paymentLink.currency)} em segurança através da {paymentLink.provider === 'sumup' ? 'SumUp' : 'plataforma de pagamentos'}.
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          window.open(
+                            paymentLink.payment_url!,
+                            '_blank',
+                            'noopener,noreferrer'
+                          )
+                        }
+                      >
+                        <WalletCards /> Pagar online
+                      </Button>
                     </div>
                   )}
                   {(sale.payments ?? []).length > 0 && (

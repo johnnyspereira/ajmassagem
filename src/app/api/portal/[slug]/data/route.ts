@@ -26,6 +26,7 @@ export async function GET(
       packs,
       wallet,
       sales,
+      paymentLinks,
       invoiceRequests,
       referralProgram,
       referralCode,
@@ -132,6 +133,15 @@ export async function GET(
         : Promise.resolve({ data: [], error: null }),
       settings.financial_enabled
         ? admin
+            .from('finance_payment_links')
+            .select('id,sale_id,status,amount,currency,description,payment_url,provider,paid_at,created_at')
+            .eq('account_id', access.account_id)
+            .eq('contact_id', access.contact_id)
+            .order('created_at', { ascending: false })
+            .limit(100)
+        : Promise.resolve({ data: [], error: null }),
+      settings.financial_enabled
+        ? admin
             .from('finance_invoice_requests')
             .select('*')
             .eq('account_id', access.account_id)
@@ -200,6 +210,7 @@ export async function GET(
       packs,
       wallet,
       sales,
+      paymentLinks,
       invoiceRequests,
       referralProgram,
       referralCode,
@@ -366,6 +377,7 @@ export async function GET(
       },
       finance: {
         sales: sales.data ?? [],
+        paymentLinks: paymentLinks.data ?? [],
         invoiceRequests: (invoiceRequests.data ?? []).map((item) => ({
           id: item.id,
           sale_id: item.sale_id,
