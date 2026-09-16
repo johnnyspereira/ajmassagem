@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSumUpCredentials, sumUpRequest } from '@/lib/finance/sumup';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
 
@@ -30,7 +31,8 @@ export async function POST(request: NextRequest) {
 
   const currency = String(sale.currency || 'EUR').toUpperCase();
   const description = `Cobrança da venda #${sale.sale_number}`;
-  const { data: link, error: linkError } = await supabase
+  const admin = createAdminClient();
+  const { data: link, error: linkError } = await admin
     .from('finance_payment_links')
     .insert({
       account_id: sale.account_id,
@@ -70,7 +72,7 @@ export async function POST(request: NextRequest) {
       throw new Error(`${checkout.message || 'A SumUp não devolveu um checkout válido.'}${checkout.param ? ` (${checkout.param})` : ''}`);
     }
 
-    const { data: updated, error: updateError } = await supabase
+    const { data: updated, error: updateError } = await admin
       .from('finance_payment_links')
       .update({
         payment_url: checkout.hosted_checkout_url,
@@ -82,7 +84,7 @@ export async function POST(request: NextRequest) {
       .single();
     if (updateError || !updated) throw new Error(updateError?.message || 'Não foi possível guardar o checkout SumUp.');
 
-    await supabase.from('business_integration_settings').upsert({
+    await admin.from('business_integration_settings').upsert({
       account_id: sale.account_id,
       category: 'payments',
       provider: 'sumup',
@@ -94,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ paymentLink: updated, checkoutUrl: checkout.hosted_checkout_url });
   } catch (error) {
-    await supabase.from('finance_payment_links').update({ status: 'failed', provider_payload: { error: error instanceof Error ? error.message : 'Erro SumUp' } }).eq('id', link.id);
+    await admin.from('finance_payment_links').update({ status: 'failed', provider_payload: { error: error instanceof Error ? error.message : 'Erro SumUp' } }).eq('id', link.id);
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Não foi possível criar o checkout SumUp.' }, { status: 500 });
   }
 }
