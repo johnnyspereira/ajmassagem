@@ -982,10 +982,22 @@
       "namedRegex": "^/api/integrations/google/callback(?:/)?$"
     },
     {
+      "page": "/api/integrations/google/reviews",
+      "regex": "^/api/integrations/google/reviews(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/integrations/google/reviews(?:/)?$"
+    },
+    {
       "page": "/api/integrations/google/start",
       "regex": "^/api/integrations/google/start(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/integrations/google/start(?:/)?$"
+    },
+    {
+      "page": "/api/integrations/google/sync",
+      "regex": "^/api/integrations/google/sync(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/integrations/google/sync(?:/)?$"
     },
     {
       "page": "/api/marketing/automation-rules/process",
