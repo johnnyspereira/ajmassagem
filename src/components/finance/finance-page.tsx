@@ -249,172 +249,185 @@ export function FinancePage({
   const [reverseReason, setReverseReason] = useState('');
 
   const loadFinance = useCallback(async () => {
-    if (!accountId) return;
-    setLoading(true);
-    setSchemaMissing(false);
-    const [
-      servicesRes,
-      productsRes,
-      contactsRes,
-      packsRes,
-      salesRes,
-      cashRes,
-      sessionsRes,
-      vouchersRes,
-      clientPacksRes,
-      logsRes,
-      movementsRes,
-      invoiceRequestsRes,
-      voucherTransferRequestsRes,
-    ] = await Promise.all([
-      supabase
-        .from('clinic_services')
-        .select('*')
-        .eq('account_id', accountId)
-        .eq('is_active', true)
-        .order('name'),
-      supabase
-        .from('clinic_products')
-        .select('*')
-        .eq('account_id', accountId)
-        .eq('is_active', true)
-        .order('name'),
-      supabase
-        .from('contacts')
-        .select('*')
-        .eq('account_id', accountId)
-        .order('name')
-        .limit(1000),
-      supabase
-        .from('finance_pack_catalog')
-        .select('*, items:finance_pack_items(*, service:clinic_services(*))')
-        .eq('account_id', accountId)
-        .order('is_active', { ascending: false })
-        .order('name'),
-      supabase
-        .from('finance_sales')
-        .select(
-          '*, contact:contacts(*), items:finance_sale_items(*), payments:finance_payments(*)'
-        )
-        .eq('account_id', accountId)
-        .order('created_at', { ascending: false })
-        .limit(150),
-      supabase
-        .from('finance_cash_sessions')
-        .select('*')
-        .eq('account_id', accountId)
-        .eq('status', 'open')
-        .maybeSingle(),
-      supabase
-        .from('finance_cash_sessions')
-        .select('*')
-        .eq('account_id', accountId)
-        .order('opened_at', { ascending: false })
-        .limit(30),
-      supabase
-        .from('finance_vouchers')
-        .select('*, owner:contacts(*), service:clinic_services(*)')
-        .eq('account_id', accountId)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('finance_client_packs')
-        .select(
-          '*, contact:contacts(*), pack:finance_pack_catalog(*), balances:finance_client_pack_balances(*, service:clinic_services(*))'
-        )
-        .eq('account_id', accountId)
-        .order('purchased_at', { ascending: false }),
-      supabase
-        .from('finance_benefit_logs')
-        .select(
-          '*, appointment:clinic_appointments(id, scheduled_start, service:clinic_services(name), contact:contacts(name, phone))'
-        )
-        .eq('account_id', accountId)
-        .order('created_at', { ascending: false })
-        .limit(500),
-      supabase
-        .from('finance_cash_movements')
-        .select('*')
-        .eq('account_id', accountId)
-        .order('created_at', { ascending: false })
-        .limit(300),
-      supabase
-        .from('finance_invoice_requests')
-        .select('*, sale:finance_sales(*), contact:contacts(*)')
-        .eq('account_id', accountId)
-        .order('requested_at', { ascending: false })
-        .limit(300),
-      supabase
-        .from('finance_voucher_transfer_requests')
-        .select(
-          '*, voucher:finance_vouchers(*, owner:contacts(*), service:clinic_services(*))'
-        )
-        .eq('account_id', accountId)
-        .order('created_at', { ascending: false })
-        .limit(300),
-    ]);
-
-    const firstError =
-      packsRes.error ??
-      salesRes.error ??
-      cashRes.error ??
-      sessionsRes.error ??
-      vouchersRes.error ??
-      clientPacksRes.error ??
-      logsRes.error ??
-      movementsRes.error ??
-      invoiceRequestsRes.error ??
-      voucherTransferRequestsRes.error;
-    if (firstError) {
-      if (isMissingFinanceSchema(firstError)) setSchemaMissing(true);
-      else toast.error(`Falha ao carregar financeiro: ${firstError.message}`);
+    if (!accountId) {
       setLoading(false);
       return;
     }
-    setServices((servicesRes.data ?? []) as ClinicService[]);
-    setProducts((productsRes.data ?? []) as ClinicProduct[]);
-    setContacts((contactsRes.data ?? []) as Contact[]);
-    setPacks((packsRes.data ?? []) as FinancePackCatalog[]);
-    setSales((salesRes.data ?? []) as FinanceSale[]);
-    setCashSession((cashRes.data as FinanceCashSession | null) ?? null);
-    setCashSessions((sessionsRes.data ?? []) as FinanceCashSession[]);
-    setVouchers((vouchersRes.data ?? []) as FinanceVoucher[]);
-    setClientPacks((clientPacksRes.data ?? []) as FinanceClientPack[]);
-    setBenefitLogs((logsRes.data ?? []) as FinanceBenefitLog[]);
-    setCashMovements((movementsRes.data ?? []) as FinanceCashMovement[]);
-    setInvoiceRequests(
-      (invoiceRequestsRes.data ?? []) as FinanceInvoiceRequest[]
-    );
-    setVoucherTransferRequests(
-      (voucherTransferRequestsRes.data ?? []) as FinanceVoucherTransferRequest[]
-    );
-    const { data: accountPositions, error: accountPositionsError } =
-      await supabase.rpc('get_finance_fund_accounts');
-    if (!accountPositionsError) {
-      setFundAccounts(
-        (accountPositions ?? []).map((item: FinanceFundAccount) => ({
-          ...item,
-          balance: Number(item.balance),
-        }))
-      );
-    } else {
-      setFundAccounts([]);
-    }
-    if (cashRes.data?.id) {
-      const { data: snapshot, error: snapshotError } = await supabase.rpc(
-        'get_finance_register_snapshot',
-        { p_cash_session_id: cashRes.data.id }
-      );
-      if (snapshotError) {
-        if (isMissingFinanceSchema(snapshotError)) setSchemaMissing(true);
-        else toast.error(`Falha ao conferir caixa: ${snapshotError.message}`);
-        setCashSnapshot(null);
-      } else {
-        setCashSnapshot(snapshot as FinanceCashSnapshot);
+    setLoading(true);
+    setSchemaMissing(false);
+    try {
+      const [
+        servicesRes,
+        productsRes,
+        contactsRes,
+        packsRes,
+        salesRes,
+        cashRes,
+        sessionsRes,
+        vouchersRes,
+        clientPacksRes,
+        logsRes,
+        movementsRes,
+        invoiceRequestsRes,
+        voucherTransferRequestsRes,
+      ] = await Promise.all([
+        supabase
+          .from('clinic_services')
+          .select('*')
+          .eq('account_id', accountId)
+          .eq('is_active', true)
+          .order('name'),
+        supabase
+          .from('clinic_products')
+          .select('*')
+          .eq('account_id', accountId)
+          .eq('is_active', true)
+          .order('name'),
+        supabase
+          .from('contacts')
+          .select('*')
+          .eq('account_id', accountId)
+          .order('name')
+          .limit(1000),
+        supabase
+          .from('finance_pack_catalog')
+          .select('*, items:finance_pack_items(*, service:clinic_services(*))')
+          .eq('account_id', accountId)
+          .order('is_active', { ascending: false })
+          .order('name'),
+        supabase
+          .from('finance_sales')
+          .select(
+            '*, contact:contacts(*), items:finance_sale_items(*), payments:finance_payments(*)'
+          )
+          .eq('account_id', accountId)
+          .order('created_at', { ascending: false })
+          .limit(150),
+        supabase
+          .from('finance_cash_sessions')
+          .select('*')
+          .eq('account_id', accountId)
+          .eq('status', 'open')
+          .maybeSingle(),
+        supabase
+          .from('finance_cash_sessions')
+          .select('*')
+          .eq('account_id', accountId)
+          .order('opened_at', { ascending: false })
+          .limit(30),
+        supabase
+          .from('finance_vouchers')
+          .select('*, owner:contacts(*), service:clinic_services(*)')
+          .eq('account_id', accountId)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('finance_client_packs')
+          .select(
+            '*, contact:contacts(*), pack:finance_pack_catalog(*), balances:finance_client_pack_balances(*, service:clinic_services(*))'
+          )
+          .eq('account_id', accountId)
+          .order('purchased_at', { ascending: false }),
+        supabase
+          .from('finance_benefit_logs')
+          .select(
+            '*, appointment:clinic_appointments(id, scheduled_start, service:clinic_services(name), contact:contacts(name, phone))'
+          )
+          .eq('account_id', accountId)
+          .order('created_at', { ascending: false })
+          .limit(500),
+        supabase
+          .from('finance_cash_movements')
+          .select('*')
+          .eq('account_id', accountId)
+          .order('created_at', { ascending: false })
+          .limit(300),
+        supabase
+          .from('finance_invoice_requests')
+          .select('*, sale:finance_sales(*), contact:contacts(*)')
+          .eq('account_id', accountId)
+          .order('requested_at', { ascending: false })
+          .limit(300),
+        supabase
+          .from('finance_voucher_transfer_requests')
+          .select(
+            '*, voucher:finance_vouchers(*, owner:contacts(*), service:clinic_services(*))'
+          )
+          .eq('account_id', accountId)
+          .order('created_at', { ascending: false })
+          .limit(300),
+      ]);
+
+      const firstError =
+        packsRes.error ??
+        salesRes.error ??
+        cashRes.error ??
+        sessionsRes.error ??
+        vouchersRes.error ??
+        clientPacksRes.error ??
+        logsRes.error ??
+        movementsRes.error ??
+        invoiceRequestsRes.error ??
+        voucherTransferRequestsRes.error;
+      if (firstError) {
+        if (isMissingFinanceSchema(firstError)) setSchemaMissing(true);
+        else toast.error(`Falha ao carregar financeiro: ${firstError.message}`);
+        setLoading(false);
+        return;
       }
-    } else {
-      setCashSnapshot(null);
+      setServices((servicesRes.data ?? []) as ClinicService[]);
+      setProducts((productsRes.data ?? []) as ClinicProduct[]);
+      setContacts((contactsRes.data ?? []) as Contact[]);
+      setPacks((packsRes.data ?? []) as FinancePackCatalog[]);
+      setSales((salesRes.data ?? []) as FinanceSale[]);
+      setCashSession((cashRes.data as FinanceCashSession | null) ?? null);
+      setCashSessions((sessionsRes.data ?? []) as FinanceCashSession[]);
+      setVouchers((vouchersRes.data ?? []) as FinanceVoucher[]);
+      setClientPacks((clientPacksRes.data ?? []) as FinanceClientPack[]);
+      setBenefitLogs((logsRes.data ?? []) as FinanceBenefitLog[]);
+      setCashMovements((movementsRes.data ?? []) as FinanceCashMovement[]);
+      setInvoiceRequests(
+        (invoiceRequestsRes.data ?? []) as FinanceInvoiceRequest[]
+      );
+      setVoucherTransferRequests(
+        (voucherTransferRequestsRes.data ??
+          []) as FinanceVoucherTransferRequest[]
+      );
+      const { data: accountPositions, error: accountPositionsError } =
+        await supabase.rpc('get_finance_fund_accounts');
+      if (!accountPositionsError) {
+        setFundAccounts(
+          (accountPositions ?? []).map((item: FinanceFundAccount) => ({
+            ...item,
+            balance: Number(item.balance),
+          }))
+        );
+      } else {
+        setFundAccounts([]);
+      }
+      if (cashRes.data?.id) {
+        const { data: snapshot, error: snapshotError } = await supabase.rpc(
+          'get_finance_register_snapshot',
+          { p_cash_session_id: cashRes.data.id }
+        );
+        if (snapshotError) {
+          if (isMissingFinanceSchema(snapshotError)) setSchemaMissing(true);
+          else toast.error(`Falha ao conferir caixa: ${snapshotError.message}`);
+          setCashSnapshot(null);
+        } else {
+          setCashSnapshot(snapshot as FinanceCashSnapshot);
+        }
+      } else {
+        setCashSnapshot(null);
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Erro inesperado ao carregar o financeiro.';
+      toast.error(`Falha ao carregar financeiro: ${message}`);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [accountId, supabase]);
 
   useEffect(() => {
@@ -812,12 +825,17 @@ export function FinancePage({
       toast.error('Selecione um cliente para vender packs.');
       return;
     }
-    if (!alreadyPaidElsewhere && payments.some((payment) => payment.method === 'cash') && !cashSession) {
+    if (
+      !alreadyPaidElsewhere &&
+      payments.some((payment) => payment.method === 'cash') &&
+      !cashSession
+    ) {
       toast.error('Abra o caixa antes de receber dinheiro.');
       setCashOpen(true);
       return;
     }
-    if (!alreadyPaidElsewhere &&
+    if (
+      !alreadyPaidElsewhere &&
       payments.some(
         (payment) =>
           payment.method === 'voucher' &&
@@ -893,7 +911,11 @@ export function FinancePage({
         body: JSON.stringify({ saleId }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload.checkoutUrl) toast.error(payload.error || 'Venda criada, mas não foi possível abrir o checkout SumUp.');
+      if (!response.ok || !payload.checkoutUrl)
+        toast.error(
+          payload.error ||
+            'Venda criada, mas não foi possível abrir o checkout SumUp.'
+        );
       else {
         window.open(payload.checkoutUrl, '_blank', 'noopener,noreferrer');
         toast.success('Checkout SumUp criado. Pode enviar o link ao cliente.');
@@ -1341,11 +1363,14 @@ export function FinancePage({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ saleId: sale.id }),
     });
-    const payload = (await response.json().catch(() => null)) as
-      | { created?: number; error?: string }
-      | null;
+    const payload = (await response.json().catch(() => null)) as {
+      created?: number;
+      error?: string;
+    } | null;
     if (!response.ok) {
-      toast.error(payload?.error || 'N\u00e3o foi poss\u00edvel corrigir os vouchers.');
+      toast.error(
+        payload?.error || 'N\u00e3o foi poss\u00edvel corrigir os vouchers.'
+      );
       return;
     }
     const created = Number(payload?.created ?? 0);
@@ -2989,17 +3014,19 @@ function PosView(props: {
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-[112px_1fr_1fr]">
                   <div>
-                    <span className="text-muted-foreground mb-1 block text-[11px] font-medium uppercase">Quantidade</span>
+                    <span className="text-muted-foreground mb-1 block text-[11px] font-medium uppercase">
+                      Quantidade
+                    </span>
                     <div className="flex items-center">
                       <Button
-                      variant="outline"
-                      size="icon-sm"
-                      aria-label={`Diminuir quantidade de ${item.name}`}
-                      onClick={() =>
-                        updateCart(item.key, {
-                          quantity: Math.max(1, item.quantity - 1),
-                        })
-                      }
+                        variant="outline"
+                        size="icon-sm"
+                        aria-label={`Diminuir quantidade de ${item.name}`}
+                        onClick={() =>
+                          updateCart(item.key, {
+                            quantity: Math.max(1, item.quantity - 1),
+                          })
+                        }
                       >
                         <Minus />
                       </Button>
@@ -3007,12 +3034,12 @@ function PosView(props: {
                         {item.quantity}
                       </span>
                       <Button
-                      variant="outline"
-                      size="icon-sm"
-                      aria-label={`Aumentar quantidade de ${item.name}`}
-                      onClick={() =>
-                        updateCart(item.key, { quantity: item.quantity + 1 })
-                      }
+                        variant="outline"
+                        size="icon-sm"
+                        aria-label={`Aumentar quantidade de ${item.name}`}
+                        onClick={() =>
+                          updateCart(item.key, { quantity: item.quantity + 1 })
+                        }
                       >
                         <Plus />
                       </Button>
@@ -3021,37 +3048,51 @@ function PosView(props: {
                   <label className="text-muted-foreground grid gap-1 text-[11px] font-medium uppercase">
                     Desconto (€)
                     <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={item.discountAmount}
-                    onChange={(event) =>
-                      updateCart(item.key, {
-                        discountAmount: Number(event.target.value),
-                      })
-                    }
-                    aria-label={`Desconto em euros para ${item.name}`}
-                    className="h-9 text-sm normal-case"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={item.discountAmount}
+                      onChange={(event) =>
+                        updateCart(item.key, {
+                          discountAmount: Number(event.target.value),
+                        })
+                      }
+                      aria-label={`Desconto em euros para ${item.name}`}
+                      className="h-9 text-sm normal-case"
                     />
                   </label>
                   <label className="text-muted-foreground grid gap-1 text-[11px] font-medium uppercase">
                     IVA (%)
                     <Input
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    value={item.taxRate}
-                    onChange={(event) =>
-                      updateCart(item.key, {
-                        taxRate: Number(event.target.value),
-                      })
-                    }
-                    aria-label={`IVA em percentagem para ${item.name}`}
-                    className="h-9 text-sm normal-case"
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={item.taxRate}
+                      onChange={(event) =>
+                        updateCart(item.key, {
+                          taxRate: Number(event.target.value),
+                        })
+                      }
+                      aria-label={`IVA em percentagem para ${item.name}`}
+                      className="h-9 text-sm normal-case"
                     />
                   </label>
                 </div>
-                <div className="mt-3 flex items-center justify-between border-t border-dashed pt-2 text-xs"><span className="text-muted-foreground">Total deste item</span><strong>{money(Math.max(item.quantity * item.unitPrice - item.discountAmount, 0) * (1 + item.taxRate / 100), defaultCurrency)}</strong></div>
+                <div className="mt-3 flex items-center justify-between border-t border-dashed pt-2 text-xs">
+                  <span className="text-muted-foreground">
+                    Total deste item
+                  </span>
+                  <strong>
+                    {money(
+                      Math.max(
+                        item.quantity * item.unitPrice - item.discountAmount,
+                        0
+                      ) *
+                        (1 + item.taxRate / 100),
+                      defaultCurrency
+                    )}
+                  </strong>
+                </div>
               </div>
             ))
           )}
@@ -3066,7 +3107,9 @@ function PosView(props: {
             <span className="text-right">
               -{money(itemDiscount, defaultCurrency)}
             </span>
-            <span className="text-muted-foreground">Desconto adicional da venda</span>
+            <span className="text-muted-foreground">
+              Desconto adicional da venda
+            </span>
             <Input
               type="number"
               min="0"
@@ -3086,8 +3129,30 @@ function PosView(props: {
               {money(total, defaultCurrency)}
             </span>
           </div>
-          <label className="flex cursor-pointer gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"><input type="checkbox" checked={alreadyPaidElsewhere} onChange={(event) => { setAlreadyPaidElsewhere(event.target.checked); if (event.target.checked) setPayments([]); }} /><span><strong>Já faturado anteriormente</strong><span className="mt-0.5 block text-xs text-amber-800">Importa voucher/pack de outra plataforma como ativo, sem criar pagamento nem movimento de caixa.</span></span></label>
-          <div className={alreadyPaidElsewhere ? 'pointer-events-none space-y-2 opacity-45' : 'space-y-2'}>
+          <label className="flex cursor-pointer gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+            <input
+              type="checkbox"
+              checked={alreadyPaidElsewhere}
+              onChange={(event) => {
+                setAlreadyPaidElsewhere(event.target.checked);
+                if (event.target.checked) setPayments([]);
+              }}
+            />
+            <span>
+              <strong>Já faturado anteriormente</strong>
+              <span className="mt-0.5 block text-xs text-amber-800">
+                Importa voucher/pack de outra plataforma como ativo, sem criar
+                pagamento nem movimento de caixa.
+              </span>
+            </span>
+          </label>
+          <div
+            className={
+              alreadyPaidElsewhere
+                ? 'pointer-events-none space-y-2 opacity-45'
+                : 'space-y-2'
+            }
+          >
             {payments.map((payment) => (
               <div
                 key={payment.id}
@@ -3216,7 +3281,13 @@ function PosView(props: {
             variant="outline"
             className="w-full"
             onClick={() => setOnlinePaymentOpen(true)}
-            disabled={!canOperate || saving || cart.length === 0 || paidNow > 0 || alreadyPaidElsewhere}
+            disabled={
+              !canOperate ||
+              saving ||
+              cart.length === 0 ||
+              paidNow > 0 ||
+              alreadyPaidElsewhere
+            }
           >
             <Link2 /> Pagamento online SumUp
           </Button>
@@ -3226,12 +3297,29 @@ function PosView(props: {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Criar pagamento online SumUp</DialogTitle>
-            <DialogDescription>A venda será guardada como pendente e o checkout seguro da SumUp abrirá numa nova aba para enviar ao cliente.</DialogDescription>
+            <DialogDescription>
+              A venda será guardada como pendente e o checkout seguro da SumUp
+              abrirá numa nova aba para enviar ao cliente.
+            </DialogDescription>
           </DialogHeader>
-          <div className="rounded-lg bg-muted p-3 text-sm">Total a cobrar: <strong>{money(total, defaultCurrency)}</strong></div>
+          <div className="bg-muted rounded-lg p-3 text-sm">
+            Total a cobrar: <strong>{money(total, defaultCurrency)}</strong>
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOnlinePaymentOpen(false)}>Cancelar</Button>
-            <Button onClick={() => { setOnlinePaymentOpen(false); finishSaleOnline(); }}>Criar checkout SumUp</Button>
+            <Button
+              variant="outline"
+              onClick={() => setOnlinePaymentOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                setOnlinePaymentOpen(false);
+                finishSaleOnline();
+              }}
+            >
+              Criar checkout SumUp
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
