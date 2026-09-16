@@ -17,7 +17,7 @@ let financeReminderTimer;
 function buildProductionAssets() {
   if (
     process.env.NODE_ENV !== 'production' ||
-    process.env.CPANEL_SKIP_BUILD_ON_START === 'true'
+    process.env.CPANEL_BUILD_ON_START !== 'true'
   ) {
     return Promise.resolve();
   }
@@ -54,7 +54,7 @@ function buildProductionAssets() {
 function applyMysqlMigrations() {
   if (
     process.env.NODE_ENV !== 'production' ||
-    process.env.CPANEL_AUTO_MIGRATE === 'false'
+    process.env.CPANEL_AUTO_MIGRATE_ON_START !== 'true'
   ) {
     return Promise.resolve();
   }
@@ -107,8 +107,9 @@ function startFinanceReminderScheduler() {
 }
 
 async function start() {
-  // cPanel starts server.cjs directly. Building here ensures that a restart
-  // can never serve HTML from one release with static chunks from another.
+  // cPanel's Passenger process must remain lightweight. Builds and schema
+  // changes belong to the deployment hook, not every application restart.
+  // The explicit *_ON_START flags remain available for controlled recovery.
   await applyMysqlMigrations();
   await buildProductionAssets();
   await app.prepare();
