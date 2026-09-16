@@ -472,6 +472,7 @@ export function WebsiteBuilder() {
           </TabsContent>
           <TabsContent value="social" className="space-y-5 pt-5">
             <Panel title="Avaliações Google" description="Mostre avaliações verificadas do Google. A chave da API é configurada apenas no servidor.">
+              <Button type="button" variant="outline" onClick={() => { window.location.href = '/api/integrations/google/start'; }}>Ligar conta Google</Button>
               <Toggle label="Mostrar avaliações Google" description="Se a ligação Google não estiver disponível, o site mantém os testemunhos internos e manuais." checked={form.google_reviews_enabled} onChange={(value) => patch('google_reviews_enabled', value)} />
               <Field label="Google Place ID" value={form.google_place_id ?? ''} onChange={(value) => patch('google_place_id', value.trim() || null)} placeholder="Ex.: ChIJ..." />
               <Field label="Link para avaliar no Google" value={form.google_review_url ?? ''} onChange={(value) => patch('google_review_url', value.trim() || null)} placeholder="https://g.page/r/.../review" />
