@@ -6,7 +6,7 @@ export const PAYMENT_METHODS: Array<{
   label: string;
 }> = [
   { value: 'cash', label: 'Dinheiro' },
-  { value: 'card', label: 'Cartão' },
+  { value: 'card', label: 'Cartão / SumUp (iPhone)' },
   { value: 'mb_way', label: 'MB Way' },
   { value: 'multibanco', label: 'Multibanco' },
   { value: 'bank_transfer', label: 'Transferência' },
