@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { sendLocalEmail } from '@/lib/email/smtp';
+import { brandedEmail } from '@/lib/email/templates';
 import { notifyAccountEvent } from '@/lib/notifications/account-events';
 import { sumUpRequest } from '@/lib/finance/sumup';
 import { getPublicUrl } from '@/lib/public-url';
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
 
       if (paymentLink?.account_id && paymentLink.contact_id) {
         const [{ data: account }, { data: contact }, { data: portal }] = await Promise.all([
-          db.from('accounts').select('name').eq('id', paymentLink.account_id).maybeSingle(),
+          db.from('accounts').select('name,logo_url').eq('id', paymentLink.account_id).maybeSingle(),
           db.from('contacts').select('name,email').eq('id', paymentLink.contact_id).maybeSingle(),
           db.from('client_portal_settings').select('slug,enabled').eq('account_id', paymentLink.account_id).maybeSingle(),
         ]);
@@ -77,8 +78,23 @@ export async function POST(request: NextRequest) {
               to: contact.email,
               profile: 'finance',
               subject: `${business} · Pagamento confirmado`,
-              text: `Olá, ${clientName}.\n\n${receiptText}\n\nVer recibo: ${portalUrl}\n\nObrigado,\n${business}`,
-              html: `<p>Olá, ${escapeHtml(clientName)}.</p><p>O pagamento de <strong>${amount}</strong> foi confirmado.</p><p><a href="${portalUrl}">Ver recibo no Portal do Cliente</a></p><p>Obrigado,<br>${escapeHtml(business)}</p>`,
+              text: `Olá, ${clientName}.\n\nRecebemos o seu pagamento de ${amount}. A sua compra está confirmada.\n\n${paymentLink.description || 'Compra'}\n\nConsulte ou descarregue o recibo: ${portalUrl}\n\nAté breve,\n${business}`,
+              html: brandedEmail({
+                businessName: business,
+                logoUrl: account?.logo_url,
+                eyebrow: 'Pagamento confirmado',
+                preheader: `Recebemos o seu pagamento de ${amount}.`,
+                title: 'A sua compra está confirmada',
+                greeting: `Olá, ${clientName}.`,
+                message: 'Obrigado. O pagamento foi recebido com sucesso e o seu recibo já está disponível no Portal do Cliente.',
+                details: [
+                  { label: 'Compra', value: paymentLink.description || 'Pagamento online' },
+                  { label: 'Método', value: 'Pagamento online SumUp' },
+                ],
+                highlight: { label: 'Valor pago', value: amount },
+                action: { label: 'Ver recibo e compra', url: portalUrl },
+                notice: 'Se esta compra incluir um voucher ou pack, receberá também a respetiva confirmação e acesso assim que for emitido.',
+              }),
             });
           }
         } catch (emailError) {
@@ -114,10 +130,4 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Erro ao validar webhook SumUp.' }, { status: 500 });
   }
-}
-
-function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, (character) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;',
-  }[character] || character));
 }

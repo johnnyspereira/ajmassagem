@@ -408,6 +408,9 @@ type PortalData = {
     title: string;
     summary: string;
     description: string;
+    commerce_enabled?: boolean;
+    commerce_price?: number | null;
+    commerce_currency?: string | null;
     image_url: string | null;
     badge_text: string | null;
     benefit_text: string | null;
@@ -3316,6 +3319,10 @@ function CampaignsView({
     setJoining(null);
     if (!response.ok)
       return toast.error(payload?.error || 'Não foi possível aderir.');
+    if (payload?.checkoutUrl) {
+      window.location.assign(payload.checkoutUrl);
+      return;
+    }
     toast.success('Adesão registada. Entraremos em contacto consigo.');
     await onRefresh();
   }
@@ -3432,7 +3439,9 @@ function CampaignsView({
                     ? 'Já aderiu'
                     : full
                       ? 'Campanha esgotada'
-                      : 'Quero aderir'}
+                      : campaign.commerce_enabled
+                        ? `Comprar por ${formatCurrency(Number(campaign.commerce_price), campaign.commerce_currency || data.business.default_currency)}`
+                        : 'Quero aderir'}
                 </Button>
               </div>
             </article>

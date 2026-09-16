@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { getSumUpCredentials, sumUpRequest } from '@/lib/finance/sumup';
 import { notifyAccountEvent } from '@/lib/notifications/account-events';
 import {
   portalErrorResponse,
@@ -21,7 +22,7 @@ export async function POST(
     const now = new Date().toISOString();
     const { data: campaign } = await admin
       .from('portal_campaigns')
-      .select('id,title,capacity,status,starts_at,ends_at')
+      .select('id,title,capacity,status,starts_at,ends_at,commerce_enabled,commerce_price,commerce_currency,commerce_item_type')
       .eq('id', campaignId)
       .eq('account_id', access.account_id)
       .eq('status', 'published')
@@ -113,7 +114,57 @@ export async function POST(
         .filter(Boolean)
         .join('\n'),
     });
-    return Response.json({ ok: true });
+    if (!campaign.commerce_enabled || !Number(campaign.commerce_price))
+      return Response.json({ ok: true });
+
+    const price = Number(campaign.commerce_price);
+    const currency = String(campaign.commerce_currency || 'EUR').toUpperCase();
+    const saleId = randomUUID();
+    const { error: saleError } = await admin.from('finance_sales').insert({
+      id: saleId,
+      account_id: access.account_id,
+      contact_id: access.contact_id,
+      status: 'open',
+      currency,
+      subtotal: price,
+      discount_amount: 0,
+      tax_amount: 0,
+      total_amount: price,
+      paid_amount: 0,
+      balance_due: price,
+      notes: `Compra no Portal: campanha ${campaign.title}`,
+    });
+    if (saleError) throw saleError;
+    const { error: itemError } = await admin.from('finance_sale_items').insert({
+      id: randomUUID(), account_id: access.account_id, sale_id: saleId,
+      item_type: campaign.commerce_item_type || 'service', name_snapshot: campaign.title,
+      quantity: 1, unit_price: price, discount_amount: 0, tax_rate: 0, tax_amount: 0, line_total: price,
+      metadata: { campaign_id: campaign.id },
+    });
+    if (itemError) throw itemError;
+    const linkId = randomUUID();
+    const { error: linkError } = await admin.from('finance_payment_links').insert({
+      id: linkId, account_id: access.account_id, sale_id: saleId, contact_id: access.contact_id,
+      provider: 'sumup', status: 'pending', amount: price, currency,
+      description: campaign.title, external_reference: `campaign-${campaign.id}-${access.contact_id}`,
+    });
+    if (linkError) throw linkError;
+    try {
+      const { merchantCode } = getSumUpCredentials();
+      const origin = new URL(request.url).origin;
+      const checkoutResponse = await sumUpRequest('/v0.1/checkouts', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: Number(price.toFixed(2)), checkout_reference: linkId, currency, description: campaign.title, merchant_code: merchantCode, redirect_url: `${origin}/portal/${encodeURIComponent(slug)}?tab=finance`, return_url: `${origin}/api/finance/webhooks/sumup`, hosted_checkout: { enabled: true } }),
+      });
+      const checkout = await checkoutResponse.json().catch(() => ({})) as { id?: string; hosted_checkout_url?: string; status?: string; message?: string };
+      if (!checkoutResponse.ok || !checkout.id || !checkout.hosted_checkout_url) throw new Error(checkout.message || 'A SumUp não devolveu um checkout válido.');
+      await admin.from('finance_payment_links').update({ payment_url: checkout.hosted_checkout_url, external_session_id: checkout.id, provider_payload: { checkout_status: checkout.status || 'PENDING', campaign_id: campaign.id } }).eq('id', linkId);
+      await admin.from('portal_campaign_enrollments').update({ sale_id: saleId, status: 'converted' }).eq('id', enrollmentId);
+      return Response.json({ ok: true, checkoutUrl: checkout.hosted_checkout_url });
+    } catch (checkoutError) {
+      await admin.from('finance_payment_links').update({ status: 'failed', provider_payload: { error: checkoutError instanceof Error ? checkoutError.message : 'Erro SumUp' } }).eq('id', linkId);
+      throw checkoutError;
+    }
   } catch (error) {
     return portalErrorResponse(error);
   }

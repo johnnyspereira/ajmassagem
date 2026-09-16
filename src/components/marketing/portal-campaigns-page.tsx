@@ -80,6 +80,8 @@ type Draft = {
   startsAt: string;
   endsAt: string;
   capacity: string;
+  commerceEnabled: boolean;
+  commercePrice: string;
 };
 const localDate = (value = new Date()) =>
   new Date(value.getTime() - value.getTimezoneOffset() * 60000)
@@ -96,6 +98,8 @@ const emptyDraft = (): Draft => ({
   startsAt: localDate(),
   endsAt: localDate(new Date(Date.now() + 7 * 24 * 60 * 60_000)),
   capacity: '',
+  commerceEnabled: false,
+  commercePrice: '',
 });
 
 export function PortalCampaignsPage() {
@@ -158,6 +162,8 @@ export function PortalCampaignsPage() {
             startsAt: localDate(new Date(item.starts_at)),
             endsAt: item.ends_at ? localDate(new Date(item.ends_at)) : '',
             capacity: item.capacity ? String(item.capacity) : '',
+            commerceEnabled: Boolean((item as Campaign & { commerce_enabled?: boolean }).commerce_enabled),
+            commercePrice: String((item as Campaign & { commerce_price?: number | null }).commerce_price ?? ''),
           }
         : emptyDraft()
     );
@@ -205,6 +211,10 @@ export function PortalCampaignsPage() {
       starts_at: new Date(draft.startsAt).toISOString(),
       ends_at: draft.endsAt ? new Date(draft.endsAt).toISOString() : null,
       capacity: Number(draft.capacity) > 0 ? Number(draft.capacity) : null,
+      commerce_enabled: draft.commerceEnabled,
+      commerce_price: draft.commerceEnabled && Number(draft.commercePrice) > 0 ? Number(draft.commercePrice) : null,
+      commerce_currency: 'EUR',
+      commerce_item_type: draft.commerceEnabled ? 'service' : null,
       created_by: profile.id,
     };
     const result = editing
@@ -552,6 +562,13 @@ export function PortalCampaignsPage() {
                 setDraft({ ...draft, benefitText: e.target.value })
               }
             />
+            <label className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+              <input type="checkbox" checked={draft.commerceEnabled} onChange={(event) => setDraft({ ...draft, commerceEnabled: event.target.checked })} />
+              <span><strong>Venda online com SumUp</strong><br /><span className="text-xs text-emerald-800">Cria uma venda e checkout para o cliente pagar no Portal.</span></span>
+            </label>
+            {draft.commerceEnabled && (
+              <Input type="number" min="0.01" step="0.01" placeholder="Preço da oferta (€)" value={draft.commercePrice} onChange={(event) => setDraft({ ...draft, commercePrice: event.target.value })} />
+            )}
             <div className="grid gap-3 sm:grid-cols-2">
               <Input
                 placeholder="Selo: Exclusivo"
