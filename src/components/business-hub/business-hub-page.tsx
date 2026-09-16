@@ -255,7 +255,9 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
           .limit(30),
         supabase
           .from('finance_payment_links')
-          .select('*, sale:finance_sales(*, contact:contacts(*))')
+          .select(
+            '*, sale:finance_sales(*, contact:contacts(*), items:finance_sale_items(name_snapshot))'
+          )
           .eq('account_id', accountId)
           .order('created_at', { ascending: false })
           .limit(30),
@@ -654,15 +656,24 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
 
   function paymentMessage(link: PaymentLink) {
     const sale = link.sale;
-    const client = sale?.contact?.name || sale?.contact?.phone || 'cliente';
+    const fullName = sale?.contact?.name || sale?.contact?.phone || 'cliente';
+    const client = fullName.split(/\s+/)[0] || 'cliente';
+    const services = sale?.items
+      ?.map((item) => item.name_snapshot)
+      .filter(Boolean)
+      .join(', ');
     return [
-      `Olá ${client}, segue a cobrança ${link.description || ''}`.trim(),
-      `Valor: ${formatCurrency(Number(link.amount), link.currency)}`,
-      link.payment_url
-        ? `Link: ${link.payment_url}`
-        : 'Pode efetuar o pagamento pelo método combinado e enviar o comprovativo por aqui.',
-      `Referência interna: ${link.id}`,
-    ].join('\n');
+      `Olá ${client} 👋`,
+      `A sua ${services ? `sessão de *${services}*` : 'sessão'} na *AJ Massagem* está pronta para pagamento.`,
+      `Total a pagar: *${formatCurrency(Number(link.amount), link.currency)}*`,
+      'Para pagar online de forma segura, use este link:',
+      link.payment_url || '',
+      'Assim que o pagamento for confirmado, a sua marcação fica validada.',
+      'Se precisar de ajuda, responda a esta mensagem.',
+      'Obrigado,\n*AJ Massagem*',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
   }
 
   async function sendPaymentWhatsApp(
@@ -672,6 +683,11 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
     const contactId = link.contact_id || link.sale?.contact_id;
     if (!contactId) {
       return toast.error('Esta cobrança não tem cliente associado.');
+    }
+    if (!link.payment_url) {
+      return toast.error(
+        'Este pedido ainda não tem um checkout online. Crie primeiro um link SumUp válido.'
+      );
     }
 
     setBusyAction(busyKey);
@@ -1190,7 +1206,15 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={busyAction === `send-payment:${link.id}`}
+                        disabled={
+                          !link.payment_url ||
+                          busyAction === `send-payment:${link.id}`
+                        }
+                        title={
+                          !link.payment_url
+                            ? 'Crie primeiro um checkout online para poder enviar a cobrança.'
+                            : undefined
+                        }
                         onClick={() => sendPaymentWhatsApp(link)}
                       >
                         {busyAction === `send-payment:${link.id}` ? (
@@ -1198,7 +1222,7 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
                         ) : (
                           <MessageSquare />
                         )}
-                        WhatsApp
+                        {link.payment_url ? 'Enviar WhatsApp' : 'Sem checkout'}
                       </Button>
                       <Button
                         size="sm"
