@@ -13,6 +13,7 @@
     "/api/account/email/diagnostics": {},
     "/api/account/privacy/requests/[id]/export": {},
     "/api/finance/invoice-requests/[id]/issue-fiscal": {},
+    "/api/finance/payment-links/[id]": {},
     "/api/finance/payment-links/stripe": {},
     "/api/finance/payment-links/sumup": {},
     "/api/finance/treasury/import": {},
