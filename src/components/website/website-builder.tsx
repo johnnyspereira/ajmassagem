@@ -45,6 +45,11 @@ type Lead = {
   created_at: string;
   contact_id: string | null;
 };
+type GoogleConnection = {
+  connected: boolean;
+  connectedAt: string | null;
+  googleAccountName: string | null;
+};
 const DEFAULTS: Omit<PublicSiteSettings, 'account_id'> = {
   slug: '',
   enabled: false,
@@ -109,7 +114,8 @@ export function WebsiteBuilder() {
     [saving, setSaving] = useState(false),
     [uploadingHero, setUploadingHero] = useState(false),
     [schemaMissing, setSchemaMissing] = useState(false),
-    [leads, setLeads] = useState<Lead[]>([]);
+    [leads, setLeads] = useState<Lead[]>([]),
+    [googleConnection, setGoogleConnection] = useState<GoogleConnection | null>(null);
   const heroInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!accountId) return;
@@ -150,6 +156,13 @@ export function WebsiteBuilder() {
     if (google === 'failed') toast.error(reason === 'state' ? 'A sessão de autorização expirou. Tente ligar novamente.' : reason === 'session' ? 'A sessão do CRM expirou. Entre novamente e tente.' : reason === 'token' ? 'A Google recusou a troca do código. Verifique Client ID, Secret e callback.' : reason === 'encryption' ? 'Falta ou é inválida a ENCRYPTION_KEY no cPanel.' : 'Não foi possível guardar a ligação. Confirme que o deploy aplicou as migrations.');
     if (google) window.history.replaceState({}, '', '/website');
   }, []);
+  useEffect(() => {
+    if (!accountId) return;
+    fetch('/api/integrations/google/status')
+      .then((response) => response.ok ? response.json() : null)
+      .then((connection: GoogleConnection | null) => setGoogleConnection(connection))
+      .catch(() => setGoogleConnection(null));
+  }, [accountId]);
   function patch<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
@@ -480,7 +493,14 @@ export function WebsiteBuilder() {
           </TabsContent>
           <TabsContent value="social" className="space-y-5 pt-5">
             <Panel title="Avaliações Google" description="Ligue o Perfil de Empresa Google, importe as avaliações e publique apenas as que aprovar no CRM.">
-              <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => { window.location.href = '/api/integrations/google/start'; }}>Ligar conta Google</Button><Button type="button" variant="secondary" onClick={async () => { const response = await fetch('/api/integrations/google/sync', { method: 'POST' }); const payload = await response.json(); if (!response.ok) return toast.error(payload.error || 'Falha ao atualizar.'); toast.success(`${payload.imported} avaliações Google atualizadas.`); }}>Atualizar reviews agora</Button></div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${googleConnection?.connected ? 'bg-emerald-500/10 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                  {googleConnection?.connected ? '● Conta Google ligada' : '○ Conta Google não ligada'}
+                </span>
+                {googleConnection?.connectedAt && <span className="text-muted-foreground text-xs">Ligada em {new Date(googleConnection.connectedAt).toLocaleDateString('pt-PT')}</span>}
+              </div>
+              {googleConnection?.connected && !googleConnection.googleAccountName && <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">A conta está ligada, mas ainda não foi encontrado um Perfil de Empresa Google. Confirme que esta conta é proprietária ou gestora do perfil da empresa no Google Business Profile.</div>}
+              <div className="flex flex-wrap gap-2"><Button type="button" variant={googleConnection?.connected ? 'secondary' : 'outline'} onClick={() => { window.location.href = '/api/integrations/google/start'; }}>{googleConnection?.connected ? 'Trocar conta Google' : 'Ligar conta Google'}</Button><Button type="button" variant="secondary" disabled={!googleConnection?.connected} onClick={async () => { const response = await fetch('/api/integrations/google/sync', { method: 'POST' }); const payload = await response.json(); if (!response.ok) return toast.error(payload.error || 'Falha ao atualizar.'); setGoogleConnection((current) => current ? { ...current, googleAccountName: 'Perfil Google sincronizado' } : current); toast.success(`${payload.imported} avaliações Google atualizadas.`); }}>Atualizar reviews agora</Button></div>
               <Toggle label="Mostrar avaliações Google aprovadas" description="As avaliações importadas não aparecem no site até serem aprovadas em Marketing → Avaliações." checked={form.google_reviews_enabled} onChange={(value) => patch('google_reviews_enabled', value)} />
               <Field label="Link para avaliar no Google" value={form.google_review_url ?? ''} onChange={(value) => patch('google_review_url', value.trim() || null)} placeholder="https://g.page/r/.../review" />
               <p className="text-muted-foreground text-xs">Esta ligação usa a sua conta Google; não precisa de Google Place ID nem de uma chave de API paga.</p>
