@@ -7,6 +7,9 @@ import type { RowDataPacket } from 'mysql2';
 
 type Connection = RowDataPacket & { refresh_token_encrypted: string };
 type GoogleReview = { reviewId?: string; name?: string; comment?: string; createTime?: string; starRating?: string; reviewer?: { displayName?: string } };
+type GoogleAccount = { name?: string; accountName?: string };
+type GoogleLocation = { name?: string; title?: string };
+type GoogleApiError = { error?: { message?: string } };
 const rating = (value?: string) => ({ ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 }[value ?? ''] ?? 5);
 
 export async function POST() {
@@ -20,10 +23,33 @@ export async function POST() {
     const refresh = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: clientId, client_secret: secret, refresh_token: decrypt(rows[0].refresh_token_encrypted), grant_type: 'refresh_token' }) });
     const token = await refresh.json() as { access_token?: string }; if (!refresh.ok || !token.access_token) throw new Error('Não foi possível renovar o acesso Google.');
     const headers = { Authorization: `Bearer ${token.access_token}` };
-    const accounts = await (await fetch('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', { headers })).json() as { accounts?: Array<{ name?: string }> };
-    const account = accounts.accounts?.[0]; if (!account?.name) throw new Error('Nenhum Perfil de Empresa Google autorizado foi encontrado.');
-    const locations = await (await fetch(`https://mybusinessbusinessinformation.googleapis.com/v1/${account.name}/locations?readMask=name,title`, { headers })).json() as { locations?: Array<{ name?: string }> };
-    const location = locations.locations?.[0]; if (!location?.name) throw new Error('Nenhuma localização Google foi encontrada.');
+    const accountsResponse = await fetch('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', { headers });
+    const accountsPayload = await accountsResponse.json() as { accounts?: GoogleAccount[] } & GoogleApiError;
+    if (!accountsResponse.ok) {
+      throw new Error(accountsPayload.error?.message || 'A API My Business Account Management não está disponível para este projeto Google.');
+    }
+
+    let account: GoogleAccount | undefined;
+    let location: GoogleLocation | undefined;
+    let locationError: string | null = null;
+    for (const candidate of accountsPayload.accounts ?? []) {
+      if (!candidate.name) continue;
+      const locationsResponse = await fetch(`https://mybusinessbusinessinformation.googleapis.com/v1/${candidate.name}/locations?readMask=name,title`, { headers });
+      const locationsPayload = await locationsResponse.json() as { locations?: GoogleLocation[] } & GoogleApiError;
+      if (!locationsResponse.ok) {
+        locationError = locationsPayload.error?.message || 'A API Business Profile Business Information não está disponível para este projeto Google.';
+        continue;
+      }
+      const foundLocation = locationsPayload.locations?.[0];
+      if (foundLocation?.name) {
+        account = candidate;
+        location = foundLocation;
+        break;
+      }
+    }
+    if (!account?.name || !location?.name) {
+      throw new Error(locationError || 'A conta Google está ligada, mas não foi encontrada nenhuma localização acessível do Perfil de Empresa.');
+    }
     const reviewsResponse = await fetch(`https://mybusiness.googleapis.com/v4/${account.name}/${location.name}/reviews`, { headers });
     const payload = await reviewsResponse.json() as { reviews?: GoogleReview[]; error?: { message?: string } };
     if (!reviewsResponse.ok) throw new Error(payload.error?.message || 'A Google ainda não autorizou a leitura das avaliações.');
