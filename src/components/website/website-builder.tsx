@@ -148,6 +148,7 @@ export function WebsiteBuilder() {
     if (google === 'connected') toast.success('Conta Google ligada com sucesso.');
     if (google === 'missing-config') toast.error('Faltam as credenciais Google no cPanel.');
     if (google === 'failed') toast.error(reason === 'state' ? 'A sessão de autorização expirou. Tente ligar novamente.' : reason === 'session' ? 'A sessão do CRM expirou. Entre novamente e tente.' : reason === 'token' ? 'A Google recusou a troca do código. Verifique Client ID, Secret e callback.' : reason === 'encryption' ? 'Falta ou é inválida a ENCRYPTION_KEY no cPanel.' : 'Não foi possível guardar a ligação. Confirme que o deploy aplicou as migrations.');
+    if (google) window.history.replaceState({}, '', '/website');
   }, []);
   function patch<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((current) => ({ ...current, [key]: value }));
