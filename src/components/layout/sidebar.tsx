@@ -250,14 +250,16 @@ const navSections = [
 ] as const;
 
 interface SidebarProps {
-  /** Controlled on mobile by the Header's hamburger button. Ignored on lg+. */
+  /** Controlled by the Header's hamburger button when rendered as a drawer. */
   open?: boolean;
   onClose?: () => void;
+  /** Topbar navigation uses this drawer until the horizontal menu fits. */
+  drawerOnly?: boolean;
 }
 
 import { useTranslations } from 'next-intl';
 
-export function Sidebar({ open = false, onClose }: SidebarProps) {
+export function Sidebar({ open = false, onClose, drawerOnly = false }: SidebarProps) {
   const t = useTranslations('Sidebar');
   const pathname = usePathname();
   const { profile, profileLoading, account, accountRole, signOut } = useAuth();
@@ -283,6 +285,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   // the strip flashes in once the row resolves (a layout jump).
   const showAccountStrip =
     !profileLoading && !!account?.name && account.name !== profile?.full_name;
+  const drawerBreakpoint = drawerOnly ? '2xl' : 'lg';
 
   // Close the drawer when route changes — users opened it to navigate,
   // so once they pick a destination the drawer should get out of the way.
@@ -318,7 +321,10 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         aria-label={t('closeMenu')}
         onClick={onClose}
         className={cn(
-          'bg-background/70 fixed inset-0 z-30 backdrop-blur-sm transition-opacity lg:hidden',
+          cn(
+            'bg-background/70 fixed inset-0 z-30 backdrop-blur-sm transition-opacity',
+            drawerBreakpoint === '2xl' ? '2xl:hidden' : 'lg:hidden'
+          ),
           open
             ? 'pointer-events-auto opacity-100'
             : 'pointer-events-none opacity-0'
@@ -332,7 +338,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           'transition-transform duration-200 ease-out will-change-transform',
           open ? 'translate-x-0' : '-translate-x-full',
           // Desktop: static, always visible — reset all the mobile framing.
-          'lg:static lg:z-0 lg:w-60 lg:translate-x-0 lg:transition-none'
+          drawerBreakpoint === '2xl'
+            ? '2xl:static 2xl:z-0 2xl:w-60 2xl:translate-x-0 2xl:transition-none'
+            : 'lg:static lg:z-0 lg:w-60 lg:translate-x-0 lg:transition-none'
         )}
         aria-label="Primary"
       >
@@ -360,7 +368,10 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             type="button"
             onClick={onClose}
             aria-label={t('closeMenu')}
-            className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-9 w-9 items-center justify-center rounded-md lg:hidden"
+            className={cn(
+              'text-muted-foreground hover:bg-muted hover:text-foreground flex h-9 w-9 items-center justify-center rounded-md',
+              drawerBreakpoint === '2xl' ? '2xl:hidden' : 'lg:hidden'
+            )}
           >
             <X className="h-5 w-5" />
           </button>

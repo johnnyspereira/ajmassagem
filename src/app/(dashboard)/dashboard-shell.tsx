@@ -80,10 +80,14 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
             </Link>
             <div
               className={
-                navigationLayout === 'topbar' ? 'lg:hidden' : 'contents'
+                navigationLayout === 'topbar' ? '2xl:hidden' : 'contents'
               }
             >
-              <Sidebar open={sidebarOpen} onClose={closeSidebar} />
+              <Sidebar
+                open={sidebarOpen}
+                onClose={closeSidebar}
+                drawerOnly={navigationLayout === 'topbar'}
+              />
             </div>
           </>
         )}
