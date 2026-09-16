@@ -44,11 +44,11 @@ export function SpaPublicSite({ site }: { site: Site }) {
       : appointment?.service;
     return {
       rating: Number(review.rating),
-      comment: review.comment,
+      comment: review.comment?.trim() || `Avaliação verificada de ${Number(review.rating)} estrelas.`,
       name: contact?.name?.trim() ? `${contact.name.trim().split(' ')[0]}.` : 'Cliente',
       service: service?.name || 'Sessão de bem-estar',
     };
-  }).filter((review) => review.comment?.trim());
+  }).filter((review) => Number.isFinite(review.rating) && review.rating > 0);
   const googleReviews = site.googleReviews.map((review) => ({ ...review, service: 'Avaliação Google' }));
   const displayReviews = googleReviews.length
     ? googleReviews

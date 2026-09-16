@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 type Row = RowDataPacket & {
   rating: number;
-  comment: string;
+  comment: string | null;
   client_name: string | null;
   service_name: string | null;
 };
@@ -28,7 +28,6 @@ export default async function Testimonials() {
        LEFT JOIN clinic_services s ON s.id=a.service_id
       WHERE r.published_at IS NOT NULL
         AND r.consent_to_publish=TRUE
-        AND TRIM(COALESCE(r.comment,''))<>''
       ORDER BY r.published_at DESC
       LIMIT 24`
   );
@@ -48,7 +47,7 @@ export default async function Testimonials() {
               <div className={styles.stars} aria-label={`${review.rating} de 5 estrelas`}>
                 {'★'.repeat(Math.max(1, Math.min(5, Number(review.rating) || 5)))}
               </div>
-              <blockquote>“{review.comment.trim()}”</blockquote>
+              <blockquote>“{review.comment?.trim() || `Avaliação verificada de ${review.rating} estrelas.`}”</blockquote>
               <footer>
                 <strong>{review.client_name || 'Cliente'}.</strong>
                 <span>{review.service_name || 'Sessão de bem-estar'}</span>
