@@ -15,6 +15,9 @@ import {
   Gift,
   PackageCheck,
   Clock3,
+  CalendarDays,
+  ReceiptText,
+  ArrowUpRight,
 } from 'lucide-react';
 
 import {
@@ -281,25 +284,29 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-foreground text-2xl font-bold">{t('title')}</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {t('description')}
-          </p>
+    <div className="space-y-6 pb-8">
+      <section className="relative overflow-hidden rounded-3xl bg-slate-950 px-5 py-6 text-white shadow-xl sm:px-7 sm:py-8">
+        <div className="pointer-events-none absolute -right-24 -top-32 size-80 rounded-full bg-violet-500/25 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/3 size-64 rounded-full bg-cyan-400/10 blur-3xl" />
+        <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-2xl">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">Centro de opera\u00e7\u00f5es</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">O seu dia, sob controlo.</h1>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">Priorize clientes, agenda, vendas e pagamentos sem procurar informa\u00e7\u00e3o em v\u00e1rios ecr\u00e3s.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/agenda" className="inline-flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-950 transition-transform hover:-translate-y-0.5">
+              <CalendarDays className="size-4" /> Abrir agenda
+            </Link>
+            <Link href="/finance?tab=pos" className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/15">
+              <ReceiptText className="size-4" /> Nova venda
+            </Link>
+            <button type="button" onClick={() => loadAll(range)} disabled={refreshing} className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60">
+              <RefreshCw className={cn('size-4', refreshing && 'animate-spin')} /> Atualizar
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={() => loadAll(range)}
-          disabled={refreshing}
-          className="border-border bg-card text-foreground hover:bg-muted inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
-          {t('refresh')}
-        </button>
-      </div>
+      </section>
 
       {Object.keys(loadErrors).length > 0 ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
@@ -333,6 +340,12 @@ export default function DashboardPage() {
         </p>
       ) : null}
 
+      <section className="space-y-3">
+        <DashboardSectionLabel
+          eyebrow="Agora"
+          title="O que pede a sua aten\u00e7\u00e3o"
+          description="Alertas, conversas e situa\u00e7\u00f5es que podem bloquear o dia."
+        />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <DashboardAlertsPanel
@@ -350,10 +363,16 @@ export default function DashboardPage() {
         </div>
         <WhatsAppHealthCard data={whatsapp} loading={whatsappLoading} />
       </div>
+      </section>
 
       <FollowUpCommandCenter />
 
-      {/* Metric cards */}
+      <section className="space-y-3">
+        <DashboardSectionLabel
+          eyebrow="Pulso do neg\u00f3cio"
+          title="Os n\u00fameros essenciais"
+          description="Uma leitura r\u00e1pida da atividade comercial de hoje."
+        />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {metricsLoading ? (
           Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
@@ -422,28 +441,55 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+      </section>
 
+      <section className="space-y-4">
+        <DashboardSectionLabel
+          eyebrow="Opera\u00e7\u00e3o"
+          title="Agenda, Portal e benef\u00edcios"
+          description="O trabalho que precisa de ser resolvido antes de fechar o dia."
+          href="/agenda"
+          action="Ver agenda"
+        />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="xl:col-span-2">
       <TodayOperationsPanel
         data={today}
         loading={todayLoading}
         currency={defaultCurrency}
         error={Boolean(loadErrors['Operação diária'])}
       />
+        </div>
 
       <PortalPendingConfirmationsCard
         appointments={portalPending}
         loading={portalPendingLoading}
         error={Boolean(loadErrors['Marcações do Portal 360'])}
       />
+      </div>
 
       <ExpiringBenefitsPanel
         benefits={expiringBenefits}
         loading={expiringBenefitsLoading}
       />
+      </section>
 
-      {/* Quick actions */}
-      <QuickActions />
+      <section className="space-y-3">
+        <DashboardSectionLabel
+          eyebrow="Acesso r\u00e1pido"
+          title="Comece uma tarefa em segundos"
+          description="Atalhos para as opera\u00e7\u00f5es que utiliza todos os dias."
+        />
+        <QuickActions />
+      </section>
 
+      <DashboardSectionLabel
+        eyebrow="Clientes e receita"
+        title="Continuar conversas e fechar vendas"
+        description="Veja quem espera resposta e onde est\u00e1 a receita em aberto."
+        href="/contacts"
+        action="Ver clientes"
+      />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <InboxOperationsPanel data={inboxOps} loading={inboxOpsLoading} />
@@ -455,6 +501,11 @@ export default function DashboardPage() {
         />
       </div>
 
+      <DashboardSectionLabel
+        eyebrow="Desempenho"
+        title="Melhore o ritmo da opera\u00e7\u00e3o"
+        description="Acompanhe automa\u00e7\u00f5es, equipa e qualidade do atendimento."
+      />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <AutomationInsightsPanel
           data={automation}
@@ -500,6 +551,42 @@ export default function DashboardPage() {
 }
 
 // ------------------------------------------------------------
+
+function DashboardSectionLabel({
+  eyebrow,
+  title,
+  description,
+  href,
+  action,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  href?: string;
+  action?: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-3 px-1">
+      <div>
+        <p className="text-primary text-[11px] font-bold uppercase tracking-[0.16em]">
+          {eyebrow}
+        </p>
+        <h2 className="text-foreground mt-0.5 text-lg font-semibold tracking-tight">
+          {title}
+        </h2>
+        <p className="text-muted-foreground mt-0.5 text-sm">{description}</p>
+      </div>
+      {href && action ? (
+        <Link
+          href={href}
+          className="text-primary inline-flex items-center gap-1 text-sm font-semibold hover:underline"
+        >
+          {action} <ArrowUpRight className="size-4" />
+        </Link>
+      ) : null}
+    </div>
+  );
+}
 
 function ExpiringBenefitsPanel({
   benefits,
