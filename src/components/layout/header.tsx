@@ -91,6 +91,7 @@ const topbarGroupConfigs = [
   {
     labelKey: 'groupMarketing',
     hrefs: [
+      '/avaliacoes',
       '/broadcasts',
       '/segments',
       '/scheduled-messages',
