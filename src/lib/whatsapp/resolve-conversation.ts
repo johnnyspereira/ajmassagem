@@ -24,6 +24,7 @@ import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
 import { sanitizePhoneForMeta, isValidE164 } from '@/lib/whatsapp/phone-utils';
 import { SendMessageError } from '@/lib/whatsapp/send-message';
 import { resolveAuditUserId, ContactError } from '@/lib/api/v1/contacts';
+import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 
 export interface ResolvedConversation {
   conversationId: string;
@@ -60,7 +61,9 @@ export async function resolveConversationByPhone(
     .select('id')
     .eq('account_id', accountId)
     .maybeSingle();
-  if (!config) {
+  // A remote worker owns its session outside the CRM and consumes the
+  // durable outbox, so it does not need the old Meta whatsapp_config row.
+  if (!config && !remoteWhatsAppWorker.enabled()) {
     throw new SendMessageError(
       'whatsapp_not_configured',
       'WhatsApp not configured. Please set up your WhatsApp integration first.',

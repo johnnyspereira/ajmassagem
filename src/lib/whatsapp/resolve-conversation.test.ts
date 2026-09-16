@@ -13,6 +13,7 @@ type ContactRow = { id: string; phone: string; name?: string | null };
 
 interface Script {
   config?: { user_id: string } | null; // whatsapp_config.maybeSingle
+  account?: { owner_user_id: string } | null; // accounts.maybeSingle fallback
   contactCandidates?: ContactRow[]; // contacts .like (same every call)
   /** Per-call `.like` results — overrides contactCandidates. Lets a
    *  test simulate "miss, then hit" for the unique-race path. */
@@ -68,6 +69,8 @@ function makeDb(script: Script): SupabaseClient {
     maybeSingle: () => {
       if (table === 'whatsapp_config')
         return Promise.resolve({ data: script.config ?? null, error: null });
+      if (table === 'accounts')
+        return Promise.resolve({ data: script.account ?? null, error: null });
       return Promise.resolve({ data: null, error: null });
     },
     single: () => {
@@ -110,6 +113,23 @@ function makeDb(script: Script): SupabaseClient {
 }
 
 describe('resolveConversationByPhone', () => {
+  const remoteWorkerEnvironment = {
+    mode: process.env.WHATSAPP_MODE,
+    url: process.env.WHATSAPP_WORKER_URL,
+    secret: process.env.WHATSAPP_WORKER_SECRET,
+  };
+
+  function restoreRemoteWorkerEnvironment() {
+    for (const [key, value] of Object.entries({
+      WHATSAPP_MODE: remoteWorkerEnvironment.mode,
+      WHATSAPP_WORKER_URL: remoteWorkerEnvironment.url,
+      WHATSAPP_WORKER_SECRET: remoteWorkerEnvironment.secret,
+    })) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+
   it('rejects an invalid phone before any DB call', async () => {
     const db = {
       from() {
@@ -132,6 +152,26 @@ describe('resolveConversationByPhone', () => {
     await expect(
       resolveConversationByPhone(db, 'acct', '+14155550123')
     ).rejects.toBeInstanceOf(SendMessageError);
+  });
+
+  it('accepts the remote worker without a legacy WhatsApp configuration', async () => {
+    process.env.WHATSAPP_MODE = 'remote_worker';
+    process.env.WHATSAPP_WORKER_URL = 'https://worker.example.test';
+    process.env.WHATSAPP_WORKER_SECRET = 'test-secret';
+    try {
+      const db = makeDb({
+        config: null,
+        account: { owner_user_id: 'owner-1' },
+        contactCandidates: [{ id: 'c1', phone: '14155550123' }],
+        existingConversation: { id: 'cv1' },
+      });
+      await expect(resolveConversationByPhone(db, 'acct', '+14155550123')).resolves.toMatchObject({
+        conversationId: 'cv1',
+        contactId: 'c1',
+      });
+    } finally {
+      restoreRemoteWorkerEnvironment();
+    }
   });
 
   it('returns the existing contact + conversation without creating', async () => {
