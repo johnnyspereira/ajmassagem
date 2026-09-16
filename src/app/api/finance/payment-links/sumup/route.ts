@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
   if (linkError || !link) return NextResponse.json({ error: linkError?.message || 'Não foi possível criar a cobrança.' }, { status: 500 });
 
   try {
-    const { merchantCode, payToEmail } = getSumUpCredentials();
+    const { merchantCode } = getSumUpCredentials();
     const origin = process.env.NEXT_PUBLIC_APP_URL || `${request.nextUrl.protocol}//${request.nextUrl.host}`;
     const response = await sumUpRequest('/v0.1/checkouts', {
       method: 'POST',
@@ -60,7 +60,6 @@ export async function POST(request: NextRequest) {
         currency,
         description,
         merchant_code: merchantCode,
-        ...(payToEmail ? { pay_to_email: payToEmail } : {}),
         redirect_url: `${origin}/business-hub?payment=sumup`,
         return_url: `${origin}/api/finance/webhooks/sumup`,
         hosted_checkout: { enabled: true },

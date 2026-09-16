@@ -220,7 +220,8 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
   const [sumUpStatus, setSumUpStatus] = useState<{
     configured: boolean;
     merchantCode: string | null;
-    payToEmailConfigured?: boolean;
+    verified?: boolean;
+    error?: string | null;
     mode: string;
   } | null>(null);
 
@@ -969,7 +970,9 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
               const key = `${provider.category}:${provider.provider}`;
               const configured = providerMap.get(key);
               const isSumUp = provider.provider === 'sumup';
-              const sumUpReady = isSumUp && Boolean(sumUpStatus?.configured);
+              const sumUpReady =
+                isSumUp &&
+                Boolean(sumUpStatus?.configured && sumUpStatus?.verified);
               return (
                 <div key={key} className="rounded-xl border p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -987,6 +990,7 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
                     <div className={`mt-3 rounded-lg border p-3 text-sm ${sumUpReady ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
                       <p className="font-medium">{sumUpReady ? 'Checkout online ativo' : 'Configuração necessária no cPanel'}</p>
                       <p className="text-muted-foreground mt-1 text-xs">{sumUpReady ? `Comerciante ${sumUpStatus?.merchantCode ?? ''} · modo ${sumUpStatus?.mode === 'test' ? 'teste' : 'real'}.` : 'Defina SUMUP_API_KEY e SUMUP_MERCHANT_CODE nas variáveis da aplicação. As chaves nunca são guardadas aqui.'}</p>
+                      {sumUpStatus?.configured && sumUpStatus.verified === false ? <p className="mt-1 text-xs text-amber-700">A SumUp não validou esta chave/código: {sumUpStatus.error || 'verifique as credenciais.'}</p> : null}
                       <p className="text-muted-foreground mt-2 text-xs">No POS, o iPhone continua a ser usado na app SumUp/Tap to Pay; depois confirme o pagamento no CRM.</p>
                     </div>
                   ) : <Textarea
