@@ -100,6 +100,25 @@ export async function POST(request: NextRequest) {
         } catch (emailError) {
           console.error('[sumup-webhook] confirmation email failed:', emailError);
         }
+        if (paymentLink.sale_id) {
+          const origin = new URL(request.url).origin;
+          const headers = {
+            'Content-Type': 'application/json',
+            'x-internal-payment-key': process.env.SUMUP_API_KEY || '',
+          };
+          const deliveryResults = await Promise.allSettled([
+            fetch(`${origin}/api/finance/vouchers/deliver`, {
+              method: 'POST', headers, body: JSON.stringify({ saleId: paymentLink.sale_id }),
+            }),
+            fetch(`${origin}/api/finance/packs/deliver`, {
+              method: 'POST', headers, body: JSON.stringify({ saleId: paymentLink.sale_id }),
+            }),
+          ]);
+          deliveryResults.forEach((result, index) => {
+            if (result.status === 'rejected' || (result.status === 'fulfilled' && !result.value.ok))
+              console.error(`[sumup-webhook] ${index === 0 ? 'voucher' : 'pack'} delivery failed`, result);
+          });
+        }
         try {
           await notifyAccountEvent({
             accountId: paymentLink.account_id,

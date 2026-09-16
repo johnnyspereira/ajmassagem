@@ -9,7 +9,8 @@ import { createClient } from '@/lib/supabase/server';
 export async function POST(request: Request) {
   const session = await createClient();
   const { data: auth } = await session.auth.getUser();
-  if (!auth.user)
+  const internalPaymentDelivery = request.headers.get('x-internal-payment-key') === process.env.SUMUP_API_KEY;
+  if (!auth.user && !internalPaymentDelivery)
     return Response.json({ error: 'Não autorizado.' }, { status: 401 });
   const body = (await request.json().catch(() => null)) as {
     saleId?: string;
@@ -18,32 +19,39 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Venda inválida.' }, { status: 400 });
 
   const db = supabaseAdmin();
-  const { data: profile } = await db
-    .from('profiles')
-    .select('account_id,account_role')
-    .eq('user_id', auth.user.id)
-    .maybeSingle();
-  if (!profile || !['owner', 'admin', 'agent'].includes(profile.account_role))
+  const { data: profile } = auth.user
+    ? await db
+        .from('profiles')
+        .select('account_id,account_role')
+        .eq('user_id', auth.user.id)
+        .maybeSingle()
+    : { data: null };
+  if (!internalPaymentDelivery && (!profile || !['owner', 'admin', 'agent'].includes(profile.account_role)))
     return Response.json({ error: 'Sem permissão.' }, { status: 403 });
+
+  const { data: saleScope } = await db.from('finance_sales').select('account_id').eq('id', body.saleId).maybeSingle();
+  const accountId = profile?.account_id || saleScope?.account_id;
+  if (!accountId || (!internalPaymentDelivery && accountId !== profile?.account_id))
+    return Response.json({ error: 'Venda não encontrada.' }, { status: 404 });
 
   const [{ data: account }, { data: sale }, { data: vouchers, error }] = await Promise.all([
     db
       .from('accounts')
       .select('name,logo_url,public_url')
-      .eq('id', profile.account_id)
+      .eq('id', accountId)
       .maybeSingle(),
     db
       .from('finance_sales')
       .select('id,status')
       .eq('id', body.saleId)
-      .eq('account_id', profile.account_id)
+      .eq('account_id', accountId)
       .maybeSingle(),
     db
       .from('finance_vouchers')
       .select(
         'id,code,pin_code,voucher_type,initial_balance,currency,recipient_name,message,expires_at,status,owner:contacts(name,email),service:clinic_services(name)'
       )
-      .eq('account_id', profile.account_id)
+      .eq('account_id', accountId)
       .eq('issued_sale_id', body.saleId)
       .in('status', ['active', 'pending']),
   ]);
@@ -64,7 +72,7 @@ export async function POST(request: Request) {
     const { error: activationError } = await db
       .from('finance_vouchers')
       .update({ status: 'active' })
-      .eq('account_id', profile.account_id)
+      .eq('account_id', accountId)
       .eq('issued_sale_id', body.saleId)
       .eq('status', 'pending');
     if (activationError)
@@ -158,7 +166,7 @@ export async function POST(request: Request) {
   }
   try {
     await notifyAccountEvent({
-      accountId: profile.account_id,
+      accountId,
       type: failures.length
         ? 'voucher_delivery_failed'
         : 'voucher_delivery_sent',
