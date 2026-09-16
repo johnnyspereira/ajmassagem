@@ -6,7 +6,7 @@ import { encrypt } from '@/lib/whatsapp/encryption';
 import { mutate } from '@/lib/mysql/db';
 
 export async function GET(request: Request) {
-  const url = new URL(request.url); const origin = url.origin;
+  const url = new URL(request.url); const origin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'https://jpmassagem.pt';
   const state = url.searchParams.get('state'); const code = url.searchParams.get('code');
   const expected = (await cookies()).get('google_business_oauth_state')?.value;
   const session = await getSession(); const auth = session ? await getAuthContext(session.user.id) : null;

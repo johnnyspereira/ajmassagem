@@ -7,7 +7,7 @@ const STATE_COOKIE = 'google_business_oauth_state';
 
 export async function GET(request: Request) {
   const clientId = process.env.GOOGLE_BUSINESS_CLIENT_ID?.trim();
-  const origin = new URL(request.url).origin;
+  const origin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'https://jpmassagem.pt';
   if (!clientId) return NextResponse.redirect(new URL('/website?google=missing-config', origin));
   const session = await getSession();
   const auth = session ? await getAuthContext(session.user.id) : null;
