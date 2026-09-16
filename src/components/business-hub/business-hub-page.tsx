@@ -19,6 +19,7 @@ import {
   Settings2,
   Sparkles,
   Target,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -743,6 +744,24 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
     await loadData();
   }
 
+  async function cancelPaymentLink(link: PaymentLink) {
+    if (link.status === 'paid') return;
+    if (!window.confirm('Cancelar esta cobrança? O cliente deixará de conseguir pagar através deste link.')) return;
+
+    setBusyAction(`cancel-payment:${link.id}`);
+    const response = await fetch(`/api/finance/payment-links/${encodeURIComponent(link.id)}`, {
+      method: 'DELETE',
+    });
+    const payload = await response.json().catch(() => ({}));
+    setBusyAction(null);
+
+    if (!response.ok) {
+      return toast.error(payload.error || 'Não foi possível cancelar a cobrança.');
+    }
+    toast.success('Cobrança cancelada. O checkout deixou de estar disponível.');
+    await loadData();
+  }
+
   // The previous all-in-one workspace is retained only for a temporary support
   // view. The normal Business Hub below is deliberately limited to real,
   // day-to-day financial actions.
@@ -1436,7 +1455,9 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
     (sum, sale) => sum + Number(sale.balance_due ?? 0),
     0
   );
-  const openPaymentLinks = paymentLinks.filter((link) => link.status !== 'paid');
+  const openPaymentLinks = paymentLinks.filter(
+    (link) => !['paid', 'cancelled', 'expired', 'failed'].includes(link.status)
+  );
   const paidPaymentLinks = paymentLinks.filter((link) => link.status === 'paid');
 
   return (
@@ -1535,17 +1556,21 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
             <Button variant="outline" size="sm" onClick={() => window.location.assign('/finance?tab=sales')}>Gerir pagamentos</Button>
           </CardHeader>
           <CardContent>
-            {paymentLinks.length ? <div className="divide-y rounded-xl border">
-              {paymentLinks.slice(0, 6).map((link) => (
+            {openPaymentLinks.length ? <div className="divide-y rounded-xl border">
+              {openPaymentLinks.slice(0, 6).map((link) => (
                 <div key={link.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
                   <div className="min-w-0"><p className="truncate font-semibold">{link.description || 'Cobrança online'}</p><p className="text-muted-foreground text-sm">{link.status === 'paid' ? 'Pago' : 'A aguardar pagamento'} · {formatCurrency(Number(link.amount), link.currency)}</p></div>
                   <div className="flex flex-wrap gap-2">
                     {link.payment_url ? <Button variant="outline" size="sm" onClick={() => window.open(link.payment_url!, '_blank')}><CreditCard /> Abrir</Button> : null}
                     <Button size="sm" disabled={!link.payment_url || busyAction === `send-payment:${link.id}`} onClick={() => sendPaymentWhatsApp(link)}>{busyAction === `send-payment:${link.id}` ? <Loader2 className="animate-spin" /> : <MessageSquare />}{link.payment_url ? 'Enviar' : 'Sem checkout'}</Button>
+                    <Button variant="outline" size="sm" disabled={busyAction === `cancel-payment:${link.id}`} onClick={() => void cancelPaymentLink(link)}>
+                      {busyAction === `cancel-payment:${link.id}` ? <Loader2 className="animate-spin" /> : <Trash2 />}
+                      Cancelar
+                    </Button>
                   </div>
                 </div>
               ))}
-            </div> : <EmptyState icon={Link2} text="Ainda não criou nenhum link de pagamento." />}
+            </div> : <EmptyState icon={Link2} text="Não há links de pagamento abertos." />}
           </CardContent>
         </Card>
 
