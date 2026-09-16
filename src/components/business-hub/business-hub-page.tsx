@@ -220,6 +220,7 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
   const [sumUpStatus, setSumUpStatus] = useState<{
     configured: boolean;
     merchantCode: string | null;
+    payToEmailConfigured?: boolean;
     mode: string;
   } | null>(null);
 
