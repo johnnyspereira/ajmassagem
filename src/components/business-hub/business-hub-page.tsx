@@ -743,7 +743,13 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
     await loadData();
   }
 
-  return (
+  // The previous all-in-one workspace is retained only for a temporary support
+  // view. The normal Business Hub below is deliberately limited to real,
+  // day-to-day financial actions.
+  if (
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('legacy') === '1'
+  ) return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -1423,6 +1429,147 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+
+  const amountToReceive = unpaidSales.reduce(
+    (sum, sale) => sum + Number(sale.balance_due ?? 0),
+    0
+  );
+  const openPaymentLinks = paymentLinks.filter((link) => link.status !== 'paid');
+  const paidPaymentLinks = paymentLinks.filter((link) => link.status === 'paid');
+
+  return (
+    <div className="mx-auto max-w-7xl space-y-6 pb-10">
+      <section className="overflow-hidden rounded-2xl border bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 px-6 py-7 text-white shadow-sm md:px-8">
+        <div className="flex flex-wrap items-start justify-between gap-5">
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold tracking-[0.16em] text-emerald-300">CENTRO FINANCEIRO</p>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight">Receber, acompanhar e fechar vendas.</h1>
+            <p className="mt-2 text-sm leading-6 text-slate-300">
+              Só o que precisa para trabalhar hoje: pagamentos, faturas, caixa, vouchers e packs.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => window.location.assign('/finance?tab=pos')}>
+              <CreditCard /> Abrir POS
+            </Button>
+            <Button variant="outline" className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white" onClick={loadData} disabled={loading}>
+              {loading ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+              Atualizar
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard icon={CreditCard} label="Por receber" value={formatCurrency(amountToReceive, defaultCurrency)} detail={`${unpaidSales.length} venda(s) pendente(s)`} />
+        <KpiCard icon={Link2} label="Cobranças abertas" value={openPaymentLinks.length} detail="links aguardando pagamento" />
+        <KpiCard icon={FileText} label="Faturas a tratar" value={salesWithoutInvoice.length} detail={`${invoiceRequests.filter((item) => item.status === 'pending').length} pedido(s) no portal`} />
+        <KpiCard icon={CheckCircle2} label="Pagamentos confirmados" value={paidPaymentLinks.length} detail="links conciliados recentemente" />
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+        <Card className="border-primary/15">
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle className="flex items-center gap-2"><Banknote /> Receber pagamentos</CardTitle>
+              <p className="text-muted-foreground mt-1 text-sm">Crie o checkout SumUp e envie-o diretamente ao cliente.</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => window.location.assign('/finance?tab=sales')}>Ver vendas</Button>
+          </CardHeader>
+          <CardContent>
+            {unpaidSales.length ? (
+              <div className="divide-y rounded-xl border">
+                {unpaidSales.slice(0, 6).map((sale) => (
+                  <div key={sale.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                    <div className="min-w-0">
+                      <p className="font-semibold">Venda #{sale.sale_number}</p>
+                      <p className="text-muted-foreground truncate text-sm">{sale.contact?.name || sale.contact?.phone || 'Consumidor final'} · {formatCurrency(Number(sale.balance_due), sale.currency)} em falta</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" disabled={busyAction === `payment:${sale.id}`} onClick={() => void createPaymentRequest(sale)}>
+                        {busyAction === `payment:${sale.id}` ? <Loader2 className="animate-spin" /> : <Link2 />}
+                        Criar link
+                      </Button>
+                      <Button size="sm" disabled={busyAction === `payment-send:${sale.id}`} onClick={() => void createAndSendPaymentRequest(sale)}>
+                        {busyAction === `payment-send:${sale.id}` ? <Loader2 className="animate-spin" /> : <MessageSquare />}
+                        Criar e enviar
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : <EmptyState icon={CheckCircle2} text="Não há vendas pendentes de pagamento." />}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><BadgeCheck /> SumUp online</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className={`rounded-xl border p-4 ${sumUpStatus?.configured && sumUpStatus?.verified ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-semibold">{sumUpStatus?.configured && sumUpStatus?.verified ? 'Checkout pronto' : 'Checkout requer atenção'}</p>
+                <Badge variant={sumUpStatus?.configured && sumUpStatus?.verified ? 'secondary' : 'outline'}>{sumUpStatus?.configured && sumUpStatus?.verified ? 'Ativo' : 'Verificar'}</Badge>
+              </div>
+              <p className="text-muted-foreground mt-2 text-sm">
+                {sumUpStatus?.configured && sumUpStatus?.verified
+                  ? 'Os links novos abrem o checkout seguro da SumUp para o cliente pagar online.'
+                  : (sumUpStatus?.error || 'Verifique a chave API e o código de comerciante nas variáveis do servidor.')}
+              </p>
+              <Button className="mt-4 w-full" variant="outline" onClick={() => void loadSumUpStatus()} disabled={loading}>
+                <RefreshCw /> Verificar ligação SumUp
+              </Button>
+            </div>
+            <p className="text-muted-foreground text-xs">Para pagamentos presenciais, use o iPhone na app SumUp/Tap to Pay e confirme a venda no POS.</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <div><CardTitle className="flex items-center gap-2"><Link2 /> Links de pagamento</CardTitle><p className="text-muted-foreground mt-1 text-sm">Acompanhe e envie as cobranças já criadas.</p></div>
+            <Button variant="outline" size="sm" onClick={() => window.location.assign('/finance?tab=sales')}>Gerir pagamentos</Button>
+          </CardHeader>
+          <CardContent>
+            {paymentLinks.length ? <div className="divide-y rounded-xl border">
+              {paymentLinks.slice(0, 6).map((link) => (
+                <div key={link.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                  <div className="min-w-0"><p className="truncate font-semibold">{link.description || 'Cobrança online'}</p><p className="text-muted-foreground text-sm">{link.status === 'paid' ? 'Pago' : 'A aguardar pagamento'} · {formatCurrency(Number(link.amount), link.currency)}</p></div>
+                  <div className="flex flex-wrap gap-2">
+                    {link.payment_url ? <Button variant="outline" size="sm" onClick={() => window.open(link.payment_url!, '_blank')}><CreditCard /> Abrir</Button> : null}
+                    <Button size="sm" disabled={!link.payment_url || busyAction === `send-payment:${link.id}`} onClick={() => sendPaymentWhatsApp(link)}>{busyAction === `send-payment:${link.id}` ? <Loader2 className="animate-spin" /> : <MessageSquare />}{link.payment_url ? 'Enviar' : 'Sem checkout'}</Button>
+                  </div>
+                </div>
+              ))}
+            </div> : <EmptyState icon={Link2} text="Ainda não criou nenhum link de pagamento." />}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <div><CardTitle className="flex items-center gap-2"><FileText /> Faturas</CardTitle><p className="text-muted-foreground mt-1 text-sm">Vendas que precisam de documento fiscal.</p></div>
+            <Button variant="outline" size="sm" onClick={() => window.location.assign('/finance?tab=invoices')}>Abrir faturas</Button>
+          </CardHeader>
+          <CardContent>
+            {salesWithoutInvoice.length ? <div className="divide-y rounded-xl border">
+              {salesWithoutInvoice.slice(0, 6).map((sale) => <div key={sale.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-semibold">Venda #{sale.sale_number}</p><p className="text-muted-foreground text-sm">{sale.contact?.name || sale.contact?.phone || 'Cliente'} · {formatCurrency(Number(sale.total_amount), sale.currency)}</p></div><Button variant="outline" size="sm" disabled={busyAction === `invoice:${sale.id}`} onClick={() => void createInvoiceRequest(sale)}>{busyAction === `invoice:${sale.id}` ? <Loader2 className="animate-spin" /> : <FileText />}Pedir fatura</Button></div>)}
+            </div> : <EmptyState icon={FileText} text="Não há faturas pendentes de tratar." />}
+          </CardContent>
+        </Card>
+      </div>
+
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { icon: Banknote, title: 'Caixa', detail: 'Entradas, saídas e fecho diário', href: '/finance?tab=cash' },
+          { icon: FileText, title: 'Vouchers', detail: 'Emitir e consultar vales', href: '/finance?tab=vouchers' },
+          { icon: Boxes, title: 'Packs', detail: 'Sessões e saldos de clientes', href: '/finance?tab=packs' },
+          { icon: Target, title: 'Metas', detail: 'Objetivos financeiros', href: '/business-hub/goals' },
+        ].map(({ icon: Icon, title, detail, href }) => <button key={href} type="button" onClick={() => window.location.assign(href)} className="group rounded-xl border bg-card p-4 text-left transition hover:border-primary/40 hover:shadow-sm"><Icon className="text-primary size-5" /><p className="mt-3 font-semibold">{title}</p><p className="text-muted-foreground mt-1 text-sm">{detail}</p></button>)}
+      </section>
     </div>
   );
 }
