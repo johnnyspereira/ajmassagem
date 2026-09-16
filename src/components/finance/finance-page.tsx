@@ -18,6 +18,7 @@ import {
   History,
   Landmark,
   LayoutDashboard,
+  Link2,
   Loader2,
   Minus,
   PackageCheck,
@@ -789,7 +790,7 @@ export function FinancePage({
       toast.warning('Pack criado, mas o cliente não possui email na ficha.');
   }
 
-  async function finishSale() {
+  async function finishSale(sumUpOnline = false) {
     if (!accountId || !cart.length) return;
     if (
       cart.some(
@@ -885,6 +886,19 @@ export function FinancePage({
       createdSale && typeof createdSale === 'object' && 'id' in createdSale
         ? String(createdSale.id)
         : '';
+    if (sumUpOnline && saleId) {
+      const response = await fetch('/api/finance/payment-links/sumup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ saleId }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.checkoutUrl) toast.error(payload.error || 'Venda criada, mas não foi possível abrir o checkout SumUp.');
+      else {
+        window.open(payload.checkoutUrl, '_blank', 'noopener,noreferrer');
+        toast.success('Checkout SumUp criado. Pode enviar o link ao cliente.');
+      }
+    }
     const saleWasPaid =
       createdSale &&
       typeof createdSale === 'object' &&
@@ -1581,6 +1595,7 @@ export function FinancePage({
               canOperate,
               saving,
               finishSale,
+              finishSaleOnline: () => void finishSale(true),
               resetSale,
               setCustomOpen,
               setVoucherOpen,
@@ -2706,6 +2721,7 @@ function PosView(props: {
   canOperate: boolean;
   saving: boolean;
   finishSale: () => void;
+  finishSaleOnline: () => void;
   resetSale: () => void;
   setCustomOpen: (value: boolean) => void;
   setVoucherOpen: (value: boolean) => void;
@@ -2743,11 +2759,13 @@ function PosView(props: {
     canOperate,
     saving,
     finishSale,
+    finishSaleOnline,
     resetSale,
     setCustomOpen,
     setVoucherOpen,
     cashSession,
   } = props;
+  const [onlinePaymentOpen, setOnlinePaymentOpen] = useState(false);
   const selectedContact = contacts.find((contact) => contact.id === contactId);
 
   return (
@@ -3193,8 +3211,30 @@ function PosView(props: {
             {saving ? <Loader2 className="animate-spin" /> : <Check />}{' '}
             {remaining > 0 ? 'Registar venda parcial' : 'Concluir venda'}
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => setOnlinePaymentOpen(true)}
+            disabled={!canOperate || saving || cart.length === 0 || paidNow > 0 || alreadyPaidElsewhere}
+          >
+            <Link2 /> Pagamento online SumUp
+          </Button>
         </div>
       </section>
+      <Dialog open={onlinePaymentOpen} onOpenChange={setOnlinePaymentOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Criar pagamento online SumUp</DialogTitle>
+            <DialogDescription>A venda será guardada como pendente e o checkout seguro da SumUp abrirá numa nova aba para enviar ao cliente.</DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg bg-muted p-3 text-sm">Total a cobrar: <strong>{money(total, defaultCurrency)}</strong></div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOnlinePaymentOpen(false)}>Cancelar</Button>
+            <Button onClick={() => { setOnlinePaymentOpen(false); finishSaleOnline(); }}>Criar checkout SumUp</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

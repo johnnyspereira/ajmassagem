@@ -65,8 +65,10 @@ export async function POST(request: NextRequest) {
         hosted_checkout: { enabled: true },
       }),
     });
-    const checkout = await response.json().catch(() => ({})) as SumUpCheckout & { message?: string };
-    if (!response.ok || !checkout.id || !checkout.hosted_checkout_url) throw new Error(checkout.message || 'A SumUp não devolveu um checkout válido.');
+    const checkout = await response.json().catch(() => ({})) as SumUpCheckout & { message?: string; param?: string };
+    if (!response.ok || !checkout.id || !checkout.hosted_checkout_url) {
+      throw new Error(`${checkout.message || 'A SumUp não devolveu um checkout válido.'}${checkout.param ? ` (${checkout.param})` : ''}`);
+    }
 
     const { data: updated, error: updateError } = await supabase
       .from('finance_payment_links')
