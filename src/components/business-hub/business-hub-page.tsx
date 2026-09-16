@@ -146,6 +146,12 @@ const PROVIDERS = [
     detail: 'Cartão, Apple Pay/Google Pay e links de pagamento online.',
   },
   {
+    category: 'payments',
+    provider: 'sumup',
+    displayName: 'SumUp',
+    detail: 'Checkout online por link e reconciliação automática no financeiro.',
+  },
+  {
     category: 'email',
     provider: 'brevo',
     displayName: 'Brevo',
@@ -211,6 +217,11 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
     Record<string, { quantity: string; reason: string }>
   >({});
   const [paymentMethodDrafts, setPaymentMethodDrafts] = useState<Record<string, string>>({});
+  const [sumUpStatus, setSumUpStatus] = useState<{
+    configured: boolean;
+    merchantCode: string | null;
+    mode: string;
+  } | null>(null);
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
@@ -286,6 +297,15 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const loadSumUpStatus = useCallback(async () => {
+    const response = await fetch('/api/finance/sumup/status');
+    if (response.ok) setSumUpStatus(await response.json());
+  }, []);
+
+  useEffect(() => {
+    void loadSumUpStatus();
+  }, [loadSumUpStatus]);
 
   const providerMap = new Map(
     integrations.map((item) => [`${item.category}:${item.provider}`, item])
@@ -472,6 +492,23 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
     }
 
     setBusyAction(`payment:${sale.id}`);
+    const sumUpSetting = providerMap.get('payments:sumup');
+    if (sumUpStatus?.configured || sumUpSetting?.status === 'active') {
+      const response = await fetch('/api/finance/payment-links/sumup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ saleId: sale.id }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      setBusyAction(null);
+      if (!response.ok) {
+        toast.error(payload.error || 'Não foi possível criar o checkout SumUp.');
+        return null;
+      }
+      toast.success('Link SumUp criado. Pode enviar ao cliente por WhatsApp.');
+      await loadData();
+      return { ...(payload.paymentLink as PaymentLink), sale };
+    }
     const stripeSetting = providerMap.get('payments:stripe');
     if (
       stripeSetting &&
@@ -914,6 +951,8 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
             {PROVIDERS.map((provider) => {
               const key = `${provider.category}:${provider.provider}`;
               const configured = providerMap.get(key);
+              const isSumUp = provider.provider === 'sumup';
+              const sumUpReady = isSumUp && Boolean(sumUpStatus?.configured);
               return (
                 <div key={key} className="rounded-xl border p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -923,11 +962,17 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
                         {provider.detail}
                       </p>
                     </div>
-                    <Badge className={statusClass(configured?.status ?? 'not_configured')}>
-                      {STATUS_LABEL[configured?.status ?? 'not_configured']}
+                    <Badge className={statusClass(sumUpReady ? 'active' : configured?.status ?? 'not_configured')}>
+                      {sumUpReady ? 'Pronto para checkout' : STATUS_LABEL[configured?.status ?? 'not_configured']}
                     </Badge>
                   </div>
-                  <Textarea
+                  {isSumUp ? (
+                    <div className={`mt-3 rounded-lg border p-3 text-sm ${sumUpReady ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
+                      <p className="font-medium">{sumUpReady ? 'Checkout online ativo' : 'Configuração necessária no cPanel'}</p>
+                      <p className="text-muted-foreground mt-1 text-xs">{sumUpReady ? `Comerciante ${sumUpStatus?.merchantCode ?? ''} · modo ${sumUpStatus?.mode === 'test' ? 'teste' : 'real'}.` : 'Defina SUMUP_API_KEY e SUMUP_MERCHANT_CODE nas variáveis da aplicação. As chaves nunca são guardadas aqui.'}</p>
+                      <p className="text-muted-foreground mt-2 text-xs">No POS, o iPhone continua a ser usado na app SumUp/Tap to Pay; depois confirme o pagamento no CRM.</p>
+                    </div>
+                  ) : <Textarea
                     value={notes[key] ?? String(configured?.config?.notes ?? '')}
                     onChange={(event) =>
                       setNotes((current) => ({ ...current, [key]: event.target.value }))
@@ -936,18 +981,12 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
                     rows={3}
                     className="mt-3"
                     disabled={!canEditSettings}
-                  />
+                  />}
                   <Button
                     variant="outline"
                     className="mt-3 w-full"
                     disabled={!canEditSettings || savingProvider === key}
-                    onClick={() =>
-                      configureProvider(
-                        provider.category,
-                        provider.provider,
-                        provider.displayName
-                      )
-                    }
+                    onClick={() => isSumUp ? void loadSumUpStatus() : configureProvider(provider.category, provider.provider, provider.displayName)}
                   >
                     {savingProvider === key ? (
                       <Loader2 className="animate-spin" />
@@ -956,7 +995,7 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
                     ) : (
                       <PlugZap />
                     )}
-                    {configured ? 'Atualizar configuração' : 'Marcar como configurado'}
+                    {isSumUp ? 'Verificar configuração SumUp' : configured ? 'Atualizar configuração' : 'Marcar como configurado'}
                   </Button>
                 </div>
               );
@@ -977,7 +1016,7 @@ export function BusinessHubPage({ focus = '' }: { focus?: 'goals' | '' }) {
               detail="Vendus/Cegid, Moloni, InvoiceXpress ou fluxo manual."
             />
             <ActionRow
-              done={Boolean(providerMap.get('payments:easypay') || providerMap.get('payments:stripe'))}
+              done={Boolean(sumUpStatus?.configured || providerMap.get('payments:easypay') || providerMap.get('payments:stripe'))}
               title="Escolher pagamentos online"
               detail="MB Way/Multibanco/cartão para links de pagamento."
             />
