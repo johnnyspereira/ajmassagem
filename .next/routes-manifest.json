@@ -994,6 +994,12 @@
       "namedRegex": "^/api/integrations/google/start(?:/)?$"
     },
     {
+      "page": "/api/integrations/google/status",
+      "regex": "^/api/integrations/google/status(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/integrations/google/status(?:/)?$"
+    },
+    {
       "page": "/api/integrations/google/sync",
       "regex": "^/api/integrations/google/sync(?:/)?$",
       "routeKeys": {},
