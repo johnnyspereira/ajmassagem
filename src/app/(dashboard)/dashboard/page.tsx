@@ -132,6 +132,10 @@ export default function DashboardPage() {
     PortalPendingConfirmationItem[] | null
   >(null);
   const [portalPendingLoading, setPortalPendingLoading] = useState(true);
+  const dashboardDataUnavailable =
+    !metricsLoading &&
+    !metrics &&
+    Object.keys(loadErrors).length >= 5;
 
   const loadAll = useCallback(
     (rangeToLoad: RangeDays = 30, showLoading = true) => {
@@ -290,9 +294,9 @@ export default function DashboardPage() {
         <div className="pointer-events-none absolute -bottom-24 left-1/3 size-64 rounded-full bg-cyan-400/10 blur-3xl" />
         <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-2xl">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">Centro de opera\u00e7\u00f5es</p>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">Centro de operações</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">O seu dia, sob controlo.</h1>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">Priorize clientes, agenda, vendas e pagamentos sem procurar informa\u00e7\u00e3o em v\u00e1rios ecr\u00e3s.</p>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">Priorize clientes, agenda, vendas e pagamentos sem procurar informação em vários ecrãs.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href="/agenda" className="inline-flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-950 transition-transform hover:-translate-y-0.5">
@@ -340,11 +344,34 @@ export default function DashboardPage() {
         </p>
       ) : null}
 
+      {dashboardDataUnavailable ? (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-8 text-center">
+          <TriangleAlert className="mx-auto size-7 text-amber-700" />
+          <h2 className="mt-3 font-semibold text-amber-950">
+            Não foi possível carregar os dados do painel
+          </h2>
+          <p className="mx-auto mt-1 max-w-xl text-sm text-amber-900/75">
+            A aplicação está a responder, mas a ligação aos dados do CRM falhou.
+            Reinicie a aplicação no cPanel e atualize esta página. Os seus dados não foram alterados.
+          </p>
+          <button
+            type="button"
+            onClick={() => loadAll(range)}
+            disabled={refreshing}
+            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-amber-900 px-3.5 py-2 text-sm font-semibold text-white hover:bg-amber-800 disabled:opacity-60"
+          >
+            <RefreshCw className={cn('size-4', refreshing && 'animate-spin')} />
+            Tentar novamente
+          </button>
+        </section>
+      ) : (
+        <>
+
       <section className="space-y-3">
         <DashboardSectionLabel
           eyebrow="Agora"
-          title="O que pede a sua aten\u00e7\u00e3o"
-          description="Alertas, conversas e situa\u00e7\u00f5es que podem bloquear o dia."
+          title="O que pede a sua atenção"
+          description="Alertas, conversas e situações que podem bloquear o dia."
         />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2">
@@ -369,9 +396,9 @@ export default function DashboardPage() {
 
       <section className="space-y-3">
         <DashboardSectionLabel
-          eyebrow="Pulso do neg\u00f3cio"
-          title="Os n\u00fameros essenciais"
-          description="Uma leitura r\u00e1pida da atividade comercial de hoje."
+          eyebrow="Pulso do negócio"
+          title="Os números essenciais"
+          description="Uma leitura rápida da atividade comercial de hoje."
         />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {metricsLoading ? (
@@ -445,8 +472,8 @@ export default function DashboardPage() {
 
       <section className="space-y-4">
         <DashboardSectionLabel
-          eyebrow="Opera\u00e7\u00e3o"
-          title="Agenda, Portal e benef\u00edcios"
+          eyebrow="Operação"
+          title="Agenda, Portal e benefícios"
           description="O trabalho que precisa de ser resolvido antes de fechar o dia."
           href="/agenda"
           action="Ver agenda"
@@ -476,9 +503,9 @@ export default function DashboardPage() {
 
       <section className="space-y-3">
         <DashboardSectionLabel
-          eyebrow="Acesso r\u00e1pido"
+          eyebrow="Acesso rápido"
           title="Comece uma tarefa em segundos"
-          description="Atalhos para as opera\u00e7\u00f5es que utiliza todos os dias."
+          description="Atalhos para as operações que utiliza todos os dias."
         />
         <QuickActions />
       </section>
@@ -486,7 +513,7 @@ export default function DashboardPage() {
       <DashboardSectionLabel
         eyebrow="Clientes e receita"
         title="Continuar conversas e fechar vendas"
-        description="Veja quem espera resposta e onde est\u00e1 a receita em aberto."
+        description="Veja quem espera resposta e onde está a receita em aberto."
         href="/contacts"
         action="Ver clientes"
       />
@@ -503,8 +530,8 @@ export default function DashboardPage() {
 
       <DashboardSectionLabel
         eyebrow="Desempenho"
-        title="Melhore o ritmo da opera\u00e7\u00e3o"
-        description="Acompanhe automa\u00e7\u00f5es, equipa e qualidade do atendimento."
+        title="Melhore o ritmo da operação"
+        description="Acompanhe automações, equipa e qualidade do atendimento."
       />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <AutomationInsightsPanel
@@ -546,6 +573,8 @@ export default function DashboardPage() {
 
       {/* Activity feed */}
       <ActivityFeed items={activity} loading={activityLoading} />
+        </>
+      )}
     </div>
   );
 }
