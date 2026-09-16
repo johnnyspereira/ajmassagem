@@ -1,8 +1,6 @@
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { getPublicUrl } from '@/lib/public-url';
 import { createClient } from '@/lib/supabase/server';
-import { resolveConversationByPhone } from '@/lib/whatsapp/resolve-conversation';
-import { enqueueWhatsAppMessage } from '@/lib/whatsapp/outbox';
 
 export async function POST(request: Request) {
   const session = await createClient();
@@ -31,6 +29,14 @@ export async function POST(request: Request) {
     );
 
   try {
+    // Load the MySQL-backed WhatsApp queue only for this request. If the
+    // cPanel runtime lacks its database configuration, the catch below can
+    // return a useful error instead of the route failing at module load.
+    const [{ resolveConversationByPhone }, { enqueueWhatsAppMessage }] =
+      await Promise.all([
+        import('@/lib/whatsapp/resolve-conversation'),
+        import('@/lib/whatsapp/outbox'),
+      ]);
     const { conversationId } = await resolveConversationByPhone(
       db,
       profile.account_id,
