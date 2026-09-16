@@ -2368,6 +2368,13 @@ function AnamnesisPanel({
                           <p className="mt-1 text-xs font-medium">
                             {form.signature_name}
                           </p>
+                          {typeof form.answers?.signature_data === 'string' && form.answers.signature_data.startsWith('data:image/') && (
+                            <img
+                              src={form.answers.signature_data}
+                              alt={`Assinatura de ${form.signature_name}`}
+                              className="mt-2 h-20 max-w-full rounded border bg-white object-contain"
+                            />
+                          )}
                         </div>
                       )}
                     </div>
