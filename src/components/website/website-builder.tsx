@@ -142,6 +142,13 @@ export function WebsiteBuilder() {
       setLoading(false);
     });
   }, [account?.name, accountId, db]);
+  useEffect(() => {
+    const google = new URLSearchParams(window.location.search).get('google');
+    const reason = new URLSearchParams(window.location.search).get('reason');
+    if (google === 'connected') toast.success('Conta Google ligada com sucesso.');
+    if (google === 'missing-config') toast.error('Faltam as credenciais Google no cPanel.');
+    if (google === 'failed') toast.error(reason === 'state' ? 'A sessão de autorização expirou. Tente ligar novamente.' : reason === 'session' ? 'A sessão do CRM expirou. Entre novamente e tente.' : reason === 'token' ? 'A Google recusou a troca do código. Verifique Client ID, Secret e callback.' : reason === 'encryption' ? 'Falta ou é inválida a ENCRYPTION_KEY no cPanel.' : 'Não foi possível guardar a ligação. Confirme que o deploy aplicou as migrations.');
+  }, []);
   function patch<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
@@ -471,12 +478,11 @@ export function WebsiteBuilder() {
             </ArrayPanel>
           </TabsContent>
           <TabsContent value="social" className="space-y-5 pt-5">
-            <Panel title="Avaliações Google" description="Mostre avaliações verificadas do Google. A chave da API é configurada apenas no servidor.">
+            <Panel title="Avaliações Google" description="Ligue o Perfil de Empresa Google, importe as avaliações e publique apenas as que aprovar no CRM.">
               <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => { window.location.href = '/api/integrations/google/start'; }}>Ligar conta Google</Button><Button type="button" variant="secondary" onClick={async () => { const response = await fetch('/api/integrations/google/sync', { method: 'POST' }); const payload = await response.json(); if (!response.ok) return toast.error(payload.error || 'Falha ao atualizar.'); toast.success(`${payload.imported} avaliações Google atualizadas.`); }}>Atualizar reviews agora</Button></div>
-              <Toggle label="Mostrar avaliações Google" description="Se a ligação Google não estiver disponível, o site mantém os testemunhos internos e manuais." checked={form.google_reviews_enabled} onChange={(value) => patch('google_reviews_enabled', value)} />
-              <Field label="Google Place ID" value={form.google_place_id ?? ''} onChange={(value) => patch('google_place_id', value.trim() || null)} placeholder="Ex.: ChIJ..." />
+              <Toggle label="Mostrar avaliações Google aprovadas" description="As avaliações importadas não aparecem no site até serem aprovadas em Marketing → Avaliações." checked={form.google_reviews_enabled} onChange={(value) => patch('google_reviews_enabled', value)} />
               <Field label="Link para avaliar no Google" value={form.google_review_url ?? ''} onChange={(value) => patch('google_review_url', value.trim() || null)} placeholder="https://g.page/r/.../review" />
-              <p className="text-muted-foreground text-xs">No servidor, defina <code>GOOGLE_PLACES_API_KEY</code> com a Places API (New) ativada. A chave nunca é exposta no site.</p>
+              <p className="text-muted-foreground text-xs">Esta ligação usa a sua conta Google; não precisa de Google Place ID nem de uma chave de API paga.</p>
             </Panel>
             <ArrayPanel
               title="Depoimentos"

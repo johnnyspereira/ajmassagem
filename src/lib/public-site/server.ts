@@ -3,7 +3,6 @@ import { supabaseAdmin } from '@/lib/flows/admin-client';
 import { resolveAuditUserId } from '@/lib/api/v1/contacts';
 import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 import type { PublicSiteSettings } from './types';
-import { getGooglePlaceReviews } from './google-reviews';
 import { selectRows } from '@/lib/mysql/db';
 import type { RowDataPacket } from 'mysql2';
 export const getPublicBusinessSite = cache(async (slug: string) => {
@@ -15,7 +14,7 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
     .eq('enabled', true)
     .maybeSingle();
   if (error || !settings) return null;
-  const [account, services, team, portal, whatsappConfig, reviews, googleReviews, importedGoogleReviews] = await Promise.all([
+  const [account, services, team, portal, whatsappConfig, reviews, importedGoogleReviews] = await Promise.all([
     admin
       .from('accounts')
       .select('id,name,logo_url,default_currency')
@@ -58,11 +57,6 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
       .eq('consent_to_publish', true)
       .order('published_at', { ascending: false })
       .limit(6),
-    getGooglePlaceReviews(
-      (settings as PublicSiteSettings).google_reviews_enabled
-        ? (settings as PublicSiteSettings).google_place_id
-        : null
-    ),
     selectRows<(RowDataPacket & { rating: number; comment: string | null; reviewer_name: string | null; reviewed_at: Date | null })[]>(`SELECT rating,comment,reviewer_name,reviewed_at FROM google_business_profile_reviews WHERE account_id=? AND approved=TRUE AND TRIM(COALESCE(comment,''))<>'' ORDER BY reviewed_at DESC LIMIT 12`, [settings.account_id]),
   ]);
   if (account.error) return null;
@@ -83,8 +77,10 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
     team: team.data ?? [],
     portal: portal.data?.enabled ? portal.data : null,
     reviews: reviews.data ?? [],
-    googleReviews: importedGoogleReviews.length ? importedGoogleReviews.map((review) => ({ rating: Number(review.rating), comment: review.comment ?? '', name: review.reviewer_name || 'Cliente Google', publishedAt: review.reviewed_at?.toISOString() ?? null, mapsUrl: null })) : googleReviews.reviews,
-    googleMapsUrl: googleReviews.mapsUrl || (settings as PublicSiteSettings).google_review_url || null,
+    googleReviews: (settings as PublicSiteSettings).google_reviews_enabled
+      ? importedGoogleReviews.map((review) => ({ rating: Number(review.rating), comment: review.comment ?? '', name: review.reviewer_name || 'Cliente Google', publishedAt: review.reviewed_at?.toISOString() ?? null, mapsUrl: null }))
+      : [],
+    googleMapsUrl: (settings as PublicSiteSettings).google_review_url || null,
     whatsappConnected,
   };
 });
