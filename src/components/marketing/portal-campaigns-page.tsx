@@ -61,6 +61,7 @@ type Campaign = {
     id: string;
     status: string;
     joined_at: string;
+    sale_id?: string | null;
     contact: {
       id: string;
       name: string | null;
@@ -122,7 +123,7 @@ export function PortalCampaignsPage() {
       supabase
         .from('portal_campaigns')
         .select(
-          '*,enrollments:portal_campaign_enrollments(id,status,joined_at,contact:contacts(id,name,phone,email))'
+          '*,enrollments:portal_campaign_enrollments(id,status,joined_at,sale_id,contact:contacts(id,name,phone,email))'
         )
         .eq('account_id', accountId)
         .order('created_at', { ascending: false }),
@@ -250,6 +251,15 @@ export function PortalCampaignsPage() {
       toast.success(`Campanha enviada: ${result.sent} email(s), ${result.failed} falha(s).`);
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Falha ao enviar campanha.'); }
     finally { setSendingCampaign(null); }
+  }
+  async function updateEnrollment(entry: Campaign['enrollments'][number], status: 'contacted' | 'converted' | 'cancelled') {
+    const { error } = await supabase
+      .from('portal_campaign_enrollments')
+      .update({ status })
+      .eq('id', entry.id);
+    if (error) return toast.error(error.message);
+    toast.success(status === 'cancelled' ? 'Interesse removido.' : status === 'converted' ? 'Cliente marcado como convertido.' : 'Cliente marcado como contactado.');
+    await load();
   }
   const activeEnrollments = items.flatMap((item) =>
     item.enrollments.filter((entry) => entry.status !== 'cancelled')
@@ -427,7 +437,7 @@ export function PortalCampaignsPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex flex-wrap items-center justify-end gap-1">
                           {entry.contact?.id && (
                             <Button
                               size="sm"
@@ -467,6 +477,27 @@ export function PortalCampaignsPage() {
                               <MessageCircle />
                             </Button>
                           )}
+                          {entry.sale_id ? (
+                            <Button size="sm" variant="outline" render={<Link href={`/finance?tab=sales#sale-${entry.sale_id}`} />}>
+                              Ver venda
+                            </Button>
+                          ) : entry.contact?.id ? (
+                            <Button size="sm" variant="outline" render={<Link href={`/finance?tab=pos&contact=${entry.contact.id}`} />}>
+                              Criar venda
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="outline" onClick={() => void updateEnrollment(entry, 'contacted')}>
+                              Contactado
+                            </Button>
+                          )}
+                          {entry.status !== 'converted' && (
+                            <Button size="sm" variant="outline" onClick={() => void updateEnrollment(entry, 'converted')}>
+                              Converter
+                            </Button>
+                          )}
+                          <Button size="icon-sm" variant="ghost" aria-label="Remover interesse" onClick={() => void updateEnrollment(entry, 'cancelled')}>
+                            <Archive />
+                          </Button>
                         </div>
                       </div>
                     ))}

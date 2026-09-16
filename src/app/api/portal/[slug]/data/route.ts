@@ -310,7 +310,7 @@ export async function GET(
           .order('starts_at', { ascending: false }),
         admin
           .from('portal_campaign_enrollments')
-          .select('campaign_id,status,joined_at')
+          .select('campaign_id,status,joined_at,sale_id')
           .eq('account_id', access.account_id)
           .eq('contact_id', access.contact_id),
       ]);

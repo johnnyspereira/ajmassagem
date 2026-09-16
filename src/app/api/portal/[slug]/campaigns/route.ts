@@ -33,11 +33,11 @@ export async function POST(
       throw new PortalError('Esta campanha já não está disponível.', 404);
     const { data: existing } = await admin
       .from('portal_campaign_enrollments')
-      .select('id,status')
+      .select('id,status,sale_id')
       .eq('campaign_id', campaign.id)
       .eq('contact_id', access.contact_id)
       .maybeSingle();
-    if (existing && existing.status !== 'cancelled') {
+    if (existing && existing.status !== 'cancelled' && (!campaign.commerce_enabled || existing.sale_id)) {
       return Response.json({ ok: true, duplicate: true });
     }
     if (campaign.capacity) {
@@ -57,7 +57,7 @@ export async function POST(
       account_id: access.account_id,
       campaign_id: campaign.id,
       contact_id: access.contact_id,
-      status: 'joined',
+      status: existing?.status === 'cancelled' ? 'joined' : (existing?.status || 'joined'),
       joined_at: now,
     };
     const { error } = existing

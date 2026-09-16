@@ -419,7 +419,7 @@ type PortalData = {
     ends_at: string | null;
     capacity: number | null;
     enrollmentCount: number;
-    enrollment: null | { status: string; joined_at: string };
+    enrollment: null | { status: string; joined_at: string; sale_id?: string | null };
   }>;
   privacy: {
     policyVersion: string;
