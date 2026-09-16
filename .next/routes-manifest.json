@@ -904,6 +904,12 @@
       "namedRegex": "^/api/finance/payment\\-links/stripe(?:/)?$"
     },
     {
+      "page": "/api/finance/payment-links/sumup",
+      "regex": "^/api/finance/payment\\-links/sumup(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/finance/payment\\-links/sumup(?:/)?$"
+    },
+    {
       "page": "/api/finance/reminders/process",
       "regex": "^/api/finance/reminders/process(?:/)?$",
       "routeKeys": {},
@@ -914,6 +920,12 @@
       "regex": "^/api/finance/reminders/test(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/finance/reminders/test(?:/)?$"
+    },
+    {
+      "page": "/api/finance/sumup/status",
+      "regex": "^/api/finance/sumup/status(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/finance/sumup/status(?:/)?$"
     },
     {
       "page": "/api/finance/treasury/import",
@@ -938,6 +950,12 @@
       "regex": "^/api/finance/webhooks/stripe(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/finance/webhooks/stripe(?:/)?$"
+    },
+    {
+      "page": "/api/finance/webhooks/sumup",
+      "regex": "^/api/finance/webhooks/sumup(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/finance/webhooks/sumup(?:/)?$"
     },
     {
       "page": "/api/flows",
