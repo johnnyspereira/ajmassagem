@@ -78,6 +78,7 @@ export function SpaPublicSite({ site }: { site: Site }) {
         </Link>
         <nav className={styles.nav} aria-label="Navegação principal">
           <a href="#servicos">Serviços</a>
+          {settings.show_plans && settings.plans.length > 0 && <a href="#ofertas">Ofertas</a>}
           <a href="#sobre">A experiência</a>
           {settings.show_team && team.length > 0 && <a href="#equipa">Equipa</a>}
           <a href="#testemunhos">Testemunhos</a>
@@ -90,7 +91,7 @@ export function SpaPublicSite({ site }: { site: Site }) {
           <details className={styles.mobileMenu}>
             <summary aria-label="Abrir menu"><Menu /></summary>
             <nav aria-label="Menu móvel">
-              <a href="#servicos">Serviços</a><a href="#sobre">A experiência</a>
+              <a href="#servicos">Serviços</a>{settings.show_plans && settings.plans.length > 0 && <a href="#ofertas">Ofertas</a>}<a href="#sobre">A experiência</a>
               {settings.show_team && team.length > 0 && <a href="#equipa">Equipa</a>}
               <a href="#testemunhos">Testemunhos</a><a href="#contacto">Contacto</a>
               <Link href="/portal">Área do cliente</Link><Link href="/login?access=professional">Acesso profissional</Link><Link href={bookingHref}>Agendar sessão</Link>
@@ -182,9 +183,11 @@ export function SpaPublicSite({ site }: { site: Site }) {
         )}
 
         {settings.show_plans && settings.plans.length > 0 && (
-          <section className={styles.plans} data-public-section="plans">
-            <p className={styles.eyebrow}>Experiências para repetir</p><h2>Planos que acompanham o seu ritmo.</h2>
-            <div className={styles.planGrid}>{settings.plans.map((plan, index) => <article key={`${plan.name}-${index}`} className={plan.highlighted ? styles.planFeatured : styles.plan}><p>{plan.name}</p><strong>{plan.price}</strong><span>{plan.description}</span><ul>{plan.features.map((feature) => <li key={feature}><Check />{feature}</li>)}</ul><Link href={bookingHref}>Quero saber mais <ArrowRight /></Link></article>)}</div>
+          <section id="ofertas" className={styles.plans} data-public-section="plans">
+            <p className={styles.eyebrow}>Ofertas e benefícios</p><h2>Ofereça bem-estar. Volte a cuidar de si.</h2>
+            <p className={styles.offerIntro}>Escolha um plano, pack ou voucher. A equipa confirma todos os detalhes antes da compra.</p>
+            <div className={styles.planGrid}>{settings.plans.map((plan, index) => <article key={`${plan.name}-${index}`} className={plan.highlighted ? styles.planFeatured : styles.plan}><p>{plan.highlighted ? 'Oferta em destaque' : 'Plano de cuidado'}</p><strong>{plan.price}</strong><span>{plan.description}</span><ul>{plan.features.map((feature) => <li key={feature}><Check />{feature}</li>)}</ul><a href="#contacto">Quero este plano <ArrowRight /></a></article>)}</div>
+            <div className={styles.voucherBanner}><div><p className={styles.eyebrow}>Presente com significado</p><h3>Ofereça um voucher de bem-estar.</h3><span>Escolha o valor ou experiência. O voucher é preparado de forma personalizada.</span></div><a href="#contacto" className={styles.secondaryButton}>Pedir voucher <ArrowRight /></a></div>
           </section>
         )}
 
