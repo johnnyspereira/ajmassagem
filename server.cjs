@@ -51,6 +51,29 @@ function buildProductionAssets() {
   });
 }
 
+function applyMysqlMigrations() {
+  if (
+    process.env.NODE_ENV !== 'production' ||
+    process.env.CPANEL_AUTO_MIGRATE === 'false'
+  ) {
+    return Promise.resolve();
+  }
+
+  console.log('Applying pending MySQL migrations before starting the CRM...');
+  return new Promise((resolve, reject) => {
+    const migration = spawn(
+      process.execPath,
+      [path.join(process.cwd(), 'scripts/mysql-migrate.mjs')],
+      { cwd: process.cwd(), env: process.env, stdio: 'inherit' }
+    );
+    migration.once('error', reject);
+    migration.once('exit', (code, signal) => {
+      if (code === 0) resolve();
+      else reject(new Error(`MySQL migration failed before startup (${signal ?? `exit ${code}`}).`));
+    });
+  });
+}
+
 function startFinanceReminderScheduler() {
   const secret = process.env.AUTOMATION_CRON_SECRET;
   if (!secret) {
@@ -86,6 +109,7 @@ function startFinanceReminderScheduler() {
 async function start() {
   // cPanel starts server.cjs directly. Building here ensures that a restart
   // can never serve HTML from one release with static chunks from another.
+  await applyMysqlMigrations();
   await buildProductionAssets();
   await app.prepare();
 
