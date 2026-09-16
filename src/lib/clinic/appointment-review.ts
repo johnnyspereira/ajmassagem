@@ -2,6 +2,11 @@ import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { engineSendText } from '@/lib/automations/meta-send';
 import { getPublicUrl } from '@/lib/public-url';
+import {
+  mergeAutomatedMessageTemplates,
+  renderAutomatedMessage,
+  type AutomatedMessageTemplates,
+} from '@/lib/automations/message-templates';
 
 export async function sendAppointmentReviewRequest(db: SupabaseClient, appointmentId: string, origin: string) {
   const { data: appointment, error } = await db.from('clinic_appointments')
@@ -17,7 +22,24 @@ export async function sendAppointmentReviewRequest(db: SupabaseClient, appointme
   const userId = a.user_id || a.account?.owner_user_id;
   if (!userId) throw new Error('Sem remetente para enviar a avalia\u00e7\u00e3o.');
   const url = getPublicUrl(`/avaliar/${token}`, origin);
-  await engineSendText({ accountId: a.account_id, userId, contactId: a.contact_id, conversationId: await findConversation(db, a.account_id, a.contact_id), text: `Obrigado por escolher ${a.account?.name || 'a nossa cl\u00ednica'}${a.service?.name ? ` para ${a.service.name}` : ''}. A sua opini\u00e3o ajuda-nos muito: ${url}` });
+  const { data: settings } = await db
+    .from('clinic_communication_settings')
+    .select('automated_message_templates')
+    .eq('account_id', a.account_id)
+    .maybeSingle();
+  const templates = mergeAutomatedMessageTemplates(
+    settings?.automated_message_templates as
+      | Partial<AutomatedMessageTemplates>
+      | null
+      | undefined
+  );
+  const text = renderAutomatedMessage(templates.review_request, {
+    cliente: a.contact?.name?.split(' ')[0] || 'cliente',
+    empresa: a.account?.name || 'JP Massagem',
+    servico: a.service?.name ? ` para ${a.service.name}` : '',
+    link_avaliacao: url,
+  });
+  await engineSendText({ accountId: a.account_id, userId, contactId: a.contact_id, conversationId: await findConversation(db, a.account_id, a.contact_id), text });
   await db.from('clinic_appointment_reviews').update({ sent_at: new Date().toISOString() }).eq('appointment_id', appointmentId);
   return { sent: true, url };
 }

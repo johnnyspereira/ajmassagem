@@ -12,20 +12,32 @@ import {
   type AppointmentMessageAction,
   type AppointmentMessageTemplates,
 } from '@/lib/clinic/appointment-messages';
+import {
+  automatedMessageDefaults,
+  mergeAutomatedMessageTemplates,
+  type AutomatedMessageKey,
+  type AutomatedMessageTemplates,
+} from '@/lib/automations/message-templates';
 import { createClient } from '@/lib/supabase/client';
 
-const templateMeta: Record<AppointmentMessageAction, { title: string; detail: string }> = {
+const templateMeta: Record<AutomatedMessageKey, { title: string; detail: string }> = {
   confirmation: { title: 'Confirmação de marcação', detail: 'Enviada quando uma nova marcação pede confirmação ao cliente.' },
   reminder: { title: 'Lembrete de sessão', detail: 'Enviado automaticamente antes de uma sessão agendada ou confirmada.' },
   pending_confirmation: { title: 'Confirmação pendente', detail: 'Enviado após o prazo definido quando o cliente ainda não confirmou.' },
+  review_request: { title: 'Pedido de avaliação', detail: 'Enviado depois de uma sessão concluída, com o link pessoal de avaliação.' },
+  benefit_expiry: { title: 'Validade de voucher ou pack', detail: 'Enviado antes do vencimento de um benefício ativo.' },
+  finance_alert: { title: 'Alerta financeiro', detail: 'Enviado quando o Centro Financeiro cria um alerta operacional.' },
+  payment_request: { title: 'Pedido de pagamento online', detail: 'Usado ao enviar uma cobrança com checkout online ao cliente.' },
 };
 
-const actions = Object.keys(defaultAppointmentMessageTemplates) as AppointmentMessageAction[];
+const actions = Object.keys(automatedMessageDefaults) as AutomatedMessageKey[];
 
 export function AutomatedMessagesSettings() {
   const { accountId } = useAuth();
   const db = useMemo(() => createClient(), []);
-  const [messages, setMessages] = useState<AppointmentMessageTemplates>(defaultAppointmentMessageTemplates);
+  const [messages, setMessages] = useState<AutomatedMessageTemplates>(
+    mergeAutomatedMessageTemplates(defaultAppointmentMessageTemplates)
+  );
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -35,8 +47,8 @@ export function AutomatedMessagesSettings() {
     void db.from('clinic_communication_settings').select('automated_message_templates').eq('account_id', accountId).maybeSingle().then(({ data, error }) => {
       if (!active) return;
       if (error) toast.error(`Não foi possível carregar os modelos: ${error.message}`);
-      const saved = data?.automated_message_templates as Partial<AppointmentMessageTemplates> | null;
-      if (saved) setMessages((current) => ({ ...current, ...saved }));
+      const saved = data?.automated_message_templates as Partial<AutomatedMessageTemplates> | null;
+      if (saved) setMessages(mergeAutomatedMessageTemplates(saved));
       setLoading(false);
     });
     return () => { active = false; };
@@ -56,8 +68,8 @@ export function AutomatedMessagesSettings() {
     toast.success('Mensagens automáticas guardadas e prontas para envio.');
   }
 
-  function reset(action: AppointmentMessageAction) {
-    setMessages((current) => ({ ...current, [action]: defaultAppointmentMessageTemplates[action] }));
+  function reset(action: AutomatedMessageKey) {
+    setMessages((current) => ({ ...current, [action]: automatedMessageDefaults[action] }));
   }
 
   return (
