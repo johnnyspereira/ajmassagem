@@ -32,6 +32,7 @@ export function PackCatalogSettings() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [reference, setReference] = useState('');
+  const [description, setDescription] = useState('');
   const [price, setPrice] = useState(0);
   const [validity, setValidity] = useState(365);
   const [items, setItems] = useState<DraftItem[]>([
@@ -76,6 +77,7 @@ export function PackCatalogSettings() {
     setEditingId(null);
     setName('');
     setReference('');
+    setDescription('');
     setPrice(0);
     setValidity(365);
     setItems([{ serviceId: '', sessions: 1 }]);
@@ -86,6 +88,7 @@ export function PackCatalogSettings() {
     setEditingId(pack.id);
     setName(pack.name);
     setReference(pack.reference ?? '');
+    setDescription(pack.description ?? '');
     setPrice(Number(pack.price));
     setValidity(pack.validity_days);
     setItems(
@@ -123,6 +126,7 @@ export function PackCatalogSettings() {
     const payload = {
       name: name.trim(),
       reference: reference.trim() || null,
+      description: description.trim() || null,
       price,
       currency: defaultCurrency,
       validity_days: validity,
@@ -288,6 +292,9 @@ export function PackCatalogSettings() {
                   value={reference}
                   onChange={(event) => setReference(event.target.value)}
                 />
+              </PackField>
+              <PackField label="Descrição para o cliente">
+                <Input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ex.: 3 sessões para aliviar tensão" />
               </PackField>
               <PackField label="Preço">
                 <Input
