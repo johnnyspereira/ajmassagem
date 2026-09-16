@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { sendLocalEmail } from '@/lib/email/smtp';
+import { notifyAccountEvent } from '@/lib/notifications/account-events';
 import { sumUpRequest } from '@/lib/finance/sumup';
 import { getPublicUrl } from '@/lib/public-url';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -82,6 +83,30 @@ export async function POST(request: NextRequest) {
           }
         } catch (emailError) {
           console.error('[sumup-webhook] confirmation email failed:', emailError);
+        }
+        try {
+          await notifyAccountEvent({
+            accountId: paymentLink.account_id,
+            type: 'sumup_payment_received',
+            category: 'finance',
+            priority: 'high',
+            title: 'Pagamento online SumUp recebido',
+            body: `${clientName} pagou ${amount}${paymentLink.description ? ` · ${paymentLink.description}` : ''}.`,
+            actionUrl: paymentLink.sale_id
+              ? `/finance?tab=sales#sale-${paymentLink.sale_id}`
+              : '/finance?tab=sales',
+            contactId: paymentLink.contact_id,
+            dedupeKey: `sumup-payment-received:${paymentLink.id}`,
+            metadata: {
+              saleId: paymentLink.sale_id,
+              paymentLinkId: paymentLink.id,
+              amount: paymentLink.amount,
+              currency: paymentLink.currency,
+              provider: 'sumup',
+            },
+          });
+        } catch (accountNotificationError) {
+          console.error('[sumup-webhook] CRM notification failed:', accountNotificationError);
         }
       }
     }
