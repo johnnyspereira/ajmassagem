@@ -127,32 +127,32 @@ export function ClientPortalSettings() {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  async function save() {
+  async function save(nextForm: PortalForm = form, successMessage = 'Portal do cliente atualizado.') {
     if (!accountId || !canEditSettings) return;
-    const slug = normalizeSlug(form.slug);
+    const slug = normalizeSlug(nextForm.slug);
     if (slug.length < 3)
       return toast.error(
         'O endereço do portal deve ter pelo menos 3 caracteres.'
       );
-    if (!form.welcome_title.trim())
+    if (!nextForm.welcome_title.trim())
       return toast.error('Informe o título de boas-vindas.');
 
     setSaving(true);
     const { error } = await db.from('client_portal_settings').upsert({
       account_id: accountId,
       slug,
-      enabled: form.enabled,
-      booking_enabled: form.booking_enabled,
-      benefits_enabled: form.benefits_enabled,
-      financial_enabled: form.financial_enabled,
-      profile_edit_enabled: form.profile_edit_enabled,
-      referrals_enabled: form.referrals_enabled,
-      welcome_title: form.welcome_title.trim(),
-      welcome_message: form.welcome_message.trim() || null,
-      cancellation_hours: Math.max(0, Number(form.cancellation_hours) || 0),
+      enabled: nextForm.enabled,
+      booking_enabled: nextForm.booking_enabled,
+      benefits_enabled: nextForm.benefits_enabled,
+      financial_enabled: nextForm.financial_enabled,
+      profile_edit_enabled: nextForm.profile_edit_enabled,
+      referrals_enabled: nextForm.referrals_enabled,
+      welcome_title: nextForm.welcome_title.trim(),
+      welcome_message: nextForm.welcome_message.trim() || null,
+      cancellation_hours: Math.max(0, Number(nextForm.cancellation_hours) || 0),
       booking_advance_days: Math.max(
         1,
-        Number(form.booking_advance_days) || 90
+        Number(nextForm.booking_advance_days) || 90
       ),
     });
     setSaving(false);
@@ -164,8 +164,14 @@ export function ClientPortalSettings() {
       );
       return;
     }
-    patch('slug', slug);
-    toast.success('Portal do cliente atualizado.');
+    setForm({ ...nextForm, slug });
+    toast.success(successMessage);
+  }
+
+  async function deactivatePortal() {
+    if (!window.confirm('Inativar o Portal 360? Os clientes deixam de conseguir entrar, comprar ou agendar online. Os dados existentes serão mantidos.')) return;
+    const next = { ...form, enabled: false, booking_enabled: false };
+    await save(next, 'Portal inativado e marcações online bloqueadas.');
   }
 
   async function copyLink() {
@@ -208,6 +214,16 @@ export function ClientPortalSettings() {
           </p>
         </div>
         <div className="flex gap-2">
+          {form.enabled ? (
+            <Button
+              variant="destructive"
+              onClick={() => void deactivatePortal()}
+              disabled={!canEditSettings || saving}
+            >
+              {saving ? <Loader2 className="animate-spin" /> : <Globe2 />}
+              Inativar portal
+            </Button>
+          ) : null}
           <Button
             variant="outline"
             onClick={() => void copyLink()}
