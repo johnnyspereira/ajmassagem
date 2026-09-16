@@ -72,17 +72,24 @@ export async function POST(request: NextRequest) {
       throw new Error(`${checkout.message || 'A SumUp não devolveu um checkout válido.'}${checkout.param ? ` (${checkout.param})` : ''}`);
     }
 
-    const { data: updated, error: updateError } = await admin
+    const { error: updateError } = await admin
       .from('finance_payment_links')
       .update({
         payment_url: checkout.hosted_checkout_url,
         external_session_id: checkout.id,
         provider_payload: { checkout_status: checkout.status ?? 'PENDING' },
       })
-      .eq('id', link.id)
+      .eq('id', link.id);
+    if (updateError) throw new Error(updateError.message);
+    const { data: updated, error: readError } = await admin
+      .from('finance_payment_links')
       .select('*')
+      .eq('id', link.id)
       .single();
-    if (updateError || !updated) throw new Error(updateError?.message || 'Não foi possível guardar o checkout SumUp.');
+    if (readError || !updated)
+      throw new Error(
+        readError?.message || 'O checkout foi guardado, mas a cobrança não foi encontrada.'
+      );
 
     await admin.from('business_integration_settings').upsert({
       account_id: sale.account_id,
