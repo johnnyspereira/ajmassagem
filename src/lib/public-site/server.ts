@@ -63,7 +63,7 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
         ? (settings as PublicSiteSettings).google_place_id
         : null
     ),
-    selectRows<(RowDataPacket & { rating: number; comment: string | null; reviewer_name: string | null; reviewed_at: Date | null })[]>(`SELECT rating,comment,reviewer_name,reviewed_at FROM google_business_profile_reviews WHERE account_id=? AND TRIM(COALESCE(comment,''))<>'' ORDER BY reviewed_at DESC LIMIT 12`, [settings.account_id]),
+    selectRows<(RowDataPacket & { rating: number; comment: string | null; reviewer_name: string | null; reviewed_at: Date | null })[]>(`SELECT rating,comment,reviewer_name,reviewed_at FROM google_business_profile_reviews WHERE account_id=? AND approved=TRUE AND TRIM(COALESCE(comment,''))<>'' ORDER BY reviewed_at DESC LIMIT 12`, [settings.account_id]),
   ]);
   if (account.error) return null;
   let whatsappConnected = whatsappConfig.data?.status === 'connected';
