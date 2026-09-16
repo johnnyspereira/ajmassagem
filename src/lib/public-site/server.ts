@@ -4,6 +4,8 @@ import { resolveAuditUserId } from '@/lib/api/v1/contacts';
 import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 import type { PublicSiteSettings } from './types';
 import { getGooglePlaceReviews } from './google-reviews';
+import { selectRows } from '@/lib/mysql/db';
+import type { RowDataPacket } from 'mysql2';
 export const getPublicBusinessSite = cache(async (slug: string) => {
   const admin = supabaseAdmin();
   const { data: settings, error } = await admin
@@ -13,7 +15,7 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
     .eq('enabled', true)
     .maybeSingle();
   if (error || !settings) return null;
-  const [account, services, team, portal, whatsappConfig, reviews, googleReviews] = await Promise.all([
+  const [account, services, team, portal, whatsappConfig, reviews, googleReviews, importedGoogleReviews] = await Promise.all([
     admin
       .from('accounts')
       .select('id,name,logo_url,default_currency')
@@ -61,6 +63,7 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
         ? (settings as PublicSiteSettings).google_place_id
         : null
     ),
+    selectRows<(RowDataPacket & { rating: number; comment: string | null; reviewer_name: string | null; reviewed_at: Date | null })[]>(`SELECT rating,comment,reviewer_name,reviewed_at FROM google_business_profile_reviews WHERE account_id=? AND TRIM(COALESCE(comment,''))<>'' ORDER BY reviewed_at DESC LIMIT 12`, [settings.account_id]),
   ]);
   if (account.error) return null;
   let whatsappConnected = whatsappConfig.data?.status === 'connected';
@@ -80,7 +83,7 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
     team: team.data ?? [],
     portal: portal.data?.enabled ? portal.data : null,
     reviews: reviews.data ?? [],
-    googleReviews: googleReviews.reviews,
+    googleReviews: importedGoogleReviews.length ? importedGoogleReviews.map((review) => ({ rating: Number(review.rating), comment: review.comment ?? '', name: review.reviewer_name || 'Cliente Google', publishedAt: review.reviewed_at?.toISOString() ?? null, mapsUrl: null })) : googleReviews.reviews,
     googleMapsUrl: googleReviews.mapsUrl || (settings as PublicSiteSettings).google_review_url || null,
     whatsappConnected,
   };
