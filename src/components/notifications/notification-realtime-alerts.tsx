@@ -66,6 +66,7 @@ export function NotificationRealtimeAlerts() {
   const userId = user?.id ?? null;
   const seenEventsRef = useRef<Set<string>>(new Set());
   const seenGroupAtRef = useRef<Map<string, number>>(new Map());
+  const subscriptionStartedAtRef = useRef(0);
 
   const openNotification = useCallback(
     (notification: Notification) => {
@@ -91,6 +92,7 @@ export function NotificationRealtimeAlerts() {
     if (!accountId || !userId) return;
 
     const supabase = createClient();
+    subscriptionStartedAtRef.current = Date.now();
     const channel = supabase
       .channel(`notification-realtime-alerts-${accountId}-${userId}`)
       .on(
@@ -114,6 +116,14 @@ export function NotificationRealtimeAlerts() {
 
           if (notification.user_id !== userId) return;
           if (notification.read_at || notification.resolved_at) return;
+          // Do not surface stale rows when the realtime channel reconnects.
+          // New alerts generated after this subscription are unaffected.
+          if (
+            notification.created_at &&
+            new Date(notification.created_at).getTime() <
+              subscriptionStartedAtRef.current - 1000
+          )
+            return;
           if (seenEventsRef.current.has(eventKey)) return;
 
           seenEventsRef.current.add(eventKey);

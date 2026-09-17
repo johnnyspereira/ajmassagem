@@ -593,7 +593,10 @@ export async function POST(request: Request) {
             [
               String(body.text ?? `[${contentType}]`),
               new Date(String(body.timestamp ?? new Date().toISOString())),
-              direction === 'customer' ? 1 : 0,
+              // A sync snapshot imports existing WhatsApp history. It must
+              // never create a new unread conversation merely because the
+              // browser/worker was restarted.
+              direction === 'customer' && !body.historical ? 1 : 0,
               conversationId,
             ]
           );

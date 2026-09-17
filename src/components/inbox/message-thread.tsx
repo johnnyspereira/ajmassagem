@@ -648,14 +648,28 @@ export function MessageThread({
   // Guarding on hasUnread prevents the eq-update loop: once unread_count
   // is 0 the condition is false, so no further UPDATE is issued.
   useEffect(() => {
-    if (!conversationId || !hasUnread) return;
+    if (!conversationId) return;
     const supabase = createClient();
+    if (hasUnread) {
+      supabase
+        .from('conversations')
+        .update({ unread_count: 0 })
+        .eq('id', conversationId)
+        .then(({ error }) => {
+          if (error) console.error('Failed to reset unread_count:', error);
+        });
+    }
+    // Reading a thread also resolves its inbox notifications. Previously a
+    // conversation could be read while its old notifications stayed unread,
+    // then appeared again after the browser was reopened.
     supabase
-      .from('conversations')
-      .update({ unread_count: 0 })
-      .eq('id', conversationId)
+      .from('notifications')
+      .update({ read_at: new Date().toISOString() })
+      .eq('conversation_id', conversationId)
+      .eq('type', 'new_message_received')
+      .is('read_at', null)
       .then(({ error }) => {
-        if (error) console.error('Failed to reset unread_count:', error);
+        if (error) console.error('Failed to mark conversation notifications read:', error);
       });
   }, [conversationId, hasUnread]);
 

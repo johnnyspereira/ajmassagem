@@ -64,6 +64,7 @@ export function InboxFloatingAlerts() {
   const [alerts, setAlerts] = useState<FloatingInboxAlert[]>([]);
   const pathnameRef = useRef(pathname);
   const seenMessageIdsRef = useRef<Set<string>>(new Set());
+  const subscriptionStartedAtRef = useRef(0);
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map()
   );
@@ -121,6 +122,7 @@ export function InboxFloatingAlerts() {
     if (!user?.id) return;
 
     const supabase = createClient();
+    subscriptionStartedAtRef.current = Date.now();
     const channel = supabase
       .channel('floating-inbox-alerts')
       .on(
@@ -131,6 +133,14 @@ export function InboxFloatingAlerts() {
 
           if (pathnameRef.current.startsWith('/inbox')) return;
           if (message.sender_type !== 'customer') return;
+          // A reconnect can replay rows that were already present in the
+          // database. They belong in the Inbox, not in a fresh popup.
+          if (
+            message.created_at &&
+            new Date(message.created_at).getTime() <
+              subscriptionStartedAtRef.current - 1000
+          )
+            return;
           if (seenMessageIdsRef.current.has(message.id)) return;
           seenMessageIdsRef.current.add(message.id);
 
