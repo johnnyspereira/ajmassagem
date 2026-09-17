@@ -1489,55 +1489,35 @@ export function FinancePage({
         </div>
       ) : null}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-5">
-        <nav aria-label="Navegação financeira" className="rounded-2xl border border-border bg-card p-2 shadow-sm">
+        <nav aria-label="Navegação financeira" className="rounded-xl border border-border bg-card p-1.5 shadow-sm">
           <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-transparent p-0 sm:grid-cols-4 xl:grid-cols-7">
             <TabsTrigger
               value="overview"
-              className="data-active:border-primary data-active:bg-primary/10 min-h-16 justify-start rounded-xl border border-transparent px-3 py-2 text-left hover:bg-muted/70"
+              className="data-active:border-primary data-active:bg-primary/10 h-11 justify-center gap-2 rounded-lg border border-transparent px-2 text-sm font-semibold whitespace-nowrap hover:bg-muted/70"
             >
               <LayoutDashboard />
-              <span className="text-left">
-                <span className="block font-semibold">Visão geral</span>
-                <span className="text-muted-foreground block text-[10px]">
-                  Indicadores e ações
-                </span>
-              </span>
+              Visão geral
             </TabsTrigger>
             <TabsTrigger
               value="pos"
-              className="data-active:border-primary data-active:bg-primary/10 min-h-16 justify-start rounded-xl border border-transparent px-3 py-2 text-left hover:bg-muted/70"
+              className="data-active:border-primary data-active:bg-primary/10 h-11 justify-center gap-2 rounded-lg border border-transparent px-2 text-sm font-semibold whitespace-nowrap hover:bg-muted/70"
             >
               <ShoppingCart />
-              <span className="text-left">
-                <span className="block font-semibold">Ponto de venda</span>
-                <span className="text-muted-foreground block text-[10px]">
-                  Cobrar e faturar
-                </span>
-              </span>
+              Ponto de venda
             </TabsTrigger>
             <TabsTrigger
               value="sales"
-              className="data-active:border-primary data-active:bg-primary/10 min-h-16 justify-start rounded-xl border border-transparent px-3 py-2 text-left hover:bg-muted/70"
+              className="data-active:border-primary data-active:bg-primary/10 h-11 justify-center gap-2 rounded-lg border border-transparent px-2 text-sm font-semibold whitespace-nowrap hover:bg-muted/70"
             >
               <ReceiptText />
-              <span className="text-left">
-                <span className="block font-semibold">Vendas</span>
-                <span className="text-muted-foreground block text-[10px]">
-                  Histórico e saldos
-                </span>
-              </span>
+              Vendas
             </TabsTrigger>
             <TabsTrigger
               value="invoices"
-              className="data-active:border-primary data-active:bg-primary/10 min-h-16 justify-start rounded-xl border border-transparent px-3 py-2 text-left hover:bg-muted/70"
+              className="data-active:border-primary data-active:bg-primary/10 h-11 justify-center gap-2 rounded-lg border border-transparent px-2 text-sm font-semibold whitespace-nowrap hover:bg-muted/70"
             >
               <FileClock />
-              <span className="text-left">
-                <span className="block font-semibold">Faturas</span>
-                <span className="text-muted-foreground block text-[10px]">
-                  Pedidos e documentos
-                </span>
-              </span>
+              Faturas
               {invoiceRequests.filter((item) => item.status === 'pending')
                 .length > 0 && (
                 <Badge variant="destructive">
@@ -1550,39 +1530,24 @@ export function FinancePage({
             </TabsTrigger>
             <TabsTrigger
               value="cash"
-              className="data-active:border-primary data-active:bg-primary/10 min-h-16 justify-start rounded-xl border border-transparent px-3 py-2 text-left hover:bg-muted/70"
+              className="data-active:border-primary data-active:bg-primary/10 h-11 justify-center gap-2 rounded-lg border border-transparent px-2 text-sm font-semibold whitespace-nowrap hover:bg-muted/70"
             >
               <Banknote />
-              <span className="text-left">
-                <span className="block font-semibold">Caixa</span>
-                <span className="text-muted-foreground block text-[10px]">
-                  Sessões e movimentos
-                </span>
-              </span>
+              Caixa
             </TabsTrigger>
             <TabsTrigger
               value="vouchers"
-              className="data-active:border-primary data-active:bg-primary/10 min-h-16 justify-start rounded-xl border border-transparent px-3 py-2 text-left hover:bg-muted/70"
+              className="data-active:border-primary data-active:bg-primary/10 h-11 justify-center gap-2 rounded-lg border border-transparent px-2 text-sm font-semibold whitespace-nowrap hover:bg-muted/70"
             >
               <Gift />
-              <span className="text-left">
-                <span className="block font-semibold">Vouchers</span>
-                <span className="text-muted-foreground block text-[10px]">
-                  Saldos e utilização
-                </span>
-              </span>
+              Vouchers
             </TabsTrigger>
             <TabsTrigger
               value="packs"
-              className="data-active:border-primary data-active:bg-primary/10 min-h-16 justify-start rounded-xl border border-transparent px-3 py-2 text-left hover:bg-muted/70"
+              className="data-active:border-primary data-active:bg-primary/10 h-11 justify-center gap-2 rounded-lg border border-transparent px-2 text-sm font-semibold whitespace-nowrap hover:bg-muted/70"
             >
               <PackageCheck />
-              <span className="text-left">
-                <span className="block font-semibold">Packs</span>
-                <span className="text-muted-foreground block text-[10px]">
-                  Planos e sessões
-                </span>
-              </span>
+              Packs
             </TabsTrigger>
           </TabsList>
         </nav>
