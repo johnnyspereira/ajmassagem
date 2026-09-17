@@ -30,7 +30,9 @@ export async function POST(request: NextRequest) {
   if (!Number.isFinite(amount) || amount <= 0) return NextResponse.json({ error: 'Esta venda não tem valor pendente.' }, { status: 400 });
 
   const currency = String(sale.currency || 'EUR').toUpperCase();
-  const description = `Cobrança da venda #${sale.sale_number}`;
+  // The hosted checkout is customer-facing. Keep its wording professional and
+  // discreet: service details remain in the CRM/receipt, never on SumUp.
+  const description = 'Prestação de serviços';
   const admin = createAdminClient();
   const { data: link, error: linkError } = await admin
     .from('finance_payment_links')

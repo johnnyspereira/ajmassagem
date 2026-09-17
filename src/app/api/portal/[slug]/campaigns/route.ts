@@ -154,7 +154,7 @@ export async function POST(
       const origin = new URL(request.url).origin;
       const checkoutResponse = await sumUpRequest('/v0.1/checkouts', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: Number(price.toFixed(2)), checkout_reference: linkId, currency, description: campaign.title, merchant_code: merchantCode, redirect_url: `${origin}/portal/${encodeURIComponent(slug)}?tab=finance`, return_url: `${origin}/api/finance/webhooks/sumup`, hosted_checkout: { enabled: true } }),
+        body: JSON.stringify({ amount: Number(price.toFixed(2)), checkout_reference: linkId, currency, description: 'Prestação de serviços', merchant_code: merchantCode, redirect_url: `${origin}/portal/${encodeURIComponent(slug)}?tab=finance`, return_url: `${origin}/api/finance/webhooks/sumup`, hosted_checkout: { enabled: true } }),
       });
       const checkout = await checkoutResponse.json().catch(() => ({})) as { id?: string; hosted_checkout_url?: string; status?: string; message?: string };
       if (!checkoutResponse.ok || !checkout.id || !checkout.hosted_checkout_url) throw new Error(checkout.message || 'A SumUp não devolveu um checkout válido.');
