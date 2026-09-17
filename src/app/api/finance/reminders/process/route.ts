@@ -21,6 +21,11 @@ type Delivery = {
   notification: { title: string; body: string | null } | null;
 };
 
+type QueuedReminder = {
+  id: string;
+  whatsapp_message_id: string | null;
+};
+
 export async function GET(request: Request) {
   const expected = process.env.AUTOMATION_CRON_SECRET;
   if (!expected)
@@ -35,6 +40,57 @@ export async function GET(request: Request) {
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
   const created = (data ?? []) as CreatedNotification[];
+
+  // A queue acknowledgement is not a WhatsApp delivery. Reconcile the
+  // reminder with the message state written by the worker before creating
+  // more work, so the UI and logs never call a queued alert "sent".
+  const { data: awaiting } = await admin
+    .from('finance_reminder_deliveries')
+    .select('id,whatsapp_message_id')
+    .in('status', ['queued', 'sending'])
+    .not('whatsapp_message_id', 'is', null)
+    .limit(100);
+  const queuedDeliveries = (awaiting ?? []) as QueuedReminder[];
+  const queuedMessageIds = queuedDeliveries
+    .map((item) => item.whatsapp_message_id)
+    .filter((id): id is string => Boolean(id));
+  if (queuedMessageIds.length) {
+    const { data: messages } = await admin
+      .from('messages')
+      .select('id,status')
+      .in('id', queuedMessageIds);
+    const statusByMessageId = new Map(
+      (messages ?? []).map((message) => [message.id, message.status])
+    );
+    await Promise.all(
+      queuedDeliveries.map((delivery) => {
+        const status = delivery.whatsapp_message_id
+          ? statusByMessageId.get(delivery.whatsapp_message_id)
+          : null;
+        if (status === 'sent')
+          return admin
+            .from('finance_reminder_deliveries')
+            .update({
+              status: 'sent',
+              sent_at: new Date().toISOString(),
+              last_error: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', delivery.id);
+        if (status === 'failed')
+          return admin
+            .from('finance_reminder_deliveries')
+            .update({
+              status: 'failed',
+              last_error: 'O worker não conseguiu entregar a mensagem.',
+              next_attempt_at: new Date(Date.now() + 5 * 60000).toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', delivery.id);
+        return Promise.resolve({ error: null });
+      })
+    );
+  }
 
   const accountIds = [...new Set(created.map((item) => item.account_id))];
   if (accountIds.length) {
@@ -99,7 +155,7 @@ export async function GET(request: Request) {
     .lte('next_attempt_at', new Date().toISOString())
     .lt('attempts', 5)
     .limit(25);
-  let whatsappSent = 0;
+  let whatsappQueued = 0;
   let whatsappFailed = 0;
   const financeUrl = getPublicUrl('/finance', new URL(request.url).origin);
   for (const delivery of (due ?? []) as unknown as Delivery[]) {
@@ -142,14 +198,14 @@ export async function GET(request: Request) {
       await admin
         .from('finance_reminder_deliveries')
         .update({
-          status: 'sent',
-          sent_at: new Date().toISOString(),
+          status: 'queued',
+          sent_at: null,
           whatsapp_message_id: queued.messageId,
           last_error: null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', delivery.id);
-      whatsappSent++;
+      whatsappQueued++;
       continue;
 
       /* Direct delivery is intentionally replaced by the durable outbox.
@@ -198,7 +254,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     processed: created.length,
     pushed_to_users: userIds.length,
-    whatsapp_sent: whatsappSent,
+    whatsapp_queued: whatsappQueued,
     whatsapp_failed: whatsappFailed,
   });
 }

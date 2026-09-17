@@ -869,8 +869,8 @@ export async function executeMysqlRpc(
         const saleId = randomUUID();
         await transaction(async (connection) => {
           await connection.execute(
-            `INSERT INTO finance_sales(id,account_id,contact_id,appointment_id,cash_session_id,created_by_user_id,status,currency,subtotal,discount_amount,tax_amount,total_amount,paid_amount,balance_due,notes)
-            VALUES(?,?,?,?,?,?,'open',?,?,?,?,?,0,?,?)`,
+            `INSERT INTO finance_sales(id,account_id,contact_id,appointment_id,cash_session_id,created_by_user_id,status,currency,subtotal,discount_amount,tax_amount,total_amount,paid_amount,balance_due,is_historical,notes)
+            VALUES(?,?,?,?,?,?,'open',?,?,?,?,?,0,?,?,?)`,
             [
               saleId,
               context.accountId,
@@ -884,6 +884,7 @@ export async function executeMysqlRpc(
               tax,
               total,
               total,
+              alreadyPaidElsewhere ? 1 : 0,
               optionalText(args.p_notes),
             ]
           );

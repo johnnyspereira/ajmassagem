@@ -617,9 +617,13 @@ export function FinancePage({
   );
   const remaining = Math.max(total - paidNow, 0);
   const financeMetrics = useMemo(() => {
-    const operational = sales.filter(
+    const validSales = sales.filter(
       (sale) => !['voided', 'refunded'].includes(sale.status)
     );
+    // Sales imported as already paid are evidence of a past transaction, not
+    // money that entered this CRM's cash flow. Keep them visible separately.
+    const operational = validSales.filter((sale) => !sale.is_historical);
+    const historical = validSales.filter((sale) => sale.is_historical);
     return {
       billed: operational.reduce(
         (sum, sale) => sum + Number(sale.total_amount),
@@ -632,6 +636,11 @@ export function FinancePage({
       due: operational.reduce((sum, sale) => sum + Number(sale.balance_due), 0),
       openSales: operational.filter((sale) => Number(sale.balance_due) > 0)
         .length,
+      historicalTotal: historical.reduce(
+        (sum, sale) => sum + Number(sale.total_amount),
+        0
+      ),
+      historicalCount: historical.length,
     };
   }, [sales]);
 
@@ -1421,7 +1430,7 @@ export function FinancePage({
         isOwner={isOwner}
       />
       {activeTab === 'overview' && (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <FinanceMetric
             label="Faturado"
             value={money(financeMetrics.billed, defaultCurrency)}
@@ -1439,6 +1448,12 @@ export function FinancePage({
             value={money(financeMetrics.due, defaultCurrency)}
             detail={`${financeMetrics.openSales} contas pendentes`}
             icon={History}
+          />
+          <FinanceMetric
+            label="Histórico externo"
+            value={money(financeMetrics.historicalTotal, defaultCurrency)}
+            detail={`${financeMetrics.historicalCount} venda(s) já faturada(s)`}
+            icon={ReceiptText}
           />
           <FinanceMetric
             label="Caixa esperado"

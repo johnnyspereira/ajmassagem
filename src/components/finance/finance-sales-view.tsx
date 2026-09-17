@@ -52,8 +52,11 @@ export function SalesView({
     return sales.filter((sale) => {
       const matchesStatus =
         status === 'all' ||
+        (status === 'historical'
+          ? Boolean(sale.is_historical)
+          : false) ||
         (status === 'active'
-          ? !['voided', 'refunded'].includes(sale.status)
+          ? !sale.is_historical && !['voided', 'refunded'].includes(sale.status)
           : sale.status === status);
       const haystack =
         `${sale.sale_number} ${sale.contact?.name ?? ''} ${sale.contact?.phone ?? ''} ${(sale.items ?? []).map((item) => item.name_snapshot).join(' ')}`.toLocaleLowerCase();
@@ -75,6 +78,7 @@ export function SalesView({
         </div>
         <NativeSelect value={status} onChange={setStatus}>
           <option value="active">Vendas operacionais</option>
+          <option value="historical">Já faturadas / retroativas</option>
           <option value="all">Todos os estados</option>
           <option value="open">Pendentes</option>
           <option value="partially_paid">Parciais</option>
@@ -134,6 +138,11 @@ export function SalesView({
                   >
                     {SALE_STATUS[sale.status] ?? sale.status}
                   </Badge>
+                  {sale.is_historical ? (
+                    <Badge variant="outline" className="mt-1 border-amber-400 text-amber-700">
+                      Já faturada
+                    </Badge>
+                  ) : null}
                   {Number(sale.balance_due) > 0 && (
                     <p className="mt-1 text-xs text-amber-600">
                       Falta{' '}

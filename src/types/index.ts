@@ -667,6 +667,8 @@ export interface FinanceSale {
   total_amount: number;
   paid_amount: number;
   balance_due: number;
+  /** A sale recorded for audit after it was paid outside this CRM. */
+  is_historical?: boolean;
   notes?: string | null;
   completed_at?: string | null;
   voided_at?: string | null;
