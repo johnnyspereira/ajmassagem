@@ -169,13 +169,46 @@ class BrowserQueryBuilder<T = unknown> implements PromiseLike<
   }
 
   private async execute(): Promise<MysqlQueryResponse<T>> {
-    const response = await fetch('/api/mysql/query', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(this.request),
-    });
-    return (await response.json()) as MysqlQueryResponse<T>;
+    try {
+      const response = await fetch('/api/mysql/query', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.request),
+      });
+      const raw = await response.text();
+      const contentType = response.headers.get('content-type') ?? '';
+
+      if (contentType.includes('application/json')) {
+        return JSON.parse(raw) as MysqlQueryResponse<T>;
+      }
+
+      // Passenger/cPanel error pages are HTML. Returning a standard query
+      // error keeps the form usable and avoids the misleading JSON parser
+      // message "Unexpected token '<'" in every CRM screen.
+      const status = response.status || 502;
+      const detail = status === 508
+        ? 'O alojamento atingiu o limite de recursos (508).'
+        : `O servidor respondeu HTTP ${status}.`;
+      return {
+        data: null,
+        error: { message: `${detail} Tente novamente após reiniciar a aplicação.`, code: `HTTP_${status}` },
+        count: null,
+        status,
+        statusText: response.statusText || 'Server error',
+      } as MysqlQueryResponse<T>;
+    } catch (error) {
+      return {
+        data: null,
+        error: {
+          message: `Não foi possível contactar o servidor: ${error instanceof Error ? error.message : 'erro de rede.'}`,
+          code: 'NETWORK_ERROR',
+        },
+        count: null,
+        status: 503,
+        statusText: 'Network error',
+      } as MysqlQueryResponse<T>;
+    }
   }
 }
 
