@@ -47,7 +47,7 @@ const relations: Record<string, Record<string, Relation>> = {
   portal_campaign_enrollments: { contact: r('contacts','contact_id') },
   support_tickets: { messages: r('support_ticket_messages','id','ticket_id',true), contact: r('contacts','contact_id') },
   social_scheduled_posts: { segment: r('contact_segments','segment_id') },
-  work_sessions: { breaks: r('work_breaks','id','work_session_id',true) },
+  work_sessions: { breaks: r('work_breaks','id','session_id',true) },
 };
 
 type Node = { alias: string; children: Node[] };

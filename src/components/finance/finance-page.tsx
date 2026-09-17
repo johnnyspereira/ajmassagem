@@ -1473,12 +1473,12 @@ export function FinancePage({
           </span>
         </div>
       ) : null}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-4">
-        <div className="sticky top-0 z-20 -mx-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white/90 p-1.5 shadow-sm backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90">
-          <TabsList className="flex h-auto w-full min-w-max justify-start gap-1 bg-transparent p-0 [&_button]:!h-11 [&_button]:!min-h-0 [&_button]:!rounded-xl [&_button]:!border-0 [&_button]:!px-3.5 [&_button]:!py-2 [&_button]:!shadow-none [&_button>span>span:last-child]:hidden">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-5">
+        <nav aria-label="Navegação financeira" className="rounded-2xl border border-border bg-card p-2 shadow-sm">
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-transparent p-0 sm:grid-cols-4 xl:grid-cols-7">
             <TabsTrigger
               value="overview"
-              className="border-border data-active:border-primary data-active:bg-primary/5 bg-card min-h-16 justify-start rounded-xl border px-3 py-2 shadow-sm"
+              className="data-active:border-primary data-active:bg-primary/10 min-h-16 justify-start rounded-xl border border-transparent px-3 py-2 text-left hover:bg-muted/70"
             >
               <LayoutDashboard />
               <span className="text-left">
@@ -1490,7 +1490,7 @@ export function FinancePage({
             </TabsTrigger>
             <TabsTrigger
               value="pos"
-              className="border-border data-active:border-primary data-active:bg-primary/5 bg-card min-h-16 justify-start rounded-xl border px-3 py-2 shadow-sm"
+              className="data-active:border-primary data-active:bg-primary/10 min-h-16 justify-start rounded-xl border border-transparent px-3 py-2 text-left hover:bg-muted/70"
             >
               <ShoppingCart />
               <span className="text-left">
@@ -1502,7 +1502,7 @@ export function FinancePage({
             </TabsTrigger>
             <TabsTrigger
               value="sales"
-              className="border-border data-active:border-primary data-active:bg-primary/5 bg-card min-h-16 justify-start rounded-xl border px-3 py-2 shadow-sm"
+              className="data-active:border-primary data-active:bg-primary/10 min-h-16 justify-start rounded-xl border border-transparent px-3 py-2 text-left hover:bg-muted/70"
             >
               <ReceiptText />
               <span className="text-left">
@@ -1514,7 +1514,7 @@ export function FinancePage({
             </TabsTrigger>
             <TabsTrigger
               value="invoices"
-              className="border-border data-active:border-primary data-active:bg-primary/5 bg-card min-h-16 justify-start rounded-xl border px-3 py-2 shadow-sm"
+              className="data-active:border-primary data-active:bg-primary/10 min-h-16 justify-start rounded-xl border border-transparent px-3 py-2 text-left hover:bg-muted/70"
             >
               <FileClock />
               <span className="text-left">
@@ -1535,7 +1535,7 @@ export function FinancePage({
             </TabsTrigger>
             <TabsTrigger
               value="cash"
-              className="border-border data-active:border-primary data-active:bg-primary/5 bg-card min-h-16 justify-start rounded-xl border px-3 py-2 shadow-sm"
+              className="data-active:border-primary data-active:bg-primary/10 min-h-16 justify-start rounded-xl border border-transparent px-3 py-2 text-left hover:bg-muted/70"
             >
               <Banknote />
               <span className="text-left">
@@ -1547,7 +1547,7 @@ export function FinancePage({
             </TabsTrigger>
             <TabsTrigger
               value="vouchers"
-              className="border-border data-active:border-primary data-active:bg-primary/5 bg-card min-h-16 justify-start rounded-xl border px-3 py-2 shadow-sm"
+              className="data-active:border-primary data-active:bg-primary/10 min-h-16 justify-start rounded-xl border border-transparent px-3 py-2 text-left hover:bg-muted/70"
             >
               <Gift />
               <span className="text-left">
@@ -1559,7 +1559,7 @@ export function FinancePage({
             </TabsTrigger>
             <TabsTrigger
               value="packs"
-              className="border-border data-active:border-primary data-active:bg-primary/5 bg-card min-h-16 justify-start rounded-xl border px-3 py-2 shadow-sm"
+              className="data-active:border-primary data-active:bg-primary/10 min-h-16 justify-start rounded-xl border border-transparent px-3 py-2 text-left hover:bg-muted/70"
             >
               <PackageCheck />
               <span className="text-left">
@@ -1570,7 +1570,7 @@ export function FinancePage({
               </span>
             </TabsTrigger>
           </TabsList>
-        </div>
+        </nav>
 
         <TabsContent value="overview">
           <FinanceOverview

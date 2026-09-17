@@ -494,10 +494,10 @@ export function ReportsPage() {
         .limit(5000),
       supabase
         .from('messages')
-        .select(
-          'id,conversation_id,sender_type,status,created_at,conversation:conversations!inner(account_id)'
-        )
-        .eq('conversation.account_id', accountId)
+        // The local MySQL client scopes messages through their conversation.
+        // It cannot filter using PostgREST's nested `conversation.account_id`
+        // syntax, which is not a real MySQL column.
+        .select('id,conversation_id,sender_type,status,created_at')
         .gte('created_at', range.currentStart)
         .lte('created_at', range.currentEnd)
         .order('created_at')
