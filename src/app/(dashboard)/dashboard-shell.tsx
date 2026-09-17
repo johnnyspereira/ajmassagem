@@ -14,6 +14,7 @@ import { PushNotifications } from '@/components/notifications/push-notifications
 import { WorkTimeProvider } from '@/components/work-time/work-time-provider';
 import { DocumentTitle } from '@/components/layout/document-title';
 import { ContextualHelp } from '@/components/support/contextual-help';
+import { MobileAppNavigation } from '@/components/layout/mobile-app-navigation';
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
 // itself can stay a server component and export metadata (noindex) —
@@ -73,7 +74,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
               href="/finance?tab=pos"
               aria-label="Abrir ponto de venda"
               title="Abrir POS"
-              className="bg-primary text-primary-foreground hover:bg-primary-hover fixed right-5 bottom-20 z-40 flex size-12 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-offset-2 sm:right-5 sm:bottom-5"
+              className="bg-primary text-primary-foreground hover:bg-primary-hover fixed right-5 bottom-24 z-40 flex size-12 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-offset-2 sm:right-5 sm:bottom-5"
             >
               <ShoppingCart className="size-5" />
               <span className="sr-only">Abrir POS</span>
@@ -89,6 +90,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
                 drawerOnly={navigationLayout === 'topbar'}
               />
             </div>
+            <MobileAppNavigation onOpenMenu={() => setSidebarOpen(true)} />
           </>
         )}
         <div className="flex flex-1 flex-col overflow-hidden">
