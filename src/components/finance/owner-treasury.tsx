@@ -232,6 +232,7 @@ export function OwnerTreasury() {
   const [activeTab, setActiveTab] = useState<
     'overview' | 'calendar' | 'payables' | 'receivables'
   >('overview');
+  const [payableView, setPayableView] = useState<'pending' | 'paid'>('pending');
   const [month, setMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -411,6 +412,18 @@ export function OwnerTreasury() {
     },
     [search, statusFilter]
   );
+
+  const visiblePayables = filterEntries(payables)
+    .filter((item) =>
+      payableView === 'pending' ? item.status === 'pending' : item.status === 'paid'
+    )
+    .sort((left, right) => {
+      const leftDate = payableView === 'paid' ? left.paid_at || left.due_date : left.due_date;
+      const rightDate = payableView === 'paid' ? right.paid_at || right.due_date : right.due_date;
+      return payableView === 'paid'
+        ? rightDate.localeCompare(leftDate)
+        : leftDate.localeCompare(rightDate);
+    });
 
   function openCreate(kind: Draft['kind'], sale?: FinanceSale) {
     setEditing(null);
@@ -866,6 +879,35 @@ export function OwnerTreasury() {
             payables={payables}
             currency={defaultCurrency}
           />
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-muted/30 p-2">
+            <div className="flex gap-1 rounded-xl bg-background p-1">
+              <Button
+                size="sm"
+                variant={payableView === 'pending' ? 'default' : 'ghost'}
+                onClick={() => {
+                  setPayableView('pending');
+                  setStatusFilter('all');
+                }}
+              >
+                A pagar ({payables.filter((item) => item.status === 'pending').length})
+              </Button>
+              <Button
+                size="sm"
+                variant={payableView === 'paid' ? 'default' : 'ghost'}
+                onClick={() => {
+                  setPayableView('paid');
+                  setStatusFilter('all');
+                }}
+              >
+                Concluídas ({payables.filter((item) => item.status === 'paid').length})
+              </Button>
+            </div>
+            <p className="text-muted-foreground text-xs">
+              {payableView === 'pending'
+                ? 'Ordenadas por vencimento: o que precisa de pagar aparece primeiro.'
+                : 'Histórico de pagamentos concluídos, do mais recente para o mais antigo.'}
+            </p>
+          </div>
           <EntryFilters
             search={search}
             setSearch={setSearch}
@@ -874,7 +916,7 @@ export function OwnerTreasury() {
           />
           <EntriesList
             kind="payable"
-            entries={filterEntries(payables)}
+            entries={visiblePayables}
             currency={defaultCurrency}
             onSettle={(entry) =>
               setSettlement({
@@ -1714,13 +1756,16 @@ function EntriesList({
                         : 'secondary'
                       : 'outline'
                   }
+                  className={cn(
+                    !pending && 'border-emerald-300 bg-emerald-100 text-emerald-800 hover:bg-emerald-100'
+                  )}
                 >
                   {pending
                     ? entry.due_date < today()
                       ? 'Vencido'
                       : 'Pendente'
                     : kind === 'payable'
-                      ? 'Paga'
+                      ? 'PAGO'
                       : 'Recebida'}
                 </Badge>
               </div>
@@ -1895,7 +1940,7 @@ function TreasuryCalendar({
               day > 0 && day <= days
                 ? `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
                 : '';
-            const dayEvents = pendingEvents.filter(
+            const dayEvents = events.filter(
               (event) => dateKey(event.due_date) === key
             );
             return (
@@ -1915,12 +1960,17 @@ function TreasuryCalendar({
                     title={`${event.description} · ${formatCurrency(Number(event.amount), event.currency || currency)}`}
                     className={cn(
                       'mt-1 truncate rounded px-1.5 py-1 text-[10px] font-medium',
-                      event.kind === 'payable'
-                        ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'
-                        : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
+                      event.status === 'paid' || event.status === 'received'
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
+                        : event.kind === 'payable'
+                          ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'
+                          : 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200'
                     )}
                   >
                     {event.kind === 'payable' ? '−' : '+'}{' '}
+                    {event.status === 'paid' || event.status === 'received'
+                      ? 'PAGO · '
+                      : ''}
                     {event.description}
                   </div>
                 ))}
