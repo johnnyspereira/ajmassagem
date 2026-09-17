@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { CornerUpLeft, Copy, SmilePlus } from 'lucide-react';
+import { CornerUpLeft, Copy, RotateCw, SmilePlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
@@ -20,6 +20,7 @@ interface MessageActionsProps {
   message: Message;
   onReply: () => void;
   onReact: (emoji: string) => void;
+  onRetry?: () => void;
   children: ReactNode;
 }
 
@@ -32,6 +33,7 @@ export function MessageActions({
   message,
   onReply,
   onReact,
+  onRetry,
   children,
 }: MessageActionsProps) {
   const t = useTranslations('Inbox.actions');
@@ -141,6 +143,20 @@ export function MessageActions({
           >
             <Copy className="h-3.5 w-3.5" />
           </button>
+          {message.status === 'failed' && onRetry && (
+            <button
+              type="button"
+              onClick={() => {
+                onRetry();
+                setTouchOpen(false);
+              }}
+              className="text-popover-foreground hover:bg-muted hover:text-foreground flex h-5 w-5 items-center justify-center rounded-full"
+              aria-label="Tentar enviar novamente"
+              title="Tentar enviar novamente"
+            >
+              <RotateCw className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       </div>
     </div>

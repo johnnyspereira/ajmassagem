@@ -697,6 +697,27 @@ export function MessageThread({
     [onUpdateMessage]
   );
 
+  const retryFailedMessage = useCallback(
+    async (message: Message) => {
+      if (message.status !== 'failed') return;
+      onUpdateMessage(message.id, { status: 'sending' });
+      try {
+        const response = await fetch('/api/whatsapp/outbox/retry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message_id: message.id }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Não foi possível reenviar a mensagem.');
+        toast.success('Mensagem colocada novamente na fila de envio.');
+      } catch (error) {
+        onUpdateMessage(message.id, { status: 'failed' });
+        toast.error(error instanceof Error ? error.message : 'Não foi possível reenviar a mensagem.');
+      }
+    },
+    [onUpdateMessage]
+  );
+
   const handleSend = useCallback(
     async (text: string, replyToId?: string) => {
       if (!conversation) return;
@@ -1494,6 +1515,7 @@ export function MessageThread({
                         onReact={(emoji) => {
                           if (emoji) void postReaction(msg.id, emoji);
                         }}
+                        onRetry={() => void retryFailedMessage(msg)}
                       >
                         <MessageBubble
                           message={msg}
@@ -1501,6 +1523,7 @@ export function MessageThread({
                           reactions={msgReactions}
                           currentUserId={user?.id}
                           onToggleReaction={handlePillToggle}
+                          onRetry={() => void retryFailedMessage(msg)}
                         />
                       </MessageActions>
                     );

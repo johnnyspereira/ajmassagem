@@ -15,6 +15,7 @@ import {
   Sparkles,
   Languages,
   Loader2,
+  RotateCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -30,6 +31,7 @@ interface MessageBubbleProps {
   reactions?: MessageReaction[];
   currentUserId?: string;
   onToggleReaction?: (emoji: string) => void;
+  onRetry?: () => void;
 }
 
 function StatusIcon({ status }: { status: Message['status'] }) {
@@ -287,6 +289,7 @@ export function MessageBubble({
   reactions,
   currentUserId,
   onToggleReaction,
+  onRetry,
 }: MessageBubbleProps) {
   const t = useTranslations('Inbox.bubble');
 
@@ -404,6 +407,15 @@ export function MessageBubble({
           </span>
           {isAgent && <StatusIcon status={message.status} />}
         </div>
+        {isAgent && message.status === 'failed' && onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-primary-foreground/85 underline-offset-2 hover:underline"
+          >
+            <RotateCw className="h-3 w-3" /> Tentar novamente
+          </button>
+        )}
       </div>
       {reactions && reactions.length > 0 && onToggleReaction && (
         <MessageReactions
