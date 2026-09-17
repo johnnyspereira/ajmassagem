@@ -14,6 +14,7 @@ import { handleWhatsAppRescheduleReply } from '@/lib/clinic/appointment-whatsapp
 import { enqueueWhatsAppMessage } from '@/lib/whatsapp/outbox';
 import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 import { handleOwnerInboxCommand } from '@/lib/ai/owner-inbox-commands';
+import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply';
 
 async function authorized(
   request: Request,
@@ -745,6 +746,29 @@ export async function POST(request: Request) {
             notificationError
           );
         });
+
+        // QR/WhatsApp Web traffic enters through this bridge instead of the
+        // Meta webhook. Without this dispatch, the Inbox could display an
+        // enabled AI assistant that never received an inbound event at all.
+        // Keep historical sync out of the bot and leave non-text events to
+        // the deterministic handlers above, exactly as the Meta path does.
+        if (
+          contentType === 'text' &&
+          !body.historical &&
+          String(body.text ?? '').trim() &&
+          // Appointment commands already have deterministic, auditable
+          // responders above. Never let the AI add a second answer.
+          !/\b(confirmar|reagendar|remarcar|alterar|mudar|cancelar|cancela)\b/i.test(
+            String(body.text ?? '').normalize('NFD').replace(/\p{Diacritic}/gu, '')
+          )
+        ) {
+          await dispatchInboundToAiReply({
+            accountId,
+            conversationId: result.conversationId,
+            contactId: result.contactId,
+            configOwnerUserId: userId,
+          });
+        }
       }
       return Response.json(result);
     }
