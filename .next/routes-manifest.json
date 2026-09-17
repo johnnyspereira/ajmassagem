@@ -1188,6 +1188,12 @@
       "namedRegex": "^/api/whatsapp/config/verify\\-registration(?:/)?$"
     },
     {
+      "page": "/api/whatsapp/outbox/retry",
+      "regex": "^/api/whatsapp/outbox/retry(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/whatsapp/outbox/retry(?:/)?$"
+    },
+    {
       "page": "/api/whatsapp/react",
       "regex": "^/api/whatsapp/react(?:/)?$",
       "routeKeys": {},
