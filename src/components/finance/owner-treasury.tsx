@@ -132,6 +132,7 @@ type Draft = {
 type Settlement = {
   kind: Draft['kind'];
   id: string;
+  ids?: string[];
   description: string;
   method: FinancePaymentMethod;
   reference: string;
@@ -233,6 +234,7 @@ export function OwnerTreasury() {
     'overview' | 'calendar' | 'payables' | 'receivables'
   >('overview');
   const [payableView, setPayableView] = useState<'pending' | 'paid'>('pending');
+  const [selectedPayableIds, setSelectedPayableIds] = useState<string[]>([]);
   const [month, setMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -594,32 +596,39 @@ export function OwnerTreasury() {
       return;
     }
     setSaving(true);
-    const result = await supabase.rpc(
-      settlement.kind === 'payable'
-        ? 'settle_owner_payable'
-        : 'settle_owner_receivable',
-      settlement.kind === 'payable'
-        ? {
-            p_payable_id: settlement.id,
-            p_payment_method: settlement.method,
-            p_payment_reference: settlement.reference || null,
-            p_cash_session_id: cashSession?.id ?? null,
-          }
-        : {
-            p_receivable_id: settlement.id,
-            p_payment_method: settlement.method,
-            p_payment_reference: settlement.reference || null,
-            p_cash_session_id: cashSession?.id ?? null,
-          }
+    const ids = settlement.ids?.length ? settlement.ids : [settlement.id];
+    const results = await Promise.all(
+      ids.map((id) =>
+        supabase.rpc(
+          settlement.kind === 'payable'
+            ? 'settle_owner_payable'
+            : 'settle_owner_receivable',
+          settlement.kind === 'payable'
+            ? {
+                p_payable_id: id,
+                p_payment_method: settlement.method,
+                p_payment_reference: settlement.reference || null,
+                p_cash_session_id: cashSession?.id ?? null,
+              }
+            : {
+                p_receivable_id: id,
+                p_payment_method: settlement.method,
+                p_payment_reference: settlement.reference || null,
+                p_cash_session_id: cashSession?.id ?? null,
+              }
+        )
+      )
     );
     setSaving(false);
-    if (result.error) return toast.error(result.error.message);
+    const failed = results.find((result) => result.error);
+    if (failed?.error) return toast.error(failed.error.message);
     toast.success(
       settlement.kind === 'payable'
-        ? 'Conta marcada como paga.'
+        ? `${ids.length} conta(s) marcada(s) como paga(s).`
         : 'Prestação marcada como recebida.'
     );
     setSettlement(null);
+    setSelectedPayableIds([]);
     await load();
   }
 
@@ -914,10 +923,45 @@ export function OwnerTreasury() {
             status={statusFilter}
             setStatus={setStatusFilter}
           />
+          {payableView === 'pending' && selectedPayableIds.length > 0 ? (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+              <span className="text-sm font-medium">
+                {selectedPayableIds.length} conta(s) selecionada(s)
+              </span>
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" onClick={() => setSelectedPayableIds([])}>
+                  Limpar
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    setSettlement({
+                      kind: 'payable',
+                      id: selectedPayableIds[0],
+                      ids: selectedPayableIds,
+                      description: `${selectedPayableIds.length} contas a pagar selecionadas`,
+                      method: 'bank_transfer',
+                      reference: '',
+                    })
+                  }
+                >
+                  <CheckCircle2 /> Pagar selecionadas
+                </Button>
+              </div>
+            </div>
+          ) : null}
           <EntriesList
             kind="payable"
             entries={visiblePayables}
             currency={defaultCurrency}
+            selectedIds={selectedPayableIds}
+            onToggleSelection={(id) =>
+              setSelectedPayableIds((current) =>
+                current.includes(id)
+                  ? current.filter((item) => item !== id)
+                  : [...current, id]
+              )
+            }
             onSettle={(entry) =>
               setSettlement({
                 kind: 'payable',
@@ -1721,12 +1765,16 @@ function EntriesList({
   currency,
   onSettle,
   onEdit,
+  selectedIds = [],
+  onToggleSelection,
 }: {
   kind: Draft['kind'];
   entries: Array<Payable | Receivable>;
   currency: string;
   onSettle: (entry: Payable | Receivable) => void;
   onEdit: (entry: Payable | Receivable) => void;
+  selectedIds?: string[];
+  onToggleSelection?: (id: string) => void;
 }) {
   if (!entries.length)
     return (
@@ -1745,6 +1793,16 @@ function EntriesList({
             key={entry.id}
             className="border-border flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4"
           >
+            <div className="flex min-w-0 items-start gap-3">
+              {kind === 'payable' && pending && onToggleSelection ? (
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(entry.id)}
+                  onChange={() => onToggleSelection(entry.id)}
+                  aria-label={`Selecionar ${entry.description}`}
+                  className="mt-1 size-4 accent-primary"
+                />
+              ) : null}
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-medium">{entry.description}</p>
@@ -1816,6 +1874,7 @@ function EntriesList({
                   </Link>
                 )}
               </div>
+            </div>
             </div>
             <div className="flex items-center gap-3">
               <strong>
