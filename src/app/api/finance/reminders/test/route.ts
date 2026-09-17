@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { getPublicUrl } from '@/lib/public-url';
 import { createClient } from '@/lib/supabase/server';
+import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 
 export async function POST(request: Request) {
   const session = await createClient();
@@ -32,11 +33,9 @@ export async function POST(request: Request) {
     // Load the MySQL-backed WhatsApp queue only for this request. If the
     // cPanel runtime lacks its database configuration, the catch below can
     // return a useful error instead of the route failing at module load.
-    const [{ resolveConversationByPhone }, { enqueueWhatsAppMessage }] =
-      await Promise.all([
-        import('@/lib/whatsapp/resolve-conversation'),
-        import('@/lib/whatsapp/outbox'),
-      ]);
+    const { resolveConversationByPhone } = await import(
+      '@/lib/whatsapp/resolve-conversation'
+    );
     const { conversationId } = await resolveConversationByPhone(
       db,
       profile.account_id,
@@ -45,12 +44,17 @@ export async function POST(request: Request) {
     );
     const financeUrl = getPublicUrl('/finance', new URL(request.url).origin);
     const testMessage = `Teste dos alertas financeiros\n\nA ligação entre o Centro Financeiro e o WhatsApp está operacional.\n\nAbrir o financeiro: ${financeUrl}`;
-    const queued = await enqueueWhatsAppMessage({
+    if (!remoteWhatsAppWorker.enabled()) {
+      return Response.json(
+        { error: 'O worker remoto do WhatsApp não está configurado no cPanel.' },
+        { status: 503 }
+      );
+    }
+    const sent = await remoteWhatsAppWorker.send({
       accountId: profile.account_id,
       userId: auth.user.id,
       conversationId,
-      requestKey: `finance-reminder-test-${auth.user.id}-${Date.now()}`,
-      payload: {
+      message: {
         contentType: 'text',
         text: testMessage,
         senderType: 'bot',
@@ -58,9 +62,9 @@ export async function POST(request: Request) {
     });
     return Response.json({
       ok: true,
-      queued: true,
+      deliveredToWorker: true,
       recipient: settings.whatsapp_phone,
-      messageId: queued.messageId,
+      messageId: sent.messageId,
       testedAt: new Date().toISOString(),
     });
 

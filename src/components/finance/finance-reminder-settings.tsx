@@ -117,7 +117,7 @@ export function FinanceReminderSettings({ accountId }: { accountId: string }) {
       const raw = await response.text();
       const contentType = response.headers.get('content-type') ?? '';
       const payload = contentType.includes('application/json')
-        ? (JSON.parse(raw) as { error?: string })
+        ? (JSON.parse(raw) as { error?: string; deliveredToWorker?: boolean })
         : null;
       if (!response.ok) {
         throw new Error(
@@ -131,7 +131,10 @@ export function FinanceReminderSettings({ accountId }: { accountId: string }) {
         );
       }
       setLastTest(new Date());
-      toast.success('Mensagem de teste entregue ao worker do WhatsApp.');
+      if (!payload.deliveredToWorker) {
+        throw new Error('O worker não confirmou a entrega da mensagem de teste.');
+      }
+      toast.success('Teste enviado ao WhatsApp. Confirme a receção no telemóvel.');
     } catch (cause) {
       toast.error(
         cause instanceof Error ? cause.message : 'Falha no teste do WhatsApp.'

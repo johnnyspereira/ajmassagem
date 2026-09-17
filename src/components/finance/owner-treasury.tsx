@@ -15,6 +15,7 @@ import {
   FileUp,
   ExternalLink,
   Filter,
+  LayoutDashboard,
   Loader2,
   PieChart,
   Pencil,
@@ -24,6 +25,7 @@ import {
   Search,
   TrendingUp,
   Users,
+  WalletCards,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -227,6 +229,9 @@ export function OwnerTreasury() {
   const [statusFilter, setStatusFilter] = useState<
     'all' | 'pending' | 'settled' | 'overdue'
   >('all');
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'calendar' | 'payables' | 'receivables'
+  >('overview');
   const [month, setMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -756,6 +761,12 @@ export function OwnerTreasury() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" render={<Link href="/finance?tab=pos" />}>
+              <WalletCards /> Abrir POS
+            </Button>
+            <Button variant="secondary" render={<Link href="/agenda" />}>
+              <CalendarDays /> Agenda
+            </Button>
             <Button variant="outline" onClick={() => setImportOpen(true)}>
               <FileUp /> Importar documento
             </Button>
@@ -764,6 +775,9 @@ export function OwnerTreasury() {
             </Button>
             <Button onClick={() => openCreate('payable')}>
               <Plus /> Nova conta
+            </Button>
+            <Button variant="secondary" onClick={() => openCreate('receivable')}>
+              <ArrowDownRight /> Novo recebimento
             </Button>
           </div>
         </div>
@@ -817,12 +831,12 @@ export function OwnerTreasury() {
           danger={metrics.realizedNet < 0}
         />
       </div>
-      <Tabs defaultValue="overview">
-        <TabsList className="w-full justify-start overflow-x-auto">
-          <TabsTrigger value="overview">Visão geral</TabsTrigger>
-          <TabsTrigger value="calendar">Calendário</TabsTrigger>
-          <TabsTrigger value="payables">Contas a pagar</TabsTrigger>
-          <TabsTrigger value="receivables">Prestações a receber</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-2xl bg-muted/70 p-1 sm:grid-cols-4">
+          <TabsTrigger value="overview" className="h-11 gap-2 rounded-xl text-xs sm:text-sm"><LayoutDashboard className="size-4" />Visão geral</TabsTrigger>
+          <TabsTrigger value="calendar" className="h-11 gap-2 rounded-xl text-xs sm:text-sm"><CalendarDays className="size-4" />Calendário</TabsTrigger>
+          <TabsTrigger value="payables" className="h-11 gap-2 rounded-xl text-xs sm:text-sm"><ArrowUpRight className="size-4" />Contas a pagar</TabsTrigger>
+          <TabsTrigger value="receivables" className="h-11 gap-2 rounded-xl text-xs sm:text-sm"><ArrowDownRight className="size-4" />A receber</TabsTrigger>
         </TabsList>
         <TabsContent value="overview">
           <TreasuryOverview
