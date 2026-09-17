@@ -651,6 +651,13 @@ async function sendOutboxJob(job) {
   if (!providerMessageId && lastSendError) throw lastSendError;
   if (!providerMessageId)
     throw new Error('WhatsApp did not return a message id.');
+  logActivity('outbox_sent', 'Mensagem da Inbox aceite pelo WhatsApp.', {
+    jobId: job.id,
+    conversationId: job.conversation_id,
+    recipient: digits,
+    contentType: type,
+    whatsappMessageId: providerMessageId,
+  });
   await crm('complete_outbox', {
     ...context,
     jobId: job.id,
@@ -727,6 +734,11 @@ async function pollOutbox() {
       try {
         await sendOutboxJob(claimed.job);
       } catch (error) {
+        logActivity('outbox_error', 'Falha ao enviar mensagem da Inbox.', {
+          jobId: claimed.job.id,
+          conversationId: claimed.job.conversation_id,
+          error: error?.message || String(error),
+        });
         await crm('fail_outbox', {
           ...context,
           jobId: claimed.job.id,
