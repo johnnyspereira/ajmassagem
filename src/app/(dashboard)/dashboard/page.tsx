@@ -424,7 +424,7 @@ export default function DashboardPage() {
 
       <FollowUpCommandCenter />
 
-      <section className="space-y-3">
+      <section className="space-y-3 rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-5">
         <DashboardSectionLabel
           eyebrow="Pulso do negócio"
           title="Os números essenciais"
@@ -502,31 +502,19 @@ export default function DashboardPage() {
 
       <section className="space-y-4 rounded-3xl border border-border bg-card p-4 sm:p-5">
         <DashboardSectionLabel
-          eyebrow="Operação"
-          title="Agenda, Portal e benefícios"
-          description="O trabalho que precisa de ser resolvido antes de fechar o dia."
-          href="/agenda"
-          action="Ver agenda"
+          eyebrow="Benefícios"
+          title="Vouchers e packs em movimento"
+          description="Validades e saldos que exigem acompanhamento antes de se tornarem urgentes."
+          href="/finance?tab=vouchers"
+          action="Ver benefícios"
         />
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-      <TodayOperationsPanel
-        data={today}
-        loading={todayLoading}
-        currency={defaultCurrency}
-        error={Boolean(loadErrors['Operação diária'])}
-      />
-        </div>
-
-      </div>
-
       <ExpiringBenefitsPanel
         benefits={expiringBenefits}
         loading={expiringBenefitsLoading}
       />
       </section>
 
-      <section className="space-y-3">
+      <section className="space-y-3 rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-5">
         <DashboardSectionLabel
           eyebrow="Acesso rápido"
           title="Comece uma tarefa em segundos"
@@ -535,38 +523,42 @@ export default function DashboardPage() {
         <QuickActions />
       </section>
 
-      <DashboardSectionLabel
-        eyebrow="Clientes e receita"
-        title="Continuar conversas e fechar vendas"
-        description="Veja quem espera resposta e onde está a receita em aberto."
-        href="/contacts"
-        action="Ver clientes"
-      />
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <InboxOperationsPanel data={inboxOps} loading={inboxOpsLoading} />
-        </div>
-        <SalesInsightsPanel
-          data={sales}
-          loading={salesLoading}
-          currency={defaultCurrency}
+      <section className="space-y-4 rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-5">
+        <DashboardSectionLabel
+          eyebrow="Clientes e receita"
+          title="Continuar conversas e fechar vendas"
+          description="Veja quem espera resposta e onde está a receita em aberto."
+          href="/contacts"
+          action="Ver clientes"
         />
-      </div>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+          <div className="xl:col-span-2">
+            <InboxOperationsPanel data={inboxOps} loading={inboxOpsLoading} />
+          </div>
+          <SalesInsightsPanel
+            data={sales}
+            loading={salesLoading}
+            currency={defaultCurrency}
+          />
+        </div>
+      </section>
 
-      <DashboardSectionLabel
-        eyebrow="Desempenho"
-        title="Melhore o ritmo da operação"
-        description="Acompanhe automações, equipa e qualidade do atendimento."
-      />
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <AutomationInsightsPanel
-          data={automation}
-          loading={automationLoading}
+      <section className="space-y-4 rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-5">
+        <DashboardSectionLabel
+          eyebrow="Desempenho"
+          title="Melhore o ritmo da operação"
+          description="Acompanhe automações, equipa e qualidade do atendimento."
         />
-        <div className="xl:col-span-2">
-          <TeamPerformancePanel data={team} loading={teamLoading} />
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+          <AutomationInsightsPanel
+            data={automation}
+            loading={automationLoading}
+          />
+          <div className="xl:col-span-2">
+            <TeamPerformancePanel data={team} loading={teamLoading} />
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Charts row */}
       {/* items-stretch (the grid default) stretches the two columns to
