@@ -791,6 +791,21 @@ export default function InboxPage() {
     [activeConversation]
   );
 
+  const handleBulkStatusChange = useCallback(
+    (ids: string[], status: ConversationStatus) => {
+      const selected = new Set(ids);
+      setConversations((prev) =>
+        prev.map((conversation) =>
+          selected.has(conversation.id) ? { ...conversation, status } : conversation
+        )
+      );
+      setActiveConversation((current) =>
+        current && selected.has(current.id) ? { ...current, status } : current
+      );
+    },
+    []
+  );
+
   const handleAssignChange = useCallback(
     (conversationId: string, assignedAgentId: string | null) => {
       setConversations((prev) =>
@@ -954,6 +969,7 @@ export default function InboxPage() {
             onSelect={handleSelectConversation}
             conversations={conversations}
             onConversationsLoaded={handleConversationsLoaded}
+            onBulkStatusChange={handleBulkStatusChange}
             resyncToken={resyncToken}
           />
         </div>

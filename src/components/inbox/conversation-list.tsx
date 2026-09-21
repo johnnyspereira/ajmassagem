@@ -39,12 +39,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
+import { toast } from 'sonner';
 
 interface ConversationListProps {
   activeConversationId: string | null;
   onSelect: (conversation: Conversation) => void;
   conversations: Conversation[];
   onConversationsLoaded: (conversations: Conversation[]) => void;
+  /** Reflects a successful bulk status update in the parent Inbox state. */
+  onBulkStatusChange: (ids: string[], status: ConversationStatus) => void;
   /**
    * Increment to force the fetch effect below to refire. The parent
    * bumps this on realtime reconnect / tab visibility -> visible so the
@@ -84,6 +88,7 @@ const STATUS_COLORS: Record<ConversationStatus, string> = {
 
 type InboxFilter = ConversationStatus | 'all' | 'unread';
 type CrmFilter = 'all' | 'needsReply' | 'withoutDeal' | 'automationActive';
+type WorkQueue = 'all' | 'new' | 'active' | 'waiting' | 'resolved';
 
 const CRM_FILTER_OPTIONS: { label: string; value: CrmFilter }[] = [
   { label: 'All CRM', value: 'all' },
@@ -97,6 +102,7 @@ export function ConversationList({
   onSelect,
   conversations,
   onConversationsLoaded,
+  onBulkStatusChange,
   resyncToken = 0,
 }: ConversationListProps) {
   const t = useTranslations('Inbox.conversationList');
@@ -114,6 +120,7 @@ export function ConversationList({
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<InboxFilter>('all');
+  const [workQueue, setWorkQueue] = useState<WorkQueue>('all');
   const [crmFilter, setCrmFilter] = useState<CrmFilter>('all');
   const [loading, setLoading] = useState(true);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -132,6 +139,10 @@ export function ConversationList({
   const [lastSenderByConversation, setLastSenderByConversation] = useState<
     Record<string, SenderType>
   >({});
+  const [selectedConversationIds, setSelectedConversationIds] = useState<
+    string[]
+  >([]);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   // Keep the latest callback in a ref so the fetch effect below can
   // have a stable identity. Mutation lives in an effect (not render) per
@@ -310,6 +321,16 @@ export function ConversationList({
   const filtered = useMemo(() => {
     let result = conversations;
 
+    if (workQueue === 'new') {
+      result = result.filter((c) => c.status === 'open' && !c.assigned_agent_id);
+    } else if (workQueue === 'active') {
+      result = result.filter((c) => c.status === 'open' && Boolean(c.assigned_agent_id));
+    } else if (workQueue === 'waiting') {
+      result = result.filter((c) => c.status === 'pending');
+    } else if (workQueue === 'resolved') {
+      result = result.filter((c) => c.status === 'closed');
+    }
+
     if (filter === 'unread') {
       result = result.filter((c) => c.unread_count > 0);
     } else if (filter !== 'all') {
@@ -386,7 +407,20 @@ export function ConversationList({
     selectedCompany,
     selectedStageId,
     selectedTagIds,
+    workQueue,
   ]);
+
+  const queueCounts = useMemo(() => ({
+    new: conversations.filter((c) => c.status === 'open' && !c.assigned_agent_id).length,
+    active: conversations.filter((c) => c.status === 'open' && Boolean(c.assigned_agent_id)).length,
+    waiting: conversations.filter((c) => c.status === 'pending').length,
+    resolved: conversations.filter((c) => c.status === 'closed').length,
+  }), [conversations]);
+
+  const selectWorkQueue = useCallback((queue: WorkQueue) => {
+    setWorkQueue(queue);
+    setFilter('all');
+  }, []);
 
   const toggleTag = useCallback((id: string) => {
     setSelectedTagIds((prev) =>
@@ -433,6 +467,62 @@ export function ConversationList({
   const unreadTotal = conversations.filter(
     (conversation) => conversation.unread_count > 0
   ).length;
+  const selectedVisibleIds = filtered
+    .map((conversation) => conversation.id)
+    .filter((id) => selectedConversationIds.includes(id));
+  const allVisibleSelected =
+    filtered.length > 0 && selectedVisibleIds.length === filtered.length;
+
+  const toggleConversation = useCallback((id: string) => {
+    setSelectedConversationIds((current) =>
+      current.includes(id)
+        ? current.filter((selectedId) => selectedId !== id)
+        : [...current, id]
+    );
+  }, []);
+
+  const toggleAllVisible = useCallback(() => {
+    const visibleIds = filtered.map((conversation) => conversation.id);
+    setSelectedConversationIds((current) => {
+      const currentSet = new Set(current);
+      const everyVisible = visibleIds.every((id) => currentSet.has(id));
+      return everyVisible
+        ? current.filter((id) => !visibleIds.includes(id))
+        : Array.from(new Set([...current, ...visibleIds]));
+    });
+  }, [filtered]);
+
+  const applyBulkStatus = useCallback(
+    async (status: ConversationStatus) => {
+      if (selectedVisibleIds.length === 0 || bulkUpdating) return;
+      setBulkUpdating(true);
+      try {
+        const supabase = createClient();
+        const { error } = await supabase
+          .from('conversations')
+          .update({ status })
+          .in('id', selectedVisibleIds);
+        if (error) throw error;
+        onBulkStatusChange(selectedVisibleIds, status);
+        setSelectedConversationIds((current) =>
+          current.filter((id) => !selectedVisibleIds.includes(id))
+        );
+        const label =
+          status === 'open'
+            ? 'abertas'
+            : status === 'pending'
+              ? 'pendentes'
+              : 'fechadas';
+        toast.success(`${selectedVisibleIds.length} conversa(s) marcadas como ${label}.`);
+      } catch (error) {
+        console.error('[inbox] bulk status update failed:', error);
+        toast.error('Não foi possível atualizar as conversas selecionadas.');
+      } finally {
+        setBulkUpdating(false);
+      }
+    },
+    [bulkUpdating, onBulkStatusChange, selectedVisibleIds]
+  );
 
   return (
     <div className="bg-card flex h-full w-full flex-col lg:w-[21rem]">
@@ -807,6 +897,29 @@ export function ConversationList({
             </button>
           </div>
         )}
+
+        <div className="border-border/70 flex flex-wrap items-center gap-1.5 border-t pt-3">
+          <Checkbox
+            checked={allVisibleSelected}
+            indeterminate={
+              selectedVisibleIds.length > 0 && !allVisibleSelected
+            }
+            onCheckedChange={toggleAllVisible}
+            aria-label="Selecionar todas as conversas visíveis"
+          />
+          <span className="text-muted-foreground mr-auto text-[11px]">
+            {selectedVisibleIds.length > 0
+              ? `${selectedVisibleIds.length} selecionada(s)`
+              : 'Selecionar conversas'}
+          </span>
+          {selectedVisibleIds.length > 0 && (
+            <>
+              <button type="button" onClick={() => void applyBulkStatus('open')} disabled={bulkUpdating} className="rounded-md border border-primary/25 px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/10 disabled:opacity-50">Aberto</button>
+              <button type="button" onClick={() => void applyBulkStatus('pending')} disabled={bulkUpdating} className="rounded-md border border-amber-500/25 px-2 py-1 text-[11px] font-medium text-amber-600 hover:bg-amber-500/10 disabled:opacity-50">Pendente</button>
+              <button type="button" onClick={() => void applyBulkStatus('closed')} disabled={bulkUpdating} className="rounded-md border border-muted-foreground/25 px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted disabled:opacity-50">Fechar</button>
+            </>
+          )}
+        </div>
       </div>
 
       <ScrollArea className="min-h-0 flex-1 p-1.5">
@@ -841,6 +954,8 @@ export function ConversationList({
                     )
                     .filter((stage): stage is PipelineStage => Boolean(stage))}
                   lastSender={lastSenderByConversation[conv.id]}
+                  selected={selectedConversationIds.includes(conv.id)}
+                  onToggleSelected={toggleConversation}
                 />
               );
             })}
@@ -860,6 +975,8 @@ interface ConversationItemProps {
   appointmentCount: number;
   dealStages: PipelineStage[];
   lastSender?: SenderType;
+  selected: boolean;
+  onToggleSelected: (id: string) => void;
 }
 
 function ConversationItem({
@@ -871,6 +988,8 @@ function ConversationItem({
   appointmentCount,
   dealStages,
   lastSender,
+  selected,
+  onToggleSelected,
 }: ConversationItemProps) {
   const contact = conversation.contact;
   const displayName = contact?.name || contact?.phone || t('unknown');
@@ -893,6 +1012,13 @@ function ConversationItem({
     : '';
 
   return (
+    <div className="group flex items-start gap-1">
+      <Checkbox
+        checked={selected}
+        onCheckedChange={() => onToggleSelected(conversation.id)}
+        aria-label={`Selecionar ${displayName}`}
+        className="mt-4 ml-2 shrink-0"
+      />
     <button
       type="button"
       onClick={handleClick}
@@ -1004,6 +1130,7 @@ function ConversationItem({
         )}
       </div>
     </button>
+    </div>
   );
 }
 
