@@ -1075,6 +1075,14 @@ const server = http.createServer(async (req, res) => {
       return reply(res, 200, await ollamaChat(input));
     return reply(res, 404, { error: 'Not found' });
   } catch (e) {
+    // The public tunnel is occasionally probed without credentials (browser,
+    // uptime monitor, crawler). Reject it quietly: this is expected security
+    // behaviour, not a WhatsApp or outbox failure, and a full stack trace made
+    // the worker console look as though it had crashed.
+    if (e?.status === 401) {
+      console.warn(`[bridge:unauthorized] ${req.method} ${req.url}`);
+      return reply(res, 401, { error: 'Unauthorized' });
+    }
     console.error('[bridge]', e);
     logActivity('error', e?.message || String(e), {
       path: req.url,
