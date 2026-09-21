@@ -200,10 +200,28 @@ export async function POST(request: Request) {
 
     if (action === 'claim_outbox') {
       const workerId = String(body.workerId ?? 'local-worker').slice(0, 100);
+      // A worker can survive a browser/session switch. Resolve every account
+      // explicitly bound to its credential instead of trusting only the
+      // account id that happened to be present when the local process started.
+      // This prevents a healthy QR session from polling an empty account while
+      // Inbox messages remain indefinitely in `pending`.
+      const suppliedSecret =
+        typeof body.workerSecret === 'string' ? body.workerSecret.trim() : '';
+      const credentialAccounts = suppliedSecret
+        ? await selectRows<(RowDataPacket & { account_id: string })[]>(
+            'SELECT account_id FROM whatsapp_worker_credentials WHERE secret_hash=?',
+            [createHash('sha256').update(suppliedSecret).digest('hex')]
+          )
+        : [];
+      const eligibleAccountIds = Array.from(
+        new Set([accountId, ...credentialAccounts.map((row) => row.account_id)])
+      );
+      const accountPlaceholders = eligibleAccountIds.map(() => '?').join(',');
       const job = await transaction(async (connection) => {
         const [rows] = await connection.execute<
           (RowDataPacket & {
             id: string;
+            account_id: string;
             conversation_id: string;
             message_id: string;
             phone: string;
@@ -211,9 +229,9 @@ export async function POST(request: Request) {
             attempts: number;
           })[]
         >(
-          `SELECT id,conversation_id,message_id,phone,payload,attempts
+          `SELECT id,account_id,conversation_id,message_id,phone,payload,attempts
            FROM whatsapp_outbox
-           WHERE account_id=? AND (
+           WHERE account_id IN (${accountPlaceholders}) AND (
              (status IN ('pending','failed') AND available_at<=UTC_TIMESTAMP(3))
              OR (status='processing' AND lease_until<UTC_TIMESTAMP(3))
              -- Older worker versions falsely rejected the connected owner's
@@ -224,7 +242,7 @@ export async function POST(request: Request) {
                  AND JSON_UNQUOTE(JSON_EXTRACT(payload,'$.senderType'))='bot')
            )
            ORDER BY created_at ASC LIMIT 1 FOR UPDATE`,
-          [accountId]
+          eligibleAccountIds
         );
         const row = rows[0];
         if (!row) return null;

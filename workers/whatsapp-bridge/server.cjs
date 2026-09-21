@@ -731,6 +731,10 @@ async function pollOutbox() {
         workerId: WORKER_ID,
       });
       if (!claimed?.job) break;
+      // The CRM may return a queue row for another account that is explicitly
+      // tied to this worker credential. Adopt that account before completing
+      // the job so status, receipts and retries update the same queue row.
+      if (claimed.job.account_id) context.accountId = claimed.job.account_id;
       try {
         await sendOutboxJob(claimed.job);
       } catch (error) {
