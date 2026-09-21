@@ -149,11 +149,13 @@ export async function loadPortalPendingConfirmations(
     .select(
       'id,scheduled_start,contact:contacts(name,phone),service:clinic_services(name),professional:profiles!clinic_appointments_professional_profile_id_fkey(full_name,email)'
     )
-    .eq('source', 'client_portal')
-    .eq('confirmation_status', 'pending')
+    // The original Portal RPC persists `public_link`, while the cPanel/MySQL
+    // runtime persists `client_portal`. Both are client Portal bookings.
+    .in('source', ['client_portal', 'public_link'])
     .in('status', ['scheduled', 'confirmed'])
+    .gte('scheduled_start', new Date().toISOString())
     .order('scheduled_start', { ascending: true })
-    .limit(8);
+    .limit(250);
   // The Portal 360 migration can be applied after the dashboard code. Until
   // then there simply are no pending portal confirmations to show.
   if (error) return [];
@@ -230,7 +232,12 @@ export async function loadPortalPendingConfirmations(
     };
   });
   const existing = new Set(confirmations.map((item) => item.id));
-  return [...confirmations, ...reschedules.filter((item) => !existing.has(item.id))].slice(0, 8);
+  return [...confirmations, ...reschedules.filter((item) => !existing.has(item.id))]
+    .sort(
+      (left, right) =>
+        new Date(left.scheduledStart).getTime() -
+        new Date(right.scheduledStart).getTime()
+    );
 }
 
 const safeCount = async (

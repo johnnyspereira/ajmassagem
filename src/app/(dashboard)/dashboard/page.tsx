@@ -369,6 +369,21 @@ export default function DashboardPage() {
 
       <section className="space-y-3">
         <DashboardSectionLabel
+          eyebrow="Agenda online"
+          title="Marcações feitas pelo Portal 360"
+          description="As reservas que os clientes criaram aparecem aqui primeiro, por ordem de data."
+          href="/agenda"
+          action="Abrir agenda"
+        />
+        <PortalPendingConfirmationsCard
+          appointments={portalPending}
+          loading={portalPendingLoading}
+          error={Boolean(loadErrors['Marcações do Portal 360'])}
+        />
+      </section>
+
+      <section className="space-y-3">
+        <DashboardSectionLabel
           eyebrow="Agora"
           title="O que pede a sua atenção"
           description="Alertas, conversas e situações que podem bloquear o dia."
@@ -488,11 +503,6 @@ export default function DashboardPage() {
       />
         </div>
 
-      <PortalPendingConfirmationsCard
-        appointments={portalPending}
-        loading={portalPendingLoading}
-        error={Boolean(loadErrors['Marcações do Portal 360'])}
-      />
       </div>
 
       <ExpiringBenefitsPanel

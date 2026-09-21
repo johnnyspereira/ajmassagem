@@ -1,17 +1,13 @@
 import Link from 'next/link';
-import {
-  CalendarClock,
-  ChevronRight,
-  CircleAlert,
-  Repeat2,
-  UserRound,
-} from 'lucide-react';
+import { CalendarClock, ChevronRight, CircleAlert, Repeat2, UserRound } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import type { PortalPendingConfirmationItem } from '@/lib/dashboard/types';
 import { Skeleton } from './skeleton';
 
+/** The legacy name remains for the existing dashboard hook. This is now the
+ * operational list of every upcoming appointment created in the Portal. */
 export function PortalPendingConfirmationsCard({
   appointments,
   loading,
@@ -25,24 +21,24 @@ export function PortalPendingConfirmationsCard({
   if (error || !appointments?.length) return null;
 
   return (
-    <section className="overflow-hidden rounded-xl border border-amber-300/70 bg-card shadow-sm">
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-amber-200/70 bg-gradient-to-r from-amber-50 to-card px-5 py-4 dark:border-amber-900/50 dark:from-amber-950/20">
+    <section className="overflow-hidden rounded-xl border border-violet-300/70 bg-card shadow-sm">
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-violet-200/70 bg-gradient-to-r from-violet-50 to-card px-5 py-4 dark:border-violet-900/50 dark:from-violet-950/20">
         <div className="flex gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-400">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-700 dark:text-violet-300">
             <CircleAlert className="size-5" />
           </span>
           <div>
-            <h2 className="text-sm font-semibold">Aprovações do Portal 360</h2>
+            <h2 className="text-sm font-semibold">Marcações do Portal 360</h2>
             <p className="text-muted-foreground mt-0.5 text-xs">
-              Confirmações e pedidos de alteração que precisam da equipa.
+              Todas as próximas reservas feitas pelos clientes, por ordem de data.
             </p>
           </div>
         </div>
-        <Badge variant="secondary" className="bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200">
-          {appointments.length} pendente{appointments.length === 1 ? '' : 's'}
+        <Badge variant="secondary" className="bg-violet-100 text-violet-900 dark:bg-violet-950 dark:text-violet-200">
+          {appointments.length} marcaç{appointments.length === 1 ? 'ão' : 'ões'}
         </Badge>
       </header>
-      <div className="divide-y">
+      <div className="max-h-[32rem] divide-y overflow-y-auto">
         {appointments.map((appointment) => (
           <Link key={appointment.id} href={appointment.href} className="hover:bg-muted/50 flex items-center gap-3 px-5 py-3.5 transition-colors">
             <span className={appointment.kind === 'reschedule' ? 'text-violet-600' : 'text-primary'}>
@@ -58,7 +54,7 @@ export function PortalPendingConfirmationsCard({
                   <Repeat2 className="size-3" /> Alteração pedida para {new Date(appointment.requestedStart).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' })}
                 </p>
               ) : (
-                <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-300">Confirmação da sessão pendente</p>
+                <p className="mt-1 text-xs font-medium text-violet-700 dark:text-violet-300">Reserva criada pelo Portal 360</p>
               )}
               <p className="text-muted-foreground mt-1 flex items-center gap-1 text-xs"><UserRound className="size-3" /> {appointment.professionalName}</p>
             </div>
