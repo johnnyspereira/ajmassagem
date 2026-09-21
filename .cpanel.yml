@@ -1,19 +1,9 @@
 ---
 deployment:
   tasks:
-    # Apply versioned MySQL migrations before restarting Passenger. This keeps
-    # new dashboard features and their tables in the same release.
-    - /usr/bin/env node /home/jpmassag/repositories/ajmassagem-v3/scripts/mysql-migrate.mjs
-    # The deployable runtime keeps a visible copy because cPanel can omit
-    # fresh files in hidden `.next` directories during a Git deployment.
-    # Restore it before Passenger restarts so HTML never references CSS/JS
-    # assets that are missing from the current release.
-    - /bin/mkdir -p /home/jpmassag/repositories/ajmassagem-v3/.next/static
-    - /bin/cp -a /home/jpmassag/repositories/ajmassagem-v3/runtime-static/. /home/jpmassag/repositories/ajmassagem-v3/.next/static/
-    # Some Passenger/Apache configurations short-circuit /_next/static
-    # before the Node process. Keep a public mirror as a fallback so the
-    # browser never receives an HTML release whose CSS/JS is missing.
-    - /bin/mkdir -p /home/jpmassag/repositories/ajmassagem-v3/public/_next/static
-    - /bin/cp -a /home/jpmassag/repositories/ajmassagem-v3/runtime-static/. /home/jpmassag/repositories/ajmassagem-v3/public/_next/static/
+    # The generated cpanel-runtime branch contains the complete Node runtime.
+    # server.js restores static assets and runs pending migrations on boot.
+    # Keep this manifest intentionally minimal: cPanel only needs to signal
+    # Passenger after checking out the new HEAD.
     - /bin/mkdir -p /home/jpmassag/repositories/ajmassagem-v3/tmp
     - /usr/bin/touch /home/jpmassag/repositories/ajmassagem-v3/tmp/restart.txt
