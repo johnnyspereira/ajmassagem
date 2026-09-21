@@ -1,10 +1,10 @@
 $ErrorActionPreference = 'Stop'
 
 $workerDirectory = Split-Path -Parent $PSCommandPath
-$starter = Join-Path $workerDirectory 'start-background.ps1'
+$starter = Join-Path $workerDirectory 'start-worker.cmd'
 
 try {
-  & $starter
+  Start-Process -FilePath $starter -WorkingDirectory $workerDirectory
   Start-Sleep -Milliseconds 800
   $listening = Get-NetTCPConnection -LocalPort 4100 -State Listen -ErrorAction SilentlyContinue
   if (-not $listening) {
