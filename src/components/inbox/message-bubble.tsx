@@ -37,11 +37,7 @@ interface MessageBubbleProps {
 function StatusIcon({ status }: { status: Message['status'] }) {
   switch (status) {
     case 'sending':
-      // A queued QR message can remain transiently marked "sending" while
-      // the worker confirms it. Do not show the tiny clock in history: at
-      // this size it reads as a literal "0" and makes accepted messages look
-      // failed. The composer already communicates active sending state.
-      return null;
+      return <Loader2 className="h-3 w-3 animate-spin text-primary-foreground/90" />;
     case 'sent':
       return <Check className="text-muted-foreground h-3 w-3" />;
     case 'delivered':
@@ -407,6 +403,21 @@ export function MessageBubble({
           </span>
           {isAgent && <StatusIcon status={message.status} />}
         </div>
+        {isAgent && message.status === 'sending' && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mt-1.5 min-w-36 text-primary-foreground/85"
+          >
+            <span className="flex items-center gap-1 text-[10px] font-medium">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              A confirmar envio…
+            </span>
+            <span className="mt-1 block h-1 overflow-hidden rounded-full bg-primary-foreground/25">
+              <span className="block h-full w-2/3 animate-pulse rounded-full bg-primary-foreground/90" />
+            </span>
+          </div>
+        )}
         {isAgent && message.status === 'failed' && onRetry && (
           <button
             type="button"

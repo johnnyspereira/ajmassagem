@@ -426,13 +426,16 @@ export default function InboxPage() {
           newMsg.conversation_id === activeConversation.id
         ) {
           setMessages((prev) => {
-            // Avoid duplicates
-            if (prev.some((m) => m.id === newMsg.id)) return prev;
-            // Replace optimistic message if it exists
-            const withoutOptimistic = prev.filter(
-              (m) => !m.id.startsWith('temp-')
-            );
-            return [...withoutOptimistic, newMsg];
+            // Realtime may arrive out of order. Never remove every optimistic
+            // bubble when one INSERT lands: parallel sends would disappear
+            // and the visible timeline would jump around.
+            const existing = prev.find((m) => m.id === newMsg.id);
+            if (existing) {
+              return prev.map((m) =>
+                m.id === newMsg.id ? { ...m, ...newMsg } : m
+              );
+            }
+            return [...prev, newMsg];
           });
         }
 
@@ -758,9 +761,20 @@ export default function InboxPage() {
 
   const handleUpdateMessage = useCallback(
     (id: string, updates: Partial<Message>) => {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, ...updates } : m))
-      );
+      setMessages((prev) => {
+        const current = prev.find((message) => message.id === id);
+        if (!current) return prev;
+        const updated = { ...current, ...updates };
+        // The optimistic id is replaced by the durable database id after the
+        // queue accepts the message. Merge rather than duplicate it if a
+        // realtime INSERT arrived in the same moment.
+        return [
+          ...prev.filter(
+            (message) => message.id !== id && message.id !== updated.id
+          ),
+          updated,
+        ];
+      });
     },
     []
   );

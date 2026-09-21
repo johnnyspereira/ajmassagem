@@ -140,9 +140,21 @@ function groupMessagesByDate(messages: Message[]) {
   // fetch (and optimistic sends are appended locally). Always render one
   // chronological stream, exactly like WhatsApp, without mutating parent
   // state or separating messages by sender.
-  const chronological = [...messages].sort((a, b) => {
+  const unique = new Map<string, Message>();
+  for (const message of messages) unique.set(message.id, message);
+  const chronological = [...unique.values()].sort((a, b) => {
+    const aTime = Date.parse(a.created_at);
+    const bTime = Date.parse(b.created_at);
+    // A malformed legacy timestamp must never make the entire thread sort
+    // unpredictably. Keep it after dated messages and use the stable id.
     const byTime =
-      new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      Number.isFinite(aTime) && Number.isFinite(bTime)
+        ? aTime - bTime
+        : Number.isFinite(aTime)
+          ? -1
+          : Number.isFinite(bTime)
+            ? 1
+            : 0;
     return byTime || a.id.localeCompare(b.id);
   });
 
@@ -250,6 +262,27 @@ export function MessageThread({
   const t = useTranslations('Inbox.messageThread');
   const tTimer = useTranslations('Inbox.sessionTimer');
   const tQuote = useTranslations('Inbox.replyQuote');
+  const deliveryStateRef = useRef<Map<string, Message['status']>>(new Map());
+
+  // The bubble carries the durable state, while this one-shot toast gives a
+  // clear confirmation when WhatsApp/QR acknowledges a queued message.
+  // Seed the map on first render so opening an old conversation never emits
+  // notifications for its historical messages.
+  useEffect(() => {
+    const previous = deliveryStateRef.current;
+    for (const message of messages) {
+      const before = previous.get(message.id);
+      if (before === 'sending' && message.status === 'sent') {
+        toast.success('Mensagem enviada para o WhatsApp.');
+      } else if (
+        before === 'sending' &&
+        (message.status === 'delivered' || message.status === 'read')
+      ) {
+        toast.success('Mensagem entregue ao WhatsApp.');
+      }
+      previous.set(message.id, message.status);
+    }
+  }, [messages]);
 
   const { user } = useAuth();
   const { getPresence, getRow, now } = usePresence();
@@ -765,6 +798,9 @@ export function MessageThread({
         // Success — the realtime INSERT event will replace the temp bubble
         // with the real DB row. If realtime hasn't arrived yet, at least
         // flip status to 'sent' so the UI stops showing "sending".
+        if (payload.queued === true) {
+          toast.message('Mensagem na fila. A confirmar envio no WhatsApp…');
+        }
         markOptimisticMessageSent(tempId, payload);
       } catch (err) {
         console.error('Failed to send message:', err);
