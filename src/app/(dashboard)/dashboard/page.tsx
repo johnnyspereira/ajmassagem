@@ -288,12 +288,12 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="space-y-6 pb-8">
-      <section className="relative overflow-hidden rounded-3xl bg-slate-950 px-5 py-6 text-white shadow-xl sm:px-7 sm:py-8">
-        <div className="pointer-events-none absolute -right-24 -top-32 size-80 rounded-full bg-violet-500/25 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 left-1/3 size-64 rounded-full bg-cyan-400/10 blur-3xl" />
-        <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-          <div className="max-w-2xl">
+    <div className="mx-auto max-w-[1680px] space-y-5 pb-10">
+      <section className="relative isolate overflow-hidden rounded-[2rem] border border-slate-800 bg-[#09101f] px-5 py-6 text-white shadow-2xl shadow-slate-950/15 sm:px-8 sm:py-8">
+        <div className="pointer-events-none absolute -right-16 -top-28 size-80 rounded-full bg-primary/25 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 left-1/4 size-56 rounded-full bg-emerald-400/10 blur-3xl" />
+        <div className="relative grid gap-7 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+          <div className="max-w-3xl">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">Centro de operações</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">O seu dia, sob controlo.</h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">Priorize clientes, agenda, vendas e pagamentos sem procurar informação em vários ecrãs.</p>
@@ -309,6 +309,11 @@ export default function DashboardPage() {
               <RefreshCw className={cn('size-4', refreshing && 'animate-spin')} /> Atualizar
             </button>
           </div>
+        </div>
+        <div className="relative mt-7 grid gap-2 sm:grid-cols-3 xl:max-w-3xl">
+          <DashboardHeroStat icon={CalendarDays} label="Agenda de hoje" value={today ? `${today.appointmentsTotal} marcações` : 'A carregar'} />
+          <DashboardHeroStat icon={MessageSquare} label="Conversas em curso" value={metrics ? metrics.activeConversations.current.toLocaleString() : 'A carregar'} />
+          <DashboardHeroStat icon={DollarSign} label="Receita em aberto" value={metrics ? formatCurrency(metrics.openDealsValue, defaultCurrency) : 'A carregar'} />
         </div>
       </section>
 
@@ -367,7 +372,8 @@ export default function DashboardPage() {
       ) : (
         <>
 
-      <section className="space-y-3">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(390px,.9fr)]">
+        <div className="space-y-3 rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-5">
         <DashboardSectionLabel
           eyebrow="Agenda online"
           title="Marcações feitas pelo Portal 360"
@@ -380,9 +386,18 @@ export default function DashboardPage() {
           loading={portalPendingLoading}
           error={Boolean(loadErrors['Marcações do Portal 360'])}
         />
+        </div>
+        <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+          <TodayOperationsPanel
+            data={today}
+            loading={todayLoading}
+            currency={defaultCurrency}
+            error={Boolean(loadErrors['Operação diária'])}
+          />
+        </div>
       </section>
 
-      <section className="space-y-3">
+      <section className="space-y-3 rounded-3xl border border-border/70 bg-card-2/30 p-4 sm:p-5">
         <DashboardSectionLabel
           eyebrow="Agora"
           title="O que pede a sua atenção"
@@ -485,7 +500,7 @@ export default function DashboardPage() {
       </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-4 rounded-3xl border border-border bg-card p-4 sm:p-5">
         <DashboardSectionLabel
           eyebrow="Operação"
           title="Agenda, Portal e benefícios"
@@ -590,6 +605,23 @@ export default function DashboardPage() {
 }
 
 // ------------------------------------------------------------
+
+function DashboardHeroStat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof CalendarDays;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-3 backdrop-blur sm:px-4">
+      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.13em] text-slate-400"><Icon className="size-3.5 text-emerald-300" />{label}</div>
+      <p className="mt-1 text-base font-semibold tracking-tight text-white sm:text-lg">{value}</p>
+    </div>
+  );
+}
 
 function DashboardSectionLabel({
   eyebrow,

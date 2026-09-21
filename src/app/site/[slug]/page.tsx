@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-import { SpaPublicSite } from '@/components/website/spa-public-site';
+import { JpMassagemPublicSite } from '@/components/website/jp-massagem-public-site';
 import { getPublicBusinessSite } from '@/lib/public-site/server';
 
 export async function generateMetadata({
@@ -50,7 +50,10 @@ export async function PublicBusinessPage({
 
   if (!site) notFound();
 
-  return <SpaPublicSite site={site} />;
+  // The public root deliberately uses the JP editorial template instead of
+  // the generic spa landing page. All copy, services, team and booking links
+  // remain sourced from Website Builder, so this is a layout change only.
+  return <JpMassagemPublicSite site={site} />;
 }
 
 export default PublicBusinessPage;
