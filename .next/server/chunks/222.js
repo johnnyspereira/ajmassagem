@@ -62,9 +62,9 @@ ${o.join("\n")}`}var F=c(55851);async function G(a,b,c){let f=process.env.WHATSA
            ORDER BY created_at ASC LIMIT 1 FOR UPDATE`,[j]),d=c[0];return d?(await b.execute(`UPDATE whatsapp_worker_commands SET status='processing',worker_id=?,
            updated_at=UTC_TIMESTAMP(3) WHERE id=?`,[a,d.id]),{...d,payload:"string"==typeof d.payload?JSON.parse(d.payload):d.payload}):null});return Response.json({command:b})}if("complete_command"===i){let a=!!c.error;return await (0,e.Tk)(`UPDATE whatsapp_worker_commands SET status=?,last_error=?,
          completed_at=UTC_TIMESTAMP(3),updated_at=UTC_TIMESTAMP(3)
-         WHERE id=? AND account_id=?`,[a?"failed":"done",a?String(c.error):null,String(c.commandId),j]),Response.json({success:!0})}if("claim_outbox"===i){let a=String(c.workerId??"local-worker").slice(0,100),b=await (0,e.Rn)(async b=>{let[c]=await b.execute(`SELECT id,conversation_id,message_id,phone,payload,attempts
+         WHERE id=? AND account_id=?`,[a?"failed":"done",a?String(c.error):null,String(c.commandId),j]),Response.json({success:!0})}if("claim_outbox"===i){let a=String(c.workerId??"local-worker").slice(0,100),b="string"==typeof c.workerSecret?c.workerSecret.trim():"",f=b?await (0,e.A5)("SELECT account_id FROM whatsapp_worker_credentials WHERE secret_hash=?",[(0,d.createHash)("sha256").update(b).digest("hex")]):[],g=Array.from(new Set([j,...f.map(a=>a.account_id)])),h=g.map(()=>"?").join(","),i=await (0,e.Rn)(async b=>{let[c]=await b.execute(`SELECT id,account_id,conversation_id,message_id,phone,payload,attempts
            FROM whatsapp_outbox
-           WHERE account_id=? AND (
+           WHERE account_id IN (${h}) AND (
              (status IN ('pending','failed') AND available_at<=UTC_TIMESTAMP(3))
              OR (status='processing' AND lease_until<UTC_TIMESTAMP(3))
              -- Older worker versions falsely rejected the connected owner's
@@ -74,9 +74,9 @@ ${o.join("\n")}`}var F=c(55851);async function G(a,b,c){let f=process.env.WHATSA
              OR (status='dead' AND last_error='Recipient is not registered on WhatsApp.'
                  AND JSON_UNQUOTE(JSON_EXTRACT(payload,'$.senderType'))='bot')
            )
-           ORDER BY created_at ASC LIMIT 1 FOR UPDATE`,[j]),d=c[0];return d?(await b.execute(`UPDATE whatsapp_outbox SET status='processing',attempts=attempts+1,
+           ORDER BY created_at ASC LIMIT 1 FOR UPDATE`,g),d=c[0];return d?(await b.execute(`UPDATE whatsapp_outbox SET status='processing',attempts=attempts+1,
            worker_id=?,lease_until=DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 90 SECOND),
-           updated_at=UTC_TIMESTAMP(3) WHERE id=?`,[a,d.id]),{...d,attempts:Number(d.attempts)+1,payload:"string"==typeof d.payload?JSON.parse(d.payload):d.payload}):null});return Response.json({job:b})}if("complete_outbox"===i){let a=String(c.providerMessageId??"");if(!a)throw Error("providerMessageId is required.");let b=await (0,e.Rn)(async b=>{let[d]=await b.execute(`SELECT id,conversation_id,message_id FROM whatsapp_outbox
+           updated_at=UTC_TIMESTAMP(3) WHERE id=?`,[a,d.id]),{...d,attempts:Number(d.attempts)+1,payload:"string"==typeof d.payload?JSON.parse(d.payload):d.payload}):null});return Response.json({job:i})}if("complete_outbox"===i){let a=String(c.providerMessageId??"");if(!a)throw Error("providerMessageId is required.");let b=await (0,e.Rn)(async b=>{let[d]=await b.execute(`SELECT id,conversation_id,message_id FROM whatsapp_outbox
            WHERE id=? AND account_id=? LIMIT 1 FOR UPDATE`,[String(c.jobId),j]),e=d[0];if(!e)throw Error("Outbox job not found.");let f=I(e.conversation_id,a);return await b.execute("DELETE FROM messages WHERE dedupe_key=? AND id<>?",[f,e.message_id]),await b.execute(`UPDATE messages SET message_id=?,dedupe_key=?,status='sent'
            WHERE id=? AND conversation_id=?`,[a,f,e.message_id,e.conversation_id]),await b.execute(`UPDATE whatsapp_outbox SET status='sent',provider_message_id=?,sent_at=UTC_TIMESTAMP(3),
            lease_until=NULL,last_error=NULL,updated_at=UTC_TIMESTAMP(3) WHERE id=?`,[a,e.id]),{messageId:e.message_id}});return Response.json({success:!0,...b})}if("fail_outbox"===i){let a=await (0,e.Rn)(async a=>{let[b]=await a.execute(`SELECT id,message_id,attempts FROM whatsapp_outbox
