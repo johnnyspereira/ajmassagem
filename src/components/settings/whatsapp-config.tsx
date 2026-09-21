@@ -166,6 +166,7 @@ export function WhatsAppConfig() {
   } | null>(null);
   const [baileysClearingAuth, setBaileysClearingAuth] = useState(false);
   const [baileysRestarting, setBaileysRestarting] = useState(false);
+  const [outboxClearing, setOutboxClearing] = useState(false);
   const [baileysLastCheckedAt, setBaileysLastCheckedAt] = useState<
     string | null
   >(null);
@@ -704,6 +705,38 @@ export function WhatsAppConfig() {
     }
   }
 
+  async function handleClearOutbox() {
+    const confirmed = window.confirm(
+      'Cancelar todas as mensagens que ainda não foram enviadas? Isto não apaga conversas nem clientes e não pode ser desfeito.'
+    );
+    if (!confirmed) return;
+
+    setOutboxClearing(true);
+    try {
+      const response = await fetch('/api/whatsapp/outbox/clear', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmation: 'CLEAR_WHATSAPP_OUTBOX' }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Não foi possível limpar a fila.');
+      }
+      toast.success(
+        payload.cancelled === 1
+          ? '1 mensagem pendente foi cancelada.'
+          : `${payload.cancelled ?? 0} mensagens pendentes foram canceladas.`
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Não foi possível limpar a fila.'
+      );
+    } finally {
+      setOutboxClearing(false);
+    }
+  }
+
   async function handleSyncBaileys() {
     setBaileysSyncing(true);
     setBaileysError(null);
@@ -1230,6 +1263,24 @@ export function WhatsAppConfig() {
                         Sync chats
                       </Button>
                     )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleClearOutbox}
+                      disabled={
+                        outboxClearing ||
+                        baileysClearingAuth ||
+                        baileysRestarting
+                      }
+                      className="border-amber-500/30 text-amber-700 hover:bg-amber-500/10 hover:text-amber-800 dark:text-amber-300"
+                    >
+                      {outboxClearing ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="size-3.5" />
+                      )}
+                      Limpar fila de envios
+                    </Button>
                   </div>
                 </div>
 
