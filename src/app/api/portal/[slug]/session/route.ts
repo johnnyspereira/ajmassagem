@@ -94,7 +94,7 @@ export async function PUT(
 
   const { data: access } = await admin
     .from('client_portal_access')
-    .select('id,contact_id,portal_auth_email')
+    .select('id,contact_id,portal_auth_email,enabled')
     .eq('account_id', settings.account_id)
     .eq('contact_id', contacts[0].id)
     .maybeSingle();
@@ -107,6 +107,9 @@ export async function PUT(
       },
       { status: 428 }
     );
+  }
+  if (access.enabled === false) {
+    return Response.json({ error: 'O acesso deste cliente ao Portal 360 foi inativado.' }, { status: 403 });
   }
 
   const portalAuth = await createPortalAuthClient();
@@ -171,7 +174,7 @@ export async function POST(
   const { data: access } = settings
     ? await admin
         .from('client_portal_access')
-        .select('id,contact_id,portal_auth_email,requires_password_change')
+        .select('id,contact_id,portal_auth_email,requires_password_change,enabled')
         .eq('account_id', settings.account_id)
         .eq('auth_user_id', data.user.id)
         .maybeSingle()
@@ -185,6 +188,10 @@ export async function POST(
       { error: 'Acesso não associado a este portal.' },
       { status: 403 }
     );
+  }
+  if (access.enabled === false) {
+    await portalAuth.auth.signOut();
+    return Response.json({ error: 'O acesso deste cliente ao Portal 360 foi inativado.' }, { status: 403 });
   }
   await registerPortalAccess({
     admin,

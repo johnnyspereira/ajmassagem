@@ -29,12 +29,15 @@ export async function requirePortalAccess(slug: string) {
   const { data: access } = await admin
     .from('client_portal_access')
     .select(
-      'id,account_id,contact_id,auth_user_id,portal_auth_email,requires_password_change'
+      'id,account_id,contact_id,auth_user_id,portal_auth_email,requires_password_change,enabled'
     )
     .eq('account_id', settings.account_id)
     .eq('auth_user_id', user.id)
     .maybeSingle();
   if (!access) throw new PortalError('Client access not linked', 403);
+  if (access.enabled === false) {
+    throw new PortalError('O acesso deste cliente ao Portal 360 foi inativado.', 403);
+  }
   if (
     !access.portal_auth_email ||
     user.email?.toLowerCase() !== access.portal_auth_email.toLowerCase()

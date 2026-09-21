@@ -122,6 +122,7 @@ type Conversation = {
 
 type PortalAccess = {
   id: string;
+  enabled: boolean | null;
   last_login_at: string | null;
   requires_password_change: boolean | null;
   created_at: string;
@@ -402,6 +403,7 @@ export function Client360Page({
   const [sendingPortalInvite, setSendingPortalInvite] = useState<
     'email' | 'whatsapp' | null
   >(null);
+  const [updatingPortalAccess, setUpdatingPortalAccess] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
@@ -598,7 +600,7 @@ export function Client360Page({
         .limit(25),
       supabase
         .from('client_portal_access')
-        .select('id,last_login_at,requires_password_change,created_at')
+        .select('id,enabled,last_login_at,requires_password_change,created_at')
         .eq('account_id', accountId)
         .eq('contact_id', contactId)
         .maybeSingle(),
@@ -728,6 +730,45 @@ export function Client360Page({
     }
     setLoading(false);
   }, [accountId, contactId, supabase]);
+
+  async function togglePortalAccess() {
+    if (!portalAccess || !accountId || !canOperate) return;
+    const nextEnabled = portalAccess.enabled === false;
+    const message = nextEnabled
+      ? 'Reativar o acesso deste cliente ao Portal 360?'
+      : 'Inativar o acesso deste cliente ao Portal 360? O cliente deixa de entrar e de agendar pelo Portal, mas os dados serão mantidos.';
+    if (!window.confirm(message)) return;
+
+    setUpdatingPortalAccess(true);
+    try {
+      const { error } = await supabase
+        .from('client_portal_access')
+        .update({
+          enabled: nextEnabled,
+          disabled_at: nextEnabled ? null : new Date().toISOString(),
+          disabled_by: nextEnabled ? null : user?.id ?? null,
+        })
+        .eq('id', portalAccess.id)
+        .eq('account_id', accountId);
+      if (error) throw error;
+      setPortalAccess((current) =>
+        current ? { ...current, enabled: nextEnabled } : current
+      );
+      toast.success(
+        nextEnabled
+          ? 'Acesso ao Portal 360 reativado para este cliente.'
+          : 'Acesso ao Portal 360 inativado para este cliente.'
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível alterar o acesso ao Portal 360.'
+      );
+    } finally {
+      setUpdatingPortalAccess(false);
+    }
+  }
 
   async function sendPortalInvite(
     delivery: 'email' | 'whatsapp',
@@ -1581,8 +1622,19 @@ export function Client360Page({
               <CardContent className="space-y-3 text-sm">
                 {portalAccess ? (
                   <>
-                    <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
-                      {portalAccess.last_login_at ? 'Acesso ativo' : 'Convite criado'}
+                    <Badge
+                      variant="secondary"
+                      className={
+                        portalAccess.enabled === false
+                          ? 'bg-slate-100 text-slate-700'
+                          : 'bg-emerald-50 text-emerald-700'
+                      }
+                    >
+                      {portalAccess.enabled === false
+                        ? 'Acesso inativado'
+                        : portalAccess.last_login_at
+                          ? 'Acesso ativo'
+                          : 'Convite criado'}
                     </Badge>
                     <p className="text-muted-foreground">
                       {portalAccess.last_login_at
@@ -1595,8 +1647,25 @@ export function Client360Page({
                     <div className="flex flex-wrap gap-2 pt-1">
                       <Button
                         size="sm"
+                        variant={portalAccess.enabled === false ? 'default' : 'outline'}
+                        disabled={!canOperate || updatingPortalAccess}
+                        onClick={togglePortalAccess}
+                      >
+                        {updatingPortalAccess
+                          ? 'A guardar…'
+                          : portalAccess.enabled === false
+                            ? 'Reativar acesso'
+                            : 'Inativar acesso'}
+                      </Button>
+                      <Button
+                        size="sm"
                         variant="outline"
-                        disabled={!canOperate || sendingPortalInvite !== null || !contact?.email}
+                        disabled={
+                          !canOperate ||
+                          portalAccess.enabled === false ||
+                          sendingPortalInvite !== null ||
+                          !contact?.email
+                        }
                         onClick={() => sendPortalInvite('email', 'reset')}
                       >
                         <Mail />

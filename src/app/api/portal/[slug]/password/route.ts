@@ -174,11 +174,17 @@ export async function POST(
 
   let { data: access } = await admin
     .from('client_portal_access')
-    .select('id,auth_user_id,portal_auth_email')
+    .select('id,auth_user_id,portal_auth_email,enabled')
     .eq('account_id', settings.account_id)
     .eq('contact_id', contact.id)
     .maybeSingle();
   const internalEmail = portalAuthEmail(settings.account_id, contact.id);
+  if (access?.enabled === false) {
+    return Response.json(
+      { error: 'O acesso deste cliente ao Portal 360 foi inativado.' },
+      { status: 403 }
+    );
+  }
   const previousAccess = access ? { ...access } : null;
   let createdUserId: string | null = null;
   let createdAccess = false;
