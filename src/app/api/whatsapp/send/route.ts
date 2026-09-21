@@ -232,6 +232,29 @@ export async function POST(request: Request) {
             senderType: 'agent',
           },
         });
+
+        // The QR process is intentionally a separate service.  Do not rely
+        // on a previously opened status page to have bound it to the account
+        // that just queued this message: that leaves a perfectly connected
+        // worker polling another account and the bubble stays "sending".
+        //
+        // `/status` only updates the worker's active account context and is
+        // safe to call repeatedly.  The durable outbox remains the delivery
+        // mechanism; a transient wake-up failure must never discard a queued
+        // customer message.
+        try {
+          await remoteWhatsAppWorker.status({
+            accountId,
+            userId: user.id,
+            autoStart: false,
+          });
+        } catch (wakeError) {
+          console.warn(
+            '[whatsapp/send] queued message but could not wake QR worker:',
+            wakeError
+          );
+        }
+
         return NextResponse.json({
           success: true,
           queued: true,
