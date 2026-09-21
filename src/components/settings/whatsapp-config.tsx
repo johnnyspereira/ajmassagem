@@ -1243,26 +1243,30 @@ export function WhatsAppConfig() {
                       )}
                       {t('restartQrSession')}
                     </Button>
-                    {baileysStatus?.connected && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleSyncBaileys}
-                        disabled={
-                          baileysSyncing ||
-                          baileysClearingAuth ||
-                          baileysRestarting
-                        }
-                        className="border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-                      >
-                        {baileysSyncing ? (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        ) : (
-                          <Download className="size-3.5" />
-                        )}
-                        Sync chats
-                      </Button>
-                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSyncBaileys}
+                      disabled={
+                        !baileysStatus?.connected ||
+                        baileysSyncing ||
+                        baileysClearingAuth ||
+                        baileysRestarting
+                      }
+                      title={
+                        baileysStatus?.connected
+                          ? 'Importar conversas e mensagens recentes para o Inbox.'
+                          : 'Ligue o WhatsApp para sincronizar conversas.'
+                      }
+                      className="border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+                    >
+                      {baileysSyncing ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Download className="size-3.5" />
+                      )}
+                      Sincronizar mensagens
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
