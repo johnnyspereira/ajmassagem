@@ -10,4 +10,4 @@ if not exist "%CLOUDFLARED_EXE%" (
   exit /b 1
 )
 
-"%CLOUDFLARED_EXE%" --protocol http2 --metrics 127.0.0.1:20242 --config "%CLOUDFLARED_CONFIG%" tunnel run
+"%CLOUDFLARED_EXE%" --protocol quic --edge-ip-version 4 --metrics 127.0.0.1:20242 --config "%CLOUDFLARED_CONFIG%" tunnel run

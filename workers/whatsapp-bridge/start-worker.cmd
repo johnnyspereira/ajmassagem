@@ -14,7 +14,7 @@ tasklist /FI "IMAGENAME eq cloudflared.exe" /NH | findstr /I "cloudflared.exe" >
 if errorlevel 1 (
   rem Run from the config directory so cmd.exe never has to parse a quoted
   rem path containing the Windows user name (which may contain spaces).
-  start "JP Massagem - WhatsApp Tunnel" /D "%USERPROFILE%\.cloudflared" cmd /k cloudflared --config config.yml tunnel run
+  start "JP Massagem - WhatsApp Tunnel" /D "%USERPROFILE%\.cloudflared" cmd /k cloudflared --protocol quic --edge-ip-version 4 --config config.yml tunnel run
 )
 
 echo O worker e o tunnel foram iniciados em janelas visiveis.
