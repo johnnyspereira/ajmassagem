@@ -20,10 +20,7 @@ CREATE TABLE IF NOT EXISTS clinic_appointment_services (
   CONSTRAINT clinic_appointment_services_appointment_fk
     FOREIGN KEY (appointment_id) REFERENCES clinic_appointments(id) ON DELETE CASCADE,
   CONSTRAINT clinic_appointment_services_service_fk
-    FOREIGN KEY (service_id) REFERENCES clinic_services(id) ON DELETE RESTRICT,
-  CONSTRAINT clinic_appointment_services_duration_check CHECK (duration_minutes >= 0),
-  CONSTRAINT clinic_appointment_services_price_check CHECK (price >= 0),
-  CONSTRAINT clinic_appointment_services_original_price_check CHECK (original_price >= 0)
+    FOREIGN KEY (service_id) REFERENCES clinic_services(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Existing and Portal-created bookings start with one, non-offer item.
