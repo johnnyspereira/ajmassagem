@@ -47,8 +47,12 @@ try {
     env: process.env,
     stdio: 'inherit',
   });
-} catch (error) {
-  console.error('cPanel: MySQL migration failed. Starting the application with the existing schema.');
-}
+ } catch (error) {
+   // Do not hide the reason: an application started against an old
+   // schema only fails later with vague "Table is not available"
+   // messages in the UI. The cPanel Node log is the actionable
+   // source when credentials or SQL compatibility need attention.
+   console.error('cPanel: MySQL migration failed. Starting the application with the existing schema.', error);
+ }
 
 require('./next-server.js');
