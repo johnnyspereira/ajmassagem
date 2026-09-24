@@ -249,7 +249,7 @@ export async function POST(
           password_issued_at: new Date().toISOString(),
         });
     const { data: inserted, error: accessError } = await accessMutation
-      .select('id,auth_user_id,portal_auth_email')
+      .select('id,auth_user_id,portal_auth_email,enabled')
       .single();
     if (accessError) {
       await admin.auth.admin.deleteUser(created.user.id);
