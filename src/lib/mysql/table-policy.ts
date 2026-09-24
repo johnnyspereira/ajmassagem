@@ -244,6 +244,15 @@ Object.assign(policies, {
     parent: { localColumn: 'sale_id', parentTable: 'finance_sales' },
     minimumWriteRole: 'agent',
   },
+  clinic_appointment_services: {
+    // Appointment service lines inherit tenant ownership from their parent
+    // booking; never trust an account id supplied by the browser.
+    parent: {
+      localColumn: 'appointment_id',
+      parentTable: 'clinic_appointments',
+    },
+    minimumWriteRole: 'agent',
+  },
 });
 
 export function getTablePolicy(table: string): TablePolicy | null {
