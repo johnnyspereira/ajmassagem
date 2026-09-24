@@ -419,13 +419,23 @@ export function MessageBubble({
           </div>
         )}
         {isAgent && message.status === 'failed' && onRetry && (
-          <button
-            type="button"
-            onClick={onRetry}
-            className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-primary-foreground/85 underline-offset-2 hover:underline"
-          >
-            <RotateCw className="h-3 w-3" /> Tentar novamente
-          </button>
+          <div className="mt-1.5 space-y-1.5">
+            {message.delivery_error ? (
+              <p
+                className="max-w-56 text-[10px] leading-snug text-primary-foreground/80"
+                title={message.delivery_error}
+              >
+                Falhou: {message.delivery_error}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              onClick={onRetry}
+              className="inline-flex items-center gap-1 text-[10px] font-medium text-primary-foreground/85 underline-offset-2 hover:underline"
+            >
+              <RotateCw className="h-3 w-3" /> Tentar novamente
+            </button>
+          </div>
         )}
       </div>
       {reactions && reactions.length > 0 && onToggleReaction && (

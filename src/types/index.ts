@@ -330,6 +330,11 @@ export interface Message {
   template_name?: string;
   message_id?: string;
   status: MessageStatus;
+  /**
+   * Human-readable delivery failure returned by the QR/Meta worker. Kept on
+   * the message so a failed Inbox send is explainable after a refresh.
+   */
+  delivery_error?: string | null;
   created_at: string;
   reply_to_message_id?: string;
   /**

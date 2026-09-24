@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       [job.id, ctx.accountId]
     );
     await mutate(
-      "UPDATE messages SET status='sending' WHERE id=?",
+      "UPDATE messages SET status='sending',delivery_error=NULL WHERE id=?",
       [messageId]
     );
 

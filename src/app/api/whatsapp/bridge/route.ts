@@ -290,7 +290,7 @@ export async function POST(request: Request) {
           [dedupeKey, job.message_id]
         );
         await connection.execute(
-          `UPDATE messages SET message_id=?,dedupe_key=?,status='sent'
+          `UPDATE messages SET message_id=?,dedupe_key=?,status='sent',delivery_error=NULL
            WHERE id=? AND conversation_id=?`,
           [providerMessageId, dedupeKey, job.message_id, job.conversation_id]
         );
@@ -337,8 +337,8 @@ export async function POST(request: Request) {
         );
         if (dead) {
           await connection.execute(
-            "UPDATE messages SET status='failed' WHERE id=?",
-            [job.message_id]
+            "UPDATE messages SET status='failed',delivery_error=? WHERE id=?",
+            [String(body.error ?? 'O worker não conseguiu entregar a mensagem.'), job.message_id]
           );
         }
         return { dead, retryInSeconds: dead ? null : delaySeconds };
