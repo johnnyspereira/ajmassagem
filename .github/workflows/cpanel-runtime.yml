@@ -61,7 +61,21 @@ jobs:
           node -e "const fs=require('fs'); for (const p of ['node_modules/shadcn/dist/tailwind.css','node_modules/tw-animate-css/dist/tw-animate.css']) { if (!fs.existsSync(p)) { throw new Error(p + ' not found') } console.log(p + ' OK') }"
 
       - name: Build Next.js standalone runtime
-        run: npm run build:cpanel
+        shell: bash
+        run: |
+          # Preserve the useful final part of a failed Next build as a GitHub
+          # annotation. The normal Actions log endpoint is intentionally not
+          # available to the deployment monitor, which otherwise only sees
+          # the unhelpful generic "exit code 1".
+          set +e
+          npm run build:cpanel 2>&1 | tee /tmp/cpanel-next-build.log
+          build_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$build_status" -ne 0 ]; then
+            summary=$(tail -n 35 /tmp/cpanel-next-build.log | tr '\n' ' ' | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/\n/%0A/g')
+            echo "::error title=Next cPanel build failure::$summary"
+            exit "$build_status"
+          fi
         env:
           NODE_ENV: production
 
