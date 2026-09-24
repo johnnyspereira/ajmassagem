@@ -200,14 +200,53 @@ export async function POST(request: Request) {
       );
     }
 
-    // Route Inbox text through the durable outbox. Calling the remote Worker
-    // synchronously made the Inbox depend on a second HTTP hop and could turn
-    // a healthy QR session into a 502 in the browser. The Worker claims this
-    // queue every few seconds and updates this same message record.
+    // Human Inbox messages must take the direct path first.  A queue is a
+    // useful safety net while the worker is unavailable, but making every
+    // conversation wait for a polling cycle left operators without immediate
+    // confirmation despite a healthy QR session.
     if (
       remoteWhatsAppWorker.enabled() &&
       ['text', 'interactive'].includes(message_type)
     ) {
+      const text =
+        message_type === 'interactive'
+          ? interactivePayloadToText(interactive_payload)
+          : content_text || '';
+      try {
+        const status = await remoteWhatsAppWorker.status({
+          accountId,
+          userId: user.id,
+          autoStart: false,
+        });
+        if (status.connected) {
+          const sent = await remoteWhatsAppWorker.send({
+            accountId,
+            userId: user.id,
+            conversationId,
+            message: {
+              text,
+              contentType: message_type,
+              mediaUrl: media_url || null,
+              filename: filename || null,
+              templateName: template_name || null,
+              interactivePayload: interactive_payload || null,
+              replyToMessageId: reply_to_message_id || null,
+              senderType: 'agent',
+            },
+          });
+          return NextResponse.json({
+            success: true,
+            delivered_to_worker: true,
+            message_id: sent.messageId,
+            whatsapp_message_id: sent.whatsappMessageId,
+          });
+        }
+      } catch (directError) {
+        console.warn('[whatsapp/send] direct send unavailable; queuing fallback:', directError);
+      }
+
+      // The worker is offline or temporarily unreachable. Preserve the
+      // operator's message in the durable queue rather than losing it.
       const requestKey =
         typeof client_request_id === 'string' && client_request_id.trim()
           ? client_request_id.trim().slice(0, 100)
