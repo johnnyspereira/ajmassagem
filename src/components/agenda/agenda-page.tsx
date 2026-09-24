@@ -185,6 +185,11 @@ type AppointmentEditDraft = AppointmentDraft & {
   paidAt: string | null;
 };
 
+type AppointmentServiceLineDraft = {
+  serviceId: string;
+  isOffer: boolean;
+};
+
 type AppointmentPackOption = FinanceClientPack & {
   balances?: Array<{
     id: string;
@@ -428,10 +433,14 @@ function buildScheduleChangeConfirmationMessage({
     clientRequested
       ? `A sua sessão de ${service} fica confirmada neste novo horário.`
       : copy.action,
-    clientRequested ? 'Se precisar de mais apoio, responda a esta mensagem.' : null,
+    clientRequested
+      ? 'Se precisar de mais apoio, responda a esta mensagem.'
+      : null,
     '',
     brand,
-  ].filter((line): line is string => line !== null).join('\n');
+  ]
+    .filter((line): line is string => line !== null)
+    .join('\n');
 }
 
 function formatRangeTitle(date: Date, view: CalendarView) {
@@ -545,9 +554,15 @@ function isMissingAgendaSchema(error: { code?: string; message?: string }) {
 function pendingWhatsAppReschedule(events: ClinicAgendaEvent[]) {
   for (const event of events) {
     const metadata = event.metadata;
-    if (metadata?.whatsapp_reschedule_approved === true || metadata?.portal_reschedule_approved === true) return null;
     if (
-      ['whatsapp_reschedule', 'portal_reschedule'].includes(String(metadata?.kind)) &&
+      metadata?.whatsapp_reschedule_approved === true ||
+      metadata?.portal_reschedule_approved === true
+    )
+      return null;
+    if (
+      ['whatsapp_reschedule', 'portal_reschedule'].includes(
+        String(metadata?.kind)
+      ) &&
       metadata?.state === 'awaiting_professional' &&
       metadata.selected_slot &&
       typeof metadata.selected_slot === 'object'
@@ -557,7 +572,10 @@ function pendingWhatsAppReschedule(events: ClinicAgendaEvent[]) {
         endsAt?: unknown;
         label?: unknown;
       };
-      if (typeof slot.startsAt === 'string' && typeof slot.endsAt === 'string') {
+      if (
+        typeof slot.startsAt === 'string' &&
+        typeof slot.endsAt === 'string'
+      ) {
         return {
           startsAt: slot.startsAt,
           endsAt: slot.endsAt,
@@ -715,11 +733,15 @@ export function AgendaPage({
   const [appointmentSaveStage, setAppointmentSaveStage] = useState('');
   const [appointmentPreviewOpen, setAppointmentPreviewOpen] = useState(false);
   const [createSumUpCharge, setCreateSumUpCharge] = useState(false);
-  const [appointmentDurationMinutes, setAppointmentDurationMinutes] =
-    useState<number | ''>('');
-  const [appointmentAdditionalAmount, setAppointmentAdditionalAmount] = useState<
+  const [appointmentDurationMinutes, setAppointmentDurationMinutes] = useState<
     number | ''
   >('');
+  const [appointmentAdditionalAmount, setAppointmentAdditionalAmount] =
+    useState<number | ''>('');
+  const [additionalServiceLines, setAdditionalServiceLines] = useState<
+    AppointmentServiceLineDraft[]
+  >([]);
+  const [primaryServiceIsOffer, setPrimaryServiceIsOffer] = useState(false);
   const [manualDiscountAmount, setManualDiscountAmount] = useState<number | ''>(
     ''
   );
@@ -776,7 +798,9 @@ export function AgendaPage({
   const [newBenefitVoucherPin, setNewBenefitVoucherPin] = useState('');
   const [newBenefitCodeLookup, setNewBenefitCodeLookup] =
     useState<BenefitCodeLookup | null>(null);
-  const [availableVouchers, setAvailableVouchers] = useState<FinanceVoucher[]>([]);
+  const [availableVouchers, setAvailableVouchers] = useState<FinanceVoucher[]>(
+    []
+  );
   const [availablePacks, setAvailablePacks] = useState<AppointmentPackOption[]>(
     []
   );
@@ -822,6 +846,18 @@ export function AgendaPage({
   const selectedService =
     services.find((service) => service.id === appointmentDraft.serviceId) ??
     null;
+  const additionalServices = additionalServiceLines
+    .map((line) => ({
+      ...line,
+      service:
+        services.find((service) => service.id === line.serviceId) ?? null,
+    }))
+    .filter(
+      (
+        line
+      ): line is AppointmentServiceLineDraft & { service: ClinicService } =>
+        line.service !== null
+    );
   const selectedNewContact =
     contacts.find((contact) => contact.id === appointmentDraft.contactId) ??
     null;
@@ -886,21 +922,48 @@ export function AgendaPage({
     appointmentDraft.time,
     accountTimeZone
   );
-  const effectiveAppointmentDuration = Math.min(
+  const primaryAppointmentDuration = Math.min(
     480,
     Math.max(
       5,
-      Number(appointmentDurationMinutes || selectedService?.duration_minutes || 0)
+      Number(
+        appointmentDurationMinutes || selectedService?.duration_minutes || 0
+      )
     )
+  );
+  const effectiveAppointmentDuration = Math.min(
+    480,
+    primaryAppointmentDuration +
+      additionalServices.reduce(
+        (total, line) =>
+          total + Math.max(0, Number(line.service.duration_minutes ?? 0)),
+        0
+      )
   );
   // A different duration can have an agreed extra amount. The catalogue
   // price always remains the base and the extra is retained by the
   // appointment and POS before any discount is applied.
-  const servicePrice = Math.max(
+  const primaryServicePrice = Math.max(
     0,
     Number(selectedService?.price ?? 0) +
       Number(appointmentAdditionalAmount || 0)
   );
+  const additionalServicesOriginalPrice = additionalServices.reduce(
+    (total, line) => total + Math.max(0, Number(line.service.price ?? 0)),
+    0
+  );
+  const servicePrice = Math.max(
+    0,
+    (primaryServiceIsOffer ? 0 : primaryServicePrice) +
+      additionalServices.reduce(
+        (total, line) =>
+          total +
+          (line.isOffer ? 0 : Math.max(0, Number(line.service.price ?? 0))),
+        0
+      )
+  );
+  const originalServicePrice =
+    primaryServicePrice + additionalServicesOriginalPrice;
   const effectiveManualDiscount = Math.min(
     servicePrice,
     Math.max(0, Number(manualDiscountAmount || 0))
@@ -1044,6 +1107,8 @@ export function AgendaPage({
       setCreateSumUpCharge(false);
       setAppointmentDurationMinutes(firstService?.duration_minutes ?? '');
       setAppointmentAdditionalAmount('');
+      setAdditionalServiceLines([]);
+      setPrimaryServiceIsOffer(false);
       setManualDiscountAmount('');
       setManualDiscountReason('');
       setRecurrenceCount(1);
@@ -1591,12 +1656,15 @@ export function AgendaPage({
 
     let isAvailable = false;
     try {
-      isAvailable = await ensureAvailability({
-        startsAt: startAt,
-        endsAt: endAt,
-        professionalId: appointmentDraft.professionalProfileId || null,
-        roomId: appointmentDraft.roomId || null,
-      }, { allowTimeBlockOverride: true });
+      isAvailable = await ensureAvailability(
+        {
+          startsAt: startAt,
+          endsAt: endAt,
+          professionalId: appointmentDraft.professionalProfileId || null,
+          roomId: appointmentDraft.roomId || null,
+        },
+        { allowTimeBlockOverride: true }
+      );
     } catch (error) {
       toast.error(
         `Não foi possível validar a disponibilidade: ${error instanceof Error ? error.message : 'erro inesperado'}`
@@ -1623,7 +1691,7 @@ export function AgendaPage({
         status: appointmentDraft.status,
         source: appointmentReferralId ? 'referral' : 'manual',
         referral_id: appointmentReferralId,
-        original_price: servicePrice,
+        original_price: originalServicePrice,
         manual_discount_amount: effectiveManualDiscount,
         manual_discount_reason: manualDiscountReason.trim() || null,
         price: Math.max(0, servicePrice - effectiveManualDiscount),
@@ -1639,6 +1707,59 @@ export function AgendaPage({
     if (error) {
       setSavingAppointment(false);
       toast.error(`Falha ao criar agendamento: ${error.message}`);
+      return;
+    }
+
+    // Replace the compatibility item inserted by migration 047's trigger
+    // with every procedure selected in this booking. The primary appointment
+    // fields remain populated for older Portal, finance and reminder paths.
+    const appointmentServiceLines = [
+      {
+        service_id: appointmentDraft.serviceId,
+        position: 0,
+        duration_minutes: primaryAppointmentDuration,
+        original_price: primaryServicePrice,
+        price: primaryServiceIsOffer
+          ? 0
+          : Math.max(0, primaryServicePrice - effectiveManualDiscount),
+        is_offer: primaryServiceIsOffer,
+      },
+      ...additionalServices.map((line, index) => ({
+        service_id: line.serviceId,
+        position: index + 1,
+        duration_minutes: Math.max(
+          0,
+          Number(line.service.duration_minutes ?? 0)
+        ),
+        original_price: Math.max(0, Number(line.service.price ?? 0)),
+        price: line.isOffer ? 0 : Math.max(0, Number(line.service.price ?? 0)),
+        is_offer: line.isOffer,
+      })),
+    ];
+    const { error: clearItemsError } = await supabase
+      .from('clinic_appointment_services')
+      .delete()
+      .eq('appointment_id', data.id);
+    const { error: itemError } = clearItemsError
+      ? { error: clearItemsError }
+      : await supabase.from('clinic_appointment_services').insert(
+          appointmentServiceLines.map((line) => ({
+            id: crypto.randomUUID(),
+            appointment_id: data.id,
+            ...line,
+          }))
+        );
+    if (itemError) {
+      await supabase
+        .from('clinic_appointments')
+        .delete()
+        .eq('id', data.id)
+        .eq('account_id', accountId);
+      setSavingAppointment(false);
+      setAppointmentSaveStage('');
+      toast.error(
+        `Não foi possível guardar os procedimentos do agendamento: ${itemError.message}`
+      );
       return;
     }
 
@@ -1692,11 +1813,14 @@ export function AgendaPage({
 
     if (createdAppointment?.id && newBenefitType !== 'direct') {
       setAppointmentSaveStage('A reservar benefício…');
-      const { error: benefitError } = await supabase.rpc('set_appointment_benefit', {
-        p_appointment_id: createdAppointment.id,
-        p_benefit_type: newBenefitType,
-        p_source_id: newBenefitSourceId,
-      });
+      const { error: benefitError } = await supabase.rpc(
+        'set_appointment_benefit',
+        {
+          p_appointment_id: createdAppointment.id,
+          p_benefit_type: newBenefitType,
+          p_source_id: newBenefitSourceId,
+        }
+      );
       if (benefitError) {
         await supabase
           .from('clinic_appointments')
@@ -1774,12 +1898,15 @@ export function AgendaPage({
           effectiveAppointmentDuration
         );
         if (
-          !(await ensureAvailability({
-            startsAt: recurringStart,
-            endsAt: recurringEnd,
-            professionalId: appointmentDraft.professionalProfileId || null,
-            roomId: appointmentDraft.roomId || null,
-          }, { allowTimeBlockOverride: true }))
+          !(await ensureAvailability(
+            {
+              startsAt: recurringStart,
+              endsAt: recurringEnd,
+              professionalId: appointmentDraft.professionalProfileId || null,
+              roomId: appointmentDraft.roomId || null,
+            },
+            { allowTimeBlockOverride: true }
+          ))
         )
           break;
         const { data: recurring, error: recurringError } = await supabase
@@ -1840,7 +1967,8 @@ export function AgendaPage({
           referral_discount_amount:
             createdAppointment?.referral_discount_amount ?? 0,
           manual_discount_amount:
-            createdAppointment?.manual_discount_amount ?? effectiveManualDiscount,
+            createdAppointment?.manual_discount_amount ??
+            effectiveManualDiscount,
           duration_minutes: effectiveAppointmentDuration,
         },
       });
@@ -2043,8 +2171,10 @@ export function AgendaPage({
           ? []
           : ((vouchersRes.data as FinanceVoucher[] | null) ?? []).filter(
               (item) =>
-                (!item.expires_at || new Date(item.expires_at).getTime() > now) &&
-                (item.voucher_type !== 'service' || item.service_id === appointmentDraft.serviceId)
+                (!item.expires_at ||
+                  new Date(item.expires_at).getTime() > now) &&
+                (item.voucher_type !== 'service' ||
+                  item.service_id === appointmentDraft.serviceId)
             )
       );
       setAvailablePacks(
@@ -2452,7 +2582,8 @@ export function AgendaPage({
   }
 
   async function restoreCancelledAppointment() {
-    if (!selectedAppointment || selectedAppointment.status !== 'cancelled') return;
+    if (!selectedAppointment || selectedAppointment.status !== 'cancelled')
+      return;
     const reason = ownerRestoreReason.trim();
     if (reason.length < 3) {
       toast.error('Indique o motivo para reabrir a marcação.');
@@ -2479,9 +2610,7 @@ export function AgendaPage({
       setSelectedAppointment((current) =>
         current ? { ...current, status, cancelled_at: null } : current
       );
-      setEditDraft((current) =>
-        current ? { ...current, status } : current
-      );
+      setEditDraft((current) => (current ? { ...current, status } : current));
       setOwnerRestoreReason('');
       setAppointmentEvents(
         await loadAgendaEvents('appointment', selectedAppointment.id)
@@ -2651,7 +2780,9 @@ export function AgendaPage({
       date: dateInputValue(startAt),
       time: timeInputValue(startAt),
       type: 'rescheduled',
-      reason: clientRequested ? 'Pedido de alteração de horário pelo cliente.' : '',
+      reason: clientRequested
+        ? 'Pedido de alteração de horário pelo cliente.'
+        : '',
       source,
       clientRequested,
       requestClientConfirmation: true,
@@ -2784,13 +2915,16 @@ export function AgendaPage({
     }
 
     if (
-      !(await ensureAvailability({
-        startsAt: startAt,
-        endsAt: endAt,
-        professionalId: appointment.professional_profile_id || null,
-        roomId: appointment.room_id || null,
-        excludeAppointmentId: appointment.id,
-      }, { allowTimeBlockOverride: true }))
+      !(await ensureAvailability(
+        {
+          startsAt: startAt,
+          endsAt: endAt,
+          professionalId: appointment.professional_profile_id || null,
+          roomId: appointment.room_id || null,
+          excludeAppointmentId: appointment.id,
+        },
+        { allowTimeBlockOverride: true }
+      ))
     ) {
       return;
     }
@@ -2862,11 +2996,11 @@ export function AgendaPage({
         service_id: appointment.service_id,
         whatsapp_reschedule_approved: Boolean(
           selectedWhatsAppReschedule &&
-            scheduleChangeDraft.appointmentId === appointment.id
+          scheduleChangeDraft.appointmentId === appointment.id
         ),
         portal_reschedule_approved: Boolean(
           selectedWhatsAppReschedule &&
-            scheduleChangeDraft.appointmentId === appointment.id
+          scheduleChangeDraft.appointmentId === appointment.id
         ),
         benefit_disposition:
           scheduleBenefit?.status === 'reserved'
@@ -3134,13 +3268,16 @@ export function AgendaPage({
 
     let isAvailable = false;
     try {
-      isAvailable = await ensureAvailability({
-        startsAt: startAt,
-        endsAt: endAt,
-        professionalId: editDraft.professionalProfileId || null,
-        roomId: editDraft.roomId || null,
-        excludeAppointmentId: selectedAppointment.id,
-      }, { allowTimeBlockOverride: true });
+      isAvailable = await ensureAvailability(
+        {
+          startsAt: startAt,
+          endsAt: endAt,
+          professionalId: editDraft.professionalProfileId || null,
+          roomId: editDraft.roomId || null,
+          excludeAppointmentId: selectedAppointment.id,
+        },
+        { allowTimeBlockOverride: true }
+      );
     } catch (error) {
       toast.error(
         `Não foi possível validar a disponibilidade: ${error instanceof Error ? error.message : 'erro inesperado'}`
@@ -4012,7 +4149,14 @@ export function AgendaPage({
                           Pedido de reagendamento do cliente
                         </p>
                         <p className="mt-1 text-xs text-fuchsia-800 dark:text-fuchsia-200">
-                          Pretende {new Date(selectedWhatsAppReschedule.startsAt).toLocaleString('pt-PT', { dateStyle: 'full', timeStyle: 'short' })}. A marcação atual não será alterada até aprovação.
+                          Pretende{' '}
+                          {new Date(
+                            selectedWhatsAppReschedule.startsAt
+                          ).toLocaleString('pt-PT', {
+                            dateStyle: 'full',
+                            timeStyle: 'short',
+                          })}
+                          . A marcação atual não será alterada até aprovação.
                         </p>
                       </div>
                       {canOperate ? (
@@ -4655,7 +4799,8 @@ export function AgendaPage({
                             Reabrir marcação cancelada
                           </p>
                           <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">
-                            Ação exclusiva do proprietário. O motivo fica registado no histórico da marcação.
+                            Ação exclusiva do proprietário. O motivo fica
+                            registado no histórico da marcação.
                           </p>
                           <div className="mt-3 grid gap-2 sm:grid-cols-[180px_1fr_auto]">
                             <NativeSelect
@@ -4717,13 +4862,16 @@ export function AgendaPage({
                                 onClick={() =>
                                   openScheduleChange(
                                     selectedAppointment,
-                                    new Date(selectedWhatsAppReschedule.startsAt),
+                                    new Date(
+                                      selectedWhatsAppReschedule.startsAt
+                                    ),
                                     'manual',
                                     true
                                   )
                                 }
                               >
-                                <CheckCircle2 className="size-4" /> Aprovar pedido
+                                <CheckCircle2 className="size-4" /> Aprovar
+                                pedido
                               </ActionButton>
                             ) : null}
                             <ActionButton
@@ -5000,32 +5148,45 @@ export function AgendaPage({
               {benefitType !== 'direct' ? (
                 <div className="space-y-2">
                   <Field label="PIN do voucher ou pack">
-                    <Input type="password" inputMode="numeric" value={benefitVoucherPin} onChange={(event) => setBenefitVoucherPin(event.target.value.replace(/\D/g, '').slice(0, 8))} placeholder="Introduza o PIN de 4 a 8 dígitos" />
+                    <Input
+                      type="password"
+                      inputMode="numeric"
+                      value={benefitVoucherPin}
+                      onChange={(event) =>
+                        setBenefitVoucherPin(
+                          event.target.value.replace(/\D/g, '').slice(0, 8)
+                        )
+                      }
+                      placeholder="Introduza o PIN de 4 a 8 dígitos"
+                    />
                   </Field>
-                  <p className="text-muted-foreground text-xs">Confirme o PIN apresentado pelo cliente antes de consumir o benefício.</p>
-                <button
-                  type="button"
-                  onClick={() => void consumeAppointmentBenefit()}
-                  disabled={savingEdit}
-                  className="flex w-full items-center gap-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-4 text-left transition-colors hover:bg-emerald-500/15 disabled:opacity-60"
-                >
-                  {savingEdit ? (
-                    <Loader2 className="size-5 animate-spin text-emerald-700" />
-                  ) : benefitType === 'pack' ? (
-                    <PackageCheck className="size-5 text-emerald-700" />
-                  ) : (
-                    <Gift className="size-5 text-emerald-700" />
-                  )}
-                  <span>
-                    <span className="block font-semibold">
-                      Consumir{' '}
-                      {benefitType === 'pack' ? 'sessão do pack' : 'voucher'}
+                  <p className="text-muted-foreground text-xs">
+                    Confirme o PIN apresentado pelo cliente antes de consumir o
+                    benefício.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void consumeAppointmentBenefit()}
+                    disabled={savingEdit}
+                    className="flex w-full items-center gap-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-4 text-left transition-colors hover:bg-emerald-500/15 disabled:opacity-60"
+                  >
+                    {savingEdit ? (
+                      <Loader2 className="size-5 animate-spin text-emerald-700" />
+                    ) : benefitType === 'pack' ? (
+                      <PackageCheck className="size-5 text-emerald-700" />
+                    ) : (
+                      <Gift className="size-5 text-emerald-700" />
+                    )}
+                    <span>
+                      <span className="block font-semibold">
+                        Consumir{' '}
+                        {benefitType === 'pack' ? 'sessão do pack' : 'voucher'}
+                      </span>
+                      <span className="text-muted-foreground block text-xs">
+                        Valida o PIN, baixa o saldo e conclui o pagamento.
+                      </span>
                     </span>
-                    <span className="text-muted-foreground block text-xs">
-                      Valida o PIN, baixa o saldo e conclui o pagamento.
-                    </span>
-                  </span>
-                </button>
+                  </button>
                 </div>
               ) : null}
 
@@ -5634,11 +5795,15 @@ export function AgendaPage({
                         ...prev,
                         serviceId: value,
                       }));
+                      setAdditionalServiceLines((current) =>
+                        current.filter((line) => line.serviceId !== value)
+                      );
                       setAppointmentDurationMinutes(
                         services.find((service) => service.id === value)
                           ?.duration_minutes ?? ''
                       );
                       setAppointmentAdditionalAmount('');
+                      setPrimaryServiceIsOffer(false);
                     }}
                   >
                     <option value="">Selecione um procedimento</option>
@@ -5650,6 +5815,142 @@ export function AgendaPage({
                   </NativeSelect>
                 </Field>
               </div>
+
+              {selectedService ? (
+                <div className="border-primary/35 bg-primary/5 mt-3 rounded-lg border border-dashed p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-medium">
+                        Procedimentos deste agendamento
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        Adicione procedimentos e identifique qualquer item
+                        oferecido.
+                      </p>
+                    </div>
+                    <label className="text-foreground flex items-center gap-2 text-xs font-medium">
+                      <input
+                        type="checkbox"
+                        checked={primaryServiceIsOffer}
+                        onChange={(event) =>
+                          setPrimaryServiceIsOffer(event.target.checked)
+                        }
+                      />
+                      <Gift className="text-primary size-3.5" /> Oferta
+                    </label>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    <div className="bg-background flex items-center justify-between rounded-md px-3 py-2 text-sm">
+                      <span>
+                        {selectedService.name}{' '}
+                        <span className="text-muted-foreground">
+                          (principal)
+                        </span>
+                      </span>
+                      <span
+                        className={cn(
+                          'font-medium',
+                          primaryServiceIsOffer && 'text-emerald-600'
+                        )}
+                      >
+                        {primaryServiceIsOffer
+                          ? 'Oferta · 0,00 €'
+                          : formatCurrency(
+                              primaryServicePrice,
+                              selectedService.currency || defaultCurrency
+                            )}
+                      </span>
+                    </div>
+                    {additionalServices.map((line) => (
+                      <div
+                        key={line.serviceId}
+                        className="bg-background flex flex-wrap items-center gap-2 rounded-md px-3 py-2 text-sm"
+                      >
+                        <span className="min-w-0 flex-1 truncate">
+                          {line.service.name}
+                        </span>
+                        <label className="flex items-center gap-1.5 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={line.isOffer}
+                            onChange={(event) =>
+                              setAdditionalServiceLines((current) =>
+                                current.map((item) =>
+                                  item.serviceId === line.serviceId
+                                    ? { ...item, isOffer: event.target.checked }
+                                    : item
+                                )
+                              )
+                            }
+                          />
+                          Oferta
+                        </label>
+                        <span
+                          className={cn(
+                            'font-medium',
+                            line.isOffer && 'text-emerald-600'
+                          )}
+                        >
+                          {line.isOffer
+                            ? '0,00 €'
+                            : formatCurrency(
+                                Number(line.service.price ?? 0),
+                                line.service.currency || defaultCurrency
+                              )}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="text-muted-foreground hover:text-destructive size-7"
+                          onClick={() =>
+                            setAdditionalServiceLines((current) =>
+                              current.filter(
+                                (item) => item.serviceId !== line.serviceId
+                              )
+                            )
+                          }
+                          title="Remover procedimento"
+                        >
+                          <X className="size-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                    <NativeSelect
+                      value=""
+                      onChange={(value) => {
+                        if (
+                          !value ||
+                          value === appointmentDraft.serviceId ||
+                          additionalServiceLines.some(
+                            (line) => line.serviceId === value
+                          )
+                        )
+                          return;
+                        setAdditionalServiceLines((current) => [
+                          ...current,
+                          { serviceId: value, isOffer: false },
+                        ]);
+                      }}
+                    >
+                      <option value="">+ Adicionar procedimento</option>
+                      {activeServices
+                        .filter(
+                          (service) =>
+                            service.id !== appointmentDraft.serviceId &&
+                            !additionalServiceLines.some(
+                              (line) => line.serviceId === service.id
+                            )
+                        )
+                        .map((service) => (
+                          <option key={service.id} value={service.id}>
+                            {service.name} · {service.duration_minutes} min
+                          </option>
+                        ))}
+                    </NativeSelect>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="grid gap-3 sm:grid-cols-3">
                 <Field label="Data">
@@ -5733,75 +6034,81 @@ export function AgendaPage({
 
               {selectedService ? (
                 <>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Duração da sessão (minutos)">
-                    <Input
-                      type="number"
-                      min={5}
-                      max={480}
-                      step={5}
-                      value={appointmentDurationMinutes || selectedService.duration_minutes}
-                      onChange={(event) =>
-                        setAppointmentDurationMinutes(
-                          Math.min(480, Math.max(5, Number(event.target.value) || 5))
-                        )
-                      }
-                    />
-                  </Field>
-                  <Field label="Acréscimo ao valor original">
-                    <Input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      inputMode="decimal"
-                      value={appointmentAdditionalAmount}
-                      onChange={(event) =>
-                        setAppointmentAdditionalAmount(
-                          event.target.value === ''
-                            ? ''
-                            : Math.max(0, Number(event.target.value) || 0)
-                        )
-                      }
-                      placeholder="0,00"
-                    />
-                    <p className="text-muted-foreground text-xs">
-                      Soma-se ao preço do procedimento antes do desconto.
-                    </p>
-                  </Field>
-                </div>
-                <div className="border-border bg-muted/30 grid gap-2 rounded-md border p-3 text-sm sm:grid-cols-3">
-                  <div>
-                    <p className="text-muted-foreground text-xs">Duração</p>
-                    <p className="text-foreground font-medium">
-                      {effectiveAppointmentDuration} minutos
-                    </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Duração da sessão (minutos)">
+                      <Input
+                        type="number"
+                        min={5}
+                        max={480}
+                        step={5}
+                        value={
+                          appointmentDurationMinutes ||
+                          selectedService.duration_minutes
+                        }
+                        onChange={(event) =>
+                          setAppointmentDurationMinutes(
+                            Math.min(
+                              480,
+                              Math.max(5, Number(event.target.value) || 5)
+                            )
+                          )
+                        }
+                      />
+                    </Field>
+                    <Field label="Acréscimo ao valor original">
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        inputMode="decimal"
+                        value={appointmentAdditionalAmount}
+                        onChange={(event) =>
+                          setAppointmentAdditionalAmount(
+                            event.target.value === ''
+                              ? ''
+                              : Math.max(0, Number(event.target.value) || 0)
+                          )
+                        }
+                        placeholder="0,00"
+                      />
+                      <p className="text-muted-foreground text-xs">
+                        Soma-se ao preço do procedimento antes do desconto.
+                      </p>
+                    </Field>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground text-xs">Preço</p>
-                    <p className="text-foreground font-medium">
-                      {formatCurrency(
-                        servicePrice,
-                        selectedService.currency || defaultCurrency
-                      )}
-                    </p>
+                  <div className="border-border bg-muted/30 grid gap-2 rounded-md border p-3 text-sm sm:grid-cols-3">
+                    <div>
+                      <p className="text-muted-foreground text-xs">Duração</p>
+                      <p className="text-foreground font-medium">
+                        {effectiveAppointmentDuration} minutos
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">Preço</p>
+                      <p className="text-foreground font-medium">
+                        {formatCurrency(
+                          servicePrice,
+                          selectedService.currency || defaultCurrency
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">
+                        Fim previsto
+                      </p>
+                      <p className="text-foreground font-medium">
+                        {timeInputValue(
+                          addMinutes(
+                            appointmentDate(
+                              appointmentDraft.date,
+                              appointmentDraft.time
+                            ),
+                            effectiveAppointmentDuration
+                          )
+                        )}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground text-xs">
-                      Fim previsto
-                    </p>
-                    <p className="text-foreground font-medium">
-                      {timeInputValue(
-                        addMinutes(
-                          appointmentDate(
-                            appointmentDraft.date,
-                            appointmentDraft.time
-                          ),
-                          effectiveAppointmentDuration
-                        )
-                      )}
-                    </p>
-                  </div>
-                </div>
                 </>
               ) : null}
             </section>
@@ -5892,33 +6199,51 @@ export function AgendaPage({
                 </div>
                 {newBenefitType === 'voucher' ? (
                   <div className="space-y-2">
-                    <NativeSelect value={newBenefitSourceId} onChange={setNewBenefitSourceId}>
+                    <NativeSelect
+                      value={newBenefitSourceId}
+                      onChange={setNewBenefitSourceId}
+                    >
                       <option value="">Selecione um voucher compatível</option>
-                      {compatibleNewVouchers.map((voucher) => <option key={voucher.id} value={voucher.id}>{voucher.voucher_type === 'service' ? (services.find((service) => service.id === voucher.service_id)?.name || 'Voucher de serviço') : formatCurrency(Number(voucher.current_balance), voucher.currency)} · {voucher.code}</option>)}
+                      {compatibleNewVouchers.map((voucher) => (
+                        <option key={voucher.id} value={voucher.id}>
+                          {voucher.voucher_type === 'service'
+                            ? services.find(
+                                (service) => service.id === voucher.service_id
+                              )?.name || 'Voucher de serviço'
+                            : formatCurrency(
+                                Number(voucher.current_balance),
+                                voucher.currency
+                              )}{' '}
+                          · {voucher.code}
+                        </option>
+                      ))}
                     </NativeSelect>
-                    <p className="text-muted-foreground text-xs">O PIN não é necessário para o profissional. Ele só é pedido quando o cliente agenda no Portal.</p>
+                    <p className="text-muted-foreground text-xs">
+                      O PIN não é necessário para o profissional. Ele só é
+                      pedido quando o cliente agenda no Portal.
+                    </p>
                     <div className="hidden">
-                    <Input
-                      value={newBenefitVoucherCode}
-                      readOnly={Boolean(newBenefitCodeLookup)}
-                      onChange={(event) =>
-                        setNewBenefitVoucherCode(
-                          event.target.value.toUpperCase()
-                        )
-                      }
-                      placeholder="Código do voucher"
-                    />
-                    <Input
-                      type="password"
-                      inputMode="numeric"
-                      value={newBenefitVoucherPin}
-                      onChange={(event) =>
-                        setNewBenefitVoucherPin(
-                          event.target.value.replace(/\D/g, '').slice(0, 8)
-                        )
-                      }
-                      placeholder="PIN"
-                    />
+                      <Input
+                        value={newBenefitVoucherCode}
+                        readOnly={Boolean(newBenefitCodeLookup)}
+                        onChange={(event) =>
+                          setNewBenefitVoucherCode(
+                            event.target.value.toUpperCase()
+                          )
+                        }
+                        placeholder="Código do voucher"
+                      />
+                      <Input
+                        type="password"
+                        inputMode="numeric"
+                        value={newBenefitVoucherPin}
+                        onChange={(event) =>
+                          setNewBenefitVoucherPin(
+                            event.target.value.replace(/\D/g, '').slice(0, 8)
+                          )
+                        }
+                        placeholder="PIN"
+                      />
                     </div>
                   </div>
                 ) : newBenefitType === 'pack' && newBenefitCodeLookup ? (
@@ -5973,7 +6298,10 @@ export function AgendaPage({
                       setManualDiscountAmount(
                         event.target.value === ''
                           ? ''
-                          : Math.min(servicePrice, Math.max(0, Number(event.target.value) || 0))
+                          : Math.min(
+                              servicePrice,
+                              Math.max(0, Number(event.target.value) || 0)
+                            )
                       )
                     }
                     placeholder="0,00"
@@ -5983,12 +6311,29 @@ export function AgendaPage({
                   <Input
                     value={manualDiscountReason}
                     maxLength={255}
-                    onChange={(event) => setManualDiscountReason(event.target.value)}
+                    onChange={(event) =>
+                      setManualDiscountReason(event.target.value)
+                    }
                     placeholder="Ex.: fidelização ou cortesia"
                   />
                 </Field>
                 <p className="text-muted-foreground text-xs sm:col-span-2">
-                  Valor original {formatCurrency(servicePrice, selectedService?.currency || defaultCurrency)} · desconto manual {formatCurrency(effectiveManualDiscount, selectedService?.currency || defaultCurrency)} · total previsto {formatCurrency(appointmentTotal, selectedService?.currency || defaultCurrency)}.
+                  Valor original{' '}
+                  {formatCurrency(
+                    servicePrice,
+                    selectedService?.currency || defaultCurrency
+                  )}{' '}
+                  · desconto manual{' '}
+                  {formatCurrency(
+                    effectiveManualDiscount,
+                    selectedService?.currency || defaultCurrency
+                  )}{' '}
+                  · total previsto{' '}
+                  {formatCurrency(
+                    appointmentTotal,
+                    selectedService?.currency || defaultCurrency
+                  )}
+                  .
                 </p>
               </div>
             </div>
@@ -6058,7 +6403,7 @@ export function AgendaPage({
                       ? 'bg-red-500/10 text-red-700 dark:text-red-300'
                       : newAppointmentCanOverrideBlocks
                         ? 'bg-amber-500/10 text-amber-800 dark:text-amber-200'
-                      : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                        : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
                   )}
                 >
                   {newAppointmentHasBlockingConflict ? (
@@ -6073,7 +6418,7 @@ export function AgendaPage({
                       ? availabilityConflictMessage(newAppointmentConflicts)
                       : newAppointmentCanOverrideBlocks
                         ? `${availabilityConflictMessage(newAppointmentTimeBlockConflicts)} Como profissional, pode confirmar esta marcação mesmo durante o bloqueio.`
-                      : 'Profissional, sala e horário disponíveis.'}
+                        : 'Profissional, sala e horário disponíveis.'}
                   </span>
                 </div>
                 <label className="mt-3 flex items-center justify-between gap-3 text-sm">
@@ -6111,7 +6456,8 @@ export function AgendaPage({
                       Preparar cobrança no POS
                     </span>
                     <span className="text-muted-foreground text-xs">
-                      Abre o POS com cliente, agendamento e valor final selecionados.
+                      Abre o POS com cliente, agendamento e valor final
+                      selecionados.
                     </span>
                   </span>
                 </label>
@@ -6162,11 +6508,16 @@ export function AgendaPage({
                 </span>
                 <span>
                   <strong className="text-foreground">Total:</strong>{' '}
-                  {formatCurrency(appointmentTotal, selectedService?.currency || defaultCurrency)} · {recurrenceCount} marcação(ões)
+                  {formatCurrency(
+                    appointmentTotal,
+                    selectedService?.currency || defaultCurrency
+                  )}{' '}
+                  · {recurrenceCount} marcação(ões)
                 </span>
                 <span>
                   <strong className="text-foreground">Fim / POS:</strong>{' '}
-                  {accountTimeInput(newAppointmentEnd, accountTimeZone)} · {createSumUpCharge ? 'abrirá após guardar' : 'não preparado'}
+                  {accountTimeInput(newAppointmentEnd, accountTimeZone)} ·{' '}
+                  {createSumUpCharge ? 'abrirá após guardar' : 'não preparado'}
                 </span>
                 <span>
                   <strong className="text-foreground">Mensagem:</strong>{' '}
@@ -6207,9 +6558,9 @@ export function AgendaPage({
                   ? 'Resolva o conflito para continuar'
                   : newAppointmentCanOverrideBlocks
                     ? 'Bloqueio ultrapassável por profissional'
-                  : selectedService && selectedNewContact
-                    ? `${selectedNewContact.name} · ${selectedService.name}`
-                    : 'Selecione cliente e procedimento'}
+                    : selectedService && selectedNewContact
+                      ? `${selectedNewContact.name} · ${selectedService.name}`
+                      : 'Selecione cliente e procedimento'}
               </p>
               <p className="text-muted-foreground">
                 {appointmentDraft.date} às {appointmentDraft.time || '--:--'}
@@ -6564,7 +6915,9 @@ function CalendarTimeGrid({
                   key={appointment.id}
                   appointment={appointment}
                   currency={currency}
-                  pendingReschedule={pendingReschedulePreferences[appointment.id]}
+                  pendingReschedule={
+                    pendingReschedulePreferences[appointment.id]
+                  }
                   onSelect={() => onSelect(appointment)}
                   canMove={Boolean(onMove)}
                   layout={appointmentLayout.get(appointment.id)}
@@ -6645,7 +6998,7 @@ function AppointmentBlock({
           <p className="truncate text-[11px] font-medium">
             {appointment.service?.name ?? 'Procedimento'}
           </p>
-          <span className="mt-0.5 flex max-w-full flex-nowrap items-center gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <span className="mt-0.5 flex max-w-full [scrollbar-width:none] flex-nowrap items-center gap-1 overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden">
             <span
               className={cn(
                 'inline-flex rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wide uppercase',
