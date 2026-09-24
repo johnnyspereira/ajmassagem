@@ -43,10 +43,17 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          # Keep the publishing runner on the same supported Node line that
+          # validates the application locally. This avoids a different Next
+          # compiler/runtime combination building the cPanel artifact.
+          node-version: '24'
+          cache: npm
 
       - name: Install dependencies
-        run: npm install --include=dev
+        # The runtime branch must be reproducible. `npm install` can resolve
+        # a newer transitive dependency on the GitHub runner than on the
+        # machine where the change was verified.
+        run: npm ci --include=dev
 
       - name: Check Linux CSS/runtime resolution
         run: |
