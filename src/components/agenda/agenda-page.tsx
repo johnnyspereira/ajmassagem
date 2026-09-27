@@ -2146,7 +2146,6 @@ export function AgendaPage({
           .eq('account_id', accountId)
           .eq('owner_contact_id', contactId)
           .eq('status', 'active')
-          .gt('current_balance', 0)
           .order('expires_at', { ascending: true, nullsFirst: false }),
         supabase
           .from('finance_client_packs')
@@ -2173,8 +2172,10 @@ export function AgendaPage({
               (item) =>
                 (!item.expires_at ||
                   new Date(item.expires_at).getTime() > now) &&
-                (item.voucher_type !== 'service' ||
-                  item.service_id === appointmentDraft.serviceId)
+                (item.voucher_type === 'service'
+                  ? Number(item.remaining_uses ?? 0) > 0 &&
+                    item.service_id === serviceId
+                  : Number(item.current_balance) > 0)
             )
       );
       setAvailablePacks(

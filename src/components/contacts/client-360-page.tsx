@@ -515,7 +515,7 @@ export function Client360Page({
         .limit(20),
       supabase
         .from('finance_vouchers')
-        .select('*')
+        .select('*, service:clinic_services(name, duration_minutes)')
         .eq('account_id', accountId)
         .eq('owner_contact_id', contactId)
         .order('created_at', { ascending: false }),
@@ -2282,11 +2282,11 @@ export function Client360Page({
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Gift /> Vouchers do cliente</CardTitle>
-                <CardDescription>Codigos, saldo ou sessoes e respetiva validade.</CardDescription>
+                  <CardDescription>Procedimento, saldo ou sessões e respetiva validade.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {regularVouchers.length ? regularVouchers.map((voucher) => (
-                  <div key={voucher.id} className="border-border rounded-xl border p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-mono font-semibold">{voucher.code}</p><p className="text-muted-foreground mt-1 text-xs">{voucher.voucher_type === 'service' ? `${Number(voucher.remaining_uses ?? 0)} sessao disponivel` : `Saldo ${formatCurrency(Number(voucher.current_balance), voucher.currency)}`}{voucher.expires_at ? ` · Valido ate ${safeDate(voucher.expires_at, 'dd/MM/yyyy')}` : ''}</p></div><Badge variant="outline">{labelFor(voucher.status)}</Badge></div></div>
+                  <div key={voucher.id} className="border-border rounded-xl border p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{voucher.voucher_type === 'service' ? voucher.service?.name ?? 'Voucher de procedimento' : 'Voucher de saldo'}</p><p className="text-muted-foreground mt-0.5 text-xs font-mono">Código: {voucher.code}</p><p className="text-muted-foreground mt-1 text-xs">{voucher.voucher_type === 'service' ? `${Number(voucher.remaining_uses ?? 0)} sessão(ões) disponível(eis)` : `Saldo ${formatCurrency(Number(voucher.current_balance), voucher.currency)}`}{voucher.expires_at ? ` · Válido até ${safeDate(voucher.expires_at, 'dd/MM/yyyy')}` : ''}</p></div><Badge variant="outline">{labelFor(voucher.status)}</Badge></div></div>
                 )) : <Empty icon={Gift} text="Este cliente ainda nao possui vouchers." />}
               </CardContent>
             </Card>
