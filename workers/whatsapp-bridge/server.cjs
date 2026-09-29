@@ -36,6 +36,7 @@ let receivedCount = 0;
 let sentCount = 0;
 let lastRestartAt = null;
 let restartCount = 0;
+let recoveryTimer = null;
 const recentOutgoing = [];
 const profilePictureCache = new Map();
 const activityLog = [];
@@ -58,6 +59,26 @@ function logActivity(type, message, details = null) {
   activityLog.unshift({ at: new Date().toISOString(), type, message, details });
   if (activityLog.length > 200) activityLog.length = 200;
   console.log(`[bridge:${type}] ${message}`);
+}
+function scheduleRecovery(instance, error) {
+  // whatsapp-web.js occasionally evaluates the page while WhatsApp is
+  // navigating after it emits a QR.  That transient Puppeteer error must not
+  // take down the HTTP worker (and consequently the Cloudflare tunnel).
+  if (instance && client && client !== instance) return;
+  const detail = error?.message || String(error || 'Falha desconhecida');
+  lastError = detail;
+  state = 'error';
+  connectedAt = null;
+  if (instance && client === instance) client = null;
+  if (recoveryTimer) return;
+  logActivity('error', `Sessao WhatsApp reiniciada automaticamente: ${detail}`);
+  void Promise.resolve(instance?.destroy?.()).catch(() => {}).finally(() => {
+    recoveryTimer = setTimeout(() => {
+      recoveryTimer = null;
+      // Context is retained after the first authenticated CRM request.
+      if (context.accountId && context.userId) void start(context);
+    }, 3000);
+  });
 }
 function saved() {
   return existsSync(path.join(AUTH_DIR, `session-${CLIENT_ID}`));
@@ -390,6 +411,7 @@ async function persistSyncSnapshot(snapshot, media = {}) {
   return result?.duplicate ? null : result;
 }
 function wire(instance) {
+  instance.on('error', (error) => scheduleRecovery(instance, error));
   instance.on('qr', (value) => {
     qr = value;
     state = 'qr';
@@ -471,6 +493,7 @@ function wire(instance) {
     connectedAt = null;
     client = null;
     logActivity('connection', `WhatsApp desligado: ${String(value)}`);
+    scheduleRecovery(instance, new Error(`WhatsApp desligado: ${String(value)}`));
   });
 }
 async function start(input = {}, restoreOnly = false) {
@@ -496,9 +519,7 @@ async function start(input = {}, restoreOnly = false) {
   starting = client
     .initialize()
     .catch((e) => {
-      lastError = e.message;
-      state = 'error';
-      client = null;
+      scheduleRecovery(client, e);
     })
     .finally(() => {
       starting = null;
@@ -1096,4 +1117,9 @@ server.listen(PORT, '127.0.0.1', () => {
   if (context.accountId && context.userId) void start(context, true);
   setInterval(() => void pollOutbox(), 2000);
 });
+// Puppeteer can reject a pending page evaluation during the QR navigation
+// outside the promise returned by Client.initialize(). Keep the HTTP process
+// alive and recreate only the WhatsApp client instead of losing port 4100.
+process.on('unhandledRejection', (error) => scheduleRecovery(client, error));
+process.on('uncaughtException', (error) => scheduleRecovery(client, error));
 process.on('SIGINT', () => stop(false).finally(() => process.exit(0)));
