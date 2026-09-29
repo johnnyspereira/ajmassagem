@@ -1,13 +1,13 @@
 @echo off
 setlocal
 
-set "CLOUDFLARED_EXE=%ProgramFiles(x86)%\cloudflared\cloudflared.exe"
 set "CLOUDFLARED_CONFIG=%USERPROFILE%\.cloudflared\ollama-ai-worker.yml"
 
-if not exist "%CLOUDFLARED_EXE%" (
-  echo Cloudflared nao foi encontrado em: %CLOUDFLARED_EXE%
+where cloudflared >nul 2>&1
+if errorlevel 1 (
+  echo Cloudflared nao foi encontrado no PATH.
   pause
   exit /b 1
 )
 
-"%CLOUDFLARED_EXE%" --protocol quic --edge-ip-version 4 --metrics 127.0.0.1:20242 --config "%CLOUDFLARED_CONFIG%" tunnel run
+cloudflared --protocol quic --edge-ip-version 4 --metrics 127.0.0.1:20242 --config "%CLOUDFLARED_CONFIG%" tunnel run
