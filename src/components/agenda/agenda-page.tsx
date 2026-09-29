@@ -2158,7 +2158,9 @@ export function AgendaPage({
           .order('expires_at', { ascending: true, nullsFirst: false }),
         supabase
           .from('finance_appointment_benefits')
-          .select('*, voucher:finance_vouchers(*)')
+          .select(
+            '*, voucher:finance_vouchers(*), client_pack:finance_client_packs(*, pack:finance_pack_catalog(name))'
+          )
           .eq('appointment_id', appointmentId)
           .in('status', ['reserved', 'consumed'])
           .maybeSingle(),
@@ -2687,8 +2689,36 @@ export function AgendaPage({
     }
 
     setMessageAction(action);
+    // Prefer the persisted appointment relation and fall back to the payment
+    // panel state. A client must not receive a price when a pack or voucher
+    // has already been attached to this appointment.
+    const appliedBenefit =
+      row.benefits?.find((item) => item.status !== 'released') ??
+      (selectedAppointment?.id === row.id ? appointmentBenefit : null);
+    const messageBenefit =
+      appliedBenefit?.benefit_type === 'voucher'
+        ? {
+            type: 'voucher' as const,
+            label: `Voucher ${appliedBenefit.voucher?.code || 'aplicado'}`,
+            detail:
+              appliedBenefit.status === 'consumed'
+                ? 'Sessão paga com este voucher.'
+                : 'Esta sessão está reservada no voucher.',
+          }
+        : appliedBenefit?.benefit_type === 'pack'
+          ? {
+              type: 'pack' as const,
+              label: `Pack ${appliedBenefit.client_pack?.pack?.name || appliedBenefit.client_pack?.code || 'aplicado'}`,
+              detail:
+                appliedBenefit.status === 'consumed'
+                  ? 'Sessão utilizada deste pack.'
+                  : '1 sessão está reservada neste pack.',
+            }
+          : undefined;
     setMessageDraft(
-      buildAppointmentMessage(row, action, account?.name ?? 'nossa clínica')
+      buildAppointmentMessage(row, action, account?.name ?? 'nossa clínica', {
+        benefit: messageBenefit,
+      })
     );
     setMessageOpen(true);
   }
