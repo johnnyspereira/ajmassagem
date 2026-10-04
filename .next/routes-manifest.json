@@ -810,6 +810,12 @@
       "namedRegex": "^/api/ai/playground(?:/)?$"
     },
     {
+      "page": "/api/ai/proofread",
+      "regex": "^/api/ai/proofread(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ai/proofread(?:/)?$"
+    },
+    {
       "page": "/api/ai/test",
       "regex": "^/api/ai/test(?:/)?$",
       "routeKeys": {},
