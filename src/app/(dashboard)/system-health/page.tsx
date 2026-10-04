@@ -22,6 +22,7 @@ type Check = {
   detail: string;
 };
 type Health = { checkedAt: string; durationMs: number; checks: Check[] };
+type WorkerEvent = { at: string; type: string; message: string };
 
 function StatusIcon({ status }: { status?: Check['status'] }) {
   const Icon = status === 'ok' ? CheckCircle2 : status === 'warning' ? CircleAlert : XCircle;
@@ -38,6 +39,7 @@ function statusLabel(status?: Check['status']) {
 
 export default function SystemHealthPage() {
   const [health, setHealth] = useState<Health | null>(null);
+  const [events, setEvents] = useState<WorkerEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -45,11 +47,20 @@ export default function SystemHealthPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/system/health', { cache: 'no-store' });
+      const [response, eventsResponse] = await Promise.all([
+        fetch('/api/system/health', { cache: 'no-store' }),
+        fetch('/api/whatsapp/baileys/logs', { cache: 'no-store' }),
+      ]);
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.error || 'Não foi possível executar o diagnóstico.');
       setHealth(data);
+      if (eventsResponse.ok) {
+        const eventData = await eventsResponse.json();
+        setEvents(Array.isArray(eventData.events) ? eventData.events.slice(0, 8) : []);
+      } else {
+        setEvents([]);
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível executar o diagnóstico.');
     } finally {
@@ -124,6 +135,25 @@ export default function SystemHealthPage() {
             </div>
           </div>
           <p className="text-muted-foreground text-xs">O painel não interrompe conversas nem reinicia o computador.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Atividade recente do WhatsApp</CardTitle>
+          <p className="text-muted-foreground text-sm">Eventos recebidos do worker QR. Atualiza com o restante do painel.</p>
+        </CardHeader>
+        <CardContent>
+          {events.length ? (
+            <div className="divide-y rounded-lg border">
+              {events.map((event, index) => (
+                <div className="flex items-start justify-between gap-4 px-3 py-2.5 text-sm" key={`${event.at}-${index}`}>
+                  <div><p className="font-medium capitalize">{event.type.replaceAll('_', ' ')}</p><p className="text-muted-foreground mt-0.5">{event.message}</p></div>
+                  <time className="text-muted-foreground shrink-0 text-xs">{new Date(event.at).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-muted-foreground rounded-lg border border-dashed p-4 text-sm">Ainda não há eventos disponíveis. Quando o WhatsApp ligar, sincronizar ou enviar algo, aparecerá aqui.</p>}
         </CardContent>
       </Card>
 
