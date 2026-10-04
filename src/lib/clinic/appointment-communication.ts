@@ -103,6 +103,28 @@ export async function sendAppointmentCommunication({
     throw new Error('Não foi possível identificar o remetente da clínica.');
   const businessName = appointment.account?.name || '';
   const benefit = await loadAppointmentBenefit(db, appointment);
+  // The main service is stored directly on the appointment, but an
+  // appointment may contain additional procedures. Load them here as well so
+  // automatic confirmations describe the whole visit.
+  const { data: serviceItems, error: serviceItemsError } = await db
+    .from('clinic_appointment_services')
+    .select('price,is_offer,service:clinic_services(name,price)')
+    .eq('appointment_id', appointment.id);
+  if (serviceItemsError)
+    throw new Error(
+      `Falha ao carregar os procedimentos do agendamento: ${serviceItemsError.message}`
+    );
+  const services = (serviceItems ?? []).flatMap((item) => {
+    const serviceItem = Array.isArray(item.service)
+      ? item.service[0]
+      : item.service;
+    if (!serviceItem?.name) return [];
+    return [{
+      name: serviceItem.name,
+      price: Number(item.price ?? serviceItem.price ?? 0),
+      isOffer: item.is_offer === true,
+    }];
+  });
   const messageOptions = {
     clinicAddress: settings?.clinic_address,
     directions: settings?.directions,
@@ -111,6 +133,7 @@ export async function sendAppointmentCommunication({
     anamnesisUrl,
     anamnesisIntro: settings?.anamnesis_intro,
     benefit,
+    services,
   };
   const fallbackText = buildAppointmentMessage(
     row,

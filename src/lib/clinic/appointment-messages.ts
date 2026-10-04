@@ -226,6 +226,18 @@ export function renderAppointmentMessageTemplate(
 ) {
   const start = new Date(appointment.scheduled_start);
   const service = appointment.service?.name ?? 'seu atendimento';
+  const services = (options.services ?? [])
+    .filter((item) => item.name.trim())
+    .map((item) => {
+      const itemPrice = typeof item.price === 'number'
+        ? new Intl.NumberFormat('pt-PT', {
+            style: 'currency',
+            currency: appointment.currency || 'EUR',
+          }).format(item.price)
+        : null;
+      return `• ${item.name}${item.isOffer ? ' (oferta)' : ''}${itemPrice ? ` — ${itemPrice}` : ''}`;
+    });
+  const serviceSummary = services.length > 1 ? services.join('\n') : service;
   const price = new Intl.NumberFormat('pt-PT', {
     style: 'currency',
     currency: appointment.currency || 'EUR',
@@ -248,7 +260,11 @@ export function renderAppointmentMessageTemplate(
     : '';
   const values: Record<string, string> = {
     cliente: client,
-    servico: service,
+    // Existing templates already use {servico}; render it as a list when the
+    // appointment contains multiple procedures. {servicos} is available for
+    // new templates that need an explicit plural placeholder.
+    servico: serviceSummary,
+    servicos: serviceSummary,
     data: date,
     hora: time,
     valor: price,

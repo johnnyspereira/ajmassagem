@@ -92,6 +92,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, whatsappMessageId: result.whatsappMessageId });
   } catch (error) {
+    console.error('[whatsapp-status] publish failed:', error);
+    if (error instanceof Error && error.message) {
+      return NextResponse.json({ error: error.message }, { status: 502 });
+    }
     return toErrorResponse(error);
   }
 }
