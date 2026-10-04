@@ -1218,6 +1218,12 @@
       "namedRegex": "^/api/whatsapp/send(?:/)?$"
     },
     {
+      "page": "/api/whatsapp/status/publish",
+      "regex": "^/api/whatsapp/status/publish(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/whatsapp/status/publish(?:/)?$"
+    },
+    {
       "page": "/api/whatsapp/templates/submit",
       "regex": "^/api/whatsapp/templates/submit(?:/)?$",
       "routeKeys": {},
