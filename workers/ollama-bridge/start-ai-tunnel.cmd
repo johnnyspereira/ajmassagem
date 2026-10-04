@@ -1,5 +1,6 @@
 @echo off
 setlocal
+title JP Massagem - AI Tunnel
 
 set "CLOUDFLARED_CONFIG=%USERPROFILE%\.cloudflared\ollama-ai-worker.yml"
 

@@ -16,8 +16,19 @@ function Stop-PortListener([int]$Port) {
     ForEach-Object { Stop-ProcessTree $_ }
 }
 
-# Stop the workers by their fixed local ports first. This avoids killing the
-# CRM's own Next.js terminal or any unrelated terminal the user may have open.
+function Stop-WorkerTerminals {
+  # Only close consoles belonging to the CRM workers. This clears old worker
+  # windows without interrupting an unrelated terminal the user may be using.
+  Get-Process -ErrorAction SilentlyContinue |
+    Where-Object { $_.MainWindowTitle -like 'JP Massagem -*' } |
+    ForEach-Object { Stop-ProcessTree $_.Id }
+}
+
+# Close every old worker console and process tree before starting a clean set.
+Stop-WorkerTerminals
+
+# Stop the workers by their fixed local ports. This also handles a worker that
+# was started without its normal console window.
 Stop-PortListener 4100
 Stop-PortListener 3002
 
@@ -36,9 +47,11 @@ if (-not (Test-Path -LiteralPath $whatsAppStarter)) {
 Start-Process -FilePath $whatsAppStarter -WorkingDirectory $whatsAppDirectory
 
 if (Test-Path -LiteralPath $aiStarter) {
-  Start-Process -FilePath 'powershell.exe' -ArgumentList @(
-    '-NoExit', '-ExecutionPolicy', 'Bypass', '-File', $aiStarter
-  ) -WorkingDirectory $projectDirectory
+  # cmd /k keeps a visible diagnostic window alive if the AI worker cannot
+  # start, instead of silently closing the PowerShell window.
+  $aiCommand = "powershell.exe -NoExit -ExecutionPolicy Bypass -File `"$aiStarter`""
+  Start-Process -FilePath 'cmd.exe' -ArgumentList @('/k', $aiCommand) `
+    -WorkingDirectory $projectDirectory
 }
 
 $aiTunnel = Join-Path $projectDirectory 'workers\ollama-bridge\start-ai-tunnel.cmd'
@@ -47,9 +60,12 @@ if ((Test-Path -LiteralPath $aiTunnel) -and (Test-Path -LiteralPath $aiConfig)) 
   Start-Process -FilePath $aiTunnel -WorkingDirectory (Split-Path -Parent $aiTunnel)
 }
 
-Start-Sleep -Seconds 3
-$whatsAppOnline = [bool](Get-NetTCPConnection -LocalPort 4100 -State Listen -ErrorAction SilentlyContinue)
-$aiOnline = [bool](Get-NetTCPConnection -LocalPort 3002 -State Listen -ErrorAction SilentlyContinue)
+for ($attempt = 0; $attempt -lt 10; $attempt++) {
+  $whatsAppOnline = [bool](Get-NetTCPConnection -LocalPort 4100 -State Listen -ErrorAction SilentlyContinue)
+  $aiOnline = [bool](Get-NetTCPConnection -LocalPort 3002 -State Listen -ErrorAction SilentlyContinue)
+  if ($whatsAppOnline -and $aiOnline) { break }
+  Start-Sleep -Seconds 2
+}
 $whatsAppState = if ($whatsAppOnline) { 'ativo' } else { 'a iniciar' }
 $aiState = if ($aiOnline) { 'ativo' } else { 'a iniciar' }
 
