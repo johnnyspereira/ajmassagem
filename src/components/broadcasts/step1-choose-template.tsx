@@ -10,7 +10,11 @@ import {
   ArrowRight,
   MessageSquare,
   Zap,
+  Plus,
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useTranslations } from 'next-intl';
 import {
   type BroadcastTemplate,
@@ -42,6 +46,41 @@ export function Step1ChooseTemplate({
   const [templates, setTemplates] = useState<BroadcastTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [draftTitle, setDraftTitle] = useState('');
+  const [draftText, setDraftText] = useState('');
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+
+  async function submitDraft() {
+    if (!draftText.trim()) return toast.error('Escreva a mensagem para enviar pelo QR.');
+    const title = draftTitle.trim() || 'Mensagem de transmissão';
+    setSavingDraft(true);
+    try {
+      let created: BroadcastTemplate = {
+        id: `broadcast-draft:${crypto.randomUUID()}`,
+        user_id: '', name: title, category: 'Utility', language: 'internal',
+        body_text: draftText.trim(), status: 'APPROVED', created_at: new Date().toISOString(),
+        broadcast_template_source: 'internal', internal_kind: 'text', interactive_payload: null,
+      };
+      if (saveAsTemplate) {
+        const response = await fetch('/api/quick-replies', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, kind: 'text', content_text: draftText.trim() }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'Não foi possível guardar o modelo.');
+        created = quickReplyToBroadcastTemplate(data.quick_reply as QuickReply);
+        setTemplates((current) => [created, ...current]);
+        toast.success('Modelo QR guardado e pronto para reutilizar.');
+      }
+      onSelect(created);
+      setCreating(false);
+      onNext();
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : 'Não foi possível criar a mensagem.');
+    } finally { setSavingDraft(false); }
+  }
 
   useEffect(() => {
     async function fetchTemplates() {
@@ -112,6 +151,24 @@ export function Step1ChooseTemplate({
         <p className="text-muted-foreground mt-1 text-sm">
           {t('chooseTemplate.subtitle')}
         </p>
+      </div>
+
+      <div className="border-primary/30 bg-primary/5 rounded-xl border p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold">Criar mensagem para QR</p>
+            <p className="text-muted-foreground text-xs">Escreva agora e escolha se quer guardar como modelo reutilizável.</p>
+          </div>
+          <Button type="button" variant={creating ? 'outline' : 'default'} onClick={() => setCreating((value) => !value)}>
+            <Plus className="mr-1 h-4 w-4" />{creating ? 'Fechar' : 'Criar mensagem'}
+          </Button>
+        </div>
+        {creating && <div className="mt-4 space-y-3">
+          <Input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} placeholder="Nome do modelo (opcional se não guardar)" maxLength={80} />
+          <Textarea value={draftText} onChange={(event) => setDraftText(event.target.value)} placeholder="Mensagem a enviar pelo WhatsApp QR. Pode usar {{name}}, {{phone}}, {{email}} ou {{company}}." rows={5} />
+          <label className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={saveAsTemplate} onChange={(event) => setSaveAsTemplate(event.target.checked)} /> Guardar também como modelo QR para futuras transmissões e Inbox</label>
+          <div className="flex justify-end"><Button type="button" disabled={savingDraft} onClick={() => void submitDraft()}>{savingDraft ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}{saveAsTemplate ? 'Guardar e continuar' : 'Usar apenas nesta transmissão'}</Button></div>
+        </div>}
       </div>
 
       {templates.length === 0 ? (
