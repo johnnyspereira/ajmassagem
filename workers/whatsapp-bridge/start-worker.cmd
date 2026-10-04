@@ -10,11 +10,14 @@ if errorlevel 1 (
 )
 
 set "CLOUDFLARED_CONFIG=%USERPROFILE%\.cloudflared\config.yml"
-tasklist /FI "IMAGENAME eq cloudflared.exe" /NH | findstr /I "cloudflared.exe" >nul
+rem The AI worker has its own Cloudflare process. Checking only the process
+rem name meant that its tunnel prevented the WhatsApp tunnel from starting,
+rem leaving worker.jpmassagem.pt with Cloudflare error 1033.
+powershell -NoProfile -Command "$found = Get-CimInstance Win32_Process -Filter \"Name='cloudflared.exe'\" -ErrorAction SilentlyContinue ^| Where-Object { $_.CommandLine -match [regex]::Escape($env:CLOUDFLARED_CONFIG) }; if ($found) { exit 0 } else { exit 1 }" >nul 2>&1
 if errorlevel 1 (
   rem Run from the config directory so cmd.exe never has to parse a quoted
   rem path containing the Windows user name (which may contain spaces).
-  start "JP Massagem - WhatsApp Tunnel" /D "%USERPROFILE%\.cloudflared" cmd /k cloudflared --protocol quic --edge-ip-version 4 --config config.yml tunnel run
+  start "JP Massagem - WhatsApp Tunnel" /D "%USERPROFILE%\.cloudflared" cmd /k cloudflared --protocol quic --edge-ip-version 4 --config "%CLOUDFLARED_CONFIG%" tunnel run
 )
 
 echo O worker e o tunnel foram iniciados em janelas visiveis.
