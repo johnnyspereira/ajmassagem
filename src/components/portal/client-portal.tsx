@@ -636,7 +636,12 @@ export function ClientPortal({ slug }: { slug: string }) {
       {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({
+          ...(email.includes('@')
+            ? { email: email.trim() }
+            : { phone: email.trim() }),
+          password,
+        }),
       }
     );
     const payload = await response.json().catch(() => ({}));
@@ -664,14 +669,19 @@ export function ClientPortal({ slug }: { slug: string }) {
   }
 
   async function requestPassword(delivery: 'email' | 'whatsapp' = 'email') {
-    if (!email.trim()) return toast.error('Informe primeiro o seu email.');
+    if (!email.trim()) return toast.error('Informe primeiro o seu email ou WhatsApp.');
     setClaiming(true);
     const response = await fetch(
       `/api/portal/${encodeURIComponent(slug)}/password`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), delivery }),
+        body: JSON.stringify({
+          ...(email.includes('@')
+            ? { email: email.trim() }
+            : { phone: email.trim() }),
+          delivery,
+        }),
       }
     );
     const payload = await response.json().catch(() => ({}));
@@ -1228,15 +1238,15 @@ function PortalLogin({
 
           <form onSubmit={onSubmit} className="mt-8 space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="portal-email">Email</Label>
+              <Label htmlFor="portal-email">Email ou WhatsApp</Label>
               <Input
                 id="portal-email"
-                type="email"
-                autoComplete="email"
+                type="text"
+                autoComplete="username"
                 required
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="nome@exemplo.pt"
+                placeholder="nome@exemplo.pt ou +351 912 345 678"
               />
             </div>
             <div className="space-y-1.5">

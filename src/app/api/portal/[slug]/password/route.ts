@@ -9,6 +9,7 @@ import { portalErrorResponse, requirePortalAccess } from '@/lib/portal/server';
 import { getPublicUrl } from '@/lib/public-url';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
+import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 
 function clientIp(request: Request) {
   return (
@@ -88,11 +89,17 @@ export async function POST(
 
   const body = (await request.json().catch(() => null)) as {
     email?: string;
+    phone?: string;
     delivery?: 'email' | 'whatsapp';
   } | null;
   const email = body?.email?.trim().toLowerCase() || '';
+  const phone = normalizePhone(body?.phone || '');
   const delivery = body?.delivery === 'whatsapp' ? 'whatsapp' : 'email';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (delivery === 'whatsapp' && phone.length < 7) {
+    return Response.json({ error: 'Informe um nÃºmero de WhatsApp vÃ¡lido.' }, { status: 400 });
+  }
+  const hasEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (delivery === 'email' && !hasEmail) {
     return Response.json(
       { error: 'Informe um email válido.' },
       { status: 400 }
@@ -117,12 +124,13 @@ export async function POST(
         ? 'Se o email estiver associado a um cliente, enviaremos as instruções de acesso para esse endereço.'
         : 'Se o email estiver associado a um cliente, enviaremos as instruções para o WhatsApp registado.',
   });
-  const { data: contacts } = await admin
+  const contactsQuery = admin
     .from('contacts')
-    .select('id,name,phone,email')
-    .eq('account_id', settings.account_id)
-    .ilike('email', email)
-    .limit(2);
+    .select('id,name,phone,email,phone_normalized')
+    .eq('account_id', settings.account_id);
+  const { data: contacts } = hasEmail
+    ? await contactsQuery.ilike('email', email).limit(2)
+    : await contactsQuery.eq('phone_normalized', phone).limit(2);
   if (!contacts?.length) return generic;
   if (contacts.length > 1) {
     return Response.json(
@@ -234,7 +242,7 @@ export async function POST(
           .update({
             auth_user_id: created.user.id,
             portal_auth_email: internalEmail,
-            email,
+            email: hasEmail ? email : `whatsapp:${phone}`,
             requires_password_change: true,
             password_issued_at: new Date().toISOString(),
           })
@@ -244,7 +252,7 @@ export async function POST(
           contact_id: contact.id,
           auth_user_id: created.user.id,
           portal_auth_email: internalEmail,
-          email,
+          email: hasEmail ? email : `whatsapp:${phone}`,
           requires_password_change: true,
           password_issued_at: new Date().toISOString(),
         });

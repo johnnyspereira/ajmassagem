@@ -778,7 +778,7 @@ export function Client360Page({
       toast.error('O Portal 360 não está publicado para esta conta.');
       return;
     }
-    if (!contact.email) {
+    if (delivery === 'email' && !contact.email) {
       toast.error('Adicione primeiro o email do cliente para criar o acesso seguro.');
       return;
     }
@@ -793,7 +793,11 @@ export function Client360Page({
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: contact.email, delivery }),
+          body: JSON.stringify({
+            email: contact.email || undefined,
+            phone: contact.phone || undefined,
+            delivery,
+          }),
         }
       );
       const payload = await response.json().catch(() => ({}));
@@ -1675,10 +1679,26 @@ export function Client360Page({
                             ? 'Reenviar acesso por email'
                             : 'Enviar link para nova palavra-passe'}
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={
+                          !canOperate ||
+                          portalAccess.enabled === false ||
+                          sendingPortalInvite !== null ||
+                          !contact?.phone
+                        }
+                        onClick={() => sendPortalInvite('whatsapp', 'reset')}
+                      >
+                        <MessageCircle />
+                        {sendingPortalInvite === 'whatsapp'
+                          ? 'A enviarâ€¦'
+                          : 'Enviar link por WhatsApp'}
+                      </Button>
                     </div>
-                    {!contact?.email ? (
+                    {!contact?.email && !contact?.phone ? (
                       <p className="text-destructive text-xs">
-                        Adicione um email ao cliente para reenviar o acesso.
+                        Adicione um email ou WhatsApp ao cliente para reenviar o acesso.
                       </p>
                     ) : null}
                   </>
@@ -1689,10 +1709,10 @@ export function Client360Page({
                       Envie uma breve apresentação com um link pessoal para o cliente criar o acesso.
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      <Button size="sm" variant="outline" disabled={!canOperate || sendingPortalInvite !== null} onClick={() => sendPortalInvite('email')}>
+                      <Button size="sm" variant="outline" disabled={!canOperate || sendingPortalInvite !== null || !contact?.email} onClick={() => sendPortalInvite('email')}>
                         <Mail /> {sendingPortalInvite === 'email' ? 'A enviar…' : 'Enviar por email'}
                       </Button>
-                      <Button size="sm" disabled={!canOperate || sendingPortalInvite !== null} onClick={() => sendPortalInvite('whatsapp')}>
+                      <Button size="sm" disabled={!canOperate || sendingPortalInvite !== null || !contact?.phone} onClick={() => sendPortalInvite('whatsapp')}>
                         <MessageCircle /> {sendingPortalInvite === 'whatsapp' ? 'A enviar…' : 'Enviar por WhatsApp'}
                       </Button>
                     </div>

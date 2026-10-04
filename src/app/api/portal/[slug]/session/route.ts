@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/flows/admin-client';
 import { createPortalAuthClient } from '@/lib/portal/auth';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { notifyAccountEvent } from '@/lib/notifications/account-events';
+import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 
 async function registerPortalAccess(input: {
   admin: ReturnType<typeof supabaseAdmin>;
@@ -64,15 +65,17 @@ export async function PUT(
 
   const body = (await request.json().catch(() => null)) as {
     email?: string;
+    phone?: string;
     password?: string;
   } | null;
   const email = body?.email?.trim().toLowerCase() || '';
+  const phone = normalizePhone(body?.phone || '');
   const password = body?.password || '';
   const invalid = Response.json(
     { error: 'Email ou palavra-passe incorretos.' },
     { status: 401 }
   );
-  if (!email || !password) return invalid;
+  if ((!email && !phone) || !password) return invalid;
 
   const { slug } = await params;
   const admin = supabaseAdmin();
@@ -84,12 +87,14 @@ export async function PUT(
     .maybeSingle();
   if (!settings) return invalid;
 
-  const { data: contacts } = await admin
+  const hasEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const contactsQuery = admin
     .from('contacts')
     .select('id')
-    .eq('account_id', settings.account_id)
-    .ilike('email', email)
-    .limit(2);
+    .eq('account_id', settings.account_id);
+  const { data: contacts } = hasEmail
+    ? await contactsQuery.ilike('email', email).limit(2)
+    : await contactsQuery.eq('phone_normalized', phone).limit(2);
   if (!contacts || contacts.length !== 1) return invalid;
 
   const { data: access } = await admin
