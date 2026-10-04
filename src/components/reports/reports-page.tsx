@@ -832,6 +832,22 @@ export function ReportsPage() {
         itemSales.set(key, current);
       }
     }
+    const vouchersSold = currentSales.reduce(
+      (total, sale) =>
+        total +
+        (sale.items ?? [])
+          .filter((item) => item.item_type === 'voucher')
+          .reduce((sum, item) => sum + numberValue(item.quantity), 0),
+      0
+    );
+    const packsSold = currentSales.reduce(
+      (total, sale) =>
+        total +
+        (sale.items ?? [])
+          .filter((item) => item.item_type === 'pack')
+          .reduce((sum, item) => sum + numberValue(item.quantity), 0),
+      0
+    );
 
     const serviceStats = new Map<
       string,
@@ -1085,6 +1101,8 @@ export function ReportsPage() {
       itemSales: Array.from(itemSales.values()).sort(
         (a, b) => b.revenue - a.revenue
       ),
+      vouchersSold,
+      packsSold,
       serviceStats: Array.from(serviceStats.values()).sort(
         (a, b) => b.bookings - a.bookings
       ),
@@ -1131,6 +1149,16 @@ export function ReportsPage() {
     const preset = reportPreset(key);
     setFrom(preset.from);
     setTo(preset.to);
+  }
+
+  function changeFrom(nextFrom: string) {
+    setFrom(nextFrom);
+    if (to && nextFrom > to) setTo(nextFrom);
+  }
+
+  function changeTo(nextTo: string) {
+    setTo(nextTo);
+    if (from && nextTo < from) setFrom(nextTo);
   }
 
   function exportCsv() {
@@ -1184,8 +1212,8 @@ export function ReportsPage() {
             onClick={() => applyPreset('quarter')}
           />
         </div>
-        <ReportDate label="De" value={from} onChange={setFrom} />
-        <ReportDate label="Até" value={to} onChange={setTo} />
+        <ReportDate label="De" value={from} onChange={changeFrom} />
+        <ReportDate label="Até" value={to} onChange={changeTo} />
         <div className="text-muted-foreground ml-auto pb-1 text-xs">
           Comparado ao período anterior de igual duração
         </div>
@@ -1561,6 +1589,20 @@ export function ReportsPage() {
                 value={formatCurrency(analytics.taxes, defaultCurrency)}
                 detail="IVA registado nas vendas"
                 tone="slate"
+              />
+              <MetricCard
+                icon={Gift}
+                label="Vouchers vendidos"
+                value={String(analytics.vouchersSold)}
+                detail="Unidades vendidas no período"
+                tone="violet"
+              />
+              <MetricCard
+                icon={PackageCheck}
+                label="Packs vendidos"
+                value={String(analytics.packsSold)}
+                detail="Unidades vendidas no período"
+                tone="amber"
               />
             </div>
             <div className="grid gap-4 lg:grid-cols-2">
@@ -2605,7 +2647,6 @@ function ReportDate({
       <Input
         type="date"
         value={value}
-        max={label === 'De' ? undefined : today()}
         onChange={(event) => onChange(event.target.value)}
         className="h-8 w-40"
       />
