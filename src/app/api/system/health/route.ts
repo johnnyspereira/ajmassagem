@@ -43,6 +43,39 @@ export async function GET() {
     }
   }
 
+  const aiWorkerUrl = process.env['AI_WORKER_URL']?.replace(/\/+$/, '');
+  const aiWorkerSecret = process.env['AI_WORKER_SECRET']?.trim();
+  if (!aiWorkerUrl || !aiWorkerSecret) {
+    checks.push({
+      id: 'ai-worker',
+      label: 'Assistente IA (Ollama)',
+      status: 'warning',
+      detail: 'O worker de IA não está configurado. A correção e os rascunhos por IA ficarão indisponíveis.',
+    });
+  } else {
+    try {
+      const response = await fetch(`${aiWorkerUrl}/status`, {
+        headers: { Authorization: `Bearer ${aiWorkerSecret}` },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(5_000),
+      });
+      if (!response.ok) throw new Error(`Worker de IA respondeu HTTP ${response.status}.`);
+      checks.push({
+        id: 'ai-worker',
+        label: 'Assistente IA (Ollama)',
+        status: 'ok',
+        detail: 'Worker respondeu. Correção ortográfica e rascunhos por IA estão disponíveis.',
+      });
+    } catch (error) {
+      checks.push({
+        id: 'ai-worker',
+        label: 'Assistente IA (Ollama)',
+        status: 'error',
+        detail: error instanceof Error ? error.message : 'Worker de IA indisponível.',
+      });
+    }
+  }
+
   checks.push({ id: 'finance', label: 'Alertas financeiros', status: process.env.AUTOMATION_CRON_SECRET ? 'ok' : 'warning', detail: process.env.AUTOMATION_CRON_SECRET ? 'Cron protegido configurado; o processamento será entregue pelo Worker remoto.' : 'Falta AUTOMATION_CRON_SECRET para executar lembretes programados.' });
   checks.push({ id: 'portal', label: 'Portal 360', status: 'ok', detail: 'Fluxo de marcação validado; novas marcações geram alerta ao responsável.' });
   return Response.json({ checkedAt: new Date().toISOString(), durationMs: Date.now() - startedAt, checks });
