@@ -667,6 +667,17 @@ async function publishStatus(input) {
     throw new Error('Status media must be image, video or audio.');
   }
 
+  // WhatsApp Web occasionally rolls out before whatsapp-web.js updates its
+  // injected helper. The new web build still exposes WAWebStatusGatingUtils
+  // but dropped this optional capability probe; defaulting it to `false`
+  // keeps Status publishing compatible without altering normal messages.
+  await client.pupPage.evaluate(() => {
+    const gating = window.require('WAWebStatusGatingUtils');
+    if (gating && typeof gating.canCheckStatusRankingPosterGating !== 'function') {
+      gating.canCheckStatusRankingPosterGating = () => false;
+    }
+  });
+
   let content = text;
   const options = { waitUntilMsgSent: true };
   if (mediaUrl) {

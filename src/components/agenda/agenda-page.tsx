@@ -150,6 +150,11 @@ type AppointmentRow = Omit<
     }
   > | null;
   sales?: FinanceSale[] | null;
+  appointment_services?: Array<{
+    service?: Pick<ClinicService, 'name' | 'price'> | null;
+    price?: number | null;
+    is_offer?: boolean | null;
+  }> | null;
 };
 
 type AppointmentAnamnesis = NonNullable<AppointmentRow['anamnesis']>;
@@ -1290,7 +1295,7 @@ export function AgendaPage({
       supabase
         .from('clinic_appointments')
         .select(
-          '*, contact:contacts(*), service:clinic_services(*), room:clinic_rooms(*), professional:profiles!clinic_appointments_professional_profile_id_fkey(id, user_id, full_name, email, is_professional, professional_title, professional_color), anamnesis:clinic_anamnesis_forms!clinic_appointments_anamnesis_form_id_fkey(id, public_token, status, submitted_at), benefits:finance_appointment_benefits(*, voucher:finance_vouchers(*), client_pack:finance_client_packs(*, pack:finance_pack_catalog(name)), client_pack_balance:finance_client_pack_balances(total_sessions, remaining_sessions)), sales:finance_sales(*, payments:finance_payments(*))'
+          '*, contact:contacts(*), service:clinic_services(*), room:clinic_rooms(*), professional:profiles!clinic_appointments_professional_profile_id_fkey(id, user_id, full_name, email, is_professional, professional_title, professional_color), appointment_services:clinic_appointment_services(price,is_offer,service:clinic_services(name,price)), anamnesis:clinic_anamnesis_forms!clinic_appointments_anamnesis_form_id_fkey(id, public_token, status, submitted_at), benefits:finance_appointment_benefits(*, voucher:finance_vouchers(*), client_pack:finance_client_packs(*, pack:finance_pack_catalog(name)), client_pack_balance:finance_client_pack_balances(total_sessions, remaining_sessions)), sales:finance_sales(*, payments:finance_payments(*))'
         )
         .eq('account_id', accountId)
         .lt('scheduled_start', end.toISOString())
@@ -1552,7 +1557,7 @@ export function AgendaPage({
     void supabase
       .from('clinic_appointments')
       .select(
-        '*, contact:contacts(*), service:clinic_services(*), room:clinic_rooms(*), professional:profiles!clinic_appointments_professional_profile_id_fkey(id, user_id, full_name, email, is_professional, professional_title, professional_color), anamnesis:clinic_anamnesis_forms!clinic_appointments_anamnesis_form_id_fkey(id, public_token, status, submitted_at), benefits:finance_appointment_benefits(*, voucher:finance_vouchers(*), client_pack:finance_client_packs(*, pack:finance_pack_catalog(name)), client_pack_balance:finance_client_pack_balances(total_sessions, remaining_sessions)), sales:finance_sales(*, payments:finance_payments(*))'
+        '*, contact:contacts(*), service:clinic_services(*), room:clinic_rooms(*), professional:profiles!clinic_appointments_professional_profile_id_fkey(id, user_id, full_name, email, is_professional, professional_title, professional_color), appointment_services:clinic_appointment_services(price,is_offer,service:clinic_services(name,price)), anamnesis:clinic_anamnesis_forms!clinic_appointments_anamnesis_form_id_fkey(id, public_token, status, submitted_at), benefits:finance_appointment_benefits(*, voucher:finance_vouchers(*), client_pack:finance_client_packs(*, pack:finance_pack_catalog(name)), client_pack_balance:finance_client_pack_balances(total_sessions, remaining_sessions)), sales:finance_sales(*, payments:finance_payments(*))'
       )
       .eq('account_id', accountId)
       .eq('id', initialAppointmentId)
@@ -2718,6 +2723,11 @@ export function AgendaPage({
     setMessageDraft(
       buildAppointmentMessage(row, action, account?.name ?? 'nossa clínica', {
         benefit: messageBenefit,
+        services: (row.appointment_services ?? []).map((item) => ({
+          name: item.service?.name ?? 'Procedimento',
+          price: Number(item.price ?? item.service?.price ?? 0),
+          isOffer: item.is_offer === true,
+        })),
       })
     );
     setMessageOpen(true);

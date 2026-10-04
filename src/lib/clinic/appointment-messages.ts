@@ -29,6 +29,7 @@ export type AppointmentMessageOptions = {
     label: string;
     detail: string;
   } | null;
+  services?: Array<{ name: string; price?: number | null; isOffer?: boolean }>;
 };
 
 export type AppointmentMessageRow = Omit<
@@ -140,6 +141,17 @@ export function buildAppointmentMessage(
     style: 'currency',
     currency: appointment.currency || 'EUR',
   }).format(manualDiscount);
+  const appointmentServices = (options.services ?? [])
+    .filter((item) => item.name.trim())
+    .map((item) => {
+      const itemPrice = typeof item.price === 'number'
+        ? new Intl.NumberFormat('pt-PT', { style: 'currency', currency: appointment.currency || 'EUR' }).format(item.price)
+        : null;
+      return `• ${item.name}${item.isOffer ? ' (oferta)' : ''}${itemPrice ? ` — ${itemPrice}` : ''}`;
+    });
+  const serviceLines = appointmentServices.length > 1
+    ? ['💆 Serviços incluídos:', ...appointmentServices]
+    : [`💆 Serviço: ${service}`];
 
   if (action === 'pending_confirmation') {
     return [
@@ -157,7 +169,7 @@ export function buildAppointmentMessage(
     '✨ *Detalhes do seu agendamento* ✨',
     prefix,
     '',
-    `💆 Serviço: ${service}`,
+    ...serviceLines,
     `📅 Data: ${date}`,
     `🕕 Horário: ${time}`,
     referralDiscount > 0 || manualDiscount > 0
