@@ -18,6 +18,7 @@ import {
   MessageSquareDashed,
   Zap,
   Languages,
+  SpellCheck2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GatedButton } from '@/components/ui/gated-button';
@@ -145,6 +146,7 @@ export function MessageComposer({
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const [translating, setTranslating] = useState(false);
+  const [proofreading, setProofreading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Interactive-message builder dialog + quick-reply picker.
@@ -338,6 +340,39 @@ export function MessageComposer({
     },
     [text, translating, adjustHeight]
   );
+
+  // The proofreader only replaces the local draft after the agent chooses it.
+  // It never sends a WhatsApp message on its own.
+  const handleProofreadDraft = useCallback(async () => {
+    const source = text.trim();
+    if (!source || proofreading) return;
+    setProofreading(true);
+    try {
+      const res = await fetch('/api/ai/proofread', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: source }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? 'NÃ£o foi possÃ­vel corrigir o rascunho.');
+        return;
+      }
+      if (typeof data.corrected !== 'string' || !data.corrected.trim()) {
+        toast.error('O corretor nÃ£o devolveu texto.');
+        return;
+      }
+      setText(data.corrected.trim());
+      requestAnimationFrame(() => {
+        adjustHeight();
+        textareaRef.current?.focus();
+      });
+    } catch {
+      toast.error('NÃ£o foi possÃ­vel contactar o corretor por IA.');
+    } finally {
+      setProofreading(false);
+    }
+  }, [text, proofreading, adjustHeight]);
 
   // ---- Interactive message + quick replies --------------------------
 
@@ -834,6 +869,19 @@ export function MessageComposer({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          <GatedButton
+            variant="ghost"
+            size="sm"
+            canAct={!readOnly}
+            gateReason="send messages"
+            disabled={!text.trim() || proofreading}
+            title={readOnly ? undefined : 'Corrigir ortografia com IA'}
+            className="text-muted-foreground hover:bg-card hover:text-primary h-9 w-9 shrink-0 rounded-xl p-0"
+            onClick={() => void handleProofreadDraft()}
+          >
+            {proofreading ? <Loader2 className="h-4 w-4 animate-spin" /> : <SpellCheck2 className="h-4 w-4" />}
+          </GatedButton>
 
           <GatedButton
             variant="ghost"
