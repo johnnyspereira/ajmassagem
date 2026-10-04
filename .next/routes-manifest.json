@@ -1086,6 +1086,36 @@
       "namedRegex": "^/api/reviews(?:/)?$"
     },
     {
+      "page": "/api/social/instagram",
+      "regex": "^/api/social/instagram(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/social/instagram(?:/)?$"
+    },
+    {
+      "page": "/api/social/instagram/callback",
+      "regex": "^/api/social/instagram/callback(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/social/instagram/callback(?:/)?$"
+    },
+    {
+      "page": "/api/social/instagram/connect",
+      "regex": "^/api/social/instagram/connect(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/social/instagram/connect(?:/)?$"
+    },
+    {
+      "page": "/api/social/posts/process",
+      "regex": "^/api/social/posts/process(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/social/posts/process(?:/)?$"
+    },
+    {
+      "page": "/api/social/posts/publish",
+      "regex": "^/api/social/posts/publish(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/social/posts/publish(?:/)?$"
+    },
+    {
       "page": "/api/system/health",
       "regex": "^/api/system/health(?:/)?$",
       "routeKeys": {},
