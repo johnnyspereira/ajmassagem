@@ -48,6 +48,8 @@ export function SocialPlannerPage() {
   const [mediaUrl, setMediaUrl] = useState('');
   const [scheduledAt, setScheduledAt] = useState(localDateTime);
   const [saveAsDraft, setSaveAsDraft] = useState(false);
+  const [instagram, setInstagram] = useState<{ instagram_username: string | null } | null>(null);
+  const [connectingInstagram, setConnectingInstagram] = useState(false);
   const selected = optionFor(type);
 
   const loadPosts = useCallback(async () => {
@@ -58,6 +60,26 @@ export function SocialPlannerPage() {
     setLoading(false);
   }, [accountId, supabase]);
   useEffect(() => { void loadPosts(); }, [loadPosts]);
+  useEffect(() => {
+    fetch('/api/social/instagram').then(async (response) => {
+      if (!response.ok) return;
+      const payload = (await response.json()) as { connection?: { instagram_username: string | null } | null };
+      setInstagram(payload.connection ?? null);
+    }).catch(() => undefined);
+  }, []);
+
+  async function connectInstagram() {
+    setConnectingInstagram(true);
+    try {
+      const response = await fetch('/api/social/instagram/connect', { method: 'POST' });
+      const payload = (await response.json().catch(() => null)) as { url?: string; error?: string } | null;
+      if (!response.ok || !payload?.url) throw new Error(payload?.error || 'NÃ£o foi possÃ­vel iniciar a ligaÃ§Ã£o.');
+      window.location.assign(payload.url);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'NÃ£o foi possÃ­vel ligar o Instagram.');
+      setConnectingInstagram(false);
+    }
+  }
 
   async function uploadMedia(file: File) {
     if (file.size > 16 * 1024 * 1024) return toast.error('A mídia pode ter no máximo 16 MB.');
@@ -78,6 +100,9 @@ export function SocialPlannerPage() {
     if (!accountId || !profile?.id || !canSend) return;
     if (!title.trim()) return toast.error('Dê um título interno ao conteúdo.');
     if (!caption.trim() && !mediaUrl) return toast.error('Escreva uma mensagem ou escolha uma mídia.');
+    if (selected.platform === 'instagram' && !instagram) {
+      return toast.error('Ligue primeiro a conta profissional Instagram para agendar publicaÃ§Ãµes.');
+    }
     const scheduled = saveAsDraft ? null : new Date(scheduledAt);
     if (!saveAsDraft && (Number.isNaN(scheduled?.getTime()) || scheduled!.getTime() <= Date.now())) return toast.error('Escolha uma data e hora futuras, ou guarde como rascunho.');
     setSaving(true);
@@ -89,10 +114,11 @@ export function SocialPlannerPage() {
   }
 
   async function publishNow(post: SocialPost) {
-    if (!window.confirm(`Publicar agora no Status WhatsApp?\n\n${post.title}`)) return;
+    const isInstagram = post.platform === 'instagram';
+    if (!window.confirm(`Publicar agora ${isInstagram ? 'no Instagram' : 'no Status WhatsApp'}?\n\n${post.title}`)) return;
     setPublishingId(post.id);
     try {
-      const response = await fetch('/api/whatsapp/status/publish', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ postId: post.id }) });
+      const response = await fetch(isInstagram ? '/api/social/posts/publish' : '/api/whatsapp/status/publish', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ postId: post.id }) });
       const payload = (await response.json().catch(() => null)) as { success?: boolean; error?: string } | null;
       if (!response.ok || !payload?.success) throw new Error(payload?.error || 'Não foi possível publicar.');
       toast.success('Status publicado no WhatsApp.'); await loadPosts();
@@ -103,7 +129,7 @@ export function SocialPlannerPage() {
   const history = posts.filter((post) => ['published', 'cancelled', 'failed'].includes(post.status));
 
   return <div className="mx-auto max-w-6xl space-y-6 p-3 md:p-6">
-    <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-primary text-sm font-semibold">MARKETING</p><h1 className="text-foreground mt-1 text-3xl font-bold tracking-tight">Centro de publicações</h1><p className="text-muted-foreground mt-2">Crie, agende e acompanhe Stories, Posts e Status WhatsApp num único lugar.</p></div><Button variant="outline" onClick={() => void loadPosts()} disabled={loading}><RefreshCw className={cn(loading && 'animate-spin')} /> Atualizar</Button></header>
+    <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-primary text-sm font-semibold">MARKETING</p><h1 className="text-foreground mt-1 text-3xl font-bold tracking-tight">Centro de publicações</h1><p className="text-muted-foreground mt-2">Crie, agende e acompanhe Stories, Posts e Status WhatsApp num único lugar.</p></div><div className="flex flex-wrap gap-2"><Button variant={instagram ? 'outline' : 'default'} onClick={() => !instagram && void connectInstagram()} disabled={connectingInstagram}>{connectingInstagram ? <Loader2 className="animate-spin" /> : <MonitorPlay />}{instagram ? `Instagram${instagram.instagram_username ? ` @${instagram.instagram_username}` : ' ligado'}` : 'Ligar Instagram'}</Button><Button variant="outline" onClick={() => void loadPosts()} disabled={loading}><RefreshCw className={cn(loading && 'animate-spin')} /> Atualizar</Button></div></header>
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_370px]">
       <Card className="overflow-hidden"><CardHeader className="border-b bg-muted/20"><CardTitle>Criar publicação</CardTitle><CardDescription>Escolha onde quer publicar e complete os três passos abaixo.</CardDescription></CardHeader><CardContent className="space-y-7 p-5 md:p-6">
         <section className="space-y-3"><Step number="1" title="Onde quer publicar?" /><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{OPTIONS.map((option) => { const Icon = option.icon; const checked = option.value === type; return <button key={option.value} type="button" onClick={() => setType(option.value)} disabled={!canSend || saving} className={cn('rounded-xl border p-3 text-left transition hover:border-primary/50', checked ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border bg-card')}><Icon className={cn('mb-3 size-5', option.platform === 'whatsapp' ? 'text-emerald-500' : 'text-pink-500')} /><p className="text-sm font-semibold">{option.label}</p><p className="text-muted-foreground mt-0.5 text-xs">{option.description}</p></button>; })}</div></section>
