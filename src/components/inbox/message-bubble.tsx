@@ -26,6 +26,8 @@ import { useTranslations } from 'next-intl';
 
 interface MessageBubbleProps {
   message: Message;
+  /** Consecutive messages from the same side are rendered as one WhatsApp-style group. */
+  groupedWithPrevious?: boolean;
   /** Pre-computed quote info for messages that reply to another. */
   reply?: { authorLabel: string; preview: string } | null;
   reactions?: MessageReaction[];
@@ -281,6 +283,7 @@ function MessageContent({
 
 export function MessageBubble({
   message,
+  groupedWithPrevious = false,
   reply,
   reactions,
   currentUserId,
@@ -331,8 +334,14 @@ export function MessageBubble({
         className={cn(
           'relative rounded-2xl px-3 py-2',
           isAgent
-            ? 'bg-primary text-primary-foreground rounded-br-md'
-            : 'bg-muted text-foreground rounded-bl-md'
+            ? cn(
+                'bg-primary text-primary-foreground rounded-br-md',
+                groupedWithPrevious && 'rounded-tr-md'
+              )
+            : cn(
+                'bg-muted text-foreground rounded-bl-md',
+                groupedWithPrevious && 'rounded-tl-md'
+              )
         )}
       >
         {reply && (

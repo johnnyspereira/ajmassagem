@@ -1443,7 +1443,8 @@ export function MessageThread({
       </div>
 
       {/* Messages Area */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+      <div ref={scrollRef} className="bg-muted/20 flex-1 overflow-y-auto px-3 py-4 sm:px-6">
+        <div className="mx-auto w-full max-w-4xl">
         {timelineOpen && threadTimelineEvents.length > 0 && (
           <div className="border-primary/15 bg-card mb-5 rounded-2xl border p-3.5 shadow-sm">
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -1507,7 +1508,7 @@ export function MessageThread({
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {messageGroups.map((group) => (
               <div key={group.date}>
                 {/* Date separator */}
@@ -1517,8 +1518,15 @@ export function MessageThread({
                   </span>
                 </div>
                 {/* Messages */}
-                <div className="space-y-2">
-                  {group.messages.map((msg) => {
+                <div>
+                  {group.messages.map((msg, index) => {
+                    const previous = group.messages[index - 1];
+                    const sameSide = Boolean(
+                      previous &&
+                        (previous.sender_type === 'agent' || previous.sender_type === 'bot') ===
+                          (msg.sender_type === 'agent' || msg.sender_type === 'bot') &&
+                        Date.parse(msg.created_at) - Date.parse(previous.created_at) < 5 * 60_000
+                    );
                     const parent = msg.reply_to_message_id
                       ? messagesById.get(msg.reply_to_message_id)
                       : null;
@@ -1543,32 +1551,18 @@ export function MessageThread({
                       const next = own?.emoji === emoji ? '' : emoji;
                       void postReaction(msg.id, next);
                     };
-                    return (
-                      <MessageActions
-                        key={msg.id}
-                        message={msg}
-                        onReply={() => handleStartReply(msg)}
-                        onReact={(emoji) => {
-                          if (emoji) void postReaction(msg.id, emoji);
-                        }}
-                        onRetry={() => void retryFailedMessage(msg)}
-                      >
-                        <MessageBubble
-                          message={msg}
-                          reply={reply}
-                          reactions={msgReactions}
-                          currentUserId={user?.id}
-                          onToggleReaction={handlePillToggle}
-                          onRetry={() => void retryFailedMessage(msg)}
-                        />
+                    return <div key={msg.id} className={sameSide ? 'mt-1' : 'mt-3 first:mt-0'}>
+                      <MessageActions message={msg} onReply={() => handleStartReply(msg)} onReact={(emoji) => { if (emoji) void postReaction(msg.id, emoji); }} onRetry={() => void retryFailedMessage(msg)}>
+                        <MessageBubble message={msg} groupedWithPrevious={sameSide} reply={reply} reactions={msgReactions} currentUserId={user?.id} onToggleReaction={handlePillToggle} onRetry={() => void retryFailedMessage(msg)} />
                       </MessageActions>
-                    );
+                    </div>;
                   })}
                 </div>
               </div>
             ))}
           </div>
         )}
+        </div>
       </div>
 
       {/* AI auto-reply banner — take over an active bot, or resume it
