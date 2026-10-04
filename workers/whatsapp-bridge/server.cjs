@@ -1,10 +1,35 @@
 const http = require('node:http');
 const { createHmac } = require('node:crypto');
 const path = require('node:path');
-const { existsSync } = require('node:fs');
+const { existsSync, readFileSync, writeFileSync } = require('node:fs');
 const { rm } = require('node:fs/promises');
 require('dotenv').config();
 const qrcode = require('qrcode-terminal');
+
+// WhatsApp Web changed its media model in September 2026. Until the upstream
+// library publishes a release, its injected sender spreads `__x_id` from the
+// media object over the actual message id. That breaks images/videos/audio
+// with "Data passed to getter must include an id property". Apply the very
+// small upstream-compatible patch at boot, before whatsapp-web.js loads it.
+function installWhatsAppWebMediaPatch() {
+  const utilsPath = require.resolve(
+    'whatsapp-web.js/src/util/Injected/Utils.js'
+  );
+  const source = readFileSync(utilsPath, 'utf8');
+  if (source.includes('delete message.__x_id;')) return;
+  const anchor = "\n        // Bot's won't reply if canonicalUrl is set (linking)";
+  if (!source.includes(anchor)) {
+    throw new Error('Não foi possível aplicar a compatibilidade de mídia do WhatsApp Web.');
+  }
+  writeFileSync(
+    utilsPath,
+    source.replace(anchor, '\n        delete message.__x_id;' + anchor),
+    'utf8'
+  );
+  console.log('[bridge:startup] Compatibilidade de mídia WhatsApp aplicada.');
+}
+
+installWhatsAppWebMediaPatch();
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 
 const PORT = Number(process.env.PORT || 4100);
