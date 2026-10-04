@@ -691,6 +691,16 @@ async function publishStatus(input) {
   if (mediaUrl && !['image', 'video', 'audio'].includes(contentType)) {
     throw new Error('Status media must be image, video or audio.');
   }
+  // Current WhatsApp Web releases use a LID-only internal route for Status
+  // media. whatsapp-web.js cannot build that route yet: it crashes after the
+  // upload with "Cannot read properties of undefined (reading id)". Do not
+  // pretend a scheduled post succeeded; return a useful, actionable error.
+  // Text-only Status remains supported by the native web action below.
+  if (mediaUrl) {
+    throw new Error(
+      'Status WhatsApp com imagem, vídeo ou áudio está temporariamente indisponível nesta sessão QR. Publique apenas texto ou use um Story do Instagram; o WhatsApp Web ainda não suporta mídia em Status por esta integração.'
+    );
+  }
 
   // WhatsApp Web occasionally rolls out before whatsapp-web.js updates its
   // injected helper. The new web build still exposes WAWebStatusGatingUtils
