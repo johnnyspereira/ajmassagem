@@ -157,8 +157,24 @@ function normalizedContentType(message) {
     ? type
     : 'text';
 }
+function mediaContentType(mimeType, fallback) {
+  const mime = String(mimeType || '').toLowerCase();
+  if (mime.startsWith('image/')) return 'image';
+  if (mime.startsWith('audio/')) return 'audio';
+  if (mime.startsWith('video/')) return 'video';
+  return mime ? 'document' : fallback;
+}
+function isPossibleMedia(message) {
+  const type = String(message?.type || '').toLowerCase();
+  // WhatsApp Web may emit encrypted/ciphertext records before hasMedia is
+  // populated. Those records contain a base64-looking body and must never be
+  // persisted as a normal chat message.
+  const body = String(message?.body || '');
+  const encryptedBody = /^[A-Za-z0-9+/=_-]{80,}$/.test(body);
+  return Boolean(message?.hasMedia) || encryptedBody || !['', 'chat', 'text', 'e2e_notification'].includes(type);
+}
 async function inboundMediaPayload(message) {
-  if (!message?.hasMedia || message?.fromMe) return {};
+  if (!message || message?.fromMe || !isPossibleMedia(message)) return {};
   // WhatsApp Web may report a message before its encrypted media is ready to
   // download. Retry after reloading the message so photos are not persisted
   // as a permanent "unavailable" placeholder in the Inbox.
@@ -254,7 +270,7 @@ async function profilePicturePayload(contact) {
 }
 function persistWithMediaRecovery(message) {
   persist(message).catch((e) => console.error('[bridge] entrada:', e.message));
-  if (!message?.hasMedia || message?.fromMe) return;
+  if (!isPossibleMedia(message) || message?.fromMe) return;
   // WhatsApp Web often announces encrypted media before the download key is
   // ready. Re-persisting the same external id safely fills media_url later.
   for (const delay of [5000, 15000, 45000]) {
@@ -373,6 +389,17 @@ async function persist(message) {
   const timestamp = new Date(
     Number(message.timestamp || Date.now() / 1000) * 1000
   ).toISOString();
+  const media = await inboundMediaPayload(message);
+  const rawBody = String(message.body || '');
+  const looksEncoded = /^[A-Za-z0-9+/=_-]{80,}$/.test(rawBody);
+  const fallbackType = looksEncoded ? 'document' : normalizedContentType(message);
+  const contentType = mediaContentType(
+    media.mediaMimeType,
+    fallbackType
+  );
+  const text = contentType === 'text'
+    ? rawBody
+    : String(message.caption || (looksEncoded ? '' : rawBody) || '');
   const result = await crm('persist_message', {
     ...bind(),
     messageId: id,
@@ -385,10 +412,10 @@ async function persist(message) {
       contact?.shortName ||
       resolution.phone,
     ...profilePicture,
-    contentType: normalizedContentType(message),
-    text: message.body || message.caption || '',
+    contentType,
+    text,
     timestamp,
-    ...(await inboundMediaPayload(message)),
+    ...media,
   });
   return result?.duplicate ? null : result;
 }
@@ -621,6 +648,51 @@ async function send(input) {
   });
   return { messageId: stored.messageId, whatsappMessageId };
 }
+async function publishStatus(input) {
+  if (
+    !(input.accountId || input.account_id) ||
+    !(input.userId || input.user_id)
+  ) {
+    throw new Error('accountId and userId are required for Status publishing.');
+  }
+  bind(input);
+  if (!client || !status().connected)
+    throw new Error('WhatsApp QR is not connected.');
+
+  const text = String(input.text || '').trim();
+  const mediaUrl = String(input.mediaUrl || input.media_url || '').trim();
+  const contentType = String(input.contentType || input.content_type || 'text');
+  if (!text && !mediaUrl) throw new Error('A Status needs text or media.');
+  if (mediaUrl && !['image', 'video', 'audio'].includes(contentType)) {
+    throw new Error('Status media must be image, video or audio.');
+  }
+
+  let content = text;
+  const options = { waitUntilMsgSent: true };
+  if (mediaUrl) {
+    content = await outboundMediaFromUrl(mediaUrl, input.filename);
+    if (text && contentType !== 'audio') options.caption = text;
+    if (contentType === 'audio') options.sendAudioAsVoice = true;
+  }
+
+  const sent = await client.sendMessage('status@broadcast', content, options);
+  const whatsappMessageId = externalId(sent);
+  if (!whatsappMessageId) throw new Error('WhatsApp did not return a Status id.');
+  touch();
+  sentCount += 1;
+  lastOutgoingAt = new Date().toISOString();
+  logActivity('status_published', 'Status publicado no WhatsApp.', {
+    contentType: mediaUrl ? contentType : 'text',
+    whatsappMessageId,
+  });
+  return { whatsappMessageId };
+}
+function statusMediaType(url) {
+  const pathname = String(url || '').split('?')[0].toLowerCase();
+  if (/\.(mp4|mov|webm|m4v|3gp)$/.test(pathname)) return 'video';
+  if (/\.(mp3|m4a|ogg|aac|wav|opus)$/.test(pathname)) return 'audio';
+  return 'image';
+}
 async function react(input) {
   bind(input);
   if (!client || !status().connected)
@@ -687,6 +759,54 @@ async function sendOutboxJob(job) {
   });
 }
 let polling = false;
+let pollingStatusPosts = false;
+async function pollStatusPosts() {
+  if (pollingStatusPosts || !context.accountId || !context.userId) return;
+  if (!status().connected) return;
+  pollingStatusPosts = true;
+  try {
+    // One item per pass keeps the browser session responsive and makes a
+    // duplicate worker unable to publish the same Status: the CRM claims it
+    // atomically before the media is uploaded to WhatsApp.
+    const claimed = await crm('claim_status_post', {
+      ...context,
+      workerId: WORKER_ID,
+    });
+    const post = claimed?.post;
+    if (!post) return;
+    try {
+      const result = await publishStatus({
+        ...context,
+        text: post.caption,
+        mediaUrl: post.media_url,
+        filename: post.title,
+        contentType: post.media_url ? statusMediaType(post.media_url) : 'text',
+      });
+      await crm('complete_status_post', {
+        ...context,
+        workerId: WORKER_ID,
+        postId: post.id,
+        providerPostId: result.whatsappMessageId,
+      });
+    } catch (error) {
+      const detail = error?.message || String(error);
+      logActivity('status_error', 'Falha ao publicar Status agendado.', {
+        postId: post.id,
+        error: detail,
+      });
+      await crm('fail_status_post', {
+        ...context,
+        workerId: WORKER_ID,
+        postId: post.id,
+        error: detail,
+      }).catch(() => {});
+    }
+  } catch (error) {
+    lastError = error?.message || String(error);
+  } finally {
+    pollingStatusPosts = false;
+  }
+}
 async function processCommand(command) {
   const payload = command.payload || {};
   if (command.command_type === 'restart') {
@@ -746,6 +866,7 @@ async function pollOutbox() {
       }
     }
     if (!status().connected) return;
+    await pollStatusPosts();
     for (let count = 0; count < 10; count++) {
       const claimed = await crm('claim_outbox', {
         ...context,
@@ -1069,6 +1190,8 @@ const server = http.createServer(async (req, res) => {
     const input = req.method === 'POST' ? await body(req) : {};
     if (req.method === 'POST' && url.pathname === '/send')
       return reply(res, 200, await send(input));
+    if (req.method === 'POST' && url.pathname === '/publish-status')
+      return reply(res, 200, await publishStatus(input));
     if (req.method === 'POST' && url.pathname === '/react')
       return reply(res, 200, await react(input));
     if (req.method === 'POST' && url.pathname === '/restart') {

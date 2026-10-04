@@ -6,6 +6,7 @@ import {
   Camera,
   CheckCircle2,
   Copy,
+  FlaskConical,
   Loader2,
   MessageCircle,
   Plus,
@@ -113,8 +114,8 @@ const POST_TYPES: Array<{
   {
     value: 'whatsapp_status_reminder',
     platform: 'whatsapp',
-    label: 'WhatsApp Status preparado',
-    helper: 'Lembrete com texto/mídia prontos para publicar manualmente.',
+    label: 'WhatsApp Status (Beta)',
+    helper: 'Cria um Status com texto/mídia e pode colocá-lo na fila do worker local.',
   },
 ];
 
@@ -182,6 +183,7 @@ export function SocialPlannerPage() {
   const [segments, setSegments] = useState<ContactSegment[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [publishingStatusId, setPublishingStatusId] = useState<string | null>(null);
   const [postType, setPostType] = useState<SocialPostType>('instagram_reel');
   const [status, setStatus] = useState<SocialPostStatus>('scheduled');
   const [title, setTitle] = useState('Promoção da semana');
@@ -193,6 +195,7 @@ export function SocialPlannerPage() {
   const [scheduledAt, setScheduledAt] = useState(nextDefaultDate);
   const [targetSegmentId, setTargetSegmentId] = useState('');
   const [notes, setNotes] = useState('');
+  const [useWhatsAppStatusBeta, setUseWhatsAppStatusBeta] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
@@ -231,7 +234,6 @@ export function SocialPlannerPage() {
 
   useEffect(() => {
     // Loading follows the authenticated account becoming available.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadData();
   }, [loadData]);
 
@@ -252,6 +254,7 @@ export function SocialPlannerPage() {
 
     setSaving(true);
     const platform = platformForType(postType);
+    const isWhatsAppStatus = postType === 'whatsapp_status_reminder';
     const { error } = await supabase.from('social_scheduled_posts').insert({
       account_id: accountId,
       created_by: profile.id,
@@ -269,6 +272,11 @@ export function SocialPlannerPage() {
       provider_payload: {
         source: 'crm_social_planner',
         official_whatsapp_status_auto_publish: false,
+        whatsapp_status_beta: isWhatsAppStatus && useWhatsAppStatusBeta,
+        delivery_mode:
+          isWhatsAppStatus && useWhatsAppStatusBeta
+            ? 'local_worker_prototype'
+            : 'manual_preparation',
       },
     });
     setSaving(false);
@@ -280,6 +288,7 @@ export function SocialPlannerPage() {
     setCaption('');
     setMediaUrl('');
     setNotes('');
+    setUseWhatsAppStatusBeta(false);
     setScheduledAt(nextDefaultDate());
     await loadData();
   }
@@ -345,6 +354,30 @@ export function SocialPlannerPage() {
     toast.success('Legenda copiada.');
   }
 
+  async function publishWhatsAppStatus(post: SocialPost) {
+    if (!window.confirm(`Publicar agora no Status do WhatsApp?\n\n${post.title}`)) return;
+    setPublishingStatusId(post.id);
+    try {
+      const response = await fetch('/api/whatsapp/status/publish', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ postId: post.id }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { success?: boolean; error?: string }
+        | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || 'Não foi possível publicar o Status.');
+      }
+      toast.success('Status publicado no WhatsApp.');
+      await loadData();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível publicar o Status.');
+    } finally {
+      setPublishingStatusId(null);
+    }
+  }
+
   const scheduledPosts = posts.filter((post) =>
     ['draft', 'scheduled', 'ready', 'publishing'].includes(post.status)
   );
@@ -406,9 +439,9 @@ export function SocialPlannerPage() {
             </p>
             <p className="text-muted-foreground">
               Instagram Feed/Reels/Stories fica preparado para a API oficial da
-              Meta. WhatsApp Status não tem publicação automática oficial; por
-              isso o CRM agenda o conteúdo e deixa tudo pronto para
-              copiar/publicar com segurança.
+              Meta. WhatsApp Status não tem publicação automática oficial. O
+              modo Beta publica através do worker local com a sessão QR ligada;
+              confirme sempre o conteúdo antes de o agendar.
             </p>
           </div>
         </CardContent>
@@ -534,24 +567,49 @@ export function SocialPlannerPage() {
             </div>
 
             {selectedPlatform === 'whatsapp' ? (
-              <div>
-                <label className="text-foreground mb-1.5 block text-sm font-medium">
-                  Segmento alvo
-                </label>
-                <select
-                  value={targetSegmentId}
-                  onChange={(event) => setTargetSegmentId(event.target.value)}
-                  disabled={!canSend || saving}
-                  className="border-input bg-background ring-offset-background w-full rounded-md border px-3 py-2 text-sm"
-                >
-                  <option value="">Sem segmento definido</option>
-                  {segments.map((segment) => (
-                    <option key={segment.id} value={segment.id}>
-                      {segment.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <>
+                {postType === 'whatsapp_status_reminder' ? (
+                  <label className="border-primary/25 bg-primary/5 flex cursor-pointer gap-3 rounded-lg border p-3">
+                    <input
+                      type="checkbox"
+                      checked={useWhatsAppStatusBeta}
+                      onChange={(event) =>
+                        setUseWhatsAppStatusBeta(event.target.checked)
+                      }
+                      disabled={!canSend || saving}
+                      className="mt-0.5 size-4 accent-violet-600"
+                    />
+                    <span className="space-y-0.5">
+                      <span className="flex items-center gap-1.5 text-sm font-medium">
+                        <FlaskConical className="size-4 text-violet-500" />
+                        Colocar na fila Beta do Status
+                      </span>
+                      <span className="text-muted-foreground block text-xs">
+                        O worker local publica-o automaticamente na data/hora
+                        marcada, desde que a sessão QR esteja ligada.
+                      </span>
+                    </span>
+                  </label>
+                ) : null}
+                <div>
+                  <label className="text-foreground mb-1.5 block text-sm font-medium">
+                    Segmento alvo
+                  </label>
+                  <select
+                    value={targetSegmentId}
+                    onChange={(event) => setTargetSegmentId(event.target.value)}
+                    disabled={!canSend || saving}
+                    className="border-input bg-background ring-offset-background w-full rounded-md border px-3 py-2 text-sm"
+                  >
+                    <option value="">Sem segmento definido</option>
+                    {segments.map((segment) => (
+                      <option key={segment.id} value={segment.id}>
+                        {segment.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
             ) : null}
 
             <div>
@@ -588,6 +646,8 @@ export function SocialPlannerPage() {
             onCopy={copyPost}
             onDuplicate={duplicatePost}
             onStatus={updatePostStatus}
+            onPublishStatus={publishWhatsAppStatus}
+            publishingStatusId={publishingStatusId}
           />
           <PostList
             title="Histórico"
@@ -598,6 +658,8 @@ export function SocialPlannerPage() {
             onCopy={copyPost}
             onDuplicate={duplicatePost}
             onStatus={updatePostStatus}
+            onPublishStatus={publishWhatsAppStatus}
+            publishingStatusId={publishingStatusId}
           />
         </div>
       </div>
@@ -638,6 +700,8 @@ function PostList({
   onCopy,
   onDuplicate,
   onStatus,
+  onPublishStatus,
+  publishingStatusId,
 }: {
   title: string;
   description: string;
@@ -647,6 +711,8 @@ function PostList({
   onCopy: (post: SocialPost) => void;
   onDuplicate: (post: SocialPost) => void;
   onStatus: (post: SocialPost, status: SocialPostStatus) => void;
+  onPublishStatus: (post: SocialPost) => void;
+  publishingStatusId: string | null;
 }) {
   return (
     <Card>
@@ -684,6 +750,11 @@ function PostList({
                       {formatPostType(post.post_type)} ·{' '}
                       {formatDateTime(post.scheduled_at)}
                     </p>
+                    {post.provider_payload?.whatsapp_status_beta === true ? (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-violet-500">
+                        <FlaskConical className="size-3" /> Fila Beta do worker local
+                      </p>
+                    ) : null}
                   </div>
                   <Badge className={cn('border', STATUS_BADGES[post.status])}>
                     {post.status === 'published' ? (
@@ -744,6 +815,21 @@ function PostList({
                     <Repeat2 className="size-3.5" />
                     Duplicar
                   </Button>
+                  {post.post_type === 'whatsapp_status_reminder' &&
+                  !['published', 'cancelled'].includes(post.status) ? (
+                    <Button
+                      size="sm"
+                      onClick={() => onPublishStatus(post)}
+                      disabled={publishingStatusId === post.id}
+                    >
+                      {publishingStatusId === post.id ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Send className="size-3.5" />
+                      )}
+                      Publicar no Status
+                    </Button>
+                  ) : null}
                   {['draft', 'scheduled', 'ready', 'failed'].includes(
                     post.status
                   ) ? (

@@ -155,6 +155,20 @@ export const remoteWhatsAppWorker = {
     });
   },
 
+  publishStatus(input: {
+    accountId: string;
+    userId: string;
+    text: string;
+    mediaUrl?: string | null;
+    filename?: string | null;
+    contentType?: 'text' | 'image' | 'video' | 'audio';
+  }): Promise<{ whatsappMessageId: string }> {
+    return workerFetch('/publish-status', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
   react(input: {
     accountId: string;
     userId: string;

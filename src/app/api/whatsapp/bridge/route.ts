@@ -346,6 +346,62 @@ export async function POST(request: Request) {
       return Response.json({ success: true, ...result });
     }
 
+    if (action === 'claim_status_post') {
+      const workerId = String(body.workerId ?? 'local-worker').slice(0, 100);
+      const post = await transaction(async (connection) => {
+        const [rows] = await connection.execute<
+          (RowDataPacket & {
+            id: string;
+            title: string;
+            caption: string;
+            media_url: string | null;
+          })[]
+        >(
+          `SELECT id,title,caption,media_url FROM social_scheduled_posts
+           WHERE account_id=? AND post_type='whatsapp_status_reminder'
+             AND status='scheduled' AND scheduled_at<=UTC_TIMESTAMP(3)
+             AND JSON_UNQUOTE(JSON_EXTRACT(provider_payload,'$.delivery_mode'))='local_worker_prototype'
+           ORDER BY scheduled_at ASC LIMIT 1 FOR UPDATE`,
+          [accountId]
+        );
+        const row = rows[0];
+        if (!row) return null;
+        await connection.execute(
+          `UPDATE social_scheduled_posts SET status='publishing',last_error=NULL,
+           provider_payload=JSON_SET(COALESCE(provider_payload,JSON_OBJECT()),
+             '$.worker_id',?,'$.claimed_at',DATE_FORMAT(UTC_TIMESTAMP(3),'%Y-%m-%dT%H:%i:%s.%fZ'))
+           WHERE id=? AND account_id=?`,
+          [workerId, row.id, accountId]
+        );
+        return row;
+      });
+      return Response.json({ post });
+    }
+
+    if (action === 'complete_status_post') {
+      const providerPostId = String(body.providerPostId ?? '');
+      if (!providerPostId) throw new Error('providerPostId is required.');
+      await mutate(
+        `UPDATE social_scheduled_posts SET status='published',published_at=UTC_TIMESTAMP(3),
+         provider_post_id=?,last_error=NULL,
+         provider_payload=JSON_SET(COALESCE(provider_payload,JSON_OBJECT()),
+           '$.published_via','whatsapp_web_qr','$.worker_id',?)
+         WHERE id=? AND account_id=? AND status='publishing'`,
+        [providerPostId, String(body.workerId ?? 'local-worker'), String(body.postId), accountId]
+      );
+      return Response.json({ success: true });
+    }
+
+    if (action === 'fail_status_post') {
+      await mutate(
+        `UPDATE social_scheduled_posts SET status='failed',last_error=?,
+         provider_payload=JSON_SET(COALESCE(provider_payload,JSON_OBJECT()),'$.worker_id',?)
+         WHERE id=? AND account_id=? AND status='publishing'`,
+        [String(body.error ?? 'Status publishing failed'), String(body.workerId ?? 'local-worker'), String(body.postId), accountId]
+      );
+      return Response.json({ success: true });
+    }
+
     if (action === 'resolve_conversation') {
       const rows = await selectRows<(RowDataPacket & { phone: string })[]>(
         `SELECT c.phone FROM conversations v JOIN contacts c ON c.id=v.contact_id
@@ -601,9 +657,17 @@ export async function POST(request: Request) {
         if (!inserted && mediaUrl) {
           await connection.execute(
             `UPDATE messages SET media_url=COALESCE(?,media_url),
-             content_text=COALESCE(NULLIF(?,''),content_text)
+             content_text=COALESCE(NULLIF(?,''),content_text),
+             content_type=CASE WHEN ? <> 'text' THEN ? ELSE content_type END
              WHERE conversation_id=? AND dedupe_key=?`,
-            [mediaUrl, String(body.text ?? ''), conversationId, dedupeKey]
+            [
+              mediaUrl,
+              String(body.text ?? ''),
+              contentType,
+              contentType,
+              conversationId,
+              dedupeKey,
+            ]
           );
         }
         if (inserted) {
