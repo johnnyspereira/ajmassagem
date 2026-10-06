@@ -1779,6 +1779,11 @@ export async function executeMysqlRpc(
         let updated = 0;
         let unresolved = 0;
         await transaction(async (connection) => {
+          if (!(await hasVoucherPaidAmountColumns(connection))) {
+            throw new Error(
+              'A actualização da base de dados ainda está a ser aplicada. Reinicie a aplicação e tente novamente dentro de alguns instantes.'
+            );
+          }
           const [vouchers] = await connection.execute<
             (RowDataPacket & { id: string; issued_sale_id: string | null; issued_sale_item_id: string | null; service_id: string | null })[]
           >(

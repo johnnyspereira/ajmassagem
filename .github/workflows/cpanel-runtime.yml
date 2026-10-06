@@ -21,6 +21,10 @@ concurrency:
 jobs:
   build-runtime:
     runs-on: ubuntu-latest
+    # A compilação completa pode demorar alguns minutos. Este limite evita
+    # deixar uma versão bloqueada indefinidamente e impede que o cPanel fique
+    # à espera de um runtime que nunca será publicado.
+    timeout-minutes: 30
     env:
       NEXT_TELEMETRY_DISABLED: '1'
       PUPPETEER_SKIP_DOWNLOAD: 'true'
