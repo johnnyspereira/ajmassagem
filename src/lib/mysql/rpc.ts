@@ -1746,6 +1746,106 @@ export async function executeMysqlRpc(
         });
         return ok(true);
       }
+      case 'convert_service_voucher_to_wallet': {
+        const voucherId = String(args.p_voucher_id ?? '');
+        const note = optionalText(args.p_note)?.trim() || null;
+        if (!voucherId) throw new Error('Voucher is required.');
+        let output: { wallet_id: string; balance: number; credited_amount: number } | null = null;
+        await transaction(async (connection) => {
+          const [vouchers] = await connection.execute<
+            (RowDataPacket & {
+              id: string;
+              owner_contact_id: string | null;
+              voucher_type: string;
+              status: string;
+              remaining_uses: number | null;
+              initial_balance: number;
+              current_balance: number;
+              currency: string;
+              code: string;
+              expires_at: Date | null;
+            })[]
+          >(
+            `SELECT id,owner_contact_id,voucher_type,status,remaining_uses,initial_balance,current_balance,currency,code,expires_at
+             FROM finance_vouchers WHERE id=? AND account_id=? FOR UPDATE`,
+            [voucherId, context.accountId]
+          );
+          const voucher = vouchers[0];
+          if (!voucher) throw new Error('Voucher nÃ£o encontrado.');
+          if (voucher.voucher_type !== 'service')
+            throw new Error('Apenas vouchers de serviÃ§o podem ser convertidos em saldo.');
+          if (voucher.status !== 'active' || Number(voucher.remaining_uses ?? 0) < 1)
+            throw new Error('Este voucher jÃ¡ foi utilizado, cancelado ou nÃ£o estÃ¡ ativo.');
+          if (!voucher.owner_contact_id)
+            throw new Error('Associe primeiro o voucher a um cliente.');
+          if (voucher.expires_at && new Date(voucher.expires_at).getTime() <= Date.now())
+            throw new Error('NÃ£o Ã© possÃ­vel converter um voucher expirado.');
+
+          const [alreadyConverted] = await connection.execute<RowDataPacket[]>(
+            'SELECT id FROM finance_wallet_transactions WHERE voucher_id=? LIMIT 1 FOR UPDATE',
+            [voucher.id]
+          );
+          if (alreadyConverted.length)
+            throw new Error('Este voucher jÃ¡ foi convertido em cartÃ£o-saldo.');
+
+          const amount = Number(voucher.current_balance || voucher.initial_balance);
+          if (!(amount > 0))
+            throw new Error('O voucher nÃ£o tem valor disponÃ­vel para converter.');
+
+          const [walletRows] = await connection.execute<
+            (RowDataPacket & { id: string; balance: number })[]
+          >(
+            'SELECT id,balance FROM finance_client_wallets WHERE account_id=? AND contact_id=? AND currency=? FOR UPDATE',
+            [context.accountId, voucher.owner_contact_id, voucher.currency || 'EUR']
+          );
+          let walletId: string;
+          let balanceAfter: number;
+          if (walletRows[0]) {
+            walletId = walletRows[0].id;
+            balanceAfter = Number(walletRows[0].balance) + amount;
+            await connection.execute(
+              'UPDATE finance_client_wallets SET balance=? WHERE id=?',
+              [balanceAfter, walletId]
+            );
+          } else {
+            walletId = randomUUID();
+            balanceAfter = amount;
+            await connection.execute(
+              'INSERT INTO finance_client_wallets(id,account_id,contact_id,currency,balance) VALUES(?,?,?,?,?)',
+              [walletId, context.accountId, voucher.owner_contact_id, voucher.currency || 'EUR', balanceAfter]
+            );
+          }
+
+          await connection.execute(
+            `INSERT INTO finance_wallet_transactions(id,account_id,wallet_id,voucher_id,transaction_type,amount,balance_after,performed_by_user_id,description,metadata)
+             VALUES(?,?,?,?, 'credit',?,?,?,?,?)`,
+            [
+              randomUUID(), context.accountId, walletId, voucher.id, amount,
+              balanceAfter, context.userId,
+              note || 'Voucher de serviÃ§o convertido em cartÃ£o-saldo',
+              JSON.stringify({ source: 'service_voucher_conversion', voucher_code: voucher.code }),
+            ]
+          );
+          await connection.execute(
+            `UPDATE finance_vouchers
+             SET status='cancelled',current_balance=0,remaining_uses=0,
+                 message=CONCAT_WS('\n',message,'Convertido em cartÃ£o-saldo do cliente')
+             WHERE id=?`,
+            [voucher.id]
+          );
+          await connection.execute(
+            `INSERT INTO finance_benefit_logs(id,account_id,voucher_id,action,amount,performed_by_user_id,approved_by_user_id,notes,metadata)
+             VALUES(?,?,?,'adjusted',?,?,?,?,?,?)`,
+            [
+              randomUUID(), context.accountId, voucher.id, amount, context.userId,
+              context.userId, note || 'Convertido em cartÃ£o-saldo',
+              JSON.stringify({ action: 'converted_to_wallet', wallet_id: walletId, credited_amount: amount }),
+            ]
+          );
+          output = { wallet_id: walletId, balance: balanceAfter, credited_amount: amount };
+        });
+        return ok(output);
+      }
       case 'lookup_finance_benefit_code': {
         const code = String(args.p_code ?? '').trim();
         const vouchers = await selectRows<
