@@ -901,10 +901,11 @@ export async function executeMysqlRpc(
               item.metadata && typeof item.metadata === 'object'
                 ? (item.metadata as Record<string, unknown>)
                 : {};
+            const saleItemId = randomUUID();
             await connection.execute(
               `INSERT INTO finance_sale_items(id,sale_id,account_id,item_type,source_id,name_snapshot,reference_snapshot,quantity,unit_price,discount_amount,tax_rate,tax_amount,line_total,metadata) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
               [
-                randomUUID(),
+                saleItemId,
                 saleId,
                 context.accountId,
                 String(item.item_type),
@@ -1003,12 +1004,16 @@ export async function executeMysqlRpc(
                     metadata.validity_days == null
                       ? null
                       : Number(metadata.validity_days);
+                const paidPerVoucher = Math.round(
+                  ((lineTotal / quantity) * (total / Math.max(subtotal - itemDiscount + tax, 0.01))) * 100
+                ) / 100;
                 await connection.execute(
-                  `INSERT INTO finance_vouchers(id,account_id,issued_sale_id,owner_contact_id,service_id,code,pin_code,voucher_type,remaining_uses,initial_balance,current_balance,currency,status,recipient_name,message,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?, 'pending',?,?,IF(? IS NULL,NULL,DATE_ADD(UTC_TIMESTAMP(3),INTERVAL ? DAY)))`,
+                  `INSERT INTO finance_vouchers(id,account_id,issued_sale_id,issued_sale_item_id,owner_contact_id,service_id,code,pin_code,voucher_type,remaining_uses,initial_balance,paid_amount,current_balance,currency,status,recipient_name,message,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending',?,?,IF(? IS NULL,NULL,DATE_ADD(UTC_TIMESTAMP(3),INTERVAL ? DAY)))`,
                   [
                     randomUUID(),
                     context.accountId,
                     saleId,
+                    saleItemId,
                     optionalText(args.p_contact_id),
                     optionalText(metadata.service_id),
                     code,
@@ -1020,6 +1025,7 @@ export async function executeMysqlRpc(
                         : null
                       : Number(metadata.remaining_uses),
                     face,
+                    paidPerVoucher,
                     face,
                     String(args.p_currency ?? 'EUR'),
                     optionalText(metadata.recipient_name),
@@ -1755,18 +1761,22 @@ export async function executeMysqlRpc(
           const [vouchers] = await connection.execute<
             (RowDataPacket & {
               id: string;
+              issued_sale_id: string | null;
+              issued_sale_item_id: string | null;
               owner_contact_id: string | null;
+              service_id: string | null;
               voucher_type: string;
               status: string;
               remaining_uses: number | null;
               initial_balance: number;
+              paid_amount: number | null;
               current_balance: number;
               currency: string;
               code: string;
               expires_at: Date | null;
             })[]
           >(
-            `SELECT id,owner_contact_id,voucher_type,status,remaining_uses,initial_balance,current_balance,currency,code,expires_at
+            `SELECT id,issued_sale_id,issued_sale_item_id,owner_contact_id,service_id,voucher_type,status,remaining_uses,initial_balance,paid_amount,current_balance,currency,code,expires_at
              FROM finance_vouchers WHERE id=? AND account_id=? FOR UPDATE`,
             [voucherId, context.accountId]
           );
@@ -1788,7 +1798,25 @@ export async function executeMysqlRpc(
           if (alreadyConverted.length)
             throw new Error('Este voucher jÃ¡ foi convertido em cartÃ£o-saldo.');
 
-          const amount = Number(voucher.current_balance || voucher.initial_balance);
+          let amount = Number(voucher.paid_amount ?? 0);
+          if (!(amount > 0) && voucher.issued_sale_id) {
+            const [sourceItems] = await connection.execute<
+              (RowDataPacket & { line_total: number; quantity: number; paid_amount: number; total_amount: number; is_historical: number })[]
+            >(
+              `SELECT i.line_total,i.quantity,s.paid_amount,s.total_amount,s.is_historical
+               FROM finance_sale_items i JOIN finance_sales s ON s.id=i.sale_id
+               WHERE i.sale_id=? AND i.item_type='voucher'
+                 AND (i.id=? OR (? IS NULL AND JSON_UNQUOTE(JSON_EXTRACT(i.metadata, '$.voucher_type'))='service' AND JSON_UNQUOTE(JSON_EXTRACT(i.metadata, '$.service_id'))=?))
+               ORDER BY i.created_at ASC LIMIT 1`,
+              [voucher.issued_sale_id, voucher.issued_sale_item_id, voucher.issued_sale_item_id, voucher.service_id]
+            );
+            const source = sourceItems[0];
+            if (source) {
+              const paidForSale = Number(source.is_historical) ? Number(source.total_amount) : Number(source.paid_amount);
+              amount = Math.round((Number(source.line_total) / Math.max(Number(source.quantity), 1)) * (paidForSale / Math.max(Number(source.total_amount), 0.01)) * 100) / 100;
+              if (amount > 0) await connection.execute('UPDATE finance_vouchers SET paid_amount=? WHERE id=?', [amount, voucher.id]);
+            }
+          }
           if (!(amount > 0))
             throw new Error('O voucher nÃ£o tem valor disponÃ­vel para converter.');
 
@@ -1823,7 +1851,7 @@ export async function executeMysqlRpc(
               randomUUID(), context.accountId, walletId, voucher.id, amount,
               balanceAfter, context.userId,
               note || 'Voucher de serviÃ§o convertido em cartÃ£o-saldo',
-              JSON.stringify({ source: 'service_voucher_conversion', voucher_code: voucher.code }),
+              JSON.stringify({ source: 'service_voucher_conversion', voucher_code: voucher.code, paid_amount: amount }),
             ]
           );
           await connection.execute(
@@ -1839,7 +1867,7 @@ export async function executeMysqlRpc(
             [
               randomUUID(), context.accountId, voucher.id, amount, context.userId,
               context.userId, note || 'Convertido em cartÃ£o-saldo',
-              JSON.stringify({ action: 'converted_to_wallet', wallet_id: walletId, credited_amount: amount }),
+              JSON.stringify({ action: 'converted_to_wallet', wallet_id: walletId, credited_amount: amount, paid_amount: amount }),
             ]
           );
           output = { wallet_id: walletId, balance: balanceAfter, credited_amount: amount };

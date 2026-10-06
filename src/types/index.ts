@@ -769,6 +769,8 @@ export interface FinanceVoucher {
   owner_contact_id?: string | null;
   code: string;
   initial_balance: number;
+  /** Net amount actually paid for this voucher after discounts. */
+  paid_amount?: number | null;
   current_balance: number;
   currency: string;
   status: 'pending' | 'active' | 'used' | 'expired' | 'cancelled';

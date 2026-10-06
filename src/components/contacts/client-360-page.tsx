@@ -1154,7 +1154,6 @@ export function Client360Page({
         'Crédito acumulado do programa Indique & Ganhe'
       )
   );
-  const saleById = new Map(sales.map((sale) => [sale.id, sale]));
   const referralUrl = referralCode
     ? `${account?.public_url?.replace(/\/$/, '') || (typeof window !== 'undefined' ? window.location.origin : '')}/refer/${referralCode}`
     : null;
@@ -2308,7 +2307,7 @@ export function Client360Page({
               <CardContent className="space-y-3">
                 {regularVouchers.length ? regularVouchers.map((voucher) => (<Fragment key={voucher.id}>
                   <div key={voucher.id} className="border-border rounded-xl border p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{voucher.voucher_type === 'service' ? voucher.service?.name ?? 'Voucher de procedimento' : 'Voucher de saldo'}</p><p className="text-muted-foreground mt-0.5 text-xs font-mono">Código: {voucher.code}</p><p className="text-muted-foreground mt-1 text-xs">{voucher.voucher_type === 'service' ? `${Number(voucher.remaining_uses ?? 0)} sessão(ões) disponível(eis)` : `Saldo ${formatCurrency(Number(voucher.current_balance), voucher.currency)}`}{voucher.expires_at ? ` · Válido até ${safeDate(voucher.expires_at, 'dd/MM/yyyy')}` : ''}</p></div><Badge variant="outline">{labelFor(voucher.status)}</Badge></div></div>
-                  <VoucherValueSummary voucher={voucher} paidAmount={voucher.issued_sale_id ? saleById.get(voucher.issued_sale_id)?.paid_amount : null} />
+                  <VoucherValueSummary voucher={voucher} paidAmount={voucher.paid_amount} />
                 </Fragment>)) : <Empty icon={Gift} text="Este cliente ainda nao possui vouchers." />}
               </CardContent>
             </Card>
@@ -2554,7 +2553,7 @@ export function Client360Page({
                             {labelFor(voucher.status)}
                           </Badge>
                         </div>
-                        <VoucherValueSummary voucher={voucher} paidAmount={voucher.issued_sale_id ? saleById.get(voucher.issued_sale_id)?.paid_amount : null} compact />
+                        <VoucherValueSummary voucher={voucher} paidAmount={voucher.paid_amount} compact />
                       </div>
                     ))
                   ) : (
@@ -3202,7 +3201,7 @@ function VoucherValueSummary({
       </div>
       <div>
         <p className="text-muted-foreground text-xs">Pago na venda</p>
-        <p className="font-semibold text-emerald-700">{hasSalePayment ? formatCurrency(paidValue, voucher.currency) : 'Venda não encontrada'}</p>
+        <p className="font-semibold text-emerald-700">{hasSalePayment ? formatCurrency(paidValue, voucher.currency) : 'A apurar da venda'}</p>
       </div>
       {!compact && <div>
         <p className="text-muted-foreground text-xs">{voucher.voucher_type === 'service' ? 'Sessões disponíveis' : 'Saldo atual'}</p>
