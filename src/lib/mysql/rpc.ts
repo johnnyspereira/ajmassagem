@@ -19,6 +19,15 @@ const failed = (cause: unknown) => ({
 });
 const optionalText = (value: unknown) => (value == null ? null : String(value));
 
+async function hasVoucherPaidAmountColumns(connection: PoolConnection) {
+  const [columns] = await connection.execute<RowDataPacket[]>(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_schema=DATABASE() AND table_name='finance_vouchers'
+       AND column_name IN ('issued_sale_item_id','paid_amount')`
+  );
+  return columns.length === 2;
+}
+
 async function addPayment(
   connection: PoolConnection,
   input: {
@@ -868,6 +877,7 @@ export async function executeMysqlRpc(
           throw new Error('Imported benefits cannot register a local payment.');
         const saleId = randomUUID();
         await transaction(async (connection) => {
+          const supportsVoucherPaidAmount = await hasVoucherPaidAmountColumns(connection);
           await connection.execute(
             `INSERT INTO finance_sales(id,account_id,contact_id,appointment_id,cash_session_id,created_by_user_id,status,currency,subtotal,discount_amount,tax_amount,total_amount,paid_amount,balance_due,is_historical,notes)
             VALUES(?,?,?,?,?,?,'open',?,?,?,?,?,0,?,?,?)`,
@@ -1007,9 +1017,11 @@ export async function executeMysqlRpc(
                 const paidPerVoucher = Math.round(
                   ((lineTotal / quantity) * (total / Math.max(subtotal - itemDiscount + tax, 0.01))) * 100
                 ) / 100;
-                await connection.execute(
-                  `INSERT INTO finance_vouchers(id,account_id,issued_sale_id,issued_sale_item_id,owner_contact_id,service_id,code,pin_code,voucher_type,remaining_uses,initial_balance,paid_amount,current_balance,currency,status,recipient_name,message,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending',?,?,IF(? IS NULL,NULL,DATE_ADD(UTC_TIMESTAMP(3),INTERVAL ? DAY)))`,
-                  [
+                const voucherFields = supportsVoucherPaidAmount
+                  ? `id,account_id,issued_sale_id,issued_sale_item_id,owner_contact_id,service_id,code,pin_code,voucher_type,remaining_uses,initial_balance,paid_amount,current_balance,currency,status,recipient_name,message,expires_at`
+                  : `id,account_id,issued_sale_id,owner_contact_id,service_id,code,pin_code,voucher_type,remaining_uses,initial_balance,current_balance,currency,status,recipient_name,message,expires_at`;
+                const voucherValues = supportsVoucherPaidAmount
+                  ? [
                     randomUUID(),
                     context.accountId,
                     saleId,
@@ -1033,6 +1045,17 @@ export async function executeMysqlRpc(
                     validity,
                     validity,
                   ]
+                  : [
+                    randomUUID(), context.accountId, saleId, optionalText(args.p_contact_id), optionalText(metadata.service_id), code, pin,
+                    String(metadata.voucher_type ?? 'gift_card'), metadata.remaining_uses == null ? String(metadata.voucher_type ?? 'gift_card') === 'service' ? 1 : null : Number(metadata.remaining_uses),
+                    face, face, String(args.p_currency ?? 'EUR'), optionalText(metadata.recipient_name), optionalText(metadata.message), validity, validity,
+                  ];
+                const placeholders = supportsVoucherPaidAmount
+                  ? `?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending',?,?,IF(? IS NULL,NULL,DATE_ADD(UTC_TIMESTAMP(3),INTERVAL ? DAY))`
+                  : `?,?,?,?,?,?,?,?,?,?,?,?,'pending',?,?,IF(? IS NULL,NULL,DATE_ADD(UTC_TIMESTAMP(3),INTERVAL ? DAY))`;
+                await connection.execute(
+                  `INSERT INTO finance_vouchers(${voucherFields}) VALUES(${placeholders})`,
+                  voucherValues
                 );
               }
             }
@@ -1751,6 +1774,42 @@ export async function executeMysqlRpc(
           );
         });
         return ok(true);
+      }
+      case 'apurar_service_voucher_paid_amounts': {
+        let updated = 0;
+        let unresolved = 0;
+        await transaction(async (connection) => {
+          const [vouchers] = await connection.execute<
+            (RowDataPacket & { id: string; issued_sale_id: string | null; issued_sale_item_id: string | null; service_id: string | null })[]
+          >(
+            `SELECT id,issued_sale_id,issued_sale_item_id,service_id
+             FROM finance_vouchers
+             WHERE account_id=? AND voucher_type='service' AND status='active' AND paid_amount IS NULL
+             FOR UPDATE`,
+            [context.accountId]
+          );
+          for (const voucher of vouchers) {
+            if (!voucher.issued_sale_id) { unresolved += 1; continue; }
+            const [sourceItems] = await connection.execute<
+              (RowDataPacket & { line_total: number; quantity: number; paid_amount: number; total_amount: number; is_historical: number })[]
+            >(
+              `SELECT i.line_total,i.quantity,s.paid_amount,s.total_amount,s.is_historical
+               FROM finance_sale_items i JOIN finance_sales s ON s.id=i.sale_id
+               WHERE i.sale_id=? AND i.item_type='voucher'
+                 AND (i.id=? OR (? IS NULL AND JSON_UNQUOTE(JSON_EXTRACT(i.metadata, '$.voucher_type'))='service' AND JSON_UNQUOTE(JSON_EXTRACT(i.metadata, '$.service_id'))=?))
+               ORDER BY i.created_at ASC LIMIT 1`,
+              [voucher.issued_sale_id, voucher.issued_sale_item_id, voucher.issued_sale_item_id, voucher.service_id]
+            );
+            const source = sourceItems[0];
+            if (!source) { unresolved += 1; continue; }
+            const paidForSale = Number(source.is_historical) ? Number(source.total_amount) : Number(source.paid_amount);
+            const amount = Math.round((Number(source.line_total) / Math.max(Number(source.quantity), 1)) * (paidForSale / Math.max(Number(source.total_amount), 0.01)) * 100) / 100;
+            if (!(amount > 0)) { unresolved += 1; continue; }
+            await connection.execute('UPDATE finance_vouchers SET paid_amount=? WHERE id=?', [amount, voucher.id]);
+            updated += 1;
+          }
+        });
+        return ok({ updated, unresolved });
       }
       case 'convert_service_voucher_to_wallet': {
         const voucherId = String(args.p_voucher_id ?? '');
