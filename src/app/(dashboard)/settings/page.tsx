@@ -3,6 +3,7 @@
 import { useEffect, useMemo, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { Settings2 } from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
@@ -32,6 +33,7 @@ import {
   getVisibleSettingsSections,
   resolveAllowedSection,
   resolveSection,
+  SECTION_META,
   type SettingsSection,
 } from '@/components/settings/settings-sections';
 
@@ -107,15 +109,17 @@ export default function SettingsPage() {
     'data-cleanup': <DataCleanupPanel />,
     'new-features': <NewFeaturesSettings />,
   };
+  const activeMeta = SECTION_META[section];
 
   return (
     <div>
-      <div>
-        <h1 className="text-foreground text-2xl font-bold tracking-tight">
-          {t('pageTitle')}
-        </h1>
-        <p className="text-muted-foreground mt-1 text-sm">{t('pageDesc')}</p>
-      </div>
+      <section className="border-primary/15 from-primary-soft/50 via-card to-card flex flex-wrap items-center justify-between gap-4 rounded-2xl border bg-gradient-to-br p-5 shadow-sm">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="bg-primary text-primary-foreground flex size-11 shrink-0 items-center justify-center rounded-xl shadow-sm"><Settings2 className="size-5" /></span>
+          <div className="min-w-0"><p className="text-primary text-xs font-semibold tracking-[0.1em] uppercase">Área de administração</p><h1 className="text-foreground mt-0.5 text-2xl font-bold tracking-tight">{t('pageTitle')}</h1><p className="text-muted-foreground mt-1 text-sm">{t('pageDesc')}</p></div>
+        </div>
+        <div className="border-border bg-background/75 min-w-44 rounded-xl border px-4 py-3"><p className="text-muted-foreground text-[10px] font-semibold tracking-[0.08em] uppercase">A editar agora</p><p className="text-foreground mt-1 text-sm font-semibold">{t(`sections.${activeMeta.id}`)}</p></div>
+      </section>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[272px_minmax(0,1fr)] lg:items-start">
         <SettingsRail

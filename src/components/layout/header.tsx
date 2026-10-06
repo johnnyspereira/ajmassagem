@@ -15,7 +15,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -74,39 +76,37 @@ const topbarDirectHrefs = ['/dashboard', '/inbox', '/agenda', '/contacts'];
 const topbarGroupConfigs = [
   {
     labelKey: 'groupOperation',
-    hrefs: ['/notifications', '/tasks'],
+    description: 'O que a equipa precisa de tratar agora.',
+    sections: [{ label: 'Hoje', hrefs: ['/tasks', '/notifications'] }],
   },
   {
     labelKey: 'groupCommercial',
-    hrefs: [
-      '/pipelines',
-      '/finance',
-      '/benefits',
-      '/business-hub',
-      '/business-hub/goals',
-      '/reports',
-      '/referrals',
+    description: 'Vendas, saldo, resultados e fidelização.',
+    sections: [
+      { label: 'Vendas e dinheiro', hrefs: ['/pipelines', '/finance', '/benefits', '/reports'] },
+      { label: 'Crescimento', hrefs: ['/business-hub', '/business-hub/goals', '/referrals'] },
     ],
   },
   {
     labelKey: 'groupMarketing',
-    hrefs: [
-      '/avaliacoes',
-      '/broadcasts',
-      '/segments',
-      '/scheduled-messages',
-      '/social-planner',
-      '/portal-campaigns',
-      '/library',
+    description: 'Planeie conteúdo, campanhas e públicos.',
+    sections: [
+      { label: 'Publicar e comunicar', hrefs: ['/social-planner', '/broadcasts', '/scheduled-messages'] },
+      { label: 'Audiência e conteúdos', hrefs: ['/segments', '/portal-campaigns', '/avaliacoes', '/library'] },
     ],
   },
   {
     labelKey: 'groupAutomation',
-    hrefs: ['/automations', '/flows', '/agents'],
+    description: 'Regras, fluxos e assistentes que trabalham por si.',
+    sections: [{ label: 'Automatizações', hrefs: ['/automations', '/flows', '/agents'] }],
   },
   {
     labelKey: 'groupSystem',
-    hrefs: ['/settings', '/support', '/help', '/website', '/system-health'],
+    description: 'Configure o CRM e acompanhe a saúde do sistema.',
+    sections: [
+      { label: 'Configurar', hrefs: ['/settings', '/website'] },
+      { label: 'Ajuda e diagnóstico', hrefs: ['/system-health', '/support', '/help'] },
+    ],
   },
 ] as const;
 
@@ -172,11 +172,16 @@ export function Header({
   const topbarGroups = topbarGroupConfigs
     .map((group) => ({
       ...group,
-      items: group.hrefs
-        .map((href) => navItemByHref.get(href))
-        .filter((item): item is NavItem => Boolean(item)),
+      sections: group.sections
+        .map((section) => ({
+          ...section,
+          items: section.hrefs
+            .map((href) => navItemByHref.get(href))
+            .filter((item): item is NavItem => Boolean(item)),
+        }))
+        .filter((section) => section.items.length > 0),
     }))
-    .filter((group) => group.items.length > 0);
+    .filter((group) => group.sections.length > 0);
 
   function getAttentionLabel(item: NavItem) {
     if (item.href === '/inbox' && totalUnread > 0) {
@@ -291,12 +296,13 @@ export function Header({
           })}
 
           {topbarGroups.map((group) => {
-            const active = group.items.some((item) =>
+            const items = group.sections.flatMap((section) => section.items);
+            const active = items.some((item) =>
               isNavItemActive(pathname, item.href)
             );
             const attentionLabel =
-              group.items.map(getAttentionLabel).find(Boolean) ?? null;
-            const GroupIcon = group.items[0]?.icon;
+              items.map(getAttentionLabel).find(Boolean) ?? null;
+            const GroupIcon = items[0]?.icon;
 
             return (
               <DropdownMenu key={group.labelKey}>
@@ -324,7 +330,7 @@ export function Header({
                 <DropdownMenuContent
                   align="start"
                   sideOffset={10}
-                  className="w-64 rounded-xl p-1.5 shadow-xl"
+                  className="w-[min(30rem,calc(100vw-2rem))] rounded-2xl p-2 shadow-xl"
                 >
                   <div className="px-2.5 pt-1.5 pb-2">
                     <p className="text-foreground text-xs font-semibold">
@@ -335,7 +341,13 @@ export function Header({
                     </p>
                   </div>
                   <DropdownMenuSeparator />
-                  {group.items.map((item) => {
+                  <div className="grid gap-2 md:grid-cols-2">
+                  {group.sections.map((section) => (
+                    <DropdownMenuGroup key={section.label} className="rounded-xl bg-muted/35 p-1.5">
+                      <DropdownMenuLabel className="text-muted-foreground px-2 py-1 text-[10px] font-semibold tracking-[0.08em] uppercase">
+                        {section.label}
+                      </DropdownMenuLabel>
+                      {section.items.map((item) => {
                     const itemActive = isNavItemActive(pathname, item.href);
                     const itemAttentionLabel = getAttentionLabel(item);
                     return (
@@ -370,7 +382,10 @@ export function Header({
                         </span>
                       </DropdownMenuItem>
                     );
-                  })}
+                      })}
+                    </DropdownMenuGroup>
+                  ))}
+                  </div>
                 </DropdownMenuContent>
               </DropdownMenu>
             );

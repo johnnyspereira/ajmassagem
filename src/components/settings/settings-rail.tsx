@@ -64,7 +64,7 @@ export function SettingsRail({
       aria-label="Settings sections"
       className={cn(
         'border-border flex [scrollbar-width:none] gap-1 overflow-x-auto border-b pb-2 [&::-webkit-scrollbar]:hidden',
-        'lg:sticky lg:top-0 lg:flex-col lg:gap-3 lg:overflow-visible lg:border-b-0 lg:pb-0'
+        'lg:sticky lg:top-4 lg:flex-col lg:gap-0 lg:overflow-visible lg:rounded-2xl lg:border lg:bg-card lg:p-2 lg:pb-2'
       )}
     >
       {RAIL_GROUPS.map(({ group }) => {
@@ -79,10 +79,10 @@ export function SettingsRail({
           <section
             key={group}
             className={cn(
-              'flex shrink-0 gap-1 lg:flex-col lg:gap-1 lg:rounded-xl lg:border lg:p-2',
+              'flex shrink-0 gap-1 lg:flex-col lg:gap-1 lg:border-b lg:px-1 lg:py-3 lg:last:border-b-0',
               isGroupActive
-                ? 'lg:border-primary/25 lg:bg-primary-soft/20'
-                : 'lg:border-border lg:bg-card/60'
+                ? 'lg:border-primary/20 lg:bg-primary-soft/10'
+                : 'lg:border-border'
             )}
           >
             <div className="hidden items-start gap-2 px-1.5 py-1 lg:flex">
@@ -97,12 +97,7 @@ export function SettingsRail({
                 <GroupIcon className="size-3.5" />
               </span>
               <div className="min-w-0">
-                <div
-                  className={cn(
-                    'text-[11px] leading-4 font-semibold tracking-[0.08em] uppercase',
-                    isGroupActive ? 'text-primary' : 'text-muted-foreground'
-                  )}
-                >
+                <div className={cn('text-[11px] leading-4 font-semibold tracking-[0.08em] uppercase', isGroupActive ? 'text-primary' : 'text-muted-foreground')}>
                   {t(`groups.${group}`)}
                 </div>
                 <div className="text-muted-foreground line-clamp-2 text-[11px] leading-4">
@@ -124,10 +119,10 @@ export function SettingsRail({
                   onClick={() => onSelect(section)}
                   aria-current={isActive ? 'page' : undefined}
                   className={cn(
-                    'flex min-h-9 shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium whitespace-nowrap transition-colors',
+                    'relative flex min-h-9 shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium whitespace-nowrap transition-colors',
                     'lg:w-full lg:px-2.5',
                     isActive
-                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      ? 'bg-primary/10 text-primary shadow-sm ring-1 ring-primary/15 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   )}
                 >
@@ -140,7 +135,7 @@ export function SettingsRail({
                       className={cn(
                         'hidden shrink-0 items-center gap-1.5 rounded-full px-1.5 text-[10px] lg:inline-flex',
                         isActive
-                          ? 'bg-primary-foreground/15 text-primary-foreground'
+                          ? 'bg-primary/15 text-primary'
                           : 'bg-muted text-muted-foreground'
                       )}
                     >
