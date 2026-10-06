@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -1154,6 +1154,7 @@ export function Client360Page({
         'Crédito acumulado do programa Indique & Ganhe'
       )
   );
+  const saleById = new Map(sales.map((sale) => [sale.id, sale]));
   const referralUrl = referralCode
     ? `${account?.public_url?.replace(/\/$/, '') || (typeof window !== 'undefined' ? window.location.origin : '')}/refer/${referralCode}`
     : null;
@@ -2305,9 +2306,10 @@ export function Client360Page({
                   <CardDescription>Procedimento, saldo ou sessões e respetiva validade.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {regularVouchers.length ? regularVouchers.map((voucher) => (
+                {regularVouchers.length ? regularVouchers.map((voucher) => (<Fragment key={voucher.id}>
                   <div key={voucher.id} className="border-border rounded-xl border p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{voucher.voucher_type === 'service' ? voucher.service?.name ?? 'Voucher de procedimento' : 'Voucher de saldo'}</p><p className="text-muted-foreground mt-0.5 text-xs font-mono">Código: {voucher.code}</p><p className="text-muted-foreground mt-1 text-xs">{voucher.voucher_type === 'service' ? `${Number(voucher.remaining_uses ?? 0)} sessão(ões) disponível(eis)` : `Saldo ${formatCurrency(Number(voucher.current_balance), voucher.currency)}`}{voucher.expires_at ? ` · Válido até ${safeDate(voucher.expires_at, 'dd/MM/yyyy')}` : ''}</p></div><Badge variant="outline">{labelFor(voucher.status)}</Badge></div></div>
-                )) : <Empty icon={Gift} text="Este cliente ainda nao possui vouchers." />}
+                  <VoucherValueSummary voucher={voucher} paidAmount={voucher.issued_sale_id ? saleById.get(voucher.issued_sale_id)?.paid_amount : null} />
+                </Fragment>)) : <Empty icon={Gift} text="Este cliente ainda nao possui vouchers." />}
               </CardContent>
             </Card>
           </div>
@@ -2552,13 +2554,7 @@ export function Client360Page({
                             {labelFor(voucher.status)}
                           </Badge>
                         </div>
-                        <p className="mt-1 text-sm font-medium">
-                          Saldo{' '}
-                          {formatCurrency(
-                            Number(voucher.current_balance),
-                            voucher.currency
-                          )}
-                        </p>
+                        <VoucherValueSummary voucher={voucher} paidAmount={voucher.issued_sale_id ? saleById.get(voucher.issued_sale_id)?.paid_amount : null} compact />
                       </div>
                     ))
                   ) : (
@@ -3181,6 +3177,37 @@ function Info({
         <p className="text-muted-foreground text-xs">{label}</p>
         <p className="truncate font-medium">{value}</p>
       </div>
+    </div>
+  );
+}
+
+function VoucherValueSummary({
+  voucher,
+  paidAmount,
+  compact = false,
+}: {
+  voucher: FinanceVoucher;
+  paidAmount?: number | null;
+  compact?: boolean;
+}) {
+  const originalValue = Number(voucher.initial_balance ?? 0);
+  const hasSalePayment = paidAmount != null;
+  const paidValue = Number(paidAmount ?? 0);
+
+  return (
+    <div className={cn('mt-3 grid gap-2 rounded-lg bg-muted/50 p-3 text-sm', compact ? 'grid-cols-2' : 'sm:grid-cols-3')}>
+      <div>
+        <p className="text-muted-foreground text-xs">Valor original</p>
+        <p className="font-medium">{formatCurrency(originalValue, voucher.currency)}</p>
+      </div>
+      <div>
+        <p className="text-muted-foreground text-xs">Pago na venda</p>
+        <p className="font-semibold text-emerald-700">{hasSalePayment ? formatCurrency(paidValue, voucher.currency) : 'Venda não encontrada'}</p>
+      </div>
+      {!compact && <div>
+        <p className="text-muted-foreground text-xs">{voucher.voucher_type === 'service' ? 'Sessões disponíveis' : 'Saldo atual'}</p>
+        <p className="font-medium">{voucher.voucher_type === 'service' ? `${Number(voucher.remaining_uses ?? 0)} sessão(ões)` : formatCurrency(Number(voucher.current_balance), voucher.currency)}</p>
+      </div>}
     </div>
   );
 }
