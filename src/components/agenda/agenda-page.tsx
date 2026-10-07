@@ -291,6 +291,36 @@ const STATUS_LABEL: Record<ClinicAppointmentStatus, string> = {
   no_show: 'Falta',
 };
 
+function appointmentHasSettledBenefit(appointment: AppointmentRow) {
+  return Boolean(
+    appointment.benefits?.some(
+      (benefit) =>
+        ['voucher', 'pack'].includes(benefit.benefit_type) &&
+        ['reserved', 'consumed'].includes(benefit.status)
+    )
+  );
+}
+
+/**
+ * Cash still expected for this appointment. A voucher or pack is already a
+ * prepaid benefit, so its catalogue service price must never inflate the
+ * Agenda's "A receber" total.
+ */
+function appointmentOutstandingAmount(appointment: AppointmentRow) {
+  if (appointment.status === 'cancelled') return 0;
+  if (appointmentHasSettledBenefit(appointment) || appointment.paid_at) return 0;
+  const activeSales = (appointment.sales ?? []).filter((sale) =>
+    ['open', 'partially_paid', 'paid'].includes(sale.status)
+  );
+  if (activeSales.length) {
+    return Math.max(
+      0,
+      activeSales.reduce((sum, sale) => sum + Number(sale.balance_due ?? 0), 0)
+    );
+  }
+  return Math.max(0, Number(appointment.price ?? 0));
+}
+
 function isVoucherUsableForAppointment(
   voucher: FinanceVoucher,
   serviceId: string,
@@ -1213,9 +1243,13 @@ export function AgendaPage({
     return true;
   });
 
-  const totalRevenue = filteredAppointments
-    .filter((appointment) => appointment.status !== 'cancelled')
-    .reduce((sum, appointment) => sum + Number(appointment.price ?? 0), 0);
+  const amountToReceive = filteredAppointments.reduce(
+    (sum, appointment) => sum + appointmentOutstandingAmount(appointment),
+    0
+  );
+  const appointmentsToReceive = filteredAppointments.filter(
+    (appointment) => appointmentOutstandingAmount(appointment) > 0
+  ).length;
   const periodBenefits = filteredAppointments.flatMap(
     (appointment) =>
       appointment.benefits?.filter((item) => item.status !== 'released') ?? []
@@ -4052,8 +4086,8 @@ export function AgendaPage({
                 }
               />
               <Stat
-                label="Previsto"
-                value={formatCurrency(totalRevenue, defaultCurrency)}
+                label="A receber"
+                value={formatCurrency(amountToReceive, defaultCurrency)}
               />
             </div>
           </div>
@@ -4090,7 +4124,7 @@ export function AgendaPage({
               icon={Clock3}
               label={view === 'day' ? 'Resumo do dia' : 'Resumo da semana'}
               value={filteredAppointments.length}
-              detail={`${filteredAppointments.filter((item) => !item.paid_at && item.status !== 'cancelled').length} por liquidar`}
+              detail={`${appointmentsToReceive} por liquidar`}
               tone="sky"
             />
           </div>
