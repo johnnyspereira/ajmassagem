@@ -88,6 +88,7 @@ import {
   accountTimeInput,
   accountDateTimeToUtc,
   formatAccountDateTime,
+  formatAccountEventTime,
 } from '@/lib/timezone';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -5061,6 +5062,7 @@ export function AgendaPage({
 
                   <AppointmentCommunicationStatus
                     events={appointmentEvents}
+                    timeZone={accountTimeZone}
                     canRetry={canOperate}
                     retrying={retryingAppointmentMessage}
                     onRetry={() => void retryAppointmentConfirmation()}
@@ -5072,7 +5074,7 @@ export function AgendaPage({
                     title="Histórico da agenda"
                     summary={`${appointmentEvents.length} registo${appointmentEvents.length === 1 ? '' : 's'}`}
                   >
-                    <AgendaEventList events={appointmentEvents} compact />
+                    <AgendaEventList events={appointmentEvents} compact timeZone={accountTimeZone} />
                   </AppointmentSection>
                 </div>
               </div>
@@ -5503,6 +5505,7 @@ export function AgendaPage({
               <AgendaEventList
                 title="Histórico do bloqueio"
                 events={blockEvents}
+                timeZone={accountTimeZone}
               />
             ) : null}
           </div>
@@ -7336,11 +7339,13 @@ const AGENDA_EVENT_LABELS: Record<ClinicAgendaEventAction, string> = {
 
 function AppointmentCommunicationStatus({
   events,
+  timeZone,
   canRetry,
   retrying,
   onRetry,
 }: {
   events: ClinicAgendaEvent[];
+  timeZone: string;
   canRetry: boolean;
   retrying: boolean;
   onRetry: () => void;
@@ -7394,7 +7399,7 @@ function AppointmentCommunicationStatus({
         ) : null}
         {event ? (
           <p className="mt-2 text-xs opacity-80">
-            Última tentativa: {new Date(event.created_at).toLocaleString('pt-PT')}
+            Última tentativa: {formatAccountEventTime(event.created_at, timeZone)}
           </p>
         ) : null}
         {canRetry && failed ? (
@@ -7419,10 +7424,12 @@ function AgendaEventList({
   title,
   events,
   compact = false,
+  timeZone,
 }: {
   title?: string;
   events: ClinicAgendaEvent[];
   compact?: boolean;
+  timeZone: string;
 }) {
   return (
     <div
@@ -7452,12 +7459,7 @@ function AgendaEventList({
                   {AGENDA_EVENT_LABELS[event.action] ?? event.action}
                 </span>
                 <span className="text-muted-foreground shrink-0">
-                  {new Date(event.created_at).toLocaleString('pt-PT', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  {formatAccountEventTime(event.created_at, timeZone)}
                 </span>
               </div>
               {event.reason ? (
