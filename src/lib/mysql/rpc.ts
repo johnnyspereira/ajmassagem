@@ -53,6 +53,46 @@ async function ensureVoucherPaidAmountColumns(connection: PoolConnection) {
   return hasVoucherPaidAmountColumns(connection);
 }
 
+async function hasWalletVoucherColumn(connection: PoolConnection) {
+  const [columns] = await connection.execute<RowDataPacket[]>(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_schema=DATABASE() AND table_name='finance_wallet_transactions'
+       AND column_name='voucher_id'`
+  );
+  return columns.length === 1;
+}
+
+/** Ensure legacy finance tables can record a single conversion per voucher. */
+async function ensureWalletVoucherColumn(connection: PoolConnection) {
+  if (!(await hasWalletVoucherColumn(connection))) {
+    try {
+      await connection.query(
+        'ALTER TABLE finance_wallet_transactions ADD COLUMN voucher_id CHAR(36) NULL AFTER wallet_id'
+      );
+    } catch (error) {
+      if ((error as { code?: string })?.code !== 'ER_DUP_FIELDNAME') throw error;
+    }
+  }
+
+  if (!(await hasWalletVoucherColumn(connection))) return false;
+
+  const [indexes] = await connection.execute<RowDataPacket[]>(
+    `SELECT index_name FROM information_schema.statistics
+     WHERE table_schema=DATABASE() AND table_name='finance_wallet_transactions'
+       AND index_name='finance_wallet_voucher_once'`
+  );
+  if (!indexes.length) {
+    try {
+      await connection.query(
+        'CREATE UNIQUE INDEX finance_wallet_voucher_once ON finance_wallet_transactions(voucher_id)'
+      );
+    } catch (error) {
+      if ((error as { code?: string })?.code !== 'ER_DUP_KEYNAME') throw error;
+    }
+  }
+  return true;
+}
+
 async function addPayment(
   connection: PoolConnection,
   input: {
@@ -1847,6 +1887,9 @@ export async function executeMysqlRpc(
         if (!voucherId) throw new Error('Voucher is required.');
         let output: { wallet_id: string; balance: number; credited_amount: number } | null = null;
         await transaction(async (connection) => {
+          if (!(await ensureWalletVoucherColumn(connection))) {
+            throw new Error('Não foi possível preparar o registo de conversões.');
+          }
           const [vouchers] = await connection.execute<
             (RowDataPacket & {
               id: string;
