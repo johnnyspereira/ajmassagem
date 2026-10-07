@@ -291,6 +291,46 @@ const STATUS_LABEL: Record<ClinicAppointmentStatus, string> = {
   no_show: 'Falta',
 };
 
+function isVoucherUsableForAppointment(
+  voucher: FinanceVoucher,
+  serviceId: string,
+  now = Date.now()
+) {
+  if (voucher.status !== 'active') return false;
+  if (voucher.expires_at && new Date(voucher.expires_at).getTime() <= now)
+    return false;
+  return voucher.voucher_type === 'service'
+    ? voucher.service_id === serviceId && Number(voucher.remaining_uses ?? 0) > 0
+    : Number(voucher.current_balance) > 0;
+}
+
+function voucherValidityLabel(voucher: FinanceVoucher) {
+  if (!voucher.expires_at) return { text: 'Sem prazo de validade', tone: 'secondary' as const, className: '' };
+  const milliseconds = new Date(voucher.expires_at).getTime() - Date.now();
+  const days = Math.ceil(milliseconds / 86_400_000);
+  if (days <= 1) return { text: 'Vence hoje', tone: 'destructive' as const, className: '' };
+  if (days <= 7) return { text: `Vence em ${days} dias`, tone: 'outline' as const, className: 'border-amber-300 bg-amber-50 text-amber-800' };
+  return {
+    text: `Válido até ${new Date(voucher.expires_at).toLocaleDateString('pt-PT')}`,
+    tone: 'secondary' as const,
+    className: '',
+  };
+}
+
+function contactAgeLabel(birthDate?: string | null) {
+  if (!birthDate) return null;
+  const [year, month, day] = birthDate.slice(0, 10).split('-').map(Number);
+  if (!year || !month || !day) return null;
+  const today = new Date();
+  let age = today.getFullYear() - year;
+  if (
+    today.getMonth() + 1 < month ||
+    (today.getMonth() + 1 === month && today.getDate() < day)
+  )
+    age -= 1;
+  return age >= 0 && age < 130 ? `${age} anos` : null;
+}
+
 function appointmentSourceLabel(source?: string | null) {
   return (
     {
@@ -922,8 +962,7 @@ export function AgendaPage({
   );
   const compatibleNewVouchers = availableVouchers.filter(
     (voucher) =>
-      voucher.voucher_type !== 'service' ||
-      voucher.service_id === appointmentDraft.serviceId
+      isVoucherUsableForAppointment(voucher, appointmentDraft.serviceId)
   );
   const newAppointmentStart = accountDateTimeToUtc(
     appointmentDraft.date,
@@ -2182,13 +2221,7 @@ export function AgendaPage({
         vouchersRes.error
           ? []
           : ((vouchersRes.data as FinanceVoucher[] | null) ?? []).filter(
-              (item) =>
-                (!item.expires_at ||
-                  new Date(item.expires_at).getTime() > now) &&
-                (item.voucher_type === 'service'
-                  ? Number(item.remaining_uses ?? 0) > 0 &&
-                    item.service_id === serviceId
-                  : Number(item.current_balance) > 0)
+              (item) => isVoucherUsableForAppointment(item, serviceId, now)
             )
       );
       setAvailablePacks(
@@ -2504,8 +2537,7 @@ export function AgendaPage({
         .select('*')
         .eq('account_id', accountId)
         .eq('owner_contact_id', appointmentDraft.contactId)
-        .eq('status', 'active')
-        .gt('current_balance', 0),
+        .eq('status', 'active'),
       supabase
         .from('finance_client_packs')
         .select(
@@ -2522,7 +2554,11 @@ export function AgendaPage({
           ? []
           : ((vouchersRes.data as FinanceVoucher[] | null) ?? []).filter(
               (item) =>
-                !item.expires_at || new Date(item.expires_at).getTime() > now
+                isVoucherUsableForAppointment(
+                  item,
+                  appointmentDraft.serviceId,
+                  now
+                )
             )
       );
       setAvailablePacks(
@@ -4470,6 +4506,12 @@ export function AgendaPage({
                             </p>
                           </div>
                           <div>
+                            <p className="text-muted-foreground">Idade</p>
+                            <p className="text-foreground font-semibold">
+                              {contactAgeLabel(contact?.birth_date) ?? '--'}
+                            </p>
+                          </div>
+                          <div>
                             <p className="text-muted-foreground">Telefone</p>
                             <p className="text-foreground font-semibold">
                               {contact?.phone ?? '--'}
@@ -5905,6 +5947,14 @@ export function AgendaPage({
                 </Field>
               </div>
 
+              {selectedNewContact && contactAgeLabel(selectedNewContact.birth_date) ? (
+                <div className="mt-3 flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+                  <UserCheck className="size-4" />
+                  Cliente com <strong>{contactAgeLabel(selectedNewContact.birth_date)}</strong>
+                  <span className="text-sky-700">· informação calculada pela data de nascimento.</span>
+                </div>
+              ) : null}
+
               {selectedService ? (
                 <div className="border-primary/35 bg-primary/5 mt-3 rounded-lg border border-dashed p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -6307,6 +6357,22 @@ export function AgendaPage({
                         </option>
                       ))}
                     </NativeSelect>
+                    {selectedNewVoucher ? (
+                      <div className="flex flex-wrap items-center gap-2 rounded-md border border-violet-200 bg-violet-50/60 px-3 py-2 text-xs">
+                        <Badge
+                          variant={voucherValidityLabel(selectedNewVoucher).tone}
+                          className={voucherValidityLabel(selectedNewVoucher).className}
+                        >
+                          {voucherValidityLabel(selectedNewVoucher).text}
+                        </Badge>
+                        <span className="font-medium text-violet-900">
+                          {selectedNewVoucher.voucher_type === 'service'
+                            ? `${selectedNewVoucher.remaining_uses ?? 0} sessão disponível`
+                            : `${formatCurrency(Number(selectedNewVoucher.current_balance), selectedNewVoucher.currency)} disponível`}
+                        </span>
+                        <span className="text-muted-foreground">Código {selectedNewVoucher.code}</span>
+                      </div>
+                    ) : null}
                     <p className="text-muted-foreground text-xs">
                       O PIN não é necessário para o profissional. Ele só é
                       pedido quando o cliente agenda no Portal.
