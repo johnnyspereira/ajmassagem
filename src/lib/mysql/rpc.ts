@@ -28,6 +28,31 @@ async function hasVoucherPaidAmountColumns(connection: PoolConnection) {
   return columns.length === 2;
 }
 
+/**
+ * The normal path applies migration 050 when the cPanel process starts.
+ * Some Node.js Selector installations keep an older Passenger process alive
+ * after a Git deployment, though. Make the reconciliation action self-healing
+ * so staff never have to import SQL manually just to calculate voucher credit.
+ */
+async function ensureVoucherPaidAmountColumns(connection: PoolConnection) {
+  if (await hasVoucherPaidAmountColumns(connection)) return true;
+
+  try {
+    await connection.query(`
+      ALTER TABLE finance_vouchers
+        ADD COLUMN issued_sale_item_id CHAR(36) NULL AFTER issued_sale_id,
+        ADD COLUMN paid_amount DECIMAL(12,2) NULL AFTER initial_balance
+    `);
+  } catch (error) {
+    // A parallel request or a partially applied server migration can create
+    // one column first. The verification below is the authoritative result.
+    const resumable = new Set(['ER_DUP_FIELDNAME', 'ER_DUP_KEYNAME']);
+    if (!resumable.has((error as { code?: string })?.code ?? '')) throw error;
+  }
+
+  return hasVoucherPaidAmountColumns(connection);
+}
+
 async function addPayment(
   connection: PoolConnection,
   input: {
@@ -1779,9 +1804,9 @@ export async function executeMysqlRpc(
         let updated = 0;
         let unresolved = 0;
         await transaction(async (connection) => {
-          if (!(await hasVoucherPaidAmountColumns(connection))) {
+          if (!(await ensureVoucherPaidAmountColumns(connection))) {
             throw new Error(
-              'A actualização da base de dados ainda está a ser aplicada. Reinicie a aplicação e tente novamente dentro de alguns instantes.'
+              'Não foi possível preparar a base de dados para apurar os vouchers. Confirme que o utilizador MySQL da aplicação tem permissão para alterar tabelas.'
             );
           }
           const [vouchers] = await connection.execute<
