@@ -2677,6 +2677,29 @@ function VoucherPortalCard({
       <p className="text-muted-foreground mt-1 font-mono text-xs">
         {item.code}
       </p>
+      <div className="mt-2 flex items-center justify-between rounded-md bg-slate-100 px-3 py-2 text-xs dark:bg-slate-800">
+        <span className="text-muted-foreground">PIN do voucher</span>
+        <span className="flex items-center gap-2">
+          <strong className="font-mono tracking-[0.2em]">
+            {item.pin_code || 'Não definido'}
+          </strong>
+          {item.pin_code ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              title="Copiar PIN"
+              onClick={() => {
+                void navigator.clipboard.writeText(item.pin_code ?? '');
+                toast.success('PIN copiado.');
+              }}
+            >
+              <Copy className="size-3.5" />
+            </Button>
+          ) : null}
+        </span>
+      </div>
       <strong className="mt-4 block text-2xl">
         {monetary
           ? formatCurrency(current, item.currency)
