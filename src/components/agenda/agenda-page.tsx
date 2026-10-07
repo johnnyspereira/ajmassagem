@@ -776,6 +776,8 @@ export function AgendaPage({
   const [appointmentEvents, setAppointmentEvents] = useState<
     ClinicAgendaEvent[]
   >([]);
+  const [retryingAppointmentMessage, setRetryingAppointmentMessage] =
+    useState(false);
   const [pendingReschedulePreferences, setPendingReschedulePreferences] =
     useState<Record<string, PendingReschedulePreference>>({});
   const [appointmentBenefit, setAppointmentBenefit] =
@@ -1875,7 +1877,7 @@ export function AgendaPage({
         const confirmationPayload = (await confirmationResponse.json()) as {
           skipped?: boolean;
           deliveries?: {
-            whatsapp?: { sent?: boolean; error?: string | null };
+            whatsapp?: { sent?: boolean; queued?: boolean; error?: string | null };
             email?: { sent?: boolean; error?: string | null };
           };
         };
@@ -1890,7 +1892,10 @@ export function AgendaPage({
           confirmationPayload.deliveries?.whatsapp?.error,
           confirmationPayload.deliveries?.email?.error,
         ].filter(Boolean);
-        if (!confirmationChannels && failures.length)
+        if (confirmationPayload.deliveries?.whatsapp?.queued)
+          confirmationWarning =
+            'O WhatsApp Worker está desligado; a mensagem ficou guardada na fila e será enviada quando ele voltar a estar online.';
+        else if (!confirmationChannels && failures.length)
           confirmationWarning = failures.join(' | ');
       }
     }
@@ -2806,6 +2811,39 @@ export function AgendaPage({
       toast.error(error instanceof Error ? error.message : 'Falha ao enviar.');
     } finally {
       setSendingMessage(false);
+    }
+  }
+
+  async function retryAppointmentConfirmation() {
+    if (!selectedAppointment) return;
+    setRetryingAppointmentMessage(true);
+    try {
+      const response = await fetch(
+        `/api/clinic/appointments/${selectedAppointment.id}/confirmation`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ retry: true }),
+        }
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        deliveries?: { whatsapp?: { sent?: boolean; queued?: boolean; error?: string | null } };
+      };
+      if (!response.ok) throw new Error(payload.error || 'Não foi possível reenviar a mensagem.');
+      if (payload.deliveries?.whatsapp?.queued)
+        toast.message('Mensagem colocada na fila. Será enviada quando o worker voltar a estar online.');
+      else if (payload.deliveries?.whatsapp?.sent)
+        toast.success('Mensagem de confirmação reenviada pelo WhatsApp.');
+      else
+        toast.message('O reenvio foi registado. Consulte o estado abaixo.');
+      setAppointmentEvents(
+        await loadAgendaEvents('appointment', selectedAppointment.id)
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Falha ao reenviar a mensagem.');
+    } finally {
+      setRetryingAppointmentMessage(false);
     }
   }
 
@@ -5020,6 +5058,13 @@ export function AgendaPage({
                       placeholder="Evolução, preferências, cuidados e observações clínicas do atendimento."
                     />
                   </AppointmentSection>
+
+                  <AppointmentCommunicationStatus
+                    events={appointmentEvents}
+                    canRetry={canOperate}
+                    retrying={retryingAppointmentMessage}
+                    onRetry={() => void retryAppointmentConfirmation()}
+                  />
 
                   <AppointmentSection
                     value="history"
@@ -7288,6 +7333,87 @@ const AGENDA_EVENT_LABELS: Record<ClinicAgendaEventAction, string> = {
   status_changed: 'Status alterado',
   message_sent: 'Mensagem enviada',
 };
+
+function AppointmentCommunicationStatus({
+  events,
+  canRetry,
+  retrying,
+  onRetry,
+}: {
+  events: ClinicAgendaEvent[];
+  canRetry: boolean;
+  retrying: boolean;
+  onRetry: () => void;
+}) {
+  const event = events.find((item) => item.action === 'message_sent');
+  const metadata = event?.metadata as {
+    deliveries?: {
+      whatsapp?: {
+        sent?: boolean;
+        queued?: boolean;
+        skipped?: boolean;
+        error?: string | null;
+      };
+      email?: { sent?: boolean; error?: string | null };
+    };
+  } | undefined;
+  const whatsapp = metadata?.deliveries?.whatsapp;
+  const failed = Boolean(whatsapp?.error);
+  const queued = Boolean(whatsapp?.queued);
+  const sent = Boolean(whatsapp?.sent);
+  const label = !event
+    ? 'Ainda não existe registo de envio.'
+    : failed
+      ? 'Falhou — a mensagem não entrou na fila.'
+      : queued
+        ? 'Na fila — será enviada quando o WhatsApp Worker voltar a estar online.'
+        : sent
+          ? 'Enviada pelo WhatsApp.'
+          : metadata?.deliveries?.email?.sent
+            ? 'Enviada por email.'
+            : 'Sem canal disponível para este cliente.';
+  const tone = failed
+    ? 'border-red-200 bg-red-50 text-red-800'
+    : queued
+      ? 'border-amber-200 bg-amber-50 text-amber-900'
+      : sent
+        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+        : 'border-slate-200 bg-slate-50 text-slate-700';
+
+  return (
+    <AppointmentSection
+      value="communication"
+      icon={<MessageCircle className="size-4" />}
+      title="Estado da mensagem"
+      summary={label}
+    >
+      <div className={cn('rounded-lg border p-3 text-sm', tone)}>
+        <p className="font-medium">{label}</p>
+        {whatsapp?.error ? (
+          <p className="mt-1 text-xs">Motivo: {whatsapp.error}</p>
+        ) : null}
+        {event ? (
+          <p className="mt-2 text-xs opacity-80">
+            Última tentativa: {new Date(event.created_at).toLocaleString('pt-PT')}
+          </p>
+        ) : null}
+        {canRetry && failed ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="mt-3"
+            disabled={retrying}
+            onClick={onRetry}
+          >
+            {retrying ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+            Reenviar mensagem
+          </Button>
+        ) : null}
+      </div>
+    </AppointmentSection>
+  );
+}
 
 function AgendaEventList({
   title,

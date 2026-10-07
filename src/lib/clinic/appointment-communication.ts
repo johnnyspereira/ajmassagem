@@ -21,8 +21,14 @@ import {
 import { sendLocalEmail } from '@/lib/email/smtp';
 import { notifyAccountEvent } from '@/lib/notifications/account-events';
 import { getPublicUrl } from '@/lib/public-url';
+import { enqueueWhatsAppMessage } from '@/lib/whatsapp/outbox';
 
-type Delivery = { sent: boolean; skipped: boolean; error: string | null };
+type Delivery = {
+  sent: boolean;
+  queued: boolean;
+  skipped: boolean;
+  error: string | null;
+};
 export type AppointmentDeliveries = { whatsapp: Delivery; email: Delivery };
 
 export async function sendAppointmentCommunication({
@@ -32,6 +38,7 @@ export async function sendAppointmentCommunication({
   action = 'confirmation',
   messageOverride,
   confirmationApproved = false,
+  retry = false,
 }: {
   db: SupabaseClient;
   appointmentId: string;
@@ -39,6 +46,7 @@ export async function sendAppointmentCommunication({
   action?: AppointmentMessageAction;
   messageOverride?: string | null;
   confirmationApproved?: boolean;
+  retry?: boolean;
 }) {
   const { data: appointment, error } = await loadAppointment(db, appointmentId);
   if (error || !appointment)
@@ -54,7 +62,11 @@ export async function sendAppointmentCommunication({
     .select('*')
     .eq('account_id', appointment.account_id)
     .maybeSingle();
-  if (action === 'confirmation' && settings?.auto_send_confirmation === false)
+  if (
+    action === 'confirmation' &&
+    settings?.auto_send_confirmation === false &&
+    !retry
+  )
     return { text: null, anamnesisUrl: null, skipped: true };
 
   let anamnesisUrl: string | null = null;
@@ -178,6 +190,7 @@ export async function sendAppointmentCommunication({
       anamnesisUrl,
       benefit,
     }),
+    requestKey: `appointment:${appointment.id}:${action}${retry ? `:retry:${Date.now()}` : ''}`,
   });
   const now = new Date().toISOString();
   const update =
@@ -244,6 +257,7 @@ export async function sendAppointmentStatusCommunication(input: {
       logoUrl: appointment.account?.logo_url,
       status: input.status,
     }),
+    requestKey: `appointment:${appointment.id}:status_changed:${input.status}`,
   });
   await logDelivery(
     input.db,
@@ -392,14 +406,16 @@ async function deliverChannels(input: {
   whatsappText: string;
   email: string | null;
   emailContent: { subject: string; text: string; html: string };
+  requestKey: string;
 }) {
   const result: AppointmentDeliveries = {
-    whatsapp: { sent: false, skipped: false, error: null },
-    email: { sent: false, skipped: false, error: null },
+    whatsapp: { sent: false, queued: false, skipped: false, error: null },
+    email: { sent: false, queued: false, skipped: false, error: null },
   };
   if (canMessageAppointment(input.appointment)) {
+    let conversationId: string | null = null;
     try {
-      const conversationId = await findOrCreateConversation(
+      conversationId = await findOrCreateConversation(
         input.db,
         input.accountId,
         input.contactId,
@@ -414,7 +430,35 @@ async function deliverChannels(input: {
       });
       result.whatsapp.sent = true;
     } catch (error) {
-      result.whatsapp.error = errorMessage(error, 'Falha no WhatsApp.');
+      try {
+        // A confirmation must not disappear merely because the separate QR
+        // worker is offline. Store it in the Inbox outbox for later delivery.
+        if (!conversationId) {
+          conversationId = await findOrCreateConversation(
+            input.db,
+            input.accountId,
+            input.contactId,
+            input.userId
+          );
+        }
+        await enqueueWhatsAppMessage({
+          accountId: input.accountId,
+          userId: input.userId,
+          conversationId,
+          requestKey: input.requestKey,
+          payload: {
+            contentType: 'text',
+            text: input.whatsappText,
+            senderType: 'bot',
+          },
+        });
+        result.whatsapp.queued = true;
+      } catch (queueError) {
+        result.whatsapp.error = errorMessage(
+          queueError,
+          errorMessage(error, 'Falha no WhatsApp.')
+        );
+      }
     }
   } else result.whatsapp.skipped = true;
   if (input.email) {

@@ -23,6 +23,7 @@ export async function POST(
   const body = (await request.json().catch(() => ({}))) as {
     message?: unknown;
     approvedClientRequest?: unknown;
+    retry?: unknown;
   };
   const messageOverride =
     typeof body.message === 'string' ? body.message.trim().slice(0, 4000) : '';
@@ -44,6 +45,7 @@ export async function POST(
       origin: new URL(request.url).origin,
       messageOverride: messageOverride || null,
       confirmationApproved: body.approvedClientRequest === true,
+      retry: body.retry === true,
     });
     return Response.json({
       ok: true,
