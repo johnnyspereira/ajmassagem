@@ -1,13 +1,37 @@
-import 'dotenv/config.js';
-import { config } from 'dotenv';
 import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import mysql from 'mysql2/promise';
 
-// Load .env.local explicitly
-config({ path: '.env.local' });
+// The cPanel runtime intentionally installs only production dependencies.
+// Keep this script self-contained instead of relying on dotenv being present
+// in the generated runtime. Existing environment variables always win.
+async function loadEnvironmentFile(filename) {
+  try {
+    const content = await readFile(filename, 'utf8');
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#')) continue;
+      const separator = line.indexOf('=');
+      if (separator < 1) continue;
+      const key = line.slice(0, separator).trim();
+      let value = line.slice(separator + 1).trim();
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1);
+      }
+      if (key && process.env[key] === undefined) process.env[key] = value;
+    }
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+}
+
+await loadEnvironmentFile('.env');
+await loadEnvironmentFile('.env.local');
 
 const migrationsDirectory = path.resolve('mysql/migrations');
 const databaseUrl = process.env.DATABASE_URL;
