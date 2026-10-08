@@ -1109,8 +1109,16 @@ export function ContactSidebar({
                             ? `Válido até ${format(new Date(voucher.expires_at), 'dd/MM/yyyy')}`
                             : 'Sem data limite'}
                         </p>
+                        <p className="mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                          {voucher.paid_amount != null
+                            ? `Pago pelo cliente: ${formatCurrency(Number(voucher.paid_amount), voucher.currency || defaultCurrency)}`
+                            : 'Pago pelo cliente: valor ainda por apurar'}
+                        </p>
                       </div>
-                      <span className="shrink-0 text-xs font-semibold text-rose-600 dark:text-rose-300">
+                      <span className="shrink-0 text-right text-xs font-semibold text-rose-600 dark:text-rose-300">
+                        <span className="block text-[10px] font-medium text-muted-foreground">
+                          Saldo atual
+                        </span>
                         {formatCurrency(
                           Number(voucher.current_balance),
                           voucher.currency || defaultCurrency
