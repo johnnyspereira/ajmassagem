@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import Link from 'next/link';
 export function PublicLeadForm({
   slug,
   primaryColor,
@@ -57,7 +58,7 @@ export function PublicLeadForm({
         <CheckCircle2 className="mx-auto size-12 text-emerald-600" />
         <h3 className="mt-4 text-xl font-semibold">Mensagem enviada</h3>
         <p className="mt-2 text-sm text-emerald-800/70">
-          A equipa recebeu o seu contacto e responderá assim que possível.
+          O seu pedido de contacto foi enviado.
         </p>
       </div>
     );
@@ -128,7 +129,7 @@ export function PublicLeadForm({
         mensagem
       </Button>
       <p className="text-center text-[11px] text-slate-500">
-        Ao enviar, autoriza o contacto da empresa sobre esta solicitação.
+        Ao enviar, autoriza o contacto da empresa sobre esta solicitação. Consulte a <Link className="underline underline-offset-2" href="/privacidade">Política de Privacidade</Link>.
       </p>
     </form>
   );

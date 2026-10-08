@@ -29,6 +29,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://jpmassagem.pt'),
   manifest: '/manifest.webmanifest',
   applicationName: 'CRM WhatsApp',
   appleWebApp: {
