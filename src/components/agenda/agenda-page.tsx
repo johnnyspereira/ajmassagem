@@ -366,6 +366,8 @@ function appointmentSourceLabel(source?: string | null) {
     {
       manual: 'Manual',
       online: 'Marcação online',
+      public_link: 'Pedido online',
+      client_portal: 'Portal 360',
       inbox: 'Inbox',
       automation: 'Automação',
       referral: 'Indique & Ganhe',
@@ -376,7 +378,25 @@ function appointmentSourceLabel(source?: string | null) {
   );
 }
 
-function confirmationStatusLabel(status?: string | null) {
+/** A client request reserves the slot, but still requires clinic approval. */
+function isPortalApprovalPending(appointment: AppointmentRow) {
+  return (
+    ['client_portal', 'public_link'].includes(appointment.source ?? '') &&
+    appointment.status === 'scheduled' &&
+    appointment.confirmation_status === 'pending'
+  );
+}
+
+function confirmationStatusLabel(
+  status?: string | null,
+  source?: string | null
+) {
+  if (
+    ['client_portal', 'public_link'].includes(source ?? '') &&
+    status === 'pending'
+  ) {
+    return 'Pendente de aprovação pela clínica';
+  }
   return (
     {
       not_required: 'Não solicitada',
@@ -4368,7 +4388,8 @@ export function AgendaPage({
                       <AppointmentDatum
                         label="Confirmação"
                         value={confirmationStatusLabel(
-                          selectedAppointment.confirmation_status
+                          selectedAppointment.confirmation_status,
+                          selectedAppointment.source
                         )}
                       />
                       <AppointmentDatum
@@ -6130,12 +6151,15 @@ export function AgendaPage({
                   <Input
                     type="date"
                     value={appointmentDraft.date}
-                    onChange={(event) =>
-                      setAppointmentDraft((prev) => ({
-                        ...prev,
-                        date: event.target.value,
-                      }))
-                    }
+                    onChange={(event) => {
+                      const date = event.target.value;
+                      setAppointmentDraft((prev) => ({ ...prev, date }));
+
+                      // Keep the calendar on the same day being validated.
+                      // Otherwise a real appointment on another day blocks the
+                      // save while the operator sees an apparently empty agenda.
+                      if (date) setSelectedDate(new Date(`${date}T12:00:00`));
+                    }}
                   />
                 </Field>
                 <Field label="Hora">
@@ -7140,6 +7164,7 @@ function AppointmentBlock({
     appointment.service?.color ||
     '#7c3aed';
   const stateBadge = appointmentStateBadge(appointment);
+  const portalApprovalPending = isPortalApprovalPending(appointment);
 
   return (
     <button
@@ -7160,6 +7185,8 @@ function AppointmentBlock({
           ? 'border-red-400/50 bg-gradient-to-br from-red-100 to-rose-50 text-red-950 dark:from-red-950 dark:to-rose-950 dark:text-red-100'
           : appointment.status === 'no_show'
             ? 'border-amber-400/50 bg-gradient-to-br from-amber-100 to-orange-50 text-amber-950 dark:from-amber-950 dark:to-orange-950 dark:text-amber-100'
+            : portalApprovalPending
+              ? 'border-amber-400/60 bg-gradient-to-br from-amber-100 to-orange-50 text-amber-950 dark:from-amber-950 dark:to-orange-950 dark:text-amber-100'
             : appointment.paid_at
               ? 'border-emerald-400/50 bg-gradient-to-br from-emerald-100 to-teal-50 dark:from-emerald-950 dark:to-teal-950'
               : 'border-sky-400/50 bg-gradient-to-br from-sky-100 to-cyan-50 dark:from-sky-950 dark:to-cyan-950'
@@ -7188,6 +7215,14 @@ function AppointmentBlock({
             {appointment.service?.name ?? 'Procedimento'}
           </p>
           <span className="mt-0.5 flex max-w-full [scrollbar-width:none] flex-nowrap items-center gap-1 overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden">
+            {portalApprovalPending ? (
+              <span
+                className="inline-flex items-center gap-0.5 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-amber-950 uppercase"
+                title="Pedido criado pelo cliente. Reveja e aprove antes de o considerar confirmado."
+              >
+                <Clock3 className="size-2.5" /> Pendente de aprovação
+              </span>
+            ) : null}
             <span
               className={cn(
                 'inline-flex rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wide uppercase',
