@@ -61,6 +61,10 @@ export function TodayOperationsPanel({
     if (leftPast !== rightPast) return leftPast ? 1 : -1;
     return leftTime - rightTime;
   });
+  const eligibleAppointments = Math.max(0, data.appointmentsTotal - data.cancelled);
+  const completionRate = eligibleAppointments
+    ? `${Math.round((data.completed / eligibleAppointments) * 100)}%`
+    : '—';
 
   return (
     <section className="border-border bg-card overflow-hidden rounded-lg border">
@@ -86,9 +90,9 @@ export function TodayOperationsPanel({
         </div>
       </header>
 
-      <div className="grid xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,0.55fr)]">
-        <div className="min-w-0 px-5 py-4 xl:border-r">
-          <div className="bg-muted/40 mb-4 grid grid-cols-3 divide-x rounded-md py-2 sm:grid-cols-6">
+      <div className="grid md:grid-cols-[minmax(0,1.25fr)_minmax(265px,0.75fr)]">
+        <div className="min-w-0 px-4 py-4 sm:px-5 md:border-r">
+          <div className="bg-muted/40 mb-4 grid grid-cols-2 divide-x rounded-md py-2 sm:grid-cols-3 xl:grid-cols-6">
             <DailyCount label="Marcações" value={data.appointmentsTotal} />
             <DailyCount label="Confirmadas" value={data.confirmed} />
             <DailyCount label="Chegadas" value={data.arrived} />
@@ -123,18 +127,18 @@ export function TodayOperationsPanel({
             />
             <MoneyDatum
               label="Recebido hoje"
-              value={formatCurrency(data.receivedToday, currency)}
+              value={data.receivedToday === null ? 'Indisponível' : formatCurrency(data.receivedToday, currency)}
               icon={CircleDollarSign}
               positive
             />
             <MoneyDatum
               label="A receber"
-              value={formatCurrency(data.outstandingToday, currency)}
+              value={data.outstandingToday === null ? 'Indisponível' : formatCurrency(data.outstandingToday, currency)}
               icon={WalletCards}
             />
             <MoneyDatum
               label="Vendas no POS"
-              value={String(data.salesToday)}
+              value={data.salesToday === null ? 'Indisponível' : String(data.salesToday)}
               icon={CheckCircle2}
             />
           </div>
@@ -143,21 +147,19 @@ export function TodayOperationsPanel({
             <div className="flex items-center justify-between gap-3">
               <span className="text-muted-foreground">Caixa</span>
               <Badge variant={data.cashSessionOpen ? 'secondary' : 'outline'}>
-                {data.cashSessionOpen ? 'Aberto' : 'Fechado'}
+                {data.cashSessionOpen === null ? 'Indisponível' : data.cashSessionOpen ? 'Aberto' : 'Fechado'}
               </Badge>
             </div>
             <div className="flex items-center justify-between gap-3">
-              <span className="text-muted-foreground">Com voucher ou pack</span>
-              <span className="font-semibold tabular-nums">
-                {data.benefitsScheduled}
+              <span className="text-muted-foreground">Benefícios em marcações</span>
+              <span className="text-right text-xs font-semibold tabular-nums">
+                {data.vouchersScheduled === null ? 'Voucher indisponível' : `Voucher ${data.vouchersScheduled}`} <span aria-hidden="true">·</span> {data.packsScheduled === null ? 'Pack indisponível' : `Pack ${data.packsScheduled}`}
               </span>
             </div>
             <div className="flex items-center justify-between gap-3">
               <span className="text-muted-foreground">Taxa de conclusão</span>
               <span className="font-semibold tabular-nums">
-                {data.appointmentsTotal
-                  ? `${Math.round((data.completed / data.appointmentsTotal) * 100)}%`
-                  : '0%'}
+                <span title="Concluídas ÷ marcações não canceladas">{completionRate}</span>
               </span>
             </div>
           </div>
@@ -177,7 +179,7 @@ function AppointmentRow({
   return (
     <Link
       href={appointment.href}
-      className="hover:bg-muted/40 grid min-w-0 gap-2 py-3 transition-colors sm:grid-cols-[66px_minmax(0,1fr)_minmax(150px,0.55fr)_auto] sm:items-center"
+      className="hover:bg-muted/40 grid min-w-0 grid-cols-[58px_minmax(0,1fr)_auto] items-center gap-2 py-3 transition-colors"
     >
       <span className="text-foreground font-semibold tabular-nums">
         {start.toLocaleTimeString('pt-PT', {
@@ -200,7 +202,7 @@ function AppointmentRow({
           {appointment.serviceName}
         </span>
       </span>
-      <span className="text-muted-foreground min-w-0 text-xs">
+      <span className="text-muted-foreground col-span-2 min-w-0 pl-[66px] text-xs sm:col-span-1 sm:col-start-2 sm:pl-0">
         <span className="flex items-center gap-1 truncate">
           <UserCheck className="size-3" /> {appointment.professionalName}
         </span>
@@ -210,7 +212,7 @@ function AppointmentRow({
           </span>
         ) : null}
       </span>
-      <span className="flex flex-wrap items-center justify-end gap-1">
+      <span className="row-start-1 flex flex-wrap items-center justify-end gap-1">
         {appointment.benefit === 'pack' ? (
           <Badge variant="secondary" className="gap-1 text-[10px]">
             <PackageCheck className="size-3" /> Pack
@@ -220,6 +222,8 @@ function AppointmentRow({
             <Gift className="size-3" />
             {appointment.benefit === 'referral' ? 'Indicação' : 'Voucher'}
           </Badge>
+        ) : !appointment.benefitsAvailable ? (
+          <Badge variant="outline" className="text-[10px]">Benefício não verificado</Badge>
         ) : null}
         <Badge
           variant="outline"
@@ -254,7 +258,7 @@ function DailyCount({
       >
         {value}
       </p>
-      <p className="text-muted-foreground truncate text-[10px]">{label}</p>
+      <p className="text-muted-foreground block min-h-7 text-[10px] leading-tight">{label}</p>
     </div>
   );
 }

@@ -97,7 +97,7 @@ export async function loadExpiringBenefits(
   ]);
   // Finance is optional during an incremental deployment. A missing finance
   // relation must not prevent the entire dashboard from loading.
-  if (vouchersRes.error || packsRes.error) return [];
+  throwFirstQueryError(vouchersRes, packsRes);
   type VoucherRow = {
     id: string; owner_contact_id: string | null; code: string | null;
     voucher_type: string; remaining_uses: number | null; current_balance: number | null;
@@ -158,7 +158,7 @@ export async function loadPortalPendingConfirmations(
     .limit(250);
   // The Portal 360 migration can be applied after the dashboard code. Until
   // then there simply are no pending portal confirmations to show.
-  if (error) return [];
+  if (error) throw error;
 
   type PortalRow = {
     id: string;
@@ -191,7 +191,8 @@ export async function loadPortalPendingConfirmations(
     .eq('action', 'status_changed')
     .order('created_at', { ascending: false })
     .limit(80);
-  if (eventsError || !events?.length) return confirmations;
+  if (eventsError) throw eventsError;
+  if (!events?.length) return confirmations;
 
   const pendingEvents = (events as Array<{
     entity_id: string;
@@ -214,7 +215,7 @@ export async function loadPortalPendingConfirmations(
     .select('id,scheduled_start,contact:contacts(name,phone),service:clinic_services(name),professional:profiles!clinic_appointments_professional_profile_id_fkey(full_name,email)')
     .in('id', ids)
     .in('status', ['scheduled', 'confirmed']);
-  if (requestedError) return confirmations;
+  if (requestedError) throw requestedError;
   const reschedules = ((requestedAppointments ?? []) as unknown as PortalRow[]).map((row) => {
     const contact = asSingle(row.contact);
     const service = asSingle(row.service);
@@ -244,7 +245,7 @@ const safeCount = async (
   query: PromiseLike<{ count: number | null; error: unknown }>
 ) => {
   const result = await query;
-  if (result.error) return 0;
+  if (result.error) throw result.error;
   return result.count ?? 0;
 };
 
@@ -288,7 +289,7 @@ export async function loadTodayOperations(db: DB): Promise<TodayOperations> {
         .lt('paid_at', endIso),
       db
         .from('finance_sales')
-        .select('id, status, balance_due')
+        .select('id, appointment_id, status, balance_due')
         .gte('created_at', startIso)
         .lt('created_at', endIso),
       db
@@ -323,21 +324,73 @@ export async function loadTodayOperations(db: DB): Promise<TodayOperations> {
       | Array<{ full_name: string | null; email: string | null }>
       | null;
     room: { name: string | null } | Array<{ name: string | null }> | null;
-    benefits?: Array<{
-      benefit_type: 'voucher' | 'pack';
-      status: string;
-    }> | null;
+    benefits?: Array<{ benefit_type: 'voucher' | 'pack'; status: string }> | null;
+    sales?: Array<{ status: string; balance_due: number | null }> | null;
   };
 
   const rows = (appointmentsRes.data ?? []) as unknown as AppointmentData[];
+  const appointmentIds = rows.map((row) => row.id);
+  const [benefitsRes, appointmentSalesRes] = appointmentIds.length
+    ? await Promise.all([
+        db
+          .from('finance_appointment_benefits')
+          .select('appointment_id, benefit_type, status')
+          .in('appointment_id', appointmentIds),
+        db
+          .from('finance_sales')
+          .select('appointment_id, status, balance_due')
+          .in('appointment_id', appointmentIds),
+      ])
+    : [
+        { data: [], error: null },
+        { data: [], error: null },
+      ];
+  const benefitRows = (benefitsRes.data ?? []) as Array<{
+    appointment_id: string;
+    benefit_type: 'voucher' | 'pack';
+    status: string;
+  }>;
+  const saleRows = (appointmentSalesRes.data ?? []) as Array<{
+    appointment_id: string;
+    status: string;
+    balance_due: number | null;
+  }>;
+  const benefitsByAppointment = new Map<string, typeof benefitRows>();
+  const salesByAppointment = new Map<string, typeof saleRows>();
+  for (const benefit of benefitRows) {
+    const list = benefitsByAppointment.get(benefit.appointment_id) ?? [];
+    list.push(benefit);
+    benefitsByAppointment.set(benefit.appointment_id, list);
+  }
+  for (const sale of saleRows) {
+    const list = salesByAppointment.get(sale.appointment_id) ?? [];
+    list.push(sale);
+    salesByAppointment.set(sale.appointment_id, list);
+  }
+  const activeBenefits = (row: AppointmentData) =>
+    (benefitsByAppointment.get(row.id) ?? []).filter((item) =>
+      ['reserved', 'consumed'].includes(item.status)
+    );
+  const outstandingForAppointment = (row: AppointmentData) => {
+    if (row.status === 'cancelled' || row.paid_at) return 0;
+    if (activeBenefits(row).length) return 0;
+    const activeSales = (salesByAppointment.get(row.id) ?? []).filter((sale) =>
+      ['open', 'partially_paid', 'paid'].includes(sale.status)
+    );
+    if (activeSales.length) {
+      return Math.max(
+        0,
+        activeSales.reduce((sum, sale) => sum + Number(sale.balance_due ?? 0), 0)
+      );
+    }
+    return Math.max(0, Number(row.price ?? 0));
+  };
   const appointments = rows.map((row) => {
     const contact = asSingle(row.contact);
     const service = asSingle(row.service);
     const professional = asSingle(row.professional);
     const room = asSingle(row.room);
-    const benefit = row.benefits?.find((item) =>
-      ['reserved', 'consumed'].includes(item.status)
-    );
+    const benefit = activeBenefits(row)[0];
     return {
       id: row.id,
       scheduledStart: row.scheduled_start,
@@ -353,17 +406,25 @@ export async function loadTodayOperations(db: DB): Promise<TodayOperations> {
       currency: row.currency || 'EUR',
       arrived: Boolean(row.arrived_at),
       paid: Boolean(row.paid_at),
-      benefit: row.referral_id
-        ? ('referral' as const)
-        : (benefit?.benefit_type ?? null),
+      benefit: benefit?.benefit_type ?? (row.referral_id ? 'referral' : null),
+      benefitsAvailable: !benefitsRes.error,
       href: `/agenda?appointment=${row.id}&date=${row.scheduled_start.slice(0, 10)}`,
     };
   });
 
   const sales = (salesRes.error ? [] : salesRes.data ?? []) as Array<{
+    appointment_id: string | null;
     status: string;
     balance_due: number | null;
   }>;
+  const appointmentIdSet = new Set(appointmentIds);
+  const standaloneReceivables = sales
+    .filter(
+      (sale) =>
+        ['open', 'partially_paid'].includes(sale.status) &&
+        !(sale.appointment_id && appointmentIdSet.has(sale.appointment_id))
+    )
+    .reduce((sum, sale) => sum + Number(sale.balance_due ?? 0), 0);
   return {
     generatedAt: new Date().toISOString(),
     appointmentsTotal: rows.length,
@@ -375,18 +436,34 @@ export async function loadTodayOperations(db: DB): Promise<TodayOperations> {
     expectedRevenue: rows
       .filter((row) => !['cancelled', 'no_show'].includes(row.status))
       .reduce((sum, row) => sum + Number(row.price ?? 0), 0),
-    receivedToday: (paymentsRes.error ? [] : paymentsRes.data ?? []).reduce(
-      (sum, payment) => sum + Number(payment.amount ?? 0),
-      0
-    ),
-    salesToday: sales.filter(
-      (sale) => !['voided', 'refunded'].includes(sale.status)
-    ).length,
-    outstandingToday: sales
-      .filter((sale) => ['open', 'partially_paid'].includes(sale.status))
-      .reduce((sum, sale) => sum + Number(sale.balance_due ?? 0), 0),
-    cashSessionOpen: cashSessionRes.error ? false : Boolean(cashSessionRes.data),
-    benefitsScheduled: appointments.filter((item) => item.benefit).length,
+    receivedToday: paymentsRes.error
+      ? null
+      : (paymentsRes.data ?? []).reduce(
+          (sum, payment) => sum + Number(payment.amount ?? 0),
+          0
+        ),
+    salesToday: salesRes.error
+      ? null
+      : sales.filter((sale) => !['voided', 'refunded'].includes(sale.status))
+          .length,
+    outstandingToday:
+      salesRes.error || benefitsRes.error || appointmentSalesRes.error
+        ? null
+        : standaloneReceivables +
+          rows.reduce((sum, row) => sum + outstandingForAppointment(row), 0),
+    cashSessionOpen: cashSessionRes.error
+      ? null
+      : Boolean(cashSessionRes.data),
+    vouchersScheduled: benefitsRes.error
+      ? null
+      : rows.filter((row) =>
+          activeBenefits(row).some((item) => item.benefit_type === 'voucher')
+        ).length,
+    packsScheduled: benefitsRes.error
+      ? null
+      : rows.filter((row) =>
+          activeBenefits(row).some((item) => item.benefit_type === 'pack')
+        ).length,
     appointments,
   };
 }
@@ -742,7 +819,7 @@ export async function loadAutomationInsights(
   db: DB
 ): Promise<AutomationInsights> {
   const todayStart = startOfLocalDay().toISOString();
-  const yesterdayStart = daysAgoStart(1).toISOString();
+  const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
   const [
     activeAutomations,
@@ -770,7 +847,7 @@ export async function loadAutomationInsights(
         .from('automation_logs')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'failed')
-        .gte('created_at', yesterdayStart)
+        .gte('created_at', last24Hours)
     ),
     safeCount(
       db

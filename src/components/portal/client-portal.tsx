@@ -267,6 +267,7 @@ type PortalData = {
     }>;
     walletTransactions: Array<{
       id: string;
+      voucher_id: string | null;
       transaction_type: string;
       amount: number;
       balance_after: number;
@@ -443,6 +444,19 @@ function packIsAvailable(pack: PortalData['benefits']['packs'][number]) {
   return (pack.balances ?? []).some(
     (balance) => Number(balance.remaining_sessions) > 0
   );
+}
+
+function voucherIsAvailable(voucher: PortalData['benefits']['vouchers'][number]) {
+  if (voucher.status !== 'active') return false;
+  if (voucher.expires_at && new Date(voucher.expires_at).getTime() <= Date.now())
+    return false;
+  return voucher.voucher_type === 'service'
+    ? Number(voucher.remaining_uses ?? 0) > 0
+    : Number(voucher.current_balance ?? 0) > 0;
+}
+
+function activeVouchersCount(data: PortalData) {
+  return data.benefits.vouchers.filter(voucherIsAvailable).length;
 }
 
 const STATUS: Record<string, string> = {
@@ -758,9 +772,17 @@ export function ClientPortal({ slug }: { slug: string }) {
       (a, b) => +new Date(a.scheduled_start) - +new Date(b.scheduled_start)
     );
   const walletBalance = Number(data.benefits.wallet?.balance ?? 0);
-  const voucherBalance = data.benefits.vouchers
-    .filter((item) => item.status === 'active')
-    .reduce((sum, item) => sum + Number(item.current_balance), 0);
+  const activeVouchers = data.benefits.vouchers.filter(voucherIsAvailable);
+  const serviceVoucherUses = activeVouchers
+    .filter((item) => item.voucher_type === 'service')
+    .reduce((sum, item) => sum + Number(item.remaining_uses ?? 0), 0);
+  const monetaryVoucherBalances = activeVouchers
+    .filter((item) => item.voucher_type !== 'service')
+    .reduce<Record<string, number>>((balances, item) => {
+      const currency = item.currency || data.business.default_currency;
+      balances[currency] = (balances[currency] ?? 0) + Number(item.current_balance ?? 0);
+      return balances;
+    }, {});
   const packSessions = data.benefits.packs
     .filter(packIsAvailable)
     .flatMap((item) => item.balances ?? [])
@@ -992,7 +1014,8 @@ export function ClientPortal({ slug }: { slug: string }) {
               data={data}
               upcoming={upcoming}
               walletBalance={walletBalance}
-              voucherBalance={voucherBalance}
+              serviceVoucherUses={serviceVoucherUses}
+              monetaryVoucherBalances={monetaryVoucherBalances}
               packSessions={packSessions}
               onBook={() => openBooking()}
               onNavigate={setTab}
@@ -1010,7 +1033,8 @@ export function ClientPortal({ slug }: { slug: string }) {
             <BenefitsView
               data={data}
               walletBalance={walletBalance}
-              voucherBalance={voucherBalance}
+              serviceVoucherUses={serviceVoucherUses}
+              monetaryVoucherBalances={monetaryVoucherBalances}
               packSessions={packSessions}
               onUse={openBooking}
             />
@@ -1796,7 +1820,8 @@ function HomeView({
   data,
   upcoming,
   walletBalance,
-  voucherBalance,
+  serviceVoucherUses,
+  monetaryVoucherBalances,
   packSessions,
   onBook,
   onNavigate,
@@ -1804,7 +1829,8 @@ function HomeView({
   data: PortalData;
   upcoming: PortalData['appointments'];
   walletBalance: number;
-  voucherBalance: number;
+  serviceVoucherUses: number;
+  monetaryVoucherBalances: Record<string, number>;
   packSessions: number;
   onBook: () => void;
   onNavigate: (tab: PortalTab) => void;
@@ -1907,9 +1933,9 @@ function HomeView({
         />
         <PortalMetric
           icon={Gift}
-          label="Vouchers ativos"
-          value={formatCurrency(voucherBalance, data.business.default_currency)}
-          detail={`${data.benefits.vouchers.filter((item) => item.status === 'active').length} ativos`}
+          label="Vouchers de serviço ativos"
+          value={`${serviceVoucherUses} sessões`}
+          detail={`${activeVouchersCount(data)} vouchers · ${Object.keys(monetaryVoucherBalances).length} moedas em cartões de valor`}
         />
         <PortalMetric
           icon={PackageCheck}
@@ -2436,22 +2462,22 @@ function anamnesisAnswerLabel(key: string) {
 function BenefitsView({
   data,
   walletBalance,
-  voucherBalance,
+  serviceVoucherUses,
+  monetaryVoucherBalances,
   packSessions,
   onUse,
 }: {
   data: PortalData;
   walletBalance: number;
-  voucherBalance: number;
+  serviceVoucherUses: number;
+  monetaryVoucherBalances: Record<string, number>;
   packSessions: number;
   onUse: (benefitCode?: string, serviceId?: string, benefitPin?: string) => void;
 }) {
   const [showArchived, setShowArchived] = useState(false);
-  const activeVouchers = data.benefits.vouchers.filter(
-    (item) => item.status === 'active'
-  );
+  const activeVouchers = data.benefits.vouchers.filter(voucherIsAvailable);
   const archivedVouchers = data.benefits.vouchers.filter(
-    (item) => item.status !== 'active'
+    (item) => !voucherIsAvailable(item)
   );
   const activePacks = data.benefits.packs.filter(packIsAvailable);
   const archivedPacks = data.benefits.packs.filter(
@@ -2468,7 +2494,7 @@ function BenefitsView({
           </Button>
         }
       />
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <PortalMetric
           icon={WalletCards}
           label="Cartão-saldo"
@@ -2477,9 +2503,9 @@ function BenefitsView({
         />
         <PortalMetric
           icon={Gift}
-          label="Vouchers"
-          value={formatCurrency(voucherBalance, data.business.default_currency)}
-          detail="Saldo total ativo"
+          label="Vouchers de serviço"
+          value={`${serviceVoucherUses} sessões`}
+          detail="Sessões disponíveis"
         />
         <PortalMetric
           icon={PackageCheck}
@@ -2487,6 +2513,14 @@ function BenefitsView({
           value={`${packSessions} sessões`}
           detail="Disponíveis"
         />
+        {Object.keys(monetaryVoucherBalances).length > 0 && (
+          <PortalMetric
+            icon={BadgeEuro}
+            label="Cartões-presente"
+            value={Object.entries(monetaryVoucherBalances).map(([currency, amount]) => formatCurrency(amount, currency)).join(' · ')}
+            detail="Saldo monetário disponível"
+          />
+        )}
       </div>
       <section className="border-border bg-background overflow-hidden rounded-lg border">
         <div className="border-border flex items-center justify-between border-b px-4 py-3">
@@ -2501,8 +2535,8 @@ function BenefitsView({
           </strong>
         </div>
         <div className="divide-border divide-y">
-          {data.benefits.walletTransactions.length ? (
-            data.benefits.walletTransactions.slice(0, 20).map((item) => {
+        {data.benefits.walletTransactions.some((item) => !item.voucher_id) ? (
+          data.benefits.walletTransactions.filter((item) => !item.voucher_id).slice(0, 20).map((item) => {
               const incoming = ['credit', 'refund'].includes(
                 item.transaction_type
               );
@@ -2717,7 +2751,7 @@ function VoucherPortalCard({
           : 'Sem data de expiração'}
       </p>
       <div className="mt-auto pt-3">
-        {onUse && item.status === 'active' && (
+        {onUse && voucherIsAvailable(item) && (
           <Button
             className="w-full"
             size="sm"
@@ -4394,7 +4428,7 @@ function BookingDialog({
     (item) => item.id === professionalId
   );
   const compatibleVouchers = data.benefits.vouchers.filter((item) =>
-    item.status === 'active' &&
+    voucherIsAvailable(item) &&
     (item.voucher_type === 'service'
       ? one(item.service)?.id === serviceId && Number(item.remaining_uses) > 0
       : Number(item.current_balance) > 0)

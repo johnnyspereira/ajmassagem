@@ -30,6 +30,7 @@ export interface TodayAppointmentItem {
   arrived: boolean;
   paid: boolean;
   benefit: 'voucher' | 'pack' | 'referral' | null;
+  benefitsAvailable: boolean;
   href: string;
 }
 
@@ -42,11 +43,12 @@ export interface TodayOperations {
   cancelled: number;
   noShow: number;
   expectedRevenue: number;
-  receivedToday: number;
-  salesToday: number;
-  outstandingToday: number;
-  cashSessionOpen: boolean;
-  benefitsScheduled: number;
+  receivedToday: number | null;
+  salesToday: number | null;
+  outstandingToday: number | null;
+  cashSessionOpen: boolean | null;
+  vouchersScheduled: number | null;
+  packsScheduled: number | null;
   appointments: TodayAppointmentItem[];
 }
 

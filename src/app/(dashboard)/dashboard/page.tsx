@@ -313,7 +313,7 @@ export default function DashboardPage() {
         <div className="relative mt-7 grid gap-2 sm:grid-cols-3 xl:max-w-3xl">
           <DashboardHeroStat icon={CalendarDays} label="Agenda de hoje" value={today ? `${today.appointmentsTotal} marcações` : 'A carregar'} />
           <DashboardHeroStat icon={MessageSquare} label="Conversas em curso" value={metrics ? metrics.activeConversations.current.toLocaleString() : 'A carregar'} />
-          <DashboardHeroStat icon={DollarSign} label="Receita em aberto" value={metrics ? formatCurrency(metrics.openDealsValue, defaultCurrency) : 'A carregar'} />
+          <DashboardHeroStat icon={DollarSign} label="Negócios em aberto" value={metrics ? formatCurrency(metrics.openDealsValue, defaultCurrency) : 'A carregar'} />
         </div>
       </section>
 
@@ -372,21 +372,14 @@ export default function DashboardPage() {
       ) : (
         <>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(390px,.9fr)]">
-        <div className="space-y-3 rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-5">
+      <section className="space-y-3">
         <DashboardSectionLabel
-          eyebrow="Agenda online"
-          title="Marcações feitas pelo Portal 360"
-          description="As reservas que os clientes criaram aparecem aqui primeiro, por ordem de data."
+          eyebrow="Hoje"
+          title="Operação diária"
+          description="Agenda, pagamentos e benefícios ligados às marcações de hoje."
           href="/agenda"
           action="Abrir agenda"
         />
-        <PortalPendingConfirmationsCard
-          appointments={portalPending}
-          loading={portalPendingLoading}
-          error={Boolean(loadErrors['Marcações do Portal 360'])}
-        />
-        </div>
         <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
           <TodayOperationsPanel
             data={today}
@@ -396,6 +389,23 @@ export default function DashboardPage() {
           />
         </div>
       </section>
+
+      {(portalPendingLoading || Boolean(loadErrors['Marcações do Portal 360']) || Boolean(portalPending?.length)) && (
+        <section className="space-y-3 rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-5">
+          <DashboardSectionLabel
+            eyebrow="Agenda online"
+            title="Próximas marcações do Portal 360"
+            description="Reservas e pedidos de alteração enviados pelos clientes."
+            href="/agenda"
+            action="Abrir agenda"
+          />
+          <PortalPendingConfirmationsCard
+            appointments={portalPending}
+            loading={portalPendingLoading}
+            error={Boolean(loadErrors['Marcações do Portal 360'])}
+          />
+        </section>
+      )}
 
       <section className="space-y-3 rounded-3xl border border-border/70 bg-card-2/30 p-4 sm:p-5">
         <DashboardSectionLabel
@@ -511,6 +521,7 @@ export default function DashboardPage() {
       <ExpiringBenefitsPanel
         benefits={expiringBenefits}
         loading={expiringBenefitsLoading}
+        error={Boolean(loadErrors.Validades)}
       />
       </section>
 
@@ -654,9 +665,11 @@ function DashboardSectionLabel({
 function ExpiringBenefitsPanel({
   benefits,
   loading,
+  error = false,
 }: {
   benefits: ExpiringBenefitItem[] | null;
   loading: boolean;
+  error?: boolean;
 }) {
   const [now] = useState(() => Date.now());
   return (
@@ -683,6 +696,10 @@ function ExpiringBenefitsPanel({
             <div key={index} className="bg-muted h-20 animate-pulse rounded-lg" />
           ))}
         </div>
+      ) : error ? (
+        <p className="mt-4 rounded-lg border border-amber-300/60 bg-amber-50/50 px-3 py-4 text-sm text-amber-900 dark:bg-amber-950/20 dark:text-amber-200">
+          Não foi possível consultar os vouchers e packs. Atualize a dashboard para tentar novamente.
+        </p>
       ) : benefits?.length ? (
         <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {benefits.map((benefit) => {

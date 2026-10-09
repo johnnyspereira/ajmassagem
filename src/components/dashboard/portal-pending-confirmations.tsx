@@ -18,7 +18,17 @@ export function PortalPendingConfirmationsCard({
   error?: boolean;
 }) {
   if (loading) return <Skeleton className="h-56 w-full rounded-xl" />;
-  if (error || !appointments?.length) return null;
+  if (error) {
+    return (
+      <div className="rounded-xl border border-amber-300/70 bg-amber-50/60 px-4 py-5 text-sm dark:bg-amber-950/20">
+        <p className="font-medium">NÃ£o foi possÃ­vel carregar as marcaÃ§Ãµes online.</p>
+        <Link href="/agenda" className="text-primary mt-2 inline-flex items-center gap-1 text-xs font-semibold hover:underline">
+          Consultar agenda <ChevronRight className="size-3" />
+        </Link>
+      </div>
+    );
+  }
+  if (!appointments?.length) return null;
 
   return (
     <section className="overflow-hidden rounded-xl border border-violet-300/70 bg-card shadow-sm">

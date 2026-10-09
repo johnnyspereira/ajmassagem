@@ -1,4 +1,4 @@
-import { portalErrorResponse, requirePortalAccess } from '@/lib/portal/server';
+﻿import { portalErrorResponse, requirePortalAccess } from '@/lib/portal/server';
 
 export async function GET(
   _request: Request,
@@ -99,7 +99,7 @@ export async function GET(
         ? admin
             .from('finance_vouchers')
             .select(
-              'id,code,pin_code,voucher_type,initial_balance,current_balance,currency,status,remaining_uses,expires_at,created_at,service:clinic_services(id,name)'
+              'id,code,pin_code,voucher_type,initial_balance,current_balance,currency,status,remaining_uses,expires_at,created_at,service:clinic_services!inner(id,name)'
             )
             .eq('owner_contact_id', access.contact_id)
             .in('status', ['active', 'used', 'expired', 'cancelled'])
@@ -294,7 +294,7 @@ export async function GET(
           ? admin
               .from('finance_wallet_transactions')
               .select(
-                'id,transaction_type,amount,balance_after,referral_reward_id,sale_id,description,metadata,created_at'
+                'id,voucher_id,transaction_type,amount,balance_after,referral_reward_id,sale_id,description,metadata,created_at'
               )
               .eq('wallet_id', wallet.data.id)
               .order('created_at', { ascending: false })
