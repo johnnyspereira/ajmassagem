@@ -2006,6 +2006,123 @@ export async function executeMysqlRpc(
         });
         return ok(output);
       }
+      case 'convert_pack_sessions_to_wallet': {
+        const packId = String(args.p_client_pack_id ?? '');
+        const requestedSessions = Number(args.p_sessions);
+        if (!packId || !Number.isInteger(requestedSessions) || requestedSessions < 1)
+          throw new Error('Indique um pack e uma quantidade válida de sessões.');
+        let output: { wallet_id: string; balance: number; credited_amount: number; sessions_converted: number } | null = null;
+        await transaction(async (connection) => {
+          const [packs] = await connection.execute<
+            (RowDataPacket & { id: string; contact_id: string; sale_id: string | null; status: string; expires_at: Date | null; code: string | null })[]
+          >(
+            'SELECT id,contact_id,sale_id,status,expires_at,code FROM finance_client_packs WHERE id=? AND account_id=? FOR UPDATE',
+            [packId, context.accountId]
+          );
+          const pack = packs[0];
+          if (!pack) throw new Error('Pack não encontrado.');
+          if (pack.status !== 'active') throw new Error('Só é possível converter sessões de um pack ativo.');
+          if (pack.expires_at && new Date(pack.expires_at).getTime() <= Date.now())
+            throw new Error('Não é possível converter um pack expirado.');
+          if (!pack.sale_id) throw new Error('Este pack não tem uma venda associada para apurar o valor pago.');
+
+          const [balances] = await connection.execute<
+            (RowDataPacket & { id: string; total_sessions: number; remaining_sessions: number })[]
+          >(
+            'SELECT id,total_sessions,remaining_sessions FROM finance_client_pack_balances WHERE client_pack_id=? ORDER BY service_id,id FOR UPDATE',
+            [pack.id]
+          );
+          const originalSessions = balances.reduce((sum, item) => sum + Number(item.total_sessions), 0);
+          const remainingSessions = balances.reduce((sum, item) => sum + Number(item.remaining_sessions), 0);
+          if (!originalSessions || requestedSessions > remainingSessions)
+            throw new Error(`O pack tem apenas ${remainingSessions} sessão(ões) disponível(is).`);
+
+          const [sales] = await connection.execute<
+            (RowDataPacket & { line_total: number; quantity: number; paid_amount: number; total_amount: number; is_historical: number; currency: string })[]
+          >(
+            `SELECT i.line_total,i.quantity,s.paid_amount,s.total_amount,s.is_historical,s.currency
+             FROM finance_sale_items i JOIN finance_sales s ON s.id=i.sale_id
+             WHERE i.sale_id=? AND i.account_id=? AND i.item_type='pack' AND i.source_id=(SELECT pack_id FROM finance_client_packs WHERE id=? AND account_id=?)
+             ORDER BY i.created_at ASC LIMIT 1 FOR UPDATE`,
+            [pack.sale_id, context.accountId, pack.id, context.accountId]
+          );
+          const sale = sales[0];
+          if (!sale) throw new Error('Não foi possível localizar o valor deste pack na venda.');
+          const paidForSale = Number(sale.is_historical) ? Number(sale.total_amount) : Number(sale.paid_amount);
+          const packPaidValue = (Number(sale.line_total) / Math.max(Number(sale.quantity), 1)) * (paidForSale / Math.max(Number(sale.total_amount), 0.01));
+          if (!(packPaidValue > 0)) throw new Error('A venda ainda não tem um valor pago disponível para converter.');
+
+          const [priorConversions] = await connection.execute<
+            (RowDataPacket & { sessions_converted: number; amount_credited: number })[]
+          >(
+            `SELECT COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.sessions_converted')) AS DECIMAL(12,2))),0) sessions_converted,
+                    COALESCE(SUM(amount),0) amount_credited
+             FROM finance_wallet_transactions
+             WHERE account_id=? AND transaction_type='credit'
+               AND JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.source'))='client_pack_conversion'
+               AND JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.client_pack_id'))=? FOR UPDATE`,
+            [context.accountId, pack.id]
+          );
+          const convertedSessionsBefore = Number(priorConversions[0]?.sessions_converted ?? 0);
+          if (convertedSessionsBefore + requestedSessions > originalSessions)
+            throw new Error('A quantidade pedida excede as sessões originais deste pack. Atualize o ecrã e tente novamente.');
+          const priorAmount = Number(priorConversions[0]?.amount_credited ?? 0);
+          const cumulativeValue = Math.round((packPaidValue * (convertedSessionsBefore + requestedSessions) / originalSessions) * 100) / 100;
+          const amount = Math.round((cumulativeValue - priorAmount) * 100) / 100;
+          if (!(amount > 0)) throw new Error('O valor proporcional destas sessões é inferior a 0,01 €.');
+
+          const [walletRows] = await connection.execute<(RowDataPacket & { id: string; balance: number })[]>(
+            'SELECT id,balance FROM finance_client_wallets WHERE account_id=? AND contact_id=? AND currency=? FOR UPDATE',
+            [context.accountId, pack.contact_id, sale.currency || 'EUR']
+          );
+          let walletId: string;
+          let balanceAfter: number;
+          if (walletRows[0]) {
+            walletId = walletRows[0].id;
+            balanceAfter = Number(walletRows[0].balance) + amount;
+            await connection.execute('UPDATE finance_client_wallets SET balance=? WHERE id=?', [balanceAfter, walletId]);
+          } else {
+            walletId = randomUUID();
+            balanceAfter = amount;
+            await connection.execute('INSERT INTO finance_client_wallets(id,account_id,contact_id,currency,balance) VALUES(?,?,?,?,?)', [walletId, context.accountId, pack.contact_id, sale.currency || 'EUR', amount]);
+          }
+
+          let sessionsLeftToConvert = requestedSessions;
+          for (const item of balances) {
+            if (!sessionsLeftToConvert) break;
+            const take = Math.min(Number(item.remaining_sessions), sessionsLeftToConvert);
+            if (take > 0) {
+              await connection.execute(
+                'UPDATE finance_client_pack_balances SET remaining_sessions=remaining_sessions-? WHERE id=? AND remaining_sessions>=?',
+                [take, item.id, take]
+              );
+              sessionsLeftToConvert -= take;
+            }
+          }
+          if (sessionsLeftToConvert) throw new Error('O saldo de sessões mudou durante a conversão.');
+
+          await connection.execute(
+            `INSERT INTO finance_wallet_transactions(id,account_id,wallet_id,transaction_type,amount,balance_after,performed_by_user_id,description,metadata)
+             VALUES(?,?,?,'credit',?,?,?,?,?)`,
+            [randomUUID(), context.accountId, walletId, amount, balanceAfter, context.userId,
+              `${requestedSessions} sessão(ões) do pack ${pack.code || pack.id} convertida(s) em cartão-saldo`,
+              JSON.stringify({ source: 'client_pack_conversion', client_pack_id: pack.id, pack_code: pack.code, sessions_converted: requestedSessions, original_sessions: originalSessions, pack_paid_value: Math.round(packPaidValue * 100) / 100 })]
+          );
+          await connection.execute(
+            `INSERT INTO finance_benefit_logs(id,account_id,client_pack_id,action,amount,sessions,performed_by_user_id,approved_by_user_id,notes,metadata)
+             VALUES(?,?,?,'adjusted',?,?,?,?,?,?)`,
+            [randomUUID(), context.accountId, pack.id, amount, requestedSessions, context.userId, context.userId,
+              'Sessões convertidas em cartão-saldo',
+              JSON.stringify({ action: 'converted_to_wallet', wallet_id: walletId, sessions_converted: requestedSessions, credited_amount: amount, pack_paid_value: Math.round(packPaidValue * 100) / 100 })]
+          );
+          await connection.execute(
+            "UPDATE finance_client_packs SET status='consumed' WHERE id=? AND NOT EXISTS(SELECT 1 FROM finance_client_pack_balances WHERE client_pack_id=? AND remaining_sessions>0)",
+            [pack.id, pack.id]
+          );
+          output = { wallet_id: walletId, balance: balanceAfter, credited_amount: amount, sessions_converted: requestedSessions };
+        });
+        return ok(output);
+      }
       case 'lookup_finance_benefit_code': {
         const code = String(args.p_code ?? '').trim();
         const vouchers = await selectRows<
