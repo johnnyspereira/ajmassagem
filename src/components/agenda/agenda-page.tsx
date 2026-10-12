@@ -7537,7 +7537,7 @@ function AppointmentCommunicationStatus({
             Última tentativa: {formatAccountEventTime(event.created_at, timeZone)}
           </p>
         ) : null}
-        {canRetry && failed ? (
+        {canRetry && (failed || queued) ? (
           <Button
             type="button"
             size="sm"
@@ -7547,7 +7547,7 @@ function AppointmentCommunicationStatus({
             onClick={onRetry}
           >
             {retrying ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-            Reenviar mensagem
+            {queued ? 'Tentar enviar agora' : 'Reenviar mensagem'}
           </Button>
         ) : null}
       </div>
