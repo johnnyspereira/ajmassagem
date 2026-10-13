@@ -27,6 +27,7 @@ import {
   LayoutGrid,
   MessageCircleMore,
   Radio,
+  RefreshCw,
   Trash2,
   UsersRound,
   Wifi,
@@ -97,6 +98,7 @@ export default function InboxPage() {
    * once on conversationId-change as usual.
    */
   const [resyncToken, setResyncToken] = useState(0);
+  const [lastInboxSyncAt, setLastInboxSyncAt] = useState<Date | null>(null);
 
   /**
    * Whether the desktop contact sidebar (tags / deals / notes) is shown.
@@ -142,6 +144,10 @@ export default function InboxPage() {
   // hydrateConversation; the dedupe here keeps it at one refetch per
   // new conversation even when both events arrive within milliseconds.
   const hydratingConvIdsRef = useRef<Set<string>>(new Set());
+  // A full WhatsApp history pull can take a few seconds (or be queued by
+  // the polling worker). Keep a single one in flight so the recurring
+  // sync never piles up duplicate worker commands.
+  const inboxSyncInFlightRef = useRef(false);
 
   /**
    * Synchronous mirror of the conversation ids currently in `conversations`
@@ -608,6 +614,56 @@ export default function InboxPage() {
     setResyncToken((n) => n + 1);
   }, []);
 
+  const syncInboxFromWhatsApp = useCallback(async () => {
+    if (inboxSyncInFlightRef.current) return;
+    inboxSyncInFlightRef.current = true;
+    try {
+      const response = await fetch('/api/whatsapp/baileys/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // This is deliberately a small, recent window. The worker dedupes
+        // messages already stored in the Inbox, so it catches up quickly
+        // without repeatedly importing an entire WhatsApp history.
+        body: JSON.stringify({ chat_limit: 80, message_limit: 50 }),
+      });
+      if (!response.ok) return;
+
+      // Whether the remote worker completed immediately or queued the
+      // request, refresh the local DB view. A later interval will safely
+      // pick up queued work that finishes after this first refresh.
+      setLastInboxSyncAt(new Date());
+      setResyncToken((n) => n + 1);
+    } catch {
+      // Automatic synchronization is best-effort. Connection errors are
+      // already shown by the WhatsApp status banner and should not interrupt
+      // the agent with a toast every minute.
+    } finally {
+      inboxSyncInFlightRef.current = false;
+    }
+  }, []);
+
+  // Realtime is immediate when its websocket is healthy, but it cannot
+  // recover messages that arrive while the browser/connection misses an
+  // event. Pull a short recent window every minute as a reliable fallback.
+  // Do nothing in a background tab: the next visibility event already
+  // triggers an immediate resync, while avoiding needless worker traffic.
+  useEffect(() => {
+    if (!whatsappConnection?.connected) return;
+
+    const runWhenVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void syncInboxFromWhatsApp();
+      }
+    };
+    const initialTimer = window.setTimeout(runWhenVisible, 5_000);
+    const interval = window.setInterval(runWhenVisible, 60_000);
+
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(interval);
+    };
+  }, [syncInboxFromWhatsApp, whatsappConnection?.connected]);
+
   const handleClearInbox = useCallback(async () => {
     setClearingInbox(true);
     try {
@@ -907,6 +963,22 @@ export default function InboxPage() {
             <span className="text-muted-foreground">Conversas</span>
             <strong className="text-foreground">{conversations.length}</strong>
           </div>
+          {whatsappConnection?.connected ? (
+            <div
+              className="hidden items-center gap-1.5 rounded-xl border border-border/70 bg-card px-3 py-2 text-[11px] text-muted-foreground shadow-sm lg:flex"
+              title="O Inbox verifica novas mensagens do WhatsApp a cada minuto enquanto esta página está aberta."
+            >
+              <RefreshCw className="h-3.5 w-3.5 text-emerald-500" />
+              <span>
+                {lastInboxSyncAt
+                  ? `Sincronizado às ${lastInboxSyncAt.toLocaleTimeString('pt-PT', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}`
+                  : 'Sincronização automática ativa'}
+              </span>
+            </div>
+          ) : null}
           {isOwner ? (
             <Button type="button" variant="outline" size="sm" onClick={() => setClearInboxOpen(true)} disabled={clearingInbox || conversations.length === 0} className="border-red-500/25 text-red-600 hover:bg-red-500/10 hover:text-red-700 dark:text-red-400">
               {clearingInbox ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
