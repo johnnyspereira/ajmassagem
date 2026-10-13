@@ -418,6 +418,7 @@ export function Client360Page({
   const [newNote, setNewNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [timelineFilter, setTimelineFilter] = useState('all');
+  const [showAllHeaderTags, setShowAllHeaderTags] = useState(false);
   const [createConversationOpen, setCreateConversationOpen] = useState(false);
   const [creatingConversation, setCreatingConversation] = useState(false);
   const [activeTab, setActiveTab] = useState<ClientTab>(initialTab);
@@ -1141,7 +1142,12 @@ export function Client360Page({
     (sum, sale) => sum + Number(sale.balance_due ?? 0),
     0
   );
+  const listedReceived = sales.reduce(
+    (sum, sale) => sum + Number(sale.paid_amount ?? 0),
+    0
+  );
   const totalPurchased = Number(summary?.total_purchased ?? listedPurchased);
+  const totalReceived = Number(summary?.total_received ?? listedReceived);
   const totalDue = Number(summary?.total_due ?? listedDue);
   const walletBalance = Number(
     summary?.wallet_balance ??
@@ -1154,6 +1160,8 @@ export function Client360Page({
         'Crédito acumulado do programa Indique & Ganhe'
       )
   );
+  const headerTags = showAllHeaderTags ? tags : tags.slice(0, 4);
+  const hiddenHeaderTags = Math.max(0, tags.length - headerTags.length);
   const referralUrl = referralCode
     ? `${account?.public_url?.replace(/\/$/, '') || (typeof window !== 'undefined' ? window.location.origin : '')}/refer/${referralCode}`
     : null;
@@ -1454,7 +1462,8 @@ export function Client360Page({
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {tags.length ? (
-                  tags.map((tag) => (
+                  <>
+                  {headerTags.map((tag) => (
                     <span
                       key={tag.id}
                       className="rounded-full px-2 py-0.5 text-xs font-medium"
@@ -1463,9 +1472,29 @@ export function Client360Page({
                         color: tag.color,
                       }}
                     >
-                      {tag.name}
+                      {tag.name === 'Clientes Perdidos'
+                        ? 'Em risco de inatividade'
+                        : tag.name}
                     </span>
-                  ))
+                  ))}
+                  {hiddenHeaderTags > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllHeaderTags(true)}
+                      className="bg-muted text-muted-foreground hover:bg-muted/70 rounded-full px-2 py-0.5 text-xs font-medium transition-colors"
+                    >
+                      +{hiddenHeaderTags} etiquetas
+                    </button>
+                  ) : tags.length > 4 ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllHeaderTags(false)}
+                      className="text-muted-foreground hover:text-foreground rounded-full px-1 py-0.5 text-xs"
+                    >
+                      Mostrar menos
+                    </button>
+                  ) : null}
+                  </>
                 ) : (
                   <span className="text-muted-foreground text-xs">
                     Sem etiquetas
@@ -1530,12 +1559,12 @@ export function Client360Page({
         />
         <Metric
           icon={ReceiptText}
-          label="Financeiro"
-          value={formatCurrency(totalPurchased, defaultCurrency)}
+          label="Total recebido"
+          value={formatCurrency(totalReceived, defaultCurrency)}
           detail={
             totalDue > 0
               ? `${formatCurrency(totalDue, defaultCurrency)} por receber`
-              : 'Sem saldo pendente'
+              : 'Sem valores pendentes'
           }
         />
       </div>
@@ -1570,12 +1599,24 @@ export function Client360Page({
                     }
                   />
                 ) : (
-                  <Empty
-                    icon={CalendarClock}
-                    text="Este cliente ainda não tem marcações futuras."
-                    action={canOperate ? 'Criar marcação' : undefined}
-                    onClick={() => router.push(`/agenda?contact=${contact.id}`)}
-                  />
+                  <div className="flex min-h-36 flex-col items-center justify-center rounded-xl border border-dashed border-emerald-500/35 bg-emerald-500/5 p-5 text-center">
+                    <div className="mb-2 rounded-full bg-emerald-500/10 p-2 text-emerald-700">
+                      <CalendarClock className="size-5" />
+                    </div>
+                    <p className="font-semibold">Sem próximo atendimento</p>
+                    <p className="text-muted-foreground mt-1 max-w-sm text-sm">
+                      Mantenha o acompanhamento ativo: este cliente ainda não tem uma marcação futura.
+                    </p>
+                    {canOperate ? (
+                      <Button
+                        size="sm"
+                        className="mt-3"
+                        onClick={() => router.push(`/agenda?contact=${contact.id}`)}
+                      >
+                        <CalendarClock /> Criar marcação
+                      </Button>
+                    ) : null}
+                  </div>
                 )}
               </CardContent>
             </Card>
