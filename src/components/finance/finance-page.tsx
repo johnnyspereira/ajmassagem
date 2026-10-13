@@ -186,6 +186,9 @@ export function FinancePage({
   const [saleDiscount, setSaleDiscount] = useState(0);
   const [saleNotes, setSaleNotes] = useState('');
   const [payments, setPayments] = useState<PaymentDraft[]>([]);
+  const [salePaymentDate, setSalePaymentDate] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  );
   const [alreadyPaidElsewhere, setAlreadyPaidElsewhere] = useState(false);
   const [checkoutAppointmentLabel, setCheckoutAppointmentLabel] = useState('');
   const checkoutLoadedRef = useRef(false);
@@ -760,6 +763,7 @@ export function FinancePage({
     setSaleDiscount(0);
     setSaleNotes('');
     setPayments([]);
+    setSalePaymentDate(new Date().toISOString().slice(0, 10));
     setAlreadyPaidElsewhere(false);
   }
 
@@ -814,6 +818,10 @@ export function FinancePage({
 
   async function finishSale(sumUpOnline = false) {
     if (!accountId || !cart.length) return;
+    if (!salePaymentDate) {
+      toast.error('Selecione a data em que o pagamento foi efetuado.');
+      return;
+    }
     if (
       cart.some(
         (item) =>
@@ -897,6 +905,9 @@ export function FinancePage({
         p_sale_discount: saleDiscount,
         p_already_paid_elsewhere: alreadyPaidElsewhere,
         p_notes: saleNotes || null,
+        // Keep historic sales and their payments in the accounting period in
+        // which they actually happened, rather than the day they were typed.
+        p_paid_at: new Date(`${salePaymentDate}T12:00:00.000Z`).toISOString(),
       }
     );
     setSaving(false);
@@ -1596,6 +1607,9 @@ export function FinancePage({
               remaining,
               saleNotes,
               setSaleNotes,
+              salePaymentDate,
+              setSalePaymentDate,
+              todayDate: new Date().toISOString().slice(0, 10),
               defaultCurrency,
               canOperate,
               saving,
@@ -2722,6 +2736,9 @@ function PosView(props: {
   remaining: number;
   saleNotes: string;
   setSaleNotes: (value: string) => void;
+  salePaymentDate: string;
+  setSalePaymentDate: (value: string) => void;
+  todayDate: string;
   defaultCurrency: string;
   canOperate: boolean;
   saving: boolean;
@@ -2760,6 +2777,9 @@ function PosView(props: {
     remaining,
     saleNotes,
     setSaleNotes,
+    salePaymentDate,
+    setSalePaymentDate,
+    todayDate,
     defaultCurrency,
     canOperate,
     saving,
@@ -3241,6 +3261,19 @@ function PosView(props: {
               <strong>{money(remaining, defaultCurrency)}</strong>
             </span>
           </div>
+          <label className="grid gap-1 text-sm font-medium">
+            Data do pagamento
+            <Input
+              type="date"
+              value={salePaymentDate}
+              max={todayDate}
+              onChange={(event) => setSalePaymentDate(event.target.value)}
+            />
+            <span className="text-muted-foreground text-xs font-normal">
+              Use esta data para uma venda retroativa. Os relatórios serão
+              atualizados no dia selecionado.
+            </span>
+          </label>
           <Textarea
             value={saleNotes}
             onChange={(event) => setSaleNotes(event.target.value)}

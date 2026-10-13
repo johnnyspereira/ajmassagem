@@ -105,6 +105,7 @@ async function addPayment(
     reference: string | null;
     pin: string | null;
     notes: string | null;
+    paidAt?: Date | string | null;
   }
 ) {
   const [rows] = await connection.execute<
@@ -165,7 +166,7 @@ async function addPayment(
   }
   const paymentId = randomUUID();
   await connection.execute(
-    `INSERT INTO finance_payments(id,account_id,sale_id,cash_session_id,received_by_user_id,method,amount,reference_code,notes) VALUES(?,?,?,?,?,?,?,?,?)`,
+    `INSERT INTO finance_payments(id,account_id,sale_id,cash_session_id,received_by_user_id,method,amount,reference_code,notes,paid_at) VALUES(?,?,?,?,?,?,?,?,?,COALESCE(?,UTC_TIMESTAMP(3)))`,
     [
       paymentId,
       input.accountId,
@@ -176,6 +177,7 @@ async function addPayment(
       input.amount,
       input.reference,
       input.notes,
+      input.paidAt ?? null,
     ]
   );
   if (wallet) {
@@ -202,8 +204,15 @@ async function addPayment(
   const paid = Number(sale.paid_amount) + input.amount;
   const complete = paid === Number(sale.total_amount);
   await connection.execute(
-    `UPDATE finance_sales SET paid_amount=?,balance_due=total_amount-?,status=?,completed_at=IF(?,UTC_TIMESTAMP(3),NULL) WHERE id=?`,
-    [paid, paid, complete ? 'paid' : 'partially_paid', complete, input.saleId]
+    `UPDATE finance_sales SET paid_amount=?,balance_due=total_amount-?,status=?,completed_at=IF(?,COALESCE(?,UTC_TIMESTAMP(3)),NULL) WHERE id=?`,
+    [
+      paid,
+      paid,
+      complete ? 'paid' : 'partially_paid',
+      complete,
+      input.paidAt ?? null,
+      input.saleId,
+    ]
   );
   // Benefits are created as pending while a sale is open. Payments can be
   // registered later from the POS, agenda or receivables screen, so activate
@@ -220,8 +229,8 @@ async function addPayment(
   }
   if (complete && sale.appointment_id)
     await connection.execute(
-      'UPDATE clinic_appointments SET paid_at=UTC_TIMESTAMP(3),updated_at=UTC_TIMESTAMP(3) WHERE id=? AND account_id=?',
-      [sale.appointment_id, input.accountId]
+      'UPDATE clinic_appointments SET paid_at=COALESCE(paid_at,COALESCE(?,UTC_TIMESTAMP(3))),updated_at=UTC_TIMESTAMP(3) WHERE id=? AND account_id=?',
+      [input.paidAt ?? null, sale.appointment_id, input.accountId]
     );
 }
 
@@ -903,6 +912,14 @@ export async function executeMysqlRpc(
           ? (args.p_payments as Record<string, unknown>[])
           : [];
         const alreadyPaidElsewhere = args.p_already_paid_elsewhere === true;
+        const paidAtText = optionalText(args.p_paid_at);
+        const paidAt = paidAtText ? new Date(paidAtText) : null;
+        if (
+          paidAtText &&
+          (Number.isNaN(paidAt?.getTime()) ||
+            paidAt!.getTime() > Date.now() + 60_000)
+        )
+          throw new Error('A data do pagamento deve ser uma data passada ou atual.');
         if (!items.length) throw new Error('Sale requires at least one item.');
         let subtotal = 0,
           itemDiscount = 0,
@@ -944,8 +961,8 @@ export async function executeMysqlRpc(
         await transaction(async (connection) => {
           const supportsVoucherPaidAmount = await hasVoucherPaidAmountColumns(connection);
           await connection.execute(
-            `INSERT INTO finance_sales(id,account_id,contact_id,appointment_id,cash_session_id,created_by_user_id,status,currency,subtotal,discount_amount,tax_amount,total_amount,paid_amount,balance_due,is_historical,notes)
-            VALUES(?,?,?,?,?,?,'open',?,?,?,?,?,0,?,?,?)`,
+            `INSERT INTO finance_sales(id,account_id,contact_id,appointment_id,cash_session_id,created_by_user_id,status,currency,subtotal,discount_amount,tax_amount,total_amount,paid_amount,balance_due,is_historical,notes,created_at,updated_at)
+            VALUES(?,?,?,?,?,?,'open',?,?,?,?,?,0,?,?,?,COALESCE(?,UTC_TIMESTAMP(3)),UTC_TIMESTAMP(3))`,
             [
               saleId,
               context.accountId,
@@ -961,6 +978,7 @@ export async function executeMysqlRpc(
               total,
               alreadyPaidElsewhere ? 1 : 0,
               optionalText(args.p_notes),
+              paidAt,
             ]
           );
           for (const item of items) {
@@ -1136,6 +1154,7 @@ export async function executeMysqlRpc(
               reference: optionalText(payment.reference_code),
               pin: optionalText(payment.pin_code),
               notes: optionalText(payment.notes),
+              paidAt,
             });
           // A complimentary voucher or pack has no payment to register, but
           // it is still a completed sale: issue its benefits immediately.
@@ -1144,9 +1163,9 @@ export async function executeMysqlRpc(
               `UPDATE finance_sales
                SET status='paid',paid_amount=0,balance_due=0,
                    notes=CONCAT_WS('\\n',notes,IF(?,'Pagamento efetuado anteriormente noutra plataforma.','')),
-                   completed_at=COALESCE(completed_at,UTC_TIMESTAMP(3))
+                   completed_at=COALESCE(completed_at,COALESCE(?,UTC_TIMESTAMP(3)))
                WHERE id=? AND status='open'`,
-              [alreadyPaidElsewhere ? 1 : 0, saleId]
+              [alreadyPaidElsewhere ? 1 : 0, paidAt, saleId]
             );
           }
           const [sale] = await connection.execute<
