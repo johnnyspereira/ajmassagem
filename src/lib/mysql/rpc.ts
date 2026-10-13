@@ -93,6 +93,29 @@ async function ensureWalletVoucherColumn(connection: PoolConnection) {
   return true;
 }
 
+/** Keep the paid value of voucher benefits aligned with every sale payment. */
+async function refreshVoucherPaidAmountsForSale(
+  connection: PoolConnection,
+  accountId: string,
+  saleId: string
+) {
+  if (!(await hasVoucherPaidAmountColumns(connection))) return;
+
+  await connection.execute(
+    `UPDATE finance_vouchers v
+     JOIN finance_sale_items i ON i.id=v.issued_sale_item_id
+     JOIN finance_sales s ON s.id=i.sale_id
+     SET v.paid_amount=ROUND(
+       (i.line_total / NULLIF(i.quantity,0)) *
+       (CASE WHEN s.is_historical=1 THEN s.total_amount ELSE s.paid_amount END /
+        NULLIF(s.total_amount,0)),
+       2
+     )
+     WHERE v.account_id=? AND v.issued_sale_id=? AND i.item_type='voucher'`,
+    [accountId, saleId]
+  );
+}
+
 async function addPayment(
   connection: PoolConnection,
   input: {
@@ -213,6 +236,11 @@ async function addPayment(
       input.paidAt ?? null,
       input.saleId,
     ]
+  );
+  await refreshVoucherPaidAmountsForSale(
+    connection,
+    input.accountId,
+    input.saleId
   );
   // Benefits are created as pending while a sale is open. Payments can be
   // registered later from the POS, agenda or receivables screen, so activate
@@ -1097,8 +1125,11 @@ export async function executeMysqlRpc(
                     metadata.validity_days == null
                       ? null
                       : Number(metadata.validity_days);
+                // A service's face value is not necessarily what was paid.
+                // Later instalments recalculate this value in addPayment.
+                const settledAmount = alreadyPaidElsewhere ? total : paymentTotal;
                 const paidPerVoucher = Math.round(
-                  ((lineTotal / quantity) * (total / Math.max(subtotal - itemDiscount + tax, 0.01))) * 100
+                  ((lineTotal / quantity) * (settledAmount / Math.max(total, 0.01))) * 100
                 ) / 100;
                 const voucherFields = supportsVoucherPaidAmount
                   ? `id,account_id,issued_sale_id,issued_sale_item_id,owner_contact_id,service_id,code,pin_code,voucher_type,remaining_uses,initial_balance,paid_amount,current_balance,currency,status,recipient_name,message,expires_at`
@@ -1869,11 +1900,11 @@ export async function executeMysqlRpc(
             );
           }
           const [vouchers] = await connection.execute<
-            (RowDataPacket & { id: string; issued_sale_id: string | null; issued_sale_item_id: string | null; service_id: string | null })[]
+            (RowDataPacket & { id: string; issued_sale_id: string | null; issued_sale_item_id: string | null; service_id: string | null; paid_amount: number | null })[]
           >(
-            `SELECT id,issued_sale_id,issued_sale_item_id,service_id
+            `SELECT id,issued_sale_id,issued_sale_item_id,service_id,paid_amount
              FROM finance_vouchers
-             WHERE account_id=? AND voucher_type='service' AND status='active' AND paid_amount IS NULL
+             WHERE account_id=? AND voucher_type='service' AND status='active'
              FOR UPDATE`,
             [context.accountId]
           );
@@ -1894,8 +1925,10 @@ export async function executeMysqlRpc(
             const paidForSale = Number(source.is_historical) ? Number(source.total_amount) : Number(source.paid_amount);
             const amount = Math.round((Number(source.line_total) / Math.max(Number(source.quantity), 1)) * (paidForSale / Math.max(Number(source.total_amount), 0.01)) * 100) / 100;
             if (!(amount > 0)) { unresolved += 1; continue; }
-            await connection.execute('UPDATE finance_vouchers SET paid_amount=? WHERE id=?', [amount, voucher.id]);
-            updated += 1;
+            if (Number(voucher.paid_amount ?? 0) !== amount) {
+              await connection.execute('UPDATE finance_vouchers SET paid_amount=? WHERE id=?', [amount, voucher.id]);
+              updated += 1;
+            }
           }
         });
         return ok({ updated, unresolved });

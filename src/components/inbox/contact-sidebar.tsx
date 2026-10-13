@@ -1109,6 +1109,12 @@ export function ContactSidebar({
                             ? `Válido até ${format(new Date(voucher.expires_at), 'dd/MM/yyyy')}`
                             : 'Sem data limite'}
                         </p>
+                        <p className="text-muted-foreground mt-1 text-[11px]">
+                          Valor original: {formatCurrency(
+                            Number(voucher.initial_balance),
+                            voucher.currency || defaultCurrency
+                          )}
+                        </p>
                         <p className="mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
                           {voucher.paid_amount != null
                             ? `Pago pelo cliente: ${formatCurrency(Number(voucher.paid_amount), voucher.currency || defaultCurrency)}`
@@ -1117,12 +1123,16 @@ export function ContactSidebar({
                       </div>
                       <span className="shrink-0 text-right text-xs font-semibold text-rose-600 dark:text-rose-300">
                         <span className="block text-[10px] font-medium text-muted-foreground">
-                          Saldo atual
+                          {voucher.voucher_type === 'service'
+                            ? 'Sessões disponíveis'
+                            : 'Saldo disponível'}
                         </span>
-                        {formatCurrency(
-                          Number(voucher.current_balance),
-                          voucher.currency || defaultCurrency
-                        )}
+                        {voucher.voucher_type === 'service'
+                          ? `${Number(voucher.remaining_uses ?? 0)} sessão(ões)`
+                          : formatCurrency(
+                              Number(voucher.current_balance),
+                              voucher.currency || defaultCurrency
+                            )}
                       </span>
                     </div>
                   </div>
