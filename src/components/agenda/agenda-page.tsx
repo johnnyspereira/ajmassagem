@@ -883,6 +883,9 @@ export function AgendaPage({
     useState<BenefitCodeLookup | null>(null);
   const [lookingUpBenefit, setLookingUpBenefit] = useState(false);
   const [paymentChoiceOpen, setPaymentChoiceOpen] = useState(false);
+  const [refundRequestOpen, setRefundRequestOpen] = useState(false);
+  const [refundReason, setRefundReason] = useState('');
+  const [requestingRefund, setRequestingRefund] = useState(false);
   const [benefitDecisionOpen, setBenefitDecisionOpen] = useState(false);
   const [pendingBenefitAction, setPendingBenefitAction] =
     useState<BenefitStatusAction | null>(null);
@@ -3258,6 +3261,123 @@ export function AgendaPage({
     });
   }
 
+  async function requestAppointmentRefund() {
+    if (!selectedAppointment || !accountId || !canOperate) return;
+    const refundableSales = (selectedAppointment.sales ?? []).filter(
+      (sale) =>
+        Number(sale.paid_amount ?? 0) > 0 &&
+        !['voided', 'refunded'].includes(sale.status)
+    );
+    if (!refundableSales.length) {
+      toast.error('Esta marcação não possui pagamento recebido para reembolsar.');
+      return;
+    }
+    if (refundReason.trim().length < 3) {
+      toast.error('Indique o motivo do cancelamento e reembolso.');
+      return;
+    }
+
+    const refundAmount = refundableSales.reduce(
+      (sum, sale) => sum + Number(sale.paid_amount ?? 0),
+      0
+    );
+    const paymentMethods = Array.from(
+      new Set(
+        refundableSales.flatMap((sale) =>
+          (sale.payments ?? [])
+            .filter((payment) => payment.status === 'confirmed')
+            .map((payment) => paymentMethodLabel(payment.method))
+        )
+      )
+    );
+
+    setRequestingRefund(true);
+    try {
+      for (const sale of refundableSales) {
+        const { error } = await supabase.rpc('reverse_finance_sale', {
+          p_sale_id: sale.id,
+          p_mode: 'refund',
+          p_reason: refundReason.trim(),
+        });
+        if (error) throw new Error(error.message);
+      }
+
+      const { error: appointmentError } = await supabase
+        .from('clinic_appointments')
+        .update({
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+        })
+        .eq('id', selectedAppointment.id)
+        .eq('account_id', accountId);
+      if (appointmentError) throw new Error(appointmentError.message);
+
+      if (appointmentBenefit?.status === 'reserved') {
+        const { error: benefitError } = await supabase.rpc(
+          'settle_appointment_benefit',
+          {
+            p_appointment_id: selectedAppointment.id,
+            p_action: 'release',
+          }
+        );
+        if (benefitError) throw new Error(benefitError.message);
+      }
+
+      void recordAgendaEvent({
+        entityType: 'appointment',
+        entityId: selectedAppointment.id,
+        action: 'status_changed',
+        reason: refundReason.trim(),
+        oldStart: selectedAppointment.scheduled_start,
+        oldEnd: selectedAppointment.scheduled_end,
+        newStart: selectedAppointment.scheduled_start,
+        newEnd: selectedAppointment.scheduled_end,
+        metadata: {
+          refund_amount: refundAmount,
+          payment_methods: paymentMethods,
+          sales: refundableSales.map((sale) => sale.id),
+        },
+      });
+
+      try {
+        const response = await fetch(
+          `/api/clinic/appointments/${selectedAppointment.id}/refund-notification`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: refundAmount, paymentMethods }),
+          }
+        );
+        const notification = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        if (!response.ok)
+          toast.warning(
+            notification.error ||
+              'Reembolso registado, mas não foi possível avisar o cliente.'
+          );
+      } catch {
+        toast.warning(
+          'Reembolso registado, mas não foi possível avisar o cliente.'
+        );
+      }
+
+      toast.success(
+        `Reembolso de ${formatCurrency(refundAmount, defaultCurrency)} iniciado e cliente notificado.`
+      );
+      setRefundRequestOpen(false);
+      setRefundReason('');
+      closeAppointmentSheet();
+      void loadAgenda();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Não foi possível iniciar o reembolso.'
+      );
+    } finally {
+      setRequestingRefund(false);
+    }
+  }
+
   function confirmBenefitStatusAction() {
     if (!pendingBenefitAction) return;
     applyEditStatusAction(pendingBenefitAction);
@@ -5124,6 +5244,23 @@ export function AgendaPage({
                             >
                               <X className="size-4" /> Cancelar
                             </ActionButton>
+                            <ActionButton
+                              tone="amber"
+                              disabled={
+                                editDraft.status === 'cancelled' ||
+                                !(selectedAppointment.sales ?? []).some(
+                                  (sale) =>
+                                    Number(sale.paid_amount ?? 0) > 0 &&
+                                    !['voided', 'refunded'].includes(sale.status)
+                                )
+                              }
+                              onClick={() => {
+                                setRefundReason('');
+                                setRefundRequestOpen(true);
+                              }}
+                            >
+                              <CircleDollarSign className="size-4" /> Reembolso
+                            </ActionButton>
                           </>
                         ) : null}
                       </div>
@@ -5220,6 +5357,77 @@ export function AgendaPage({
               </div>
             </>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={refundRequestOpen}
+        onOpenChange={(open) => {
+          if (!requestingRefund) setRefundRequestOpen(open);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Cancelar e iniciar reembolso</DialogTitle>
+            <DialogDescription>
+              A marcação será cancelada e o valor recebido será deduzido do financeiro. O cliente recebe uma mensagem a confirmar que o processo foi iniciado.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedAppointment ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+                <p className="font-semibold">Devolução pela forma de pagamento original</p>
+                <p className="mt-1 text-xs leading-5">
+                  O prazo de conclusão depende da entidade de pagamento. Esta ação deduz o recebido no sistema e não pode ser desfeita pela Agenda.
+                </p>
+              </div>
+              <div className="space-y-2 rounded-lg bg-muted/50 p-3 text-sm">
+                {(selectedAppointment.sales ?? [])
+                  .filter(
+                    (sale) =>
+                      Number(sale.paid_amount ?? 0) > 0 &&
+                      !['voided', 'refunded'].includes(sale.status)
+                  )
+                  .map((sale) => (
+                    <div key={sale.id} className="flex items-center justify-between gap-3">
+                      <span className="text-muted-foreground">
+                        Venda #{sale.sale_number}
+                      </span>
+                      <strong>
+                        {formatCurrency(
+                          Number(sale.paid_amount),
+                          sale.currency || defaultCurrency
+                        )}
+                      </strong>
+                    </div>
+                  ))}
+              </div>
+              <Textarea
+                value={refundReason}
+                onChange={(event) => setRefundReason(event.target.value)}
+                disabled={requestingRefund}
+                maxLength={1000}
+                placeholder="Motivo do cancelamento e reembolso"
+              />
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRefundRequestOpen(false)}
+              disabled={requestingRefund}
+            >
+              Voltar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void requestAppointmentRefund()}
+              disabled={requestingRefund || refundReason.trim().length < 3}
+            >
+              {requestingRefund ? <Loader2 className="animate-spin" /> : <CircleDollarSign />}
+              Confirmar reembolso
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

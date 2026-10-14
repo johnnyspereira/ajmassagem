@@ -4,6 +4,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { engineSendText } from '@/lib/automations/meta-send';
 import {
   appointmentConfirmationEmail,
+  appointmentRefundEmail,
+  appointmentRefundMessage,
   appointmentStatusEmail,
   appointmentStatusMessage,
   type AppointmentBenefitEmailInfo,
@@ -275,6 +277,51 @@ export async function sendAppointmentStatusCommunication(input: {
   return { deliveries };
 }
 
+/** Sends the customer-facing acknowledgement after a financial refund starts. */
+export async function sendAppointmentRefundCommunication(input: {
+  db: SupabaseClient;
+  appointmentId: string;
+  amount: number;
+  paymentMethods: string[];
+}) {
+  const { data: appointment, error } = await loadAppointment(
+    input.db,
+    input.appointmentId
+  );
+  if (error || !appointment)
+    throw new Error(error?.message || 'Marcação não encontrada.');
+  const sender = appointment.user_id || appointment.account?.owner_user_id;
+  if (!sender)
+    throw new Error('Não foi possível identificar o remetente da clínica.');
+  const row = appointment as AppointmentMessageRow;
+  const businessName = appointment.account?.name || '';
+  const deliveries = await deliverChannels({
+    db: input.db,
+    appointment: row,
+    accountId: appointment.account_id,
+    contactId: appointment.contact_id,
+    userId: sender,
+    whatsappText: appointmentRefundMessage({
+      appointment: row,
+      businessName,
+      amount: input.amount,
+      paymentMethods: input.paymentMethods,
+    }),
+    email: appointment.contact?.email?.trim() || null,
+    emailContent: appointmentRefundEmail({
+      appointment: row,
+      businessName,
+      logoUrl: appointment.account?.logo_url,
+      amount: input.amount,
+      paymentMethods: input.paymentMethods,
+    }),
+    requestKey: `appointment:${appointment.id}:refund:${Date.now()}`,
+  });
+  await logDelivery(input.db, appointment, 'refund', deliveries);
+  await notifyAppointmentDelivery(appointment, 'refund', deliveries);
+  return { deliveries };
+}
+
 async function notifyAppointmentDelivery(
   appointment: {
     account_id: string;
@@ -282,7 +329,7 @@ async function notifyAppointmentDelivery(
     contact_id: string;
     contact?: { name?: string | null } | null;
   },
-  action: AppointmentMessageAction | 'status_changed',
+  action: AppointmentMessageAction | 'status_changed' | 'refund',
   deliveries: AppointmentDeliveries,
   status?: AppointmentStatus
 ) {
@@ -488,7 +535,7 @@ async function logDelivery(
       email?: string | null;
     } | null;
   },
-  action: AppointmentMessageAction | 'status_changed',
+  action: AppointmentMessageAction | 'status_changed' | 'refund',
   deliveries: AppointmentDeliveries,
   status?: AppointmentStatus
 ) {
