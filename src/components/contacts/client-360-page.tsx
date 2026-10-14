@@ -422,6 +422,8 @@ export function Client360Page({
   const [createConversationOpen, setCreateConversationOpen] = useState(false);
   const [creatingConversation, setCreatingConversation] = useState(false);
   const [activeTab, setActiveTab] = useState<ClientTab>(initialTab);
+  const [packBenefitTab, setPackBenefitTab] = useState<'active' | 'used'>('active');
+  const [voucherBenefitTab, setVoucherBenefitTab] = useState<'active' | 'used'>('active');
   const [draft, setDraft] = useState<ClientDraft>({
     name: '',
     phone: '',
@@ -1160,6 +1162,27 @@ export function Client360Page({
         'Crédito acumulado do programa Indique & Ganhe'
       )
   );
+  const activeClientPacks = clientPacks.filter(
+    (clientPack) =>
+      clientPack.status === 'active' &&
+      (clientPack.balances ?? []).some(
+        (balance) => Number(balance.remaining_sessions ?? 0) > 0
+      )
+  );
+  const usedClientPacks = clientPacks.filter(
+    (clientPack) => !activeClientPacks.some((activePack) => activePack.id === clientPack.id)
+  );
+  const visibleClientPacks = packBenefitTab === 'active' ? activeClientPacks : usedClientPacks;
+  const activeRegularVouchers = regularVouchers.filter((voucher) =>
+    voucher.status === 'active' &&
+    (voucher.voucher_type === 'service'
+      ? Number(voucher.remaining_uses ?? 0) > 0
+      : Number(voucher.current_balance ?? 0) > 0)
+  );
+  const usedRegularVouchers = regularVouchers.filter(
+    (voucher) => !activeRegularVouchers.some((activeVoucher) => activeVoucher.id === voucher.id)
+  );
+  const visibleRegularVouchers = voucherBenefitTab === 'active' ? activeRegularVouchers : usedRegularVouchers;
   const headerTags = showAllHeaderTags ? tags : tags.slice(0, 4);
   const hiddenHeaderTags = Math.max(0, tags.length - headerTags.length);
   const referralUrl = referralCode
@@ -2331,26 +2354,38 @@ export function Client360Page({
                 <CardTitle className="flex items-center gap-2"><PackageCheck /> Packs do cliente</CardTitle>
                 <CardDescription>Sessoes disponiveis, utilizadas e validade de cada pack.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {clientPacks.length ? clientPacks.map((clientPack) => (
+              <Tabs value={packBenefitTab} onValueChange={(value) => setPackBenefitTab(value as 'active' | 'used')}>
+                <TabsList className="mx-6 grid w-auto grid-cols-2">
+                  <TabsTrigger value="active">Ativos ({activeClientPacks.length})</TabsTrigger>
+                  <TabsTrigger value="used">Já utilizados ({usedClientPacks.length})</TabsTrigger>
+                </TabsList>
+              <CardContent className="space-y-3 pt-3">
+                {visibleClientPacks.length ? visibleClientPacks.map((clientPack) => (
                   <div key={clientPack.id} className="border-border rounded-xl border p-4">
                     <div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{clientPack.pack?.name ?? 'Pack de servicos'}</p><p className="text-muted-foreground mt-1 text-xs">Codigo: {clientPack.code || '—'} {clientPack.expires_at ? `· Valido ate ${safeDate(clientPack.expires_at, 'dd/MM/yyyy')}` : ''}</p></div><Badge variant="outline">{labelFor(clientPack.status)}</Badge></div>
                     <div className="mt-3 grid gap-2">{(clientPack.balances ?? []).map((balance) => <div key={balance.id} className="bg-muted/50 flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm"><span className="truncate">{balance.service?.name ?? 'Procedimento'}</span><strong className="shrink-0">{balance.remaining_sessions}/{balance.total_sessions} sessoes</strong></div>)}</div>
                   </div>
-                )) : <Empty icon={PackageCheck} text="Este cliente ainda nao possui packs." />}
+                )) : <Empty icon={PackageCheck} text={packBenefitTab === 'active' ? 'Não existem packs ativos com sessões disponíveis.' : 'Ainda não existem packs já utilizados ou encerrados.'} />}
               </CardContent>
+              </Tabs>
             </Card>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Gift /> Vouchers do cliente</CardTitle>
                   <CardDescription>Procedimento, saldo ou sessões e respetiva validade.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {regularVouchers.length ? regularVouchers.map((voucher) => (<Fragment key={voucher.id}>
+              <Tabs value={voucherBenefitTab} onValueChange={(value) => setVoucherBenefitTab(value as 'active' | 'used')}>
+                <TabsList className="mx-6 grid w-auto grid-cols-2">
+                  <TabsTrigger value="active">Ativos ({activeRegularVouchers.length})</TabsTrigger>
+                  <TabsTrigger value="used">Já utilizados ({usedRegularVouchers.length})</TabsTrigger>
+                </TabsList>
+              <CardContent className="space-y-3 pt-3">
+                {visibleRegularVouchers.length ? visibleRegularVouchers.map((voucher) => (<Fragment key={voucher.id}>
                   <div key={voucher.id} className="border-border rounded-xl border p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{voucher.voucher_type === 'service' ? voucher.service?.name ?? 'Voucher de procedimento' : 'Voucher de saldo'}</p><p className="text-muted-foreground mt-0.5 text-xs font-mono">Código: {voucher.code}</p><p className="text-muted-foreground mt-1 text-xs">{voucher.voucher_type === 'service' ? `${Number(voucher.remaining_uses ?? 0)} sessão(ões) disponível(eis)` : `Saldo ${formatCurrency(Number(voucher.current_balance), voucher.currency)}`}{voucher.expires_at ? ` · Válido até ${safeDate(voucher.expires_at, 'dd/MM/yyyy')}` : ''}</p></div><Badge variant="outline">{labelFor(voucher.status)}</Badge></div></div>
                   <VoucherValueSummary voucher={voucher} paidAmount={voucher.paid_amount} />
-                </Fragment>)) : <Empty icon={Gift} text="Este cliente ainda nao possui vouchers." />}
+                </Fragment>)) : <Empty icon={Gift} text={voucherBenefitTab === 'active' ? 'Não existem vouchers ativos com saldo ou sessões disponíveis.' : 'Ainda não existem vouchers já utilizados ou encerrados.'} />}
               </CardContent>
+              </Tabs>
             </Card>
           </div>
         </TabsContent>
