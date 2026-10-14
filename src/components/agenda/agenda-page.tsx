@@ -5378,7 +5378,7 @@ export function AgendaPage({
               <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
                 <p className="font-semibold">Devolução pela forma de pagamento original</p>
                 <p className="mt-1 text-xs leading-5">
-                  O prazo de conclusão depende da entidade de pagamento. Esta ação deduz o recebido no sistema e não pode ser desfeita pela Agenda.
+                  O prazo estimado para conclusão é de 24 a 48 horas e depende da entidade de pagamento. Esta ação deduz o recebido no sistema e não pode ser desfeita pela Agenda.
                 </p>
               </div>
               <div className="space-y-2 rounded-lg bg-muted/50 p-3 text-sm">

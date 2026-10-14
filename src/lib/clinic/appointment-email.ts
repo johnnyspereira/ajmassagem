@@ -220,7 +220,7 @@ export function appointmentRefundMessage(input: {
     '*Reembolso iniciado*',
     `Confirmamos o cancelamento da sua sessão de ${details.service}.`,
     `Iniciámos o reembolso de ${refund}. O valor será devolvido pela mesma forma de pagamento: ${methods}.`,
-    'O prazo de conclusão depende da entidade de pagamento. Se precisar de ajuda, responda a esta mensagem.',
+    'O prazo estimado para conclusão é de 24 a 48 horas, dependendo da entidade de pagamento. Se precisar de ajuda, responda a esta mensagem.',
     '',
     `Equipa ${input.businessName.trim() || 'da clínica'}`,
   ].join('\n');
@@ -246,7 +246,7 @@ export function appointmentRefundEmail(input: {
     preheader: `Iniciámos o reembolso de ${refund}.`,
     title: 'Reembolso iniciado',
     greeting: name ? `Olá, ${name}.` : 'Olá.',
-    message: `Confirmamos o cancelamento da sua sessão e iniciámos o reembolso de ${refund}. O valor será devolvido pela mesma forma de pagamento: ${methods}. O prazo de conclusão depende da entidade de pagamento.`,
+    message: `Confirmamos o cancelamento da sua sessão e iniciámos o reembolso de ${refund}. O valor será devolvido pela mesma forma de pagamento: ${methods}. O prazo estimado para conclusão é de 24 a 48 horas, dependendo da entidade de pagamento.`,
     appointment: input.appointment,
     logoUrl: input.logoUrl,
   });
