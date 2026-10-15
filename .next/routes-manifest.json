@@ -854,6 +854,12 @@
       "namedRegex": "^/api/auth/logout(?:/)?$"
     },
     {
+      "page": "/api/auth/password/complete",
+      "regex": "^/api/auth/password/complete(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/password/complete(?:/)?$"
+    },
+    {
       "page": "/api/auth/password/reset",
       "regex": "^/api/auth/password/reset(?:/)?$",
       "routeKeys": {},
