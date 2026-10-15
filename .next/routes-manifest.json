@@ -1406,6 +1406,12 @@
       "namedRegex": "^/install(?:/)?$"
     },
     {
+      "page": "/leads",
+      "regex": "^/leads(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/leads(?:/)?$"
+    },
+    {
       "page": "/library",
       "regex": "^/library(?:/)?$",
       "routeKeys": {},

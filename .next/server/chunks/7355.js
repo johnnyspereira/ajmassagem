@@ -1,4 +1,4 @@
-"use strict";exports.id=7355,exports.ids=[7355],exports.modules={69736:(a,b,c)=>{c.d(b,{executeMysqlRpc:()=>p});var d=c(77598),e=c(9012);let f=(a=null)=>({data:a,error:null}),g=a=>null==a?null:String(a);async function h(a){let[b]=await a.execute(`SELECT column_name FROM information_schema.columns
+"use strict";exports.id=7355,exports.ids=[7355],exports.modules={47355:(a,b,c)=>{c.d(b,{executeMysqlRpc:()=>p});var d=c(77598),e=c(9012);let f=(a=null)=>({data:a,error:null}),g=a=>null==a?null:String(a);async function h(a){let[b]=await a.execute(`SELECT column_name FROM information_schema.columns
      WHERE table_schema=DATABASE() AND table_name='finance_vouchers'
        AND column_name IN ('issued_sale_item_id','paid_amount')`);return 2===b.length}async function i(a){if(await h(a))return!0;try{await a.query(`
       ALTER TABLE finance_vouchers
