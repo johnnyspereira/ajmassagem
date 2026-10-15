@@ -760,8 +760,8 @@ export default function NotificationsPage() {
             )}
           </div>
           <p className="text-muted-foreground mt-1 text-sm">
-            Central de alertas do atendimento, comercial, automações, QR e
-            sistema.
+            Priorize o que exige resposta e resolva cada alerta sem perder o
+            contexto da operação.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -800,6 +800,11 @@ export default function NotificationsPage() {
           label="Total"
           value={stats.total}
           detail="últimas 150"
+          onClick={() => {
+            setCategory('all');
+            setStateFilter('all');
+            setPriorityFilter('all');
+          }}
         />
         <StatCard
           icon={Eye}
@@ -807,6 +812,7 @@ export default function NotificationsPage() {
           value={stats.unread}
           detail="aguardando atenção"
           tone={stats.unread > 0 ? 'primary' : 'muted'}
+          onClick={() => setStateFilter('unread')}
         />
         <StatCard
           icon={ShieldAlert}
@@ -814,6 +820,7 @@ export default function NotificationsPage() {
           value={stats.critical}
           detail="risco operacional"
           tone={stats.critical > 0 ? 'danger' : 'muted'}
+          onClick={() => setPriorityFilter('critical')}
         />
         <StatCard
           icon={Activity}
@@ -821,6 +828,7 @@ export default function NotificationsPage() {
           value={stats.actionable}
           detail="abrem uma tela"
           tone={stats.actionable > 0 ? 'warning' : 'muted'}
+          onClick={() => setStateFilter('action')}
         />
         <StatCard
           icon={Clock3}
@@ -1374,15 +1382,26 @@ function StatCard({
   value,
   detail,
   tone = 'muted',
+  onClick,
 }: {
   icon: LucideIcon;
   label: string;
   value: number;
   detail: string;
   tone?: 'muted' | 'primary' | 'warning' | 'danger';
+  onClick?: () => void;
 }) {
   return (
-    <div className="border-border bg-card rounded-lg border p-4">
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className={cn(
+        'border-border bg-card w-full rounded-lg border p-4 text-left transition-colors',
+        onClick &&
+          'hover:border-primary/40 hover:bg-muted/30 focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none'
+      )}
+    >
       <div className="flex items-center justify-between gap-3">
         <span className="text-muted-foreground text-xs font-medium">
           {label}
@@ -1403,7 +1422,7 @@ function StatCard({
         {value.toLocaleString('pt-PT')}
       </div>
       <p className="text-muted-foreground mt-1 text-xs">{detail}</p>
-    </div>
+    </button>
   );
 }
 

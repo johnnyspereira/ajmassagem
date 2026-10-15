@@ -18,6 +18,7 @@ import {
   DollarSign,
   Gift,
   History,
+  KeyRound,
   Loader2,
   Mail,
   Pencil,
@@ -193,6 +194,7 @@ export function ContactSidebar({
   const [editingContact, setEditingContact] = useState(false);
   const [savingContact, setSavingContact] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [sendingPortalAccess, setSendingPortalAccess] = useState(false);
 
   const [deals, setDeals] = useState<DealWithRelations[]>([]);
   const [notes, setNotes] = useState<ContactNote[]>([]);
@@ -551,6 +553,60 @@ export function ContactSidebar({
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }, [activeContact]);
+
+  const handleSendPortalAccess = useCallback(async () => {
+    if (!activeContact?.phone) {
+      toast.error('Adicione um número de WhatsApp antes de enviar o acesso ao Portal 360.');
+      return;
+    }
+    if (!accountId) return;
+
+    setSendingPortalAccess(true);
+    try {
+      const supabase = createClient();
+      const { data: portal, error: portalError } = await supabase
+        .from('client_portal_settings')
+        .select('slug')
+        .eq('account_id', accountId)
+        .eq('enabled', true)
+        .maybeSingle();
+      if (portalError) throw portalError;
+      if (!portal?.slug) {
+        throw new Error('O Portal 360 não está publicado para esta conta.');
+      }
+
+      const response = await fetch(
+        `/api/portal/${encodeURIComponent(portal.slug)}/password`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: activeContact.phone,
+            email: activeContact.email || undefined,
+            delivery: 'whatsapp',
+          }),
+        }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Não foi possível enviar o acesso ao Portal 360.');
+      }
+      pushSessionEvent(
+        'Acesso ao Portal 360 enviado',
+        'Instruções enviadas pelo WhatsApp.',
+        'contact'
+      );
+      toast.success('Acesso ao Portal 360 enviado por WhatsApp.');
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível enviar o acesso ao Portal 360.'
+      );
+    } finally {
+      setSendingPortalAccess(false);
+    }
+  }, [accountId, activeContact, pushSessionEvent]);
 
   const handleSaveContact = useCallback(async () => {
     if (!activeContact || !draft.phone.trim()) return;
@@ -927,6 +983,26 @@ export function ContactSidebar({
             >
               <User className="h-3.5 w-3.5" />
               Abrir Cliente 360
+            </Button>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-8 w-full"
+              onClick={() => void handleSendPortalAccess()}
+              disabled={sendingPortalAccess || !activeContact.phone}
+              title={
+                activeContact.phone
+                  ? 'Enviar acesso seguro ao Portal 360 por WhatsApp'
+                  : 'Este contacto não tem número de WhatsApp'
+              }
+            >
+              {sendingPortalAccess ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <KeyRound className="h-3.5 w-3.5" />
+              )}
+              Enviar acesso ao Portal
             </Button>
 
             {editingContact ? (
