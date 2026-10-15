@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -31,7 +31,7 @@ export default function NewBroadcastPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [template, setTemplate] = useState<BroadcastTemplate | null>(null);
   const [audience, setAudience] = useState<{
-    type: 'all' | 'tags' | 'custom_field' | 'csv';
+    type: 'all' | 'tags' | 'custom_field' | 'csv' | 'selected';
     tagIds?: string[];
     customField?: {
       fieldId: string;
@@ -39,6 +39,7 @@ export default function NewBroadcastPage() {
       value: string;
     };
     csvContacts?: { phone: string; name?: string }[];
+    contactIds?: string[];
     excludeTagIds?: string[];
   }>({ type: 'all' });
   const [variables, setVariables] = useState<
@@ -46,6 +47,20 @@ export default function NewBroadcastPage() {
   >({});
   const [headerMediaUrl, setHeaderMediaUrl] = useState('');
   const [name, setName] = useState('');
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem('broadcast:selected-contact-ids');
+    if (!raw) return;
+    try {
+      const contactIds = JSON.parse(raw);
+      if (Array.isArray(contactIds) && contactIds.length) {
+        setAudience({ type: 'selected', contactIds });
+        setName('Leads selecionados');
+      }
+    } finally {
+      sessionStorage.removeItem('broadcast:selected-contact-ids');
+    }
+  }, []);
 
   async function handleSend() {
     if (!template) return;
@@ -59,6 +74,7 @@ export default function NewBroadcastPage() {
           tagIds: audience.tagIds,
           customField: audience.customField,
           csvContacts: audience.csvContacts,
+          contactIds: audience.contactIds,
           excludeTagIds: audience.excludeTagIds,
         },
         variables,
@@ -112,6 +128,7 @@ export default function NewBroadcastPage() {
       audience_filter: {
         type: audience.type,
         tagIds: audience.tagIds,
+            contactIds: audience.contactIds,
       },
       status: 'draft',
       total_recipients: 0,

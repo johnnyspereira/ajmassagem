@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
-type AudienceType = 'all' | 'tags' | 'custom_field' | 'csv';
+type AudienceType = 'all' | 'tags' | 'custom_field' | 'csv' | 'selected';
 type CustomFieldOperator = 'is' | 'is_not' | 'contains';
 
 interface CustomFieldFilter {
@@ -35,6 +35,7 @@ interface AudienceConfig {
   tagIds?: string[];
   customField?: CustomFieldFilter;
   csvContacts?: { phone: string; name?: string }[];
+  contactIds?: string[];
   excludeTagIds?: string[];
 }
 
@@ -219,6 +220,9 @@ export function Step2SelectAudience({
       ) {
         setEstimatedCount(audience.csvContacts.length);
         return;
+      } else if (audience.type === 'selected' && audience.contactIds?.length) {
+        setEstimatedCount(audience.contactIds.length);
+        return;
       } else {
         // Partially-configured audience — wait for the user to finish.
         setEstimatedCount(null);
@@ -256,6 +260,7 @@ export function Step2SelectAudience({
     audience.tagIds,
     audience.customField,
     audience.csvContacts,
+    audience.contactIds,
     audience.excludeTagIds,
   ]);
 
@@ -306,7 +311,7 @@ export function Step2SelectAudience({
       toast.error(t('selectAudience.savedNoAccount'));
       return;
     }
-    if (audience.type === 'csv') {
+    if (audience.type === 'csv' || audience.type === 'selected') {
       toast.error(t('selectAudience.savedCsvUnsupported'));
       return;
     }
@@ -356,7 +361,8 @@ export function Step2SelectAudience({
       audience.customField.value.length > 0) ||
     (audience.type === 'csv' &&
       audience.csvContacts &&
-      audience.csvContacts.length > 0);
+      audience.csvContacts.length > 0) ||
+    (audience.type === 'selected' && !!audience.contactIds?.length);
 
   return (
     <div className="space-y-6">
@@ -460,6 +466,7 @@ export function Step2SelectAudience({
                         : undefined,
                     csvContacts:
                       option.type === 'csv' ? audience.csvContacts : undefined,
+                    contactIds: undefined,
                   })
                 }
                 className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-all ${
@@ -490,6 +497,13 @@ export function Step2SelectAudience({
           }
         )}
       </div>
+
+      {audience.type === 'selected' && (
+        <div className="border-primary/30 bg-primary/5 rounded-xl border p-4 text-sm">
+          <p className="font-medium">Leads selecionados</p>
+          <p className="text-muted-foreground mt-1">{audience.contactIds?.length ?? 0} contacto(s) vieram da área de Leads. Pode manter esta seleção ou escolher outro público acima.</p>
+        </div>
+      )}
 
       {audience.type === 'tags' && (
         <div className="border-border bg-card/50 rounded-xl border p-4">

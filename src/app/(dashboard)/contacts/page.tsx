@@ -1172,6 +1172,13 @@ export default function ContactsPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => router.push('/leads')}
+            className="border-border text-muted-foreground hover:bg-muted"
+          >
+            <Users className="size-4" /> Trabalhar leads
+          </Button>
           {canEditSettings && (
             <Button
               variant="outline"

@@ -19,10 +19,11 @@ export interface CustomFieldFilter {
 }
 
 export interface AudienceConfig {
-  type: 'all' | 'tags' | 'custom_field' | 'csv';
+  type: 'all' | 'tags' | 'custom_field' | 'csv' | 'selected';
   tagIds?: string[];
   customField?: CustomFieldFilter;
   csvContacts?: { phone: string; name?: string }[];
+  contactIds?: string[];
   /** Contacts carrying any of these tags are subtracted from the result. */
   excludeTagIds?: string[];
 }
@@ -199,6 +200,10 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       );
     } else if (audience.type === 'csv' && audience.csvContacts) {
       contacts = await upsertCsvContacts(supabase, audience.csvContacts);
+    } else if (audience.type === 'selected' && audience.contactIds?.length) {
+      const { data, error } = await supabase.from('contacts').select('*').in('id', audience.contactIds);
+      if (error) throw new Error(`Failed to fetch selected contacts: ${error.message}`);
+      contacts = data ?? [];
     }
 
     // Apply exclude tags (works across all contact-derived audience
@@ -382,6 +387,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
             type: payload.audience.type,
             tagIds: payload.audience.tagIds,
             customField: payload.audience.customField,
+            contactIds: payload.audience.contactIds,
             excludeTagIds: payload.audience.excludeTagIds,
             templateSource: isInternalTemplate ? 'internal' : 'meta',
           },
