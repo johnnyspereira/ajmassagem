@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
-import { getPublicUrl } from '@/lib/public-url';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,22 +19,21 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const supabase = createClient();
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: getPublicUrl(
-        '/auth/callback?next=/reset-password',
-        window.location.origin
-      ),
-    });
+    const response = await fetch('/api/auth/password/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    }).catch(() => null);
+    const payload = await response?.json().catch(() => null);
 
-    if (error) {
-      setError(error.message);
+    if (!response?.ok) {
+      setError(payload?.error?.message ?? 'Não foi possível pedir a recuperação agora.');
       setLoading(false);
       return;
     }

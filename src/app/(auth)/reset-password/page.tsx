@@ -15,7 +15,6 @@ import {
   XCircle,
 } from 'lucide-react';
 
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,7 +40,6 @@ function analysePassword(value: string) {
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const supabase = createClient();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -67,18 +65,25 @@ export default function ResetPasswordPage() {
     }
 
     setLoading(true);
-    const { error: updateError } = await supabase.auth.updateUser({
-      password,
-    });
+    const response = await fetch('/api/auth/password/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ password, confirmation: confirm }),
+    }).catch(() => null);
+    const payload = await response?.json().catch(() => null);
     setLoading(false);
 
-    if (updateError) {
-      setError(updateError.message);
+    if (!response?.ok) {
+      setError(
+        payload?.error?.message ??
+          'Não foi possível alterar a palavra-passe. Peça um novo link de recuperação.'
+      );
       return;
     }
 
-    toast.success('Senha redefinida com sucesso.');
-    router.replace('/settings?tab=security');
+    toast.success('Palavra-passe redefinida com sucesso. Entre novamente.');
+    router.replace('/login?reset=success');
   }
 
   const requirements = [

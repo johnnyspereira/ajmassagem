@@ -6,8 +6,6 @@ import { LifeBuoy, Loader2, MailCheck } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { useAuth } from '@/hooks/use-auth';
-import { createClient } from '@/lib/supabase/client';
-import { getPublicUrl } from '@/lib/public-url';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -30,17 +28,20 @@ export function AccountRecoveryCard() {
     }
 
     setSending(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: getPublicUrl(
-        '/auth/callback?next=/reset-password',
-        window.location.origin
-      ),
-    });
+    const response = await fetch('/api/auth/password/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    }).catch(() => null);
+    const payload = await response?.json().catch(() => null);
     setSending(false);
 
-    if (error) {
-      toast.error(t('recoveryFailed', { message: error.message }));
+    if (!response?.ok) {
+      toast.error(
+        t('recoveryFailed', {
+          message: payload?.error?.message ?? 'Não foi possível enviar agora.',
+        })
+      );
       return;
     }
 
