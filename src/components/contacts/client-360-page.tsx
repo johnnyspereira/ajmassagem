@@ -386,6 +386,7 @@ export function Client360Page({
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [referralProgramEnabled, setReferralProgramEnabled] = useState(false);
   const [clientReferrals, setClientReferrals] = useState<ClientReferral[]>([]);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
@@ -458,6 +459,7 @@ export function Client360Page({
       vouchersRes,
       clientPacksRes,
       referralCodeRes,
+      referralProgramRes,
       referralsRes,
       customFieldsRes,
       customValuesRes,
@@ -536,6 +538,11 @@ export function Client360Page({
         .eq('account_id', accountId)
         .eq('contact_id', contactId)
         .eq('is_active', true)
+        .maybeSingle(),
+      supabase
+        .from('referral_program_settings')
+        .select('enabled')
+        .eq('account_id', accountId)
         .maybeSingle(),
       supabase
         .from('referrals')
@@ -655,7 +662,30 @@ export function Client360Page({
     setSales((salesRes.data as FinanceSale[] | null) ?? []);
     setVouchers((vouchersRes.data as FinanceVoucher[] | null) ?? []);
     setClientPacks((clientPacksRes.data as FinanceClientPack[] | null) ?? []);
-    setReferralCode(referralCodeRes.data?.code ?? null);
+    setReferralProgramEnabled(Boolean(referralProgramRes.data?.enabled));
+    let nextReferralCode = referralCodeRes.data?.code ?? null;
+    // Codes used to be created only after the client opened Portal 360.
+    // Create the individual code here as well so the team can share it from
+    // Client 360 before the client has ever used the portal.
+    if (!nextReferralCode && referralProgramRes.data?.enabled) {
+      const generatedCode = `REF-${crypto.randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase()}`;
+      const createdCodeRes = await supabase
+        .from('referral_codes')
+        .upsert(
+          {
+            id: crypto.randomUUID(),
+            account_id: accountId,
+            contact_id: contactId,
+            code: generatedCode,
+            is_active: true,
+          },
+          { onConflict: 'account_id,contact_id' }
+        )
+        .select('code')
+        .maybeSingle();
+      if (!createdCodeRes.error) nextReferralCode = createdCodeRes.data?.code ?? generatedCode;
+    }
+    setReferralCode(nextReferralCode);
     setClientReferrals(
       referralsRes.error
         ? []
@@ -1415,8 +1445,13 @@ export function Client360Page({
             size="sm"
             onClick={() => {
               if (!referralUrl) {
-                changeTab('referrals');
-                toast.info('O link de indicação ainda não está disponível para este cliente.');
+                if (referralProgramEnabled) {
+                  void loadClient();
+                  toast.info('Estamos a gerar o link individual deste cliente. Atualize em instantes.');
+                } else {
+                  router.push('/settings?tab=referrals');
+                  toast.info('Ative e guarde o programa de indicações para gerar os links dos clientes.');
+                }
                 return;
               }
               void navigator.clipboard.writeText(referralUrl);
@@ -2714,8 +2749,14 @@ export function Client360Page({
                   </>
                 ) : (
                   <div className="bg-muted/40 rounded-md p-4 text-sm">
-                    O código ficará disponível depois da migration 055 e da
-                    ativação do programa em Configurações.
+                    <p>{referralProgramEnabled ? 'O programa está ativo, mas este cliente ainda não tem código individual. Atualize para gerar o link.' : 'Ative e guarde o programa de indicações para gerar o código individual deste cliente.'}</p>
+                    <Button
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => referralProgramEnabled ? void loadClient() : router.push('/settings?tab=referrals')}
+                    >
+                      <HeartHandshake /> {referralProgramEnabled ? 'Gerar e atualizar link' : 'Configurar programa'}
+                    </Button>
                   </div>
                 )}
                 <div className="grid grid-cols-3 gap-2">
