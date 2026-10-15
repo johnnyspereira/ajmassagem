@@ -1410,6 +1410,21 @@ export function Client360Page({
             <MessageCircle />
             {latestConversation ? 'Abrir Inbox' : 'Iniciar conversa'}
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (!referralUrl) {
+                changeTab('referrals');
+                toast.info('O link de indicação ainda não está disponível para este cliente.');
+                return;
+              }
+              void navigator.clipboard.writeText(referralUrl);
+              toast.success('Link de indicação copiado.');
+            }}
+          >
+            <Copy /> {referralUrl ? 'Copiar indicação' : 'Ver indicação'}
+          </Button>
           <span className="bg-border hidden h-8 w-px sm:block" />
           <Button
             variant="secondary"
