@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 import { supabaseAdmin } from '@/lib/flows/admin-client';
 import { resolveAuditUserId } from '@/lib/api/v1/contacts';
@@ -75,6 +75,27 @@ function portalIdentityErrorCode(message = '') {
   if (normalized.includes('connect') || normalized.includes('timeout'))
     return 'PORTAL_IDENTITY_DATABASE';
   return 'PORTAL_IDENTITY_CREATE_FAILED';
+}
+
+async function recordPortalHistory(input: {
+  accountId: string;
+  contactId: string;
+  title: string;
+  detail: string;
+  metadata?: Record<string, unknown>;
+}) {
+  const { error } = await supabaseAdmin()
+    .from('client_activity_events')
+    .insert({
+      id: randomUUID(),
+      account_id: input.accountId,
+      contact_id: input.contactId,
+      event_type: 'note_added',
+      title: input.title,
+      detail: input.detail,
+      metadata: input.metadata ?? {},
+    });
+  if (error) console.error('[portal-password] client history failed:', error);
 }
 
 export async function POST(
@@ -375,6 +396,16 @@ export async function POST(
         { senderType: 'bot' }
       );
     }
+    await recordPortalHistory({
+      accountId: settings.account_id,
+      contactId: contact.id,
+      title: 'Acesso ao Portal 360 enviado',
+      detail:
+        delivery === 'email'
+          ? 'Convite de acesso seguro enviado por email.'
+          : 'Convite de acesso seguro enviado por WhatsApp.',
+      metadata: { delivery, source: 'portal_access_invite' },
+    });
     return Response.json({
       ok: true,
       delivered: true,
@@ -446,7 +477,9 @@ export async function PATCH(
 ) {
   try {
     const { slug } = await params;
-    const { admin, access, user } = await requirePortalAccess(slug);
+    const { admin, access, user } = await requirePortalAccess(slug, {
+      allowPasswordChange: true,
+    });
     const body = (await request.json()) as { password?: string };
     const password = body.password || '';
     if (
@@ -474,6 +507,14 @@ export async function PATCH(
         password_changed_at: new Date().toISOString(),
       })
       .eq('id', access.id);
+    await recordPortalHistory({
+      accountId: access.account_id,
+      contactId: access.contact_id,
+      title: 'Palavra-passe do Portal 360 criada',
+      detail:
+        'O cliente definiu uma palavra-passe pessoal e concluiu a ativação do acesso seguro.',
+      metadata: { source: 'portal_first_password' },
+    });
     return Response.json({ ok: true });
   } catch (error) {
     return portalErrorResponse(error);

@@ -10,7 +10,10 @@ export class PortalError extends Error {
   }
 }
 
-export async function requirePortalAccess(slug: string) {
+export async function requirePortalAccess(
+  slug: string,
+  options: { allowPasswordChange?: boolean } = {}
+) {
   const sessionClient = await createPortalAuthClient();
   const {
     data: { user },
@@ -43,6 +46,12 @@ export async function requirePortalAccess(slug: string) {
     user.email?.toLowerCase() !== access.portal_auth_email.toLowerCase()
   ) {
     throw new PortalError('Portal identity is not isolated', 403);
+  }
+  if (access.requires_password_change && !options.allowPasswordChange) {
+    throw new PortalError(
+      'Defina a sua palavra-passe pessoal antes de continuar no Portal 360.',
+      428
+    );
   }
   return { admin, sessionClient, user, settings, access };
 }

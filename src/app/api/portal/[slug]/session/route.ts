@@ -99,7 +99,7 @@ export async function PUT(
 
   const { data: access } = await admin
     .from('client_portal_access')
-    .select('id,contact_id,portal_auth_email,enabled')
+    .select('id,contact_id,portal_auth_email,requires_password_change,enabled')
     .eq('account_id', settings.account_id)
     .eq('contact_id', contacts[0].id)
     .maybeSingle();
@@ -129,7 +129,10 @@ export async function PUT(
     accessId: access.id,
     contactId: access.contact_id,
   });
-  return Response.json({ ok: true });
+  return Response.json({
+    ok: true,
+    requiresPasswordChange: databaseBoolean(access.requires_password_change),
+  });
 }
 
 export async function POST(

@@ -260,6 +260,28 @@ async function addPayment(
       'UPDATE clinic_appointments SET paid_at=COALESCE(paid_at,COALESCE(?,UTC_TIMESTAMP(3))),updated_at=UTC_TIMESTAMP(3) WHERE id=? AND account_id=?',
       [input.paidAt ?? null, sale.appointment_id, input.accountId]
     );
+  if (complete && sale.appointment_id) {
+    const [appointments] = await connection.execute<
+      (RowDataPacket & { referral_id: string | null })[]
+    >(
+      'SELECT referral_id FROM clinic_appointments WHERE id=? AND account_id=? FOR UPDATE',
+      [sale.appointment_id, input.accountId]
+    );
+    const referralId = appointments[0]?.referral_id;
+    if (referralId) {
+      await ensureReferralRewards(connection, input.accountId, referralId);
+      await issuePendingReferrerCredits(
+        connection,
+        input.accountId,
+        referralId,
+        input.userId
+      );
+      await connection.execute(
+        "UPDATE referrals SET status='rewarded',rewarded_at=COALESCE(rewarded_at,UTC_TIMESTAMP(3)) WHERE id=? AND NOT EXISTS(SELECT 1 FROM referral_rewards WHERE referral_id=? AND status='pending')",
+        [referralId, referralId]
+      );
+    }
+  }
 }
 
 async function ensureReferralRewards(
@@ -376,6 +398,127 @@ async function issuePendingReferrerCredits(
       `UPDATE referral_rewards SET status='issued',issued_at=UTC_TIMESTAMP(3),issued_by_user_id=?,issued_wallet_id=?,credited_amount=?,available_amount=? WHERE id=?`,
       [userId, walletId, amount, amount, reward.id]
     );
+    if (beneficiary === 'referrer') {
+      await queueReferralRewardCommunication(connection, {
+        accountId,
+        userId,
+        rewardId: reward.id,
+        contactId: reward.contact_id,
+        amount,
+      });
+    }
+  }
+}
+
+/**
+ * Referral credits are financial events, but the customer should not have to
+ * discover them by chance. Queue a durable WhatsApp message in the same
+ * transaction so it follows the normal Worker retry path and remains visible
+ * in both the Inbox and Client 360 timeline.
+ */
+async function queueReferralRewardCommunication(
+  connection: PoolConnection,
+  input: {
+    accountId: string;
+    userId: string;
+    rewardId: string;
+    contactId: string;
+    amount: number;
+  }
+) {
+  try {
+    const [contacts] = await connection.execute<
+      (RowDataPacket & { name: string | null; phone: string | null })[]
+    >(
+      'SELECT name,phone FROM contacts WHERE id=? AND account_id=? FOR UPDATE',
+      [input.contactId, input.accountId]
+    );
+    const contact = contacts[0];
+    if (!contact?.phone) return;
+
+    const [portalRows] = await connection.execute<
+      (RowDataPacket & { slug: string })[]
+    >(
+      "SELECT slug FROM client_portal_settings WHERE account_id=? AND enabled=1 LIMIT 1",
+      [input.accountId]
+    );
+    const baseUrl = (
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.APP_URL ||
+      'https://jpmassagem.pt'
+    ).replace(/\/$/, '');
+    const portalUrl = portalRows[0]?.slug
+      ? `${baseUrl}/portal/${portalRows[0].slug}`
+      : `${baseUrl}/portal`;
+    const firstName = contact.name?.trim().split(/\s+/)[0] || 'cliente';
+    const amountText = `${Number(input.amount).toFixed(2).replace('.', ',')} €`;
+    const text = [
+      `Olá, ${firstName}.`,
+      '',
+      `Foi adicionado ${amountText} ao seu cartão-saldo pela indicação realizada.`,
+      `Pode consultar o valor disponível no Portal 360: ${portalUrl}`,
+    ].join('\n');
+
+    const [conversations] = await connection.execute<
+      (RowDataPacket & { id: string })[]
+    >(
+      'SELECT id FROM conversations WHERE account_id=? AND contact_id=? LIMIT 1 FOR UPDATE',
+      [input.accountId, input.contactId]
+    );
+    const conversationId = conversations[0]?.id ?? randomUUID();
+    if (!conversations[0]) {
+      await connection.execute(
+        "INSERT INTO conversations(id,account_id,user_id,contact_id,status) VALUES(?,?,?,?,'open')",
+        [conversationId, input.accountId, input.userId, input.contactId]
+      );
+    }
+
+    const messageId = randomUUID();
+    await connection.execute(
+      `INSERT INTO messages(id,conversation_id,sender_type,sender_id,content_type,content_text,status)
+       VALUES(?,?, 'bot',?,'text',?,'sending')`,
+      [messageId, conversationId, input.userId, text]
+    );
+    await connection.execute(
+      `INSERT INTO whatsapp_outbox(id,account_id,conversation_id,user_id,message_id,request_key,phone,payload)
+       VALUES(?,?,?,?,?,?,?,?)`,
+      [
+        randomUUID(),
+        input.accountId,
+        conversationId,
+        input.userId,
+        messageId,
+        `referral-reward:${input.rewardId}`,
+        contact.phone,
+        JSON.stringify({ contentType: 'text', text, senderType: 'bot' }),
+      ]
+    );
+    await connection.execute(
+      `UPDATE conversations SET last_message_text=?,last_message_at=UTC_TIMESTAMP(3),updated_at=UTC_TIMESTAMP(3)
+       WHERE id=? AND account_id=?`,
+      [text, conversationId, input.accountId]
+    );
+    await connection.execute(
+      `INSERT INTO client_activity_events(id,account_id,contact_id,event_type,title,detail,actor_user_id,metadata)
+       VALUES(?,?,?,'note_added',?,?,?,?)`,
+      [
+        randomUUID(),
+        input.accountId,
+        input.contactId,
+        'Crédito de indicação comunicado',
+        `Foi creditado ${amountText} no cartão-saldo e enviada uma mensagem por WhatsApp com o acesso ao Portal 360.`,
+        input.userId,
+        JSON.stringify({
+          referral_reward_id: input.rewardId,
+          amount: input.amount,
+          channel: 'whatsapp',
+          portal_url: portalUrl,
+        }),
+      ]
+    );
+  } catch (error) {
+    // A communication failure must never reverse an already valid credit.
+    console.error('[referral-reward] communication queue failed:', error);
   }
 }
 
@@ -1423,12 +1566,6 @@ export async function executeMysqlRpc(
           if (!result.affectedRows) throw new Error('Referral not found.');
           if (status === 'qualified') {
             await ensureReferralRewards(connection, context.accountId, id);
-            await issuePendingReferrerCredits(
-              connection,
-              context.accountId,
-              id,
-              context.userId
-            );
           }
           await connection.execute(
             'INSERT INTO referral_events(id,account_id,referral_id,action,actor_user_id) VALUES(?,?,?,?,?)',
@@ -1452,12 +1589,6 @@ export async function executeMysqlRpc(
               [String(args.p_event), row.id]
             );
             await ensureReferralRewards(connection, context.accountId, row.id);
-            await issuePendingReferrerCredits(
-              connection,
-              context.accountId,
-              row.id,
-              context.userId
-            );
             changed = true;
           }
         });
@@ -1471,19 +1602,6 @@ export async function executeMysqlRpc(
             context.accountId,
             referralId
           );
-          const [rows] = await connection.execute<
-            (RowDataPacket & { status: string })[]
-          >('SELECT status FROM referrals WHERE id=? AND account_id=?', [
-            referralId,
-            context.accountId,
-          ]);
-          if (['qualified', 'rewarded'].includes(rows[0]?.status))
-            await issuePendingReferrerCredits(
-              connection,
-              context.accountId,
-              referralId,
-              context.userId
-            );
           const [appointments] = await connection.execute<
             (RowDataPacket & {
               id: string;
@@ -1504,7 +1622,13 @@ export async function executeMysqlRpc(
               `SELECT id FROM clinic_appointments WHERE account_id=? AND referral_id=? AND paid_at IS NOT NULL AND status NOT IN('cancelled','no_show') LIMIT 1`,
               [context.accountId, referralId]
             );
-            if (paidAppointments.length)
+            if (paidAppointments.length) {
+              await issuePendingReferrerCredits(
+                connection,
+                context.accountId,
+                referralId,
+                context.userId
+              );
               await issuePendingReferrerCredits(
                 connection,
                 context.accountId,
@@ -1512,6 +1636,7 @@ export async function executeMysqlRpc(
                 context.userId,
                 'friend'
               );
+            }
           }
           if (appointment) {
             const [friendRewards] = await connection.execute<
@@ -1600,6 +1725,7 @@ export async function executeMysqlRpc(
               id: string;
               reward_type: string;
               reward_value: number;
+              beneficiary_type: 'referrer' | 'friend';
               service_id: string | null;
               status: string;
             })[]
@@ -1806,6 +1932,15 @@ export async function executeMysqlRpc(
               `UPDATE referral_rewards SET status='issued',issued_at=UTC_TIMESTAMP(3),issued_wallet_id=?,credited_amount=?,available_amount=? WHERE id=?`,
               [walletId, amount, amount, rewardId]
             );
+            if (reward.beneficiary_type === 'referrer') {
+              await queueReferralRewardCommunication(connection, {
+                accountId: context.accountId,
+                userId: context.userId,
+                rewardId,
+                contactId: reward.contact_id,
+                amount,
+              });
+            }
           } else {
             const voucherId = randomUUID(),
               pin = String(Math.floor(Math.random() * 1_000_000)).padStart(

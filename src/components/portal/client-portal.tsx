@@ -492,6 +492,7 @@ export function ClientPortal({ slug }: { slug: string }) {
   const [password, setPassword] = useState('');
   const [passwordSent, setPasswordSent] = useState(false);
   const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
+  const [portalPermissionsRequired, setPortalPermissionsRequired] = useState(false);
   const [tab, setTab] = useState<PortalTab>('home');
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [supportRequestKey, setSupportRequestKey] = useState(0);
@@ -755,6 +756,7 @@ export function ClientPortal({ slug }: { slug: string }) {
           slug={slug}
           onChanged={async () => {
             setPasswordChangeRequired(false);
+            setPortalPermissionsRequired(true);
             await loadPortal();
           }}
         />
@@ -1170,6 +1172,15 @@ export function ClientPortal({ slug }: { slug: string }) {
         slug={slug}
         onChanged={async () => {
           setPasswordChangeRequired(false);
+          setPortalPermissionsRequired(true);
+          await refreshData();
+        }}
+      />
+      <PortalPermissionsDialog
+        open={portalPermissionsRequired}
+        data={data}
+        onSaved={async () => {
+          setPortalPermissionsRequired(false);
           await refreshData();
         }}
       />
@@ -1716,6 +1727,98 @@ function PortalPasswordChangeDialog({
           >
             {saving ? <Loader2 className="animate-spin" /> : <ShieldCheck />}
             Guardar e continuar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PortalPermissionsDialog({
+  open,
+  data,
+  onSaved,
+}: {
+  open: boolean;
+  data: PortalData;
+  onSaved: () => Promise<void>;
+}) {
+  const [whatsappConsent, setWhatsappConsent] = useState(
+    Boolean(data.client.whatsapp_consent)
+  );
+  const [marketingConsent, setMarketingConsent] = useState(
+    Boolean(data.client.marketing_consent)
+  );
+  const [marketingWhatsappConsent, setMarketingWhatsappConsent] = useState(
+    Boolean(data.client.marketing_whatsapp_consent)
+  );
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    const response = await fetch(
+      `/api/portal/${encodeURIComponent(data.settings.slug)}/profile`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...profileFormFromClient(data.client),
+          whatsappConsent,
+          marketingConsent,
+          marketingWhatsappConsent,
+        }),
+      }
+    );
+    const payload = await response.json().catch(() => ({}));
+    setSaving(false);
+    if (!response.ok) {
+      toast.error(payload.error || 'Não foi possível guardar as preferências.');
+      return;
+    }
+    toast.success('As suas preferências de contacto foram guardadas.');
+    await onSaved();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={() => undefined}>
+      <DialogContent className="sm:max-w-lg" showCloseButton={false}>
+        <DialogHeader>
+          <span className="mb-2 flex size-11 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <ShieldCheck className="size-5" />
+          </span>
+          <DialogTitle>Escolha como podemos contactar</DialogTitle>
+          <DialogDescription>
+            Antes de continuar, reveja as suas preferências. Pode alterá-las ou
+            retirar qualquer autorização mais tarde no seu perfil.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <ConsentToggle
+            label="Comunicações por WhatsApp"
+            detail="Permito lembretes, confirmações e comunicações necessárias sobre as minhas marcações."
+            checked={whatsappConsent}
+            onChange={setWhatsappConsent}
+            disabled={saving}
+          />
+          <ConsentToggle
+            label="Marketing por email"
+            detail="Quero receber novidades, campanhas e ofertas por email."
+            checked={marketingConsent}
+            onChange={setMarketingConsent}
+            disabled={saving}
+          />
+          <ConsentToggle
+            label="Marketing por WhatsApp"
+            detail="Quero receber campanhas e ofertas por WhatsApp."
+            checked={marketingWhatsappConsent}
+            onChange={setMarketingWhatsappConsent}
+            disabled={saving}
+          />
+        </div>
+        <DialogFooter>
+          <Button className="w-full" onClick={() => void save()} disabled={saving}>
+            {saving ? <Loader2 className="animate-spin" /> : <Check />}
+            Guardar preferências e continuar
           </Button>
         </DialogFooter>
       </DialogContent>
