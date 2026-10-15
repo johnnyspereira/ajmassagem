@@ -362,11 +362,12 @@ export function ReferralSettings() {
           ) : null}
           <div className="md:col-span-2">
             <Field label="Descrição">
-              <Textarea
+          <Textarea
                 value={form.description}
                 onChange={(event) => patch('description', event.target.value)}
                 className="min-h-20"
               />
+          <p className="text-muted-foreground text-xs">Use <code>{'{{nome_indicador}}'}</code> para mostrar o primeiro nome de quem fez a indicação.</p>
             </Field>
           </div>
           <div className="md:col-span-2">

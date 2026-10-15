@@ -47,6 +47,10 @@ type Program = {
   };
 };
 
+function personalizeReferralText(text: string | null | undefined, referrerName: string) {
+  return (text ?? '').replaceAll('{{nome_indicador}}', referrerName);
+}
+
 export default function ReferralLandingPage() {
   const { code } = useParams<{ code: string }>();
   const [program, setProgram] = useState<Program | null>(null);
@@ -147,7 +151,7 @@ export default function ReferralLandingPage() {
             {program.settings.headline}
           </h1>
           <p className="text-muted-foreground mt-3 max-w-2xl text-base leading-7">
-            {program.settings.description}
+            {personalizeReferralText(program.settings.description, program.referrer_name)}
           </p>
         </div>
       </section>
