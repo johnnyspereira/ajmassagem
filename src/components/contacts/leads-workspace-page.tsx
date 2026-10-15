@@ -91,9 +91,9 @@ export function LeadsWorkspacePage() {
     router.push('/broadcasts/new?source=leads');
   }
 
-  return <div className="space-y-6">
-    <div className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-2xl font-bold">Leads e oportunidades</h1><p className="text-muted-foreground mt-1 text-sm">Trabalhe os contactos certos, benefícios a vencer e ações de reativação.</p></div><Button onClick={beginBroadcast} disabled={!selected.size}><Megaphone /> Configurar disparo ({selected.size})</Button></div>
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+  return <div className="mx-auto max-w-7xl space-y-5">
+    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-primary text-xs font-semibold uppercase tracking-[.14em]">Relacionamento e crescimento</p><h1 className="mt-1 text-2xl font-bold tracking-tight">Leads</h1><p className="text-muted-foreground mt-1 text-sm">Uma fila de trabalho para reativar clientes e aproveitar oportunidades.</p></div><Button onClick={beginBroadcast} disabled={!selected.size}><Megaphone /> Criar disparo{selected.size ? ` (${selected.size})` : ''}</Button></div>
+    <div className="grid overflow-hidden rounded-xl border bg-card sm:grid-cols-2 xl:grid-cols-5">
       <LeadMetric icon={Users} label="Contactos" value={rows.length} onClick={() => setFilter('all')} active={filter === 'all'} />
       <LeadMetric icon={VenusAndMars} label="Masculino" value={counts.male} onClick={() => setFilter('male')} active={filter === 'male'} />
       <LeadMetric icon={VenusAndMars} label="Feminino" value={counts.female} onClick={() => setFilter('female')} active={filter === 'female'} />
@@ -104,4 +104,4 @@ export function LeadsWorkspacePage() {
   </div>;
 }
 
-function LeadMetric({ icon: Icon, label, value, onClick, active }: { icon: typeof Users; label: string; value: number; onClick: () => void; active: boolean }) { return <button onClick={onClick} className={`rounded-xl border p-4 text-left transition-colors ${active ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}><Icon className="text-primary mb-3 size-5" /><p className="text-2xl font-bold">{value}</p><p className="text-muted-foreground text-sm">{label}</p></button>; }
+function LeadMetric({ icon: Icon, label, value, onClick, active }: { icon: typeof Users; label: string; value: number; onClick: () => void; active: boolean }) { return <button onClick={onClick} className={`border-b p-4 text-left transition-colors sm:border-r xl:border-b-0 ${active ? 'bg-primary/5' : 'hover:bg-muted/50'}`}><div className="flex items-center justify-between gap-3"><p className="text-muted-foreground text-xs font-medium">{label}</p><Icon className="text-primary size-4" /></div><p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p></button>; }
