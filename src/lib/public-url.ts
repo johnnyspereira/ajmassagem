@@ -9,7 +9,16 @@ export function getPublicUrl(path: string, browserOrigin: string): string {
     process.env.APP_URL?.trim() ||
     process.env.NEXT_PUBLIC_APP_URL?.trim() ||
     process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  const origin = validOrigin(configuredOrigin) || validOrigin(browserOrigin);
+  const configured = validOrigin(configuredOrigin);
+  const requestOrigin = validOrigin(browserOrigin);
+  // The Node runtime behind cPanel is reachable on a private :3000 URL. That
+  // address must never escape in customer emails, even when cPanel omitted the
+  // public URL variables from its environment.
+  const origin =
+    (configured && !isInternalRuntimeOrigin(configured) ? configured : null) ||
+    (requestOrigin && !isInternalRuntimeOrigin(requestOrigin)
+      ? requestOrigin
+      : 'https://jpmassagem.pt');
   if (!origin) throw new Error('Nenhuma URL pública válida foi configurada.');
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
 
@@ -31,5 +40,17 @@ function validOrigin(value: string | undefined) {
     return url.origin;
   } catch {
     return null;
+  }
+}
+
+function isInternalRuntimeOrigin(origin: string) {
+  try {
+    const url = new URL(origin);
+    return (
+      url.hostname === '0.0.0.0' ||
+      url.hostname.endsWith('.dnscpanel.com')
+    );
+  } catch {
+    return true;
   }
 }

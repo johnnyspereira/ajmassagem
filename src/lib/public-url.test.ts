@@ -73,6 +73,17 @@ describe('getPublicUrl', () => {
     );
   });
 
+  it('falls back to the public domain when cPanel omits its URL configuration', () => {
+    delete process.env.CANONICAL_APP_URL;
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    delete process.env.NEXT_PUBLIC_APP_URL;
+    delete process.env.APP_URL;
+
+    expect(
+      getPublicUrl('/auth/callback', 'https://cpanel173.dnscpanel.com:3000')
+    ).toBe('https://jpmassagem.pt/auth/callback');
+  });
+
   it('falls back to the request origin when configuration is malformed', () => {
     process.env.CANONICAL_APP_URL = 'https://';
 
