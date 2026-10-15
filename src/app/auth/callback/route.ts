@@ -8,6 +8,7 @@ import {
   safeInternalPath,
 } from '@/lib/auth/recovery';
 import { selectRows } from '@/lib/mysql/db';
+import { getPublicUrl } from '@/lib/public-url';
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -16,7 +17,9 @@ export async function GET(request: NextRequest) {
   const next = safeInternalPath(rawNext, '/dashboard');
 
   if (!isRecoveryToken(code)) {
-    const errorUrl = new URL('/forgot-password', request.url);
+    const errorUrl = new URL(
+      getPublicUrl('/forgot-password', requestUrl.origin)
+    );
     errorUrl.searchParams.set('error', 'invalid_or_expired');
     return NextResponse.redirect(errorUrl);
   }
@@ -26,14 +29,18 @@ export async function GET(request: NextRequest) {
     [hashRecoveryToken(code)]
   );
   if (!rows[0]) {
-    const errorUrl = new URL('/forgot-password', request.url);
+    const errorUrl = new URL(
+      getPublicUrl('/forgot-password', requestUrl.origin)
+    );
     errorUrl.searchParams.set('error', 'invalid_or_expired');
     return NextResponse.redirect(errorUrl);
   }
 
   // A recovery link is not a normal authenticated session. The token remains
   // one-time until the password change transaction consumes it.
-  const response = NextResponse.redirect(new URL(next, request.url));
+  const response = NextResponse.redirect(
+    getPublicUrl(next, requestUrl.origin)
+  );
   response.cookies.set(RECOVERY_COOKIE, code, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
