@@ -131,6 +131,31 @@
   overscroll-behavior: contain;
   overflow-wrap: anywhere;
 }
+.messages p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.composerBox {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.composerBox textarea {
+  order: -1;
+  flex: 0 0 100%;
+  width: 100%;
+  min-height: 64px;
+  max-height: 160px;
+}
+.composerBox > button {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+}
+.composerBox > button:last-child {
+  margin-left: auto;
+}
 .composer {
   flex-shrink: 0;
   min-width: 0;

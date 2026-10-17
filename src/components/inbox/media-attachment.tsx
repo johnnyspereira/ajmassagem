@@ -19,6 +19,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { mediaSources, withMediaSlot } from '@/lib/inbox/media';
+import { visibleMessageText } from '@/lib/inbox/message-text';
 
 export function MediaAttachment({ message }: { message: Message }) {
   const [attempt, setAttempt] = useState(0);
@@ -33,7 +34,7 @@ export function MediaAttachment({ message }: { message: Message }) {
   const externalId = message.message_id;
   const name =
     message.content_type === 'document'
-      ? message.content_text || 'Documento'
+      ? visibleMessageText(message.content_text) || 'Documento'
       : 'Anexo';
 
   useEffect(() => {

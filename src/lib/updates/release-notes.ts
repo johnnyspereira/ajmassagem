@@ -15,6 +15,22 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-17-media-caption-layout',
+    date: '2026-10-17',
+    category: 'Correção',
+    title: 'Fotografias sem códigos e escrita com espaço no telemóvel',
+    areas: ['Inbox', 'Anexos'],
+    summary:
+      'Conteúdo codificado dos ficheiros deixa de aparecer como legenda ou mensagem.',
+    changes: [
+      'Proteção contra base64 nas legendas, prévias e citações de mensagens antigas e novas.',
+      'Tipo original de imagem, áudio ou vídeo preservado ao receber conteúdo codificado.',
+      'Compositor com escrita e controlos em linhas separadas, e mensagens compridas com quebra de linha.',
+    ],
+    howTo:
+      'Atualize o Inbox. As fotografias continuam disponíveis para abrir e descarregar, sem o código dos ficheiros por baixo.',
+  },
+  {
     id: '2026-10-17-inbox-layout-live',
     date: '2026-10-17',
     category: 'Correção',

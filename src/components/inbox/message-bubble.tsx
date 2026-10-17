@@ -19,6 +19,10 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ReplyQuote } from './reply-quote';
 import { MediaAttachment } from './media-attachment';
+import {
+  visibleMessageText,
+  isEncodedMediaText,
+} from '@/lib/inbox/message-text';
 import { MessageReactions } from './message-reactions';
 import { InteractivePreview } from '@/components/interactive/interactive-preview';
 import { useTranslations } from 'next-intl';
@@ -61,11 +65,15 @@ function MessageContent({
   message: Message;
   t: ReturnType<typeof useTranslations>;
 }) {
+  const contentText = visibleMessageText(message.content_text);
   switch (message.content_type) {
     case 'text':
       return (
         <p className="text-sm break-words whitespace-pre-wrap">
-          {message.content_text}
+          {contentText ||
+            (isEncodedMediaText(message.content_text)
+              ? 'Anexo recebido. Sincronize a conversa para recuperar o ficheiro.'
+              : '')}
         </p>
       );
 
@@ -76,9 +84,9 @@ function MessageContent({
       return (
         <div className="max-w-full min-w-0">
           <MediaAttachment message={message} />
-          {message.content_type !== 'document' && message.content_text && (
+          {message.content_type !== 'document' && contentText && (
             <p className="mt-1 text-sm break-words whitespace-pre-wrap">
-              {message.content_text}
+              {contentText}
             </p>
           )}
         </div>
@@ -166,7 +174,8 @@ export function MessageBubble({
   const [translation, setTranslation] = useState<string | null>(null);
   const [translating, setTranslating] = useState(false);
 
-  const canTranslate = !isAgent && Boolean(message.content_text?.trim());
+  const canTranslate =
+    !isAgent && Boolean(visibleMessageText(message.content_text).trim());
   const translateToPortuguese = useCallback(async () => {
     const source = message.content_text?.trim();
     if (!source || translating) return;
@@ -197,10 +206,15 @@ export function MessageBubble({
   // Row alignment + width cap are owned by <MessageActions> so its hover
   // group matches the bubble's content area, not the full row.
   return (
-    <div className={cn('flex flex-col', isAgent ? 'items-end' : 'items-start')}>
+    <div
+      className={cn(
+        'flex max-w-full min-w-0 flex-col',
+        isAgent ? 'items-end' : 'items-start'
+      )}
+    >
       <div
         className={cn(
-          'relative rounded-2xl px-3 py-2',
+          'relative max-w-full min-w-0 rounded-2xl px-3 py-2',
           isAgent
             ? cn(
                 'bg-primary text-primary-foreground rounded-br-md',

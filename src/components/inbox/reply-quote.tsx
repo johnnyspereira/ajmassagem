@@ -3,6 +3,7 @@
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Message } from '@/types';
+import { visibleMessageText } from '@/lib/inbox/message-text';
 import { useTranslations } from 'next-intl';
 
 interface ReplyQuoteProps {
@@ -80,7 +81,8 @@ export function buildReplyPreview(
   message: Message,
   t: ReturnType<typeof useTranslations>
 ): string {
-  if (message.content_text) return message.content_text;
+  const text = visibleMessageText(message.content_text);
+  if (text) return text;
   switch (message.content_type) {
     case 'image':
       return t('photo');

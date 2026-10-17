@@ -5,6 +5,7 @@ import {
   timingSafeEqual,
 } from 'node:crypto';
 import type { RowDataPacket } from 'mysql2';
+import { isEncodedMediaText } from '@/lib/inbox/message-text';
 
 import { mutate, selectRows, transaction } from '@/lib/mysql/db';
 import { notifyAccountEvent } from '@/lib/notifications/account-events';

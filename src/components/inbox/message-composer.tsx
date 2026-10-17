@@ -801,7 +801,12 @@ export function MessageComposer({
           </Button>
         </div>
       ) : (
-        <div className="border-border/70 bg-muted/45 flex items-end gap-2 rounded-2xl border p-1.5 shadow-inner">
+        <div
+          className={cn(
+            styles.composerBox,
+            'border-border/70 bg-muted/45 rounded-2xl border p-1.5 shadow-inner'
+          )}
+        >
           {/* Attach menu — photo / video / document / voice. */}
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -1007,7 +1012,7 @@ export function MessageComposer({
           `items-end` buttons below the textarea. Indented to line up
           under the textarea left edge. */}
       {!draft && !recording && (
-        <p className="text-muted-foreground mt-1 pl-[5.5rem] text-[10px]">
+        <p className="text-muted-foreground mt-1 px-2 text-[10px]">
           {t('draftHint')}
         </p>
       )}

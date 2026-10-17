@@ -29,6 +29,10 @@ import {
   X,
 } from 'lucide-react';
 import { conversationTime } from '@/lib/inbox/conversation-time';
+import {
+  visibleMessageText,
+  isEncodedMediaText,
+} from '@/lib/inbox/message-text';
 import styles from './inbox.module.css';
 import { useTranslations } from 'next-intl';
 import { Input } from '@/components/ui/input';
@@ -1058,7 +1062,10 @@ function ConversationItem({
           </div>
           <div className={styles.rowPreview}>
             <p className="text-muted-foreground truncate text-xs">
-              {conversation.last_message_text || t('noMessagesYet')}
+              {visibleMessageText(conversation.last_message_text) ||
+                (isEncodedMediaText(conversation.last_message_text)
+                  ? 'Anexo'
+                  : t('noMessagesYet'))}
             </p>
             <div className="flex shrink-0 items-center gap-1.5">
               {conversation.unread_count > 0 && (
