@@ -1,25 +1,28 @@
 'use client';
-
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import {
+  CalendarDays,
+  CalendarPlus,
+  ArrowUpRight,
+  RefreshCw,
+  TriangleAlert,
+  MessageSquare,
+  ReceiptText,
+  Wallet,
+  Clock3,
+  CheckCheck,
+  Gift,
+  PackageCheck,
+  BarChart3,
+  ListTodo,
+  History,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
-import {
-  MessageSquare,
-  UserPlus,
-  DollarSign,
-  Send,
-  RefreshCw,
-  TriangleAlert,
-  Gift,
-  PackageCheck,
-  Clock3,
-  CalendarDays,
-  ReceiptText,
-  ArrowUpRight,
-} from 'lucide-react';
-
+import { cn } from '@/lib/utils';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   loadActivity,
   loadAutomationInsights,
@@ -50,34 +53,25 @@ import type {
   ExpiringBenefitItem,
   PortalPendingConfirmationItem,
 } from '@/lib/dashboard/types';
-
-import { MetricCard } from '@/components/dashboard/metric-card';
-import { SkeletonCard } from '@/components/dashboard/skeleton';
-import { QuickActions } from '@/components/dashboard/quick-actions';
+import { DayAgenda } from '@/components/dashboard/day-agenda';
+import { PortalPendingConfirmationsCard } from '@/components/dashboard/portal-pending-confirmations';
 import { ConversationsChart } from '@/components/dashboard/conversations-chart';
 import { PipelineDonut } from '@/components/dashboard/pipeline-donut';
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart';
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
 import { FollowUpCommandCenter } from '@/components/dashboard/follow-up-command-center';
-import { TodayOperationsPanel } from '@/components/dashboard/today-operations';
-import { PortalPendingConfirmationsCard } from '@/components/dashboard/portal-pending-confirmations';
 import {
   AutomationInsightsPanel,
-  DashboardAlertsPanel,
   InboxOperationsPanel,
   SalesInsightsPanel,
   TeamPerformancePanel,
-  WhatsAppHealthCard,
 } from '@/components/dashboard/operations-panels';
-import { cn } from '@/lib/utils';
-
-import { useTranslations } from 'next-intl';
 
 type RangeDays = 7 | 30 | 90;
 
 export default function DashboardPage() {
-  const t = useTranslations('Dashboard.page');
-  const { defaultCurrency } = useAuth();
+  const { defaultCurrency, profile } = useAuth();
+  const [view, setView] = useState<'day' | 'reports' | 'activity'>('day');
   const [metrics, setMetrics] = useState<MetricsBundle | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -133,9 +127,7 @@ export default function DashboardPage() {
   >(null);
   const [portalPendingLoading, setPortalPendingLoading] = useState(true);
   const dashboardDataUnavailable =
-    !metricsLoading &&
-    !metrics &&
-    Object.keys(loadErrors).length >= 5;
+    !metricsLoading && !metrics && Object.keys(loadErrors).length >= 5;
 
   const loadAll = useCallback(
     (rangeToLoad: RangeDays = 30, showLoading = true) => {
@@ -266,7 +258,11 @@ export default function DashboardPage() {
       if (document.visibilityState === 'visible') loadAll(range, false);
     };
     window.addEventListener('visibilitychange', refreshWhenVisible);
-    return () => window.removeEventListener('visibilitychange', refreshWhenVisible);
+    window.addEventListener('focus', refreshWhenVisible);
+    return () => {
+      window.removeEventListener('visibilitychange', refreshWhenVisible);
+      window.removeEventListener('focus', refreshWhenVisible);
+    };
   }, [loadAll, range]);
 
   // Range switch handler — kept in an event callback (not an effect)
@@ -287,467 +283,520 @@ export default function DashboardPage() {
     [series]
   );
 
+  const handleAppointmentChanged = (id: string) => {
+    setPortalPending(
+      (current) => current?.filter((item) => item.id !== id) ?? null
+    );
+    loadAll(range, false);
+  };
+  const whatsappOnline = whatsapp?.qrConnected || whatsapp?.metaConnected;
   return (
-    <div className="mx-auto max-w-[1680px] space-y-5 pb-10">
-      <section className="relative isolate overflow-hidden rounded-[2rem] border border-slate-800 bg-[#09101f] px-5 py-6 text-white shadow-2xl shadow-slate-950/15 sm:px-8 sm:py-8">
-        <div className="pointer-events-none absolute -right-16 -top-28 size-80 rounded-full bg-primary/25 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-0 left-1/4 size-56 rounded-full bg-emerald-400/10 blur-3xl" />
-        <div className="relative grid gap-7 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-          <div className="max-w-3xl">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">Centro de operações</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">O seu dia, sob controlo.</h1>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">Priorize clientes, agenda, vendas e pagamentos sem procurar informação em vários ecrãs.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link href="/agenda" className="inline-flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-950 transition-transform hover:-translate-y-0.5">
-              <CalendarDays className="size-4" /> Abrir agenda
-            </Link>
-            <Link href="/finance?tab=pos" className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/15">
-              <ReceiptText className="size-4" /> Nova venda
-            </Link>
-            <button type="button" onClick={() => loadAll(range)} disabled={refreshing} className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60">
-              <RefreshCw className={cn('size-4', refreshing && 'animate-spin')} /> Atualizar
-            </button>
+    <div className="mx-auto max-w-[1480px] space-y-6 pb-10">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-muted-foreground text-xs font-medium capitalize">
+            {new Date().toLocaleDateString('pt-PT', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+            })}
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+            Olá
+            {profile?.full_name ? ', ' + profile.full_name.split(' ')[0] : ''}.
+            Vamos organizar o dia.
+          </h1>
+          <div className="text-muted-foreground mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                className={cn(
+                  'size-1.5 rounded-full',
+                  whatsappLoading
+                    ? 'bg-slate-400'
+                    : whatsappOnline
+                      ? 'bg-emerald-500'
+                      : 'bg-amber-500'
+                )}
+              />
+              {whatsappLoading
+                ? 'A verificar WhatsApp'
+                : loadErrors.WhatsApp
+                  ? 'WhatsApp indisponível'
+                  : whatsappOnline
+                    ? 'WhatsApp conectado'
+                    : 'WhatsApp desconectado'}
+            </span>
+            {lastUpdatedAt && (
+              <span>
+                Atualizado às{' '}
+                {lastUpdatedAt.toLocaleTimeString('pt-PT', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+            )}
           </div>
         </div>
-        <div className="relative mt-7 grid gap-2 sm:grid-cols-3 xl:max-w-3xl">
-          <DashboardHeroStat icon={CalendarDays} label="Agenda de hoje" value={today ? `${today.appointmentsTotal} marcações` : 'A carregar'} />
-          <DashboardHeroStat icon={MessageSquare} label="Conversas em curso" value={metrics ? metrics.activeConversations.current.toLocaleString() : 'A carregar'} />
-          <DashboardHeroStat icon={DollarSign} label="Negócios em aberto" value={metrics ? formatCurrency(metrics.openDealsValue, defaultCurrency) : 'A carregar'} />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Atualizar dashboard"
+            title="Atualizar dashboard"
+            onClick={() => loadAll(range)}
+            disabled={refreshing}
+          >
+            <RefreshCw className={cn('size-4', refreshing && 'animate-spin')} />
+          </Button>
+          <Link
+            href="/finance?tab=pos"
+            className={buttonVariants({ variant: 'outline' })}
+          >
+            <ReceiptText className="size-4" />
+            Nova venda
+          </Link>
+          <Link href="/agenda?new=1" className={buttonVariants()}>
+            <CalendarPlus className="size-4" />
+            Nova marcação
+          </Link>
         </div>
-      </section>
-
-      {Object.keys(loadErrors).length > 0 ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
-          <div className="flex min-w-0 items-start gap-2">
+      </header>
+      {Object.keys(loadErrors).length > 0 && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/25 bg-amber-500/5 px-4 py-3"
+        >
+          <div className="flex items-start gap-2">
             <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
             <div>
-              <p className="font-medium">Alguns dados não foram atualizados</p>
-              <p className="text-muted-foreground text-xs">
-                {Object.keys(loadErrors).join(', ')}. Os restantes módulos
-                continuam disponíveis.
+              <p className="text-sm font-medium">
+                Alguns dados estão indisponíveis
+              </p>
+              <p className="text-muted-foreground mt-0.5 text-xs">
+                {Object.keys(loadErrors).join(' · ')}
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => loadAll(range)}
-            className="text-primary text-xs font-semibold hover:underline"
-          >
-            Atualizar agora
-          </button>
+          <Button variant="ghost" size="sm" onClick={() => loadAll(range)}>
+            Tentar novamente
+          </Button>
         </div>
-      ) : null}
-
-      {lastUpdatedAt ? (
-        <p className="text-muted-foreground -mt-3 text-right text-[11px]">
-          Atualizado às{' '}
-          {lastUpdatedAt.toLocaleTimeString('pt-PT', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </p>
-      ) : null}
-
-      {dashboardDataUnavailable ? (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-8 text-center">
-          <TriangleAlert className="mx-auto size-7 text-amber-700" />
-          <h2 className="mt-3 font-semibold text-amber-950">
-            Não foi possível carregar os dados do painel
-          </h2>
-          <p className="mx-auto mt-1 max-w-xl text-sm text-amber-900/75">
-            A aplicação está a responder, mas a ligação aos dados do CRM falhou.
-            Reinicie a aplicação no cPanel e atualize esta página. Os seus dados não foram alterados.
-          </p>
+      )}
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <Summary
+          label="Marcações de hoje"
+          value={
+            todayLoading
+              ? '…'
+              : loadErrors['Operação diária']
+                ? '—'
+                : String(today?.appointmentsTotal ?? '—')
+          }
+          detail={
+            today
+              ? today.confirmed +
+                ' confirmadas · ' +
+                today.completed +
+                ' concluídas'
+              : 'Agenda do dia'
+          }
+          icon={CalendarDays}
+          href="/agenda"
+        />
+        <Summary
+          label="Recebido hoje"
+          value={
+            todayLoading
+              ? '…'
+              : today?.receivedToday == null
+                ? '—'
+                : formatCurrency(today.receivedToday, defaultCurrency)
+          }
+          detail={
+            today?.cashSessionOpen == null
+              ? 'Estado de caixa indisponível'
+              : today.cashSessionOpen
+                ? 'Caixa aberto'
+                : 'Caixa fechado'
+          }
+          icon={Wallet}
+          href="/finance?tab=pos"
+        />
+        <Summary
+          label="Por receber hoje"
+          value={
+            todayLoading
+              ? '…'
+              : today?.outstandingToday == null
+                ? '—'
+                : formatCurrency(today.outstandingToday, defaultCurrency)
+          }
+          detail="Valores em aberto na agenda"
+          icon={Clock3}
+          href="/finance"
+        />
+        <Summary
+          label="Clientes à espera"
+          value={
+            inboxOpsLoading
+              ? '…'
+              : inboxOps
+                ? String(inboxOps.waitingAgent)
+                : '—'
+          }
+          detail={
+            inboxOps
+              ? inboxOps.unread + ' conversas não lidas'
+              : 'Conversas que precisam de resposta'
+          }
+          icon={MessageSquare}
+          href="/inbox"
+        />
+      </div>
+      <nav
+        aria-label="Áreas do dashboard"
+        className="border-border flex gap-5 border-b"
+      >
+        {(
+          [
+            { id: 'day', label: 'O meu dia', icon: ListTodo },
+            { id: 'reports', label: 'Indicadores', icon: BarChart3 },
+            { id: 'activity', label: 'Atividade', icon: History },
+          ] as const
+        ).map((tab) => (
           <button
+            key={tab.id}
             type="button"
+            aria-current={view === tab.id ? 'page' : undefined}
+            onClick={() => setView(tab.id)}
+            className={cn(
+              '-mb-px inline-flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-medium transition-colors',
+              view === tab.id
+                ? 'border-primary text-primary'
+                : 'text-muted-foreground hover:text-foreground border-transparent'
+            )}
+          >
+            <tab.icon className="size-4" />
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+      {dashboardDataUnavailable ? (
+        <div className="border-border bg-card rounded-2xl border p-8 text-center">
+          <TriangleAlert className="mx-auto mb-3 size-7 text-amber-600" />
+          <h2 className="font-semibold">Não foi possível carregar o painel</h2>
+          <p className="text-muted-foreground mt-2 text-sm">
+            Tente novamente para consultar os dados atuais.
+          </p>
+          <Button
+            className="mt-4"
             onClick={() => loadAll(range)}
             disabled={refreshing}
-            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-amber-900 px-3.5 py-2 text-sm font-semibold text-white hover:bg-amber-800 disabled:opacity-60"
           >
-            <RefreshCw className={cn('size-4', refreshing && 'animate-spin')} />
             Tentar novamente
-          </button>
-        </section>
-      ) : (
+          </Button>
+        </div>
+      ) : view === 'day' ? (
         <>
-
-      <section className="space-y-3">
-        <DashboardSectionLabel
-          eyebrow="Hoje"
-          title="Operação diária"
-          description="Agenda, pagamentos e benefícios ligados às marcações de hoje."
-          href="/agenda"
-          action="Abrir agenda"
-        />
-        <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
-          <TodayOperationsPanel
-            data={today}
-            loading={todayLoading}
-            currency={defaultCurrency}
-            error={Boolean(loadErrors['Operação diária'])}
-          />
-        </div>
-      </section>
-
-      {(portalPendingLoading || Boolean(loadErrors['Marcações do Portal 360']) || Boolean(portalPending?.length)) && (
-        <section className="space-y-3 rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-5">
-          <DashboardSectionLabel
-            eyebrow="Agenda online"
-            title="Próximas marcações do Portal 360"
-            description="Reservas e pedidos de alteração enviados pelos clientes."
-            href="/agenda"
-            action="Abrir agenda"
-          />
-          <PortalPendingConfirmationsCard
-            appointments={portalPending}
-            loading={portalPendingLoading}
-            error={Boolean(loadErrors['Marcações do Portal 360'])}
-          />
-        </section>
-      )}
-
-      <section className="space-y-3 rounded-3xl border border-border/70 bg-card-2/30 p-4 sm:p-5">
-        <DashboardSectionLabel
-          eyebrow="Agora"
-          title="O que pede a sua atenção"
-          description="Alertas, conversas e situações que podem bloquear o dia."
-        />
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <DashboardAlertsPanel
-            whatsapp={whatsapp}
-            inbox={inboxOps}
-            sales={sales}
-            automation={automation}
-            loading={
-              whatsappLoading ||
-              inboxOpsLoading ||
-              salesLoading ||
-              automationLoading
-            }
-          />
-        </div>
-        <WhatsAppHealthCard data={whatsapp} loading={whatsappLoading} />
-      </div>
-      </section>
-
-      <FollowUpCommandCenter />
-
-      <section className="space-y-3 rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-5">
-        <DashboardSectionLabel
-          eyebrow="Pulso do negócio"
-          title="Os números essenciais"
-          description="Uma leitura rápida da atividade comercial de hoje."
-        />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {metricsLoading ? (
-          Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
-        ) : metrics ? (
-          <>
-            <MetricCard
-              title={t('activeConversations')}
-              value={metrics.activeConversations.current.toLocaleString()}
-              icon={MessageSquare}
-              href="/inbox"
-              delta={{
-                sign: metrics.activeConversations.previous,
-                label: deltaLabel(
-                  metrics.activeConversations.previous,
-                  t('newTodayVsYesterday'),
-                  t('noChange', { suffix: t('newTodayVsYesterday') })
-                ),
-              }}
+          <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(340px,1fr)]">
+            <DayAgenda
+              data={today}
+              loading={todayLoading}
+              error={Boolean(loadErrors['Operação diária'])}
+              onChanged={handleAppointmentChanged}
             />
-            <MetricCard
-              title={t('newContactsToday')}
-              value={metrics.newContactsToday.current.toLocaleString()}
-              icon={UserPlus}
-              href="/contacts"
-              delta={{
-                sign:
-                  metrics.newContactsToday.current -
-                  metrics.newContactsToday.previous,
-                label: deltaLabel(
-                  metrics.newContactsToday.current -
-                    metrics.newContactsToday.previous,
-                  t('vsYesterday'),
-                  t('noChange', { suffix: t('vsYesterday') })
-                ),
-              }}
-            />
-            <MetricCard
-              title={t('openDealsValue')}
-              value={formatCurrency(metrics.openDealsValue, defaultCurrency)}
-              icon={DollarSign}
-              href="/pipelines"
-              subtitle={t('openDeals', { count: metrics.openDealsCount })}
-            />
-            <MetricCard
-              title={t('messagesSentToday')}
-              value={metrics.messagesSentToday.current.toLocaleString()}
-              icon={Send}
-              href="/inbox"
-              delta={{
-                sign:
-                  metrics.messagesSentToday.current -
-                  metrics.messagesSentToday.previous,
-                label: deltaLabel(
-                  metrics.messagesSentToday.current -
-                    metrics.messagesSentToday.previous,
-                  t('vsYesterday'),
-                  t('noChange', { suffix: t('vsYesterday') })
-                ),
-              }}
-            />
-          </>
-        ) : (
-          <div className="border-border text-muted-foreground col-span-full rounded-lg border px-5 py-10 text-center text-sm">
-            Indicadores indisponíveis. Atualize o Dashboard para tentar
-            novamente.
+            <div className="min-w-0 space-y-5">
+              <PortalPendingConfirmationsCard
+                appointments={portalPending}
+                loading={portalPendingLoading}
+                error={Boolean(loadErrors['Marcações do Portal 360'])}
+                onChanged={handleAppointmentChanged}
+              />
+              <section className="border-border bg-card overflow-hidden rounded-2xl border">
+                <div className="border-border flex items-center justify-between border-b px-5 py-4">
+                  <h2 className="text-base font-semibold">
+                    Precisa de atenção
+                  </h2>
+                  <Link
+                    href="/inbox"
+                    className="text-primary text-xs font-semibold"
+                  >
+                    Abrir inbox ↗
+                  </Link>
+                </div>
+                <div className="divide-border divide-y">
+                  <Attention
+                    href="/inbox"
+                    label="Conversas sem responsável"
+                    value={
+                      inboxOpsLoading ? '…' : (inboxOps?.unassigned ?? '—')
+                    }
+                    warning={Boolean(inboxOps?.unassigned)}
+                  />
+                  <Attention
+                    href="/pipelines"
+                    label="Negócios sem avanço"
+                    value={salesLoading ? '…' : (sales?.stalledDeals ?? '—')}
+                    warning={Boolean(sales?.stalledDeals)}
+                  />
+                  <Attention
+                    href="/automations"
+                    label="Falhas de automação · 24 h"
+                    value={
+                      automationLoading
+                        ? '…'
+                        : (automation?.failedLogs24h ?? '—')
+                    }
+                    warning={Boolean(automation?.failedLogs24h)}
+                  />
+                </div>
+              </section>
+            </div>
           </div>
-        )}
-      </div>
-      </section>
-
-      <section className="space-y-4 rounded-3xl border border-border bg-card p-4 sm:p-5">
-        <DashboardSectionLabel
-          eyebrow="Benefícios"
-          title="Vouchers e packs em movimento"
-          description="Validades e saldos que exigem acompanhamento antes de se tornarem urgentes."
-          href="/finance?tab=vouchers"
-          action="Ver benefícios"
-        />
-      <ExpiringBenefitsPanel
-        benefits={expiringBenefits}
-        loading={expiringBenefitsLoading}
-        error={Boolean(loadErrors.Validades)}
-      />
-      </section>
-
-      <section className="space-y-3 rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-5">
-        <DashboardSectionLabel
-          eyebrow="Acesso rápido"
-          title="Comece uma tarefa em segundos"
-          description="Atalhos para as operações que utiliza todos os dias."
-        />
-        <QuickActions />
-      </section>
-
-      <section className="space-y-4 rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-5">
-        <DashboardSectionLabel
-          eyebrow="Clientes e receita"
-          title="Continuar conversas e fechar vendas"
-          description="Veja quem espera resposta e onde está a receita em aberto."
-          href="/contacts"
-          action="Ver clientes"
-        />
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-          <div className="xl:col-span-2">
+          <Benefits
+            benefits={expiringBenefits}
+            loading={expiringBenefitsLoading}
+            error={Boolean(loadErrors.Validades)}
+          />
+          <details className="group border-border bg-card rounded-2xl border">
+            <summary className="cursor-pointer px-5 py-4 text-sm font-semibold">
+              Seguimento de clientes
+              <span className="text-muted-foreground ml-2 text-xs font-normal">
+                Tarefas e próximas ações
+              </span>
+            </summary>
+            <div className="border-border border-t p-4">
+              <FollowUpCommandCenter />
+            </div>
+          </details>
+        </>
+      ) : view === 'reports' ? (
+        <div className="space-y-5">
+          <div>
+            <h2 className="text-lg font-semibold">Atividade e resultados</h2>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Conversas, vendas e qualidade do atendimento.
+            </p>
+          </div>
+          <div className="grid gap-5 lg:grid-cols-5">
+            <div className="lg:col-span-3">
+              <ConversationsChart
+                series={series}
+                loading={seriesLoading}
+                range={range}
+                onRangeChange={handleRangeChange}
+              />
+            </div>
+            <div className="lg:col-span-2">
+              <PipelineDonut
+                data={pipeline}
+                loading={pipelineLoading}
+                currency={defaultCurrency}
+              />
+            </div>
+          </div>
+          <div className="grid gap-5 lg:grid-cols-2">
             <InboxOperationsPanel data={inboxOps} loading={inboxOpsLoading} />
+            <SalesInsightsPanel
+              data={sales}
+              loading={salesLoading}
+              currency={defaultCurrency}
+            />
           </div>
-          <SalesInsightsPanel
-            data={sales}
-            loading={salesLoading}
-            currency={defaultCurrency}
+          <ResponseTimeChart
+            data={responseTime}
+            loading={responseTimeLoading}
           />
-        </div>
-      </section>
-
-      <section className="space-y-4 rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-5">
-        <DashboardSectionLabel
-          eyebrow="Desempenho"
-          title="Melhore o ritmo da operação"
-          description="Acompanhe automações, equipa e qualidade do atendimento."
-        />
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-          <AutomationInsightsPanel
-            data={automation}
-            loading={automationLoading}
-          />
-          <div className="xl:col-span-2">
+          <div className="grid gap-5 lg:grid-cols-2">
+            <AutomationInsightsPanel
+              data={automation}
+              loading={automationLoading}
+            />
             <TeamPerformancePanel data={team} loading={teamLoading} />
           </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Summary
+              label="Novos contactos hoje"
+              value={
+                metricsLoading
+                  ? '…'
+                  : (metrics?.newContactsToday.current.toLocaleString() ?? '—')
+              }
+              detail="Clientes adicionados ao CRM"
+              icon={CheckCheck}
+              href="/contacts"
+            />
+            <Summary
+              label="Mensagens enviadas"
+              value={
+                metricsLoading
+                  ? '…'
+                  : (metrics?.messagesSentToday.current.toLocaleString() ?? '—')
+              }
+              detail="Total de hoje"
+              icon={MessageSquare}
+              href="/inbox"
+            />
+            <Summary
+              label="Negócios em aberto"
+              value={
+                metrics
+                  ? formatCurrency(metrics.openDealsValue, defaultCurrency)
+                  : '—'
+              }
+              detail={
+                metrics
+                  ? metrics.openDealsCount + ' oportunidades'
+                  : 'Pipeline comercial'
+              }
+              icon={BarChart3}
+              href="/pipelines"
+            />
+          </div>
         </div>
-      </section>
-
-      {/* Charts row */}
-      {/* items-stretch (the grid default) stretches the two columns to
-          match the tallest sibling; adding h-full on each wrapper and
-          on the inner panels makes both cards actually fill that
-          stretched height so their rounded borders line up. Without
-          this, the pipeline card rendered at its natural (shorter)
-          height while the line chart drove the row height. */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="h-full lg:col-span-3">
-          <ConversationsChart
-            series={series}
-            loading={seriesLoading}
-            range={range}
-            onRangeChange={handleRangeChange}
-          />
-        </div>
-        <div className="h-full lg:col-span-2">
-          <PipelineDonut
-            data={pipeline}
-            loading={pipelineLoading}
-            currency={defaultCurrency}
-          />
-        </div>
-      </div>
-
-      {/* Response time */}
-      <ResponseTimeChart data={responseTime} loading={responseTimeLoading} />
-
-      {/* Activity feed */}
-      <ActivityFeed items={activity} loading={activityLoading} />
-        </>
+      ) : (
+        <ActivityFeed items={activity} loading={activityLoading} />
       )}
     </div>
   );
 }
 
-// ------------------------------------------------------------
-
-function DashboardHeroStat({
-  icon: Icon,
+function Summary({
   label,
   value,
+  detail,
+  icon: Icon,
+  href,
 }: {
-  icon: typeof CalendarDays;
   label: string;
   value: string;
+  detail: string;
+  icon: typeof CalendarDays;
+  href: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-3 backdrop-blur sm:px-4">
-      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.13em] text-slate-400"><Icon className="size-3.5 text-emerald-300" />{label}</div>
-      <p className="mt-1 text-base font-semibold tracking-tight text-white sm:text-lg">{value}</p>
-    </div>
-  );
-}
-
-function DashboardSectionLabel({
-  eyebrow,
-  title,
-  description,
-  href,
-  action,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  href?: string;
-  action?: string;
-}) {
-  return (
-    <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-      <div>
-        <p className="text-primary text-[11px] font-bold uppercase tracking-[0.16em]">
-          {eyebrow}
-        </p>
-        <h2 className="text-foreground mt-0.5 text-lg font-semibold tracking-tight">
-          {title}
-        </h2>
-        <p className="text-muted-foreground mt-0.5 text-sm">{description}</p>
+    <Link
+      href={href}
+      className="group border-border bg-card hover:border-primary/40 rounded-2xl border px-3 py-4 transition-colors sm:px-5"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-muted-foreground text-xs font-medium">
+          {label}
+        </span>
+        <Icon className="text-muted-foreground size-4" />
       </div>
-      {href && action ? (
-        <Link
-          href={href}
-          className="text-primary inline-flex items-center gap-1 text-sm font-semibold hover:underline"
-        >
-          {action} <ArrowUpRight className="size-4" />
-        </Link>
-      ) : null}
-    </div>
+      <p className="mt-3 text-2xl font-semibold tracking-tight tabular-nums">
+        {value}
+      </p>
+      <p className="text-muted-foreground mt-1 text-xs">{detail}</p>
+    </Link>
   );
 }
-
-function ExpiringBenefitsPanel({
+function Attention({
+  href,
+  label,
+  value,
+  warning,
+}: {
+  href: string;
+  label: string;
+  value: string | number;
+  warning: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className="hover:bg-muted/40 flex items-center justify-between gap-3 px-5 py-3.5 text-sm"
+    >
+      <span className="text-muted-foreground">{label}</span>
+      <span
+        className={cn(
+          'rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums',
+          warning
+            ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+            : 'bg-muted text-muted-foreground'
+        )}
+      >
+        {value}
+      </span>
+    </Link>
+  );
+}
+function Benefits({
   benefits,
   loading,
-  error = false,
+  error,
 }: {
   benefits: ExpiringBenefitItem[] | null;
   loading: boolean;
-  error?: boolean;
+  error: boolean;
 }) {
   const [now] = useState(() => Date.now());
   return (
-    <section className="border-border bg-card rounded-xl border p-4 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <section className="border-border bg-card rounded-2xl border p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="flex items-center gap-2 font-semibold">
-            <Clock3 className="size-4 text-amber-600" /> Vouchers e packs a vencer
-          </h2>
+          <h2 className="text-base font-semibold">Vouchers e packs a vencer</h2>
           <p className="text-muted-foreground mt-1 text-xs">
-            Benefícios ativos com validade nos próximos 30 dias.
+            Acompanhe as validades dos próximos 30 dias.
           </p>
         </div>
         <Link
           href="/finance?tab=vouchers"
-          className="text-primary text-xs font-semibold hover:underline"
+          className="text-primary inline-flex items-center gap-1 text-xs font-semibold"
         >
-          Ver financeiro
+          Ver benefícios
+          <ArrowUpRight className="size-3.5" />
         </Link>
       </div>
       {loading ? (
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="bg-muted h-20 animate-pulse rounded-lg" />
-          ))}
-        </div>
+        <p className="text-muted-foreground py-4 text-sm">
+          A consultar validades…
+        </p>
       ) : error ? (
-        <p className="mt-4 rounded-lg border border-amber-300/60 bg-amber-50/50 px-3 py-4 text-sm text-amber-900 dark:bg-amber-950/20 dark:text-amber-200">
-          Não foi possível consultar os vouchers e packs. Atualize a dashboard para tentar novamente.
+        <p className="text-sm text-amber-700">
+          Validades indisponíveis. Atualize o painel para tentar novamente.
         </p>
       ) : benefits?.length ? (
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {benefits.map((benefit) => {
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {benefits.slice(0, 4).map((benefit) => {
+            const Icon = benefit.type === 'voucher' ? Gift : PackageCheck;
             const days = Math.max(
               0,
-              Math.ceil((new Date(benefit.expiresAt).getTime() - now) / 86_400_000)
+              Math.ceil(
+                (new Date(benefit.expiresAt).getTime() - now) / 86400000
+              )
             );
-            const Icon = benefit.type === 'voucher' ? Gift : PackageCheck;
             return (
               <Link
-                key={`${benefit.type}:${benefit.id}`}
-                href={`/contacts/${benefit.contactId}?tab=benefits`}
-                className="border-border hover:border-amber-400 hover:bg-amber-50/40 rounded-lg border p-3 transition-colors"
+                key={benefit.type + benefit.id}
+                href={'/contacts/' + benefit.contactId + '?tab=benefits'}
+                className="border-border hover:border-primary/40 rounded-xl border p-4"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-                    <Icon className="size-4 shrink-0 text-amber-600" />
-                    <span className="truncate">{benefit.contactName}</span>
-                  </span>
-                  <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-                    {days === 0 ? 'Hoje' : `${days} dia${days === 1 ? '' : 's'}`}
+                <div className="flex items-center justify-between gap-2">
+                  <Icon className="text-muted-foreground size-4" />
+                  <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                    {days === 0 ? 'Hoje' : days + ' dias'}
                   </span>
                 </div>
-                <p className="text-muted-foreground mt-2 truncate text-xs">
-                  {benefit.type === 'voucher' ? 'Voucher' : 'Pack'} · {benefit.label}
+                <p className="mt-3 truncate text-sm font-semibold">
+                  {benefit.contactName}
                 </p>
-                <p className="mt-1 text-xs font-medium">
-                  {benefit.remainingLabel} · até {new Date(benefit.expiresAt).toLocaleDateString('pt-PT')}
+                <p className="text-muted-foreground mt-1 truncate text-xs">
+                  {benefit.label}
+                </p>
+                <p className="mt-2 text-xs font-medium">
+                  {benefit.remainingLabel}
                 </p>
               </Link>
             );
           })}
         </div>
       ) : (
-        <p className="text-muted-foreground mt-4 rounded-lg bg-muted/40 px-3 py-4 text-sm">
-          Não há vouchers ou packs ativos a vencer nos próximos 30 dias.
+        <p className="text-muted-foreground bg-muted/40 rounded-xl px-4 py-5 text-sm">
+          Sem vouchers ou packs a vencer nos próximos 30 dias.
         </p>
       )}
     </section>
   );
-}
-
-function deltaLabel(
-  delta: number,
-  suffix: string,
-  noChangeLabel: string
-): string {
-  if (delta === 0) return noChangeLabel;
-  const sign = delta > 0 ? '+' : '';
-  return `${sign}${delta.toLocaleString()} ${suffix}`;
 }

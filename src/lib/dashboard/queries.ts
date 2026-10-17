@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { pendingPortalRequests, type PortalRequestEvent } from './portal-requests';
 import {
   daysAgoStart,
   DOW_SHORT_MON_FIRST,
@@ -147,7 +148,7 @@ export async function loadPortalPendingConfirmations(
   const { data, error } = await db
     .from('clinic_appointments')
     .select(
-      'id,scheduled_start,contact:contacts(name,phone),service:clinic_services(name),professional:profiles!clinic_appointments_professional_profile_id_fkey(full_name,email)'
+      'id,status,scheduled_start,contact:contacts(name,phone),service:clinic_services(name),professional:profiles!clinic_appointments_professional_profile_id_fkey(full_name,email)'
     )
     // The original Portal RPC persists `public_link`, while the cPanel/MySQL
     // runtime persists `client_portal`. Both are client Portal bookings.
@@ -162,12 +163,13 @@ export async function loadPortalPendingConfirmations(
 
   type PortalRow = {
     id: string;
+    status: string;
     scheduled_start: string;
     contact: { name: string | null; phone: string | null } | Array<{ name: string | null; phone: string | null }> | null;
     service: { name: string | null } | Array<{ name: string | null }> | null;
     professional: { full_name: string | null; email: string | null } | Array<{ full_name: string | null; email: string | null }> | null;
   };
-  const confirmations = ((data ?? []) as unknown as PortalRow[]).map((row) => {
+  const confirmations = ((data ?? []) as unknown as PortalRow[]).filter((row) => row.status === 'scheduled').map((row) => {
     const contact = asSingle(row.contact);
     const service = asSingle(row.service);
     const professional = asSingle(row.professional);
@@ -186,35 +188,23 @@ export async function loadPortalPendingConfirmations(
   // beside normal confirmations, without changing the appointment itself.
   const { data: events, error: eventsError } = await db
     .from('clinic_agenda_events')
-    .select('entity_id,metadata,new_starts_at,created_at')
+    .select('entity_id,action,metadata,new_starts_at,created_at')
     .eq('entity_type', 'appointment')
-    .eq('action', 'status_changed')
+    .in('action', ['status_changed', 'rescheduled', 'schedule_changed', 'wrong_booking_moved'])
     .order('created_at', { ascending: false })
-    .limit(80);
+    .limit(2000);
   if (eventsError) throw eventsError;
   if (!events?.length) return confirmations;
 
-  const pendingEvents = (events as Array<{
-    entity_id: string;
-    metadata: unknown;
-    new_starts_at: string | null;
-  }>).filter((event) => {
-    const metadata = typeof event.metadata === 'object' && event.metadata
-      ? event.metadata as Record<string, unknown>
-      : null;
-    return metadata?.kind === 'portal_reschedule' && metadata.state === 'awaiting_professional';
-  });
-  const eventByAppointment = new Map<string, (typeof pendingEvents)[number]>();
-  for (const event of pendingEvents) {
-    if (!eventByAppointment.has(event.entity_id)) eventByAppointment.set(event.entity_id, event);
-  }
+  const eventByAppointment = pendingPortalRequests(events as PortalRequestEvent[]);
   const ids = [...eventByAppointment.keys()];
   if (!ids.length) return confirmations;
   const { data: requestedAppointments, error: requestedError } = await db
     .from('clinic_appointments')
     .select('id,scheduled_start,contact:contacts(name,phone),service:clinic_services(name),professional:profiles!clinic_appointments_professional_profile_id_fkey(full_name,email)')
     .in('id', ids)
-    .in('status', ['scheduled', 'confirmed']);
+    .in('status', ['scheduled', 'confirmed'])
+    .gte('scheduled_start', new Date().toISOString());
   if (requestedError) throw requestedError;
   const reschedules = ((requestedAppointments ?? []) as unknown as PortalRow[]).map((row) => {
     const contact = asSingle(row.contact);
@@ -232,8 +222,8 @@ export async function loadPortalPendingConfirmations(
       requestedStart: event?.new_starts_at ?? null,
     };
   });
-  const existing = new Set(confirmations.map((item) => item.id));
-  return [...confirmations, ...reschedules.filter((item) => !existing.has(item.id))]
+  const requested = new Set(reschedules.map((item) => item.id));
+  return [...confirmations.filter((item) => !requested.has(item.id)), ...reschedules]
     .sort(
       (left, right) =>
         new Date(left.scheduledStart).getTime() -
