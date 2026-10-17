@@ -15,6 +15,25 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-17-inbox-media-search',
+    date: '2026-10-17',
+    category: 'Correção',
+    title: 'Inbox com menu acessível, anexos e pesquisa por ferramenta',
+    areas: ['Inbox', 'Anexos', 'Pesquisa'],
+    summary:
+      'O Inbox ganha acesso ao menu e os anexos passam a ter visualização, download e recuperação.',
+    changes: [
+      'Menu lateral disponível pelo cabeçalho do Inbox, com abertura e fecho no computador e telemóvel.',
+      'Lista e conversa ajustadas à largura disponível, com tempos em português.',
+      'Imagens ampliáveis, pré-visualização de PDF e controlos de áudio e vídeo com download.',
+      'Carregamento autenticado dos anexos, mensagens de falha e recuperação pelo WhatsApp quando o ficheiro não está guardado.',
+      'Compatibilidade do worker com o descarregamento e a identificação de mensagens na versão atual do WhatsApp Web, incluindo anexos enviados pelo telemóvel.',
+      'Pesquisa encontra WhatsApp, calendário, pagamentos e outros nomes comuns, incluindo atalhos de configuração.',
+    ],
+    howTo:
+      'No Inbox, abra o menu no canto superior esquerdo. Clique numa imagem ou PDF para ampliar. Se faltar um anexo, use Recuperar do WhatsApp; a recuperação depende de o ficheiro ainda estar disponível no WhatsApp. Use Ctrl+K e procure WhatsApp para abrir as conversas ou a configuração.',
+  },
+  {
     id: '2026-10-17-single-navigation',
     date: '2026-10-17',
     category: 'Correção',

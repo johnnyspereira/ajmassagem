@@ -17,7 +17,13 @@ import { NavigationSearch } from './navigation-search';
 import { navigationGroups, activeNavigation } from './navigation-model';
 import { useNavigationCounts } from './navigation-state';
 import { WorkTimeClock } from '@/components/work-time/work-time-clock';
-export function Header({ onOpenSidebar }: { onOpenSidebar?: () => void }) {
+export function Header({
+  onOpenSidebar,
+  drawerMenu = false,
+}: {
+  onOpenSidebar?: () => void;
+  drawerMenu?: boolean;
+}) {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
   const counts = useNavigationCounts();
@@ -35,7 +41,7 @@ export function Header({ onOpenSidebar }: { onOpenSidebar?: () => void }) {
             aria-label="Abrir menu"
             className={cn(
               'text-muted-foreground hover:bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl',
-              'lg:hidden'
+              !drawerMenu && 'lg:hidden'
             )}
           >
             <Menu className="size-5" />

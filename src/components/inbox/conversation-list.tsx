@@ -29,6 +29,7 @@ import {
   X,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { pt } from 'date-fns/locale';
 import { useTranslations } from 'next-intl';
 import { Input } from '@/components/ui/input';
 import {
@@ -322,9 +323,13 @@ export function ConversationList({
     let result = conversations;
 
     if (workQueue === 'new') {
-      result = result.filter((c) => c.status === 'open' && !c.assigned_agent_id);
+      result = result.filter(
+        (c) => c.status === 'open' && !c.assigned_agent_id
+      );
     } else if (workQueue === 'active') {
-      result = result.filter((c) => c.status === 'open' && Boolean(c.assigned_agent_id));
+      result = result.filter(
+        (c) => c.status === 'open' && Boolean(c.assigned_agent_id)
+      );
     } else if (workQueue === 'waiting') {
       result = result.filter((c) => c.status === 'pending');
     } else if (workQueue === 'resolved') {
@@ -410,12 +415,19 @@ export function ConversationList({
     workQueue,
   ]);
 
-  const queueCounts = useMemo(() => ({
-    new: conversations.filter((c) => c.status === 'open' && !c.assigned_agent_id).length,
-    active: conversations.filter((c) => c.status === 'open' && Boolean(c.assigned_agent_id)).length,
-    waiting: conversations.filter((c) => c.status === 'pending').length,
-    resolved: conversations.filter((c) => c.status === 'closed').length,
-  }), [conversations]);
+  const queueCounts = useMemo(
+    () => ({
+      new: conversations.filter(
+        (c) => c.status === 'open' && !c.assigned_agent_id
+      ).length,
+      active: conversations.filter(
+        (c) => c.status === 'open' && Boolean(c.assigned_agent_id)
+      ).length,
+      waiting: conversations.filter((c) => c.status === 'pending').length,
+      resolved: conversations.filter((c) => c.status === 'closed').length,
+    }),
+    [conversations]
+  );
 
   const selectWorkQueue = useCallback((queue: WorkQueue) => {
     setWorkQueue(queue);
@@ -513,7 +525,9 @@ export function ConversationList({
             : status === 'pending'
               ? 'pendentes'
               : 'fechadas';
-        toast.success(`${selectedVisibleIds.length} conversa(s) marcadas como ${label}.`);
+        toast.success(
+          `${selectedVisibleIds.length} conversa(s) marcadas como ${label}.`
+        );
       } catch (error) {
         console.error('[inbox] bulk status update failed:', error);
         toast.error('Não foi possível atualizar as conversas selecionadas.');
@@ -525,14 +539,20 @@ export function ConversationList({
   );
 
   return (
-    <div className="bg-card flex h-full w-full flex-col lg:w-[21rem]">
+    <div className="bg-card flex h-full w-full min-w-0 flex-col lg:w-[19rem] 2xl:w-[21rem]">
       <div className="border-border/70 space-y-3 border-b p-4">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <p className="text-[10px] font-semibold tracking-[0.16em] text-primary uppercase">Fila de trabalho</p>
-            <h2 className="mt-1 text-sm font-semibold text-foreground">Conversas</h2>
+            <p className="text-primary text-[10px] font-semibold tracking-[0.16em] uppercase">
+              Fila de trabalho
+            </p>
+            <h2 className="text-foreground mt-1 text-sm font-semibold">
+              Conversas
+            </h2>
           </div>
-          <span className="bg-primary/10 text-primary rounded-full px-2 py-1 text-[10px] font-bold">{conversations.length}</span>
+          <span className="bg-primary/10 text-primary rounded-full px-2 py-1 text-[10px] font-bold">
+            {conversations.length}
+          </span>
         </div>
         <div className="relative">
           <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
@@ -544,7 +564,7 @@ export function ConversationList({
           />
         </div>
 
-        <div className="grid grid-cols-3 gap-1 rounded-xl bg-muted/60 p-1 text-[11px] font-medium">
+        <div className="bg-muted/60 grid grid-cols-3 gap-1 rounded-xl p-1 text-[11px] font-medium">
           <button
             type="button"
             onClick={() => setFilter('all')}
@@ -901,9 +921,7 @@ export function ConversationList({
         <div className="border-border/70 flex flex-wrap items-center gap-1.5 border-t pt-3">
           <Checkbox
             checked={allVisibleSelected}
-            indeterminate={
-              selectedVisibleIds.length > 0 && !allVisibleSelected
-            }
+            indeterminate={selectedVisibleIds.length > 0 && !allVisibleSelected}
             onCheckedChange={toggleAllVisible}
             aria-label="Selecionar todas as conversas visíveis"
           />
@@ -914,9 +932,30 @@ export function ConversationList({
           </span>
           {selectedVisibleIds.length > 0 && (
             <>
-              <button type="button" onClick={() => void applyBulkStatus('open')} disabled={bulkUpdating} className="rounded-md border border-primary/25 px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/10 disabled:opacity-50">Aberto</button>
-              <button type="button" onClick={() => void applyBulkStatus('pending')} disabled={bulkUpdating} className="rounded-md border border-amber-500/25 px-2 py-1 text-[11px] font-medium text-amber-600 hover:bg-amber-500/10 disabled:opacity-50">Pendente</button>
-              <button type="button" onClick={() => void applyBulkStatus('closed')} disabled={bulkUpdating} className="rounded-md border border-muted-foreground/25 px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted disabled:opacity-50">Fechar</button>
+              <button
+                type="button"
+                onClick={() => void applyBulkStatus('open')}
+                disabled={bulkUpdating}
+                className="border-primary/25 text-primary hover:bg-primary/10 rounded-md border px-2 py-1 text-[11px] font-medium disabled:opacity-50"
+              >
+                Aberto
+              </button>
+              <button
+                type="button"
+                onClick={() => void applyBulkStatus('pending')}
+                disabled={bulkUpdating}
+                className="rounded-md border border-amber-500/25 px-2 py-1 text-[11px] font-medium text-amber-600 hover:bg-amber-500/10 disabled:opacity-50"
+              >
+                Pendente
+              </button>
+              <button
+                type="button"
+                onClick={() => void applyBulkStatus('closed')}
+                disabled={bulkUpdating}
+                className="border-muted-foreground/25 text-muted-foreground hover:bg-muted rounded-md border px-2 py-1 text-[11px] font-medium disabled:opacity-50"
+              >
+                Fechar
+              </button>
             </>
           )}
         </div>
@@ -1008,6 +1047,7 @@ function ConversationItem({
   const timeAgo = conversation.last_message_at
     ? formatDistanceToNow(new Date(conversation.last_message_at), {
         addSuffix: false,
+        locale: pt,
       })
     : '';
 
@@ -1019,117 +1059,117 @@ function ConversationItem({
         aria-label={`Selecionar ${displayName}`}
         className="mt-4 ml-2 shrink-0"
       />
-    <button
-      type="button"
-      onClick={handleClick}
-      className={cn(
-        'hover:bg-muted/65 flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-all',
-        isActive && 'bg-primary/8 ring-primary/20 shadow-sm ring-1'
-      )}
-    >
-      <div className="bg-muted text-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm font-medium shadow-sm">
-        {contact?.avatar_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={contact.avatar_url}
-            alt={displayName}
-            className="h-10 w-10 rounded-full object-cover"
-          />
-        ) : (
-          initials
+      <button
+        type="button"
+        onClick={handleClick}
+        className={cn(
+          'hover:bg-muted/65 flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-all',
+          isActive && 'bg-primary/8 ring-primary/20 shadow-sm ring-1'
         )}
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-foreground truncate text-sm font-medium">
-            {displayName}
-          </span>
-          <span className="text-muted-foreground shrink-0 text-[10px]">
-            {timeAgo}
-          </span>
-        </div>
-        <div className="mt-0.5 flex items-center justify-between gap-2">
-          <p className="text-muted-foreground truncate text-xs">
-            {conversation.last_message_text || t('noMessagesYet')}
-          </p>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {conversation.unread_count > 0 && (
-              <span className="bg-primary text-primary-foreground flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold">
-                {conversation.unread_count}
-              </span>
-            )}
-            <span
-              className={cn(
-                'h-2 w-2 rounded-full',
-                STATUS_COLORS[conversation.status]
-              )}
-              title={conversation.status}
+      >
+        <div className="bg-muted text-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm font-medium shadow-sm">
+          {contact?.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={contact.avatar_url}
+              alt={displayName}
+              className="h-10 w-10 rounded-full object-cover"
             />
-          </div>
+          ) : (
+            initials
+          )}
         </div>
 
-        {(needsReply ||
-          contact?.client_reference ||
-          dealCount > 0 ||
-          appointmentCount > 0 ||
-          automationActive ||
-          tags.length > 0) && (
-          <div className="mt-2 flex flex-wrap items-center gap-1">
-            {contact?.client_reference && (
-              <MiniBadge className="bg-primary/10 text-primary">
-                Ref. {contact.client_reference}
-              </MiniBadge>
-            )}
-            {needsReply && (
-              <MiniBadge className="bg-amber-500/15 text-amber-500">
-                <MessageCircleReply className="h-3 w-3" />
-                Reply
-              </MiniBadge>
-            )}
-            {dealCount > 0 && (
-              <MiniBadge className="bg-emerald-500/15 text-emerald-500">
-                <Briefcase className="h-3 w-3" />
-                {dealCount}
-              </MiniBadge>
-            )}
-            {appointmentCount > 0 && (
-              <MiniBadge className="bg-sky-500/15 text-sky-500">
-                <CalendarClock className="h-3 w-3" />
-                {appointmentCount}
-              </MiniBadge>
-            )}
-            {firstStage && (
-              <MiniBadge className="bg-muted text-muted-foreground">
-                <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: firstStage.color }}
-                />
-                <span className="max-w-20 truncate">{firstStage.name}</span>
-              </MiniBadge>
-            )}
-            {automationActive && (
-              <MiniBadge className="bg-violet-500/15 text-violet-500">
-                <Bot className="h-3 w-3" />
-                Auto
-              </MiniBadge>
-            )}
-            {tags.map((tag) => (
-              <MiniBadge
-                key={tag.id}
-                className="bg-muted text-muted-foreground"
-              >
-                <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: tag.color }}
-                />
-                <span className="max-w-16 truncate">{tag.name}</span>
-              </MiniBadge>
-            ))}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-foreground truncate text-sm font-medium">
+              {displayName}
+            </span>
+            <span className="text-muted-foreground shrink-0 text-[10px]">
+              {timeAgo}
+            </span>
           </div>
-        )}
-      </div>
-    </button>
+          <div className="mt-0.5 flex items-center justify-between gap-2">
+            <p className="text-muted-foreground truncate text-xs">
+              {conversation.last_message_text || t('noMessagesYet')}
+            </p>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {conversation.unread_count > 0 && (
+                <span className="bg-primary text-primary-foreground flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold">
+                  {conversation.unread_count}
+                </span>
+              )}
+              <span
+                className={cn(
+                  'h-2 w-2 rounded-full',
+                  STATUS_COLORS[conversation.status]
+                )}
+                title={conversation.status}
+              />
+            </div>
+          </div>
+
+          {(needsReply ||
+            contact?.client_reference ||
+            dealCount > 0 ||
+            appointmentCount > 0 ||
+            automationActive ||
+            tags.length > 0) && (
+            <div className="mt-2 flex flex-wrap items-center gap-1">
+              {contact?.client_reference && (
+                <MiniBadge className="bg-primary/10 text-primary">
+                  Ref. {contact.client_reference}
+                </MiniBadge>
+              )}
+              {needsReply && (
+                <MiniBadge className="bg-amber-500/15 text-amber-500">
+                  <MessageCircleReply className="h-3 w-3" />
+                  Reply
+                </MiniBadge>
+              )}
+              {dealCount > 0 && (
+                <MiniBadge className="bg-emerald-500/15 text-emerald-500">
+                  <Briefcase className="h-3 w-3" />
+                  {dealCount}
+                </MiniBadge>
+              )}
+              {appointmentCount > 0 && (
+                <MiniBadge className="bg-sky-500/15 text-sky-500">
+                  <CalendarClock className="h-3 w-3" />
+                  {appointmentCount}
+                </MiniBadge>
+              )}
+              {firstStage && (
+                <MiniBadge className="bg-muted text-muted-foreground">
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: firstStage.color }}
+                  />
+                  <span className="max-w-20 truncate">{firstStage.name}</span>
+                </MiniBadge>
+              )}
+              {automationActive && (
+                <MiniBadge className="bg-violet-500/15 text-violet-500">
+                  <Bot className="h-3 w-3" />
+                  Auto
+                </MiniBadge>
+              )}
+              {tags.map((tag) => (
+                <MiniBadge
+                  key={tag.id}
+                  className="bg-muted text-muted-foreground"
+                >
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: tag.color }}
+                  />
+                  <span className="max-w-16 truncate">{tag.name}</span>
+                </MiniBadge>
+              ))}
+            </div>
+          )}
+        </div>
+      </button>
     </div>
   );
 }

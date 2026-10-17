@@ -1,16 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import type { Message, MessageReaction } from '@/types';
 import {
   Check,
   CheckCheck,
   XCircle,
-  FileText,
   MapPin,
   LayoutTemplate,
-  ImageOff,
   CornerDownLeft,
   Sparkles,
   Languages,
@@ -20,6 +18,7 @@ import {
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ReplyQuote } from './reply-quote';
+import { MediaAttachment } from './media-attachment';
 import { MessageReactions } from './message-reactions';
 import { InteractivePreview } from '@/components/interactive/interactive-preview';
 import { useTranslations } from 'next-intl';
@@ -39,7 +38,9 @@ interface MessageBubbleProps {
 function StatusIcon({ status }: { status: Message['status'] }) {
   switch (status) {
     case 'sending':
-      return <Loader2 className="h-3 w-3 animate-spin text-primary-foreground/90" />;
+      return (
+        <Loader2 className="text-primary-foreground/90 h-3 w-3 animate-spin" />
+      );
     case 'sent':
       return <Check className="text-muted-foreground h-3 w-3" />;
     case 'delivered':
@@ -51,84 +52,6 @@ function StatusIcon({ status }: { status: Message['status'] }) {
     default:
       return null;
   }
-}
-
-function MediaUnavailable({
-  label,
-  t,
-}: {
-  label: string;
-  t: ReturnType<typeof useTranslations>;
-}) {
-  return (
-    <div className="bg-muted/40 text-muted-foreground flex items-center gap-2 rounded-lg px-3 py-2 text-xs">
-      <ImageOff className="text-muted-foreground h-4 w-4 shrink-0" />
-      <span>{t('unavailable', { label })}</span>
-    </div>
-  );
-}
-
-function MediaImage({ url, alt }: { url: string; alt: string }) {
-  const [src, setSrc] = useState<string | null>(null);
-  const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  const loadImage = useCallback(async () => {
-    if (!url) return;
-
-    // Proxy URLs need auth fetch to create blob URL
-    if (url.startsWith('/api/whatsapp/media/')) {
-      try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('Failed to load media');
-        const blob = await res.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        setSrc(blobUrl);
-      } catch {
-        setError(true);
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      setSrc(url);
-      setLoading(false);
-    }
-  }, [url]);
-
-  useEffect(() => {
-    loadImage();
-    return () => {
-      if (src?.startsWith('blob:')) {
-        URL.revokeObjectURL(src);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadImage]);
-
-  if (error) {
-    return (
-      <div className="bg-muted flex h-40 w-60 items-center justify-center rounded-lg">
-        <ImageOff className="text-muted-foreground h-8 w-8" />
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="bg-muted flex h-40 w-60 items-center justify-center rounded-lg">
-        <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
-      </div>
-    );
-  }
-
-  return (
-    <img
-      src={src ?? ''}
-      alt={alt}
-      className="max-h-64 max-w-60 rounded-lg object-cover"
-      onError={() => setError(true)}
-    />
-  );
 }
 
 function MessageContent({
@@ -147,73 +70,18 @@ function MessageContent({
       );
 
     case 'image':
-      return (
-        <div>
-          {message.media_url ? (
-            <MediaImage url={message.media_url} alt="Shared image" />
-          ) : (
-            <MediaUnavailable label={t('photo')} t={t} />
-          )}
-          {message.content_text && (
-            <p className="mt-1 text-sm break-words whitespace-pre-wrap">
-              {message.content_text}
-            </p>
-          )}
-        </div>
-      );
-
     case 'video':
+    case 'audio':
+    case 'document':
       return (
-        <div>
-          {message.media_url ? (
-            <video
-              src={message.media_url}
-              controls
-              className="max-h-64 max-w-60 rounded-lg"
-            />
-          ) : (
-            <MediaUnavailable label={t('video')} t={t} />
-          )}
-          {message.content_text && (
+        <div className="max-w-full min-w-0">
+          <MediaAttachment message={message} />
+          {message.content_type !== 'document' && message.content_text && (
             <p className="mt-1 text-sm break-words whitespace-pre-wrap">
               {message.content_text}
             </p>
           )}
         </div>
-      );
-
-    case 'audio':
-      return (
-        <div>
-          {message.media_url ? (
-            <audio src={message.media_url} controls className="max-w-60" />
-          ) : (
-            <MediaUnavailable label={t('audio')} t={t} />
-          )}
-        </div>
-      );
-
-    case 'document':
-      if (!message.media_url) {
-        return (
-          <MediaUnavailable
-            label={message.content_text || t('document')}
-            t={t}
-          />
-        );
-      }
-      return (
-        <a
-          href={message.media_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bg-muted/50 hover:bg-muted flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
-        >
-          <FileText className="text-muted-foreground h-5 w-5 shrink-0" />
-          <span className="truncate">
-            {message.content_text || t('document')}
-          </span>
-        </a>
       );
 
     case 'template':
@@ -353,9 +221,9 @@ export function MessageBubble({
         )}
         <MessageContent message={message} t={t} />
         {canTranslate && (
-          <div className="mt-2 border-t border-border/60 pt-1.5">
+          <div className="border-border/60 mt-2 border-t pt-1.5">
             {translation ? (
-              <div className="text-muted-foreground rounded-md bg-background/45 px-2 py-1.5 text-xs whitespace-pre-wrap">
+              <div className="text-muted-foreground bg-background/45 rounded-md px-2 py-1.5 text-xs whitespace-pre-wrap">
                 <span className="mb-0.5 block text-[10px] font-semibold tracking-wide uppercase">
                   Tradução para português
                 </span>
@@ -416,14 +284,13 @@ export function MessageBubble({
           <div
             role="status"
             aria-live="polite"
-            className="mt-1.5 min-w-36 text-primary-foreground/85"
+            className="text-primary-foreground/85 mt-1.5 min-w-36"
           >
             <span className="flex items-center gap-1 text-[10px] font-medium">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              A confirmar envio…
+              <Loader2 className="h-3 w-3 animate-spin" />A confirmar envio…
             </span>
-            <span className="mt-1 block h-1 overflow-hidden rounded-full bg-primary-foreground/25">
-              <span className="block h-full w-2/3 animate-pulse rounded-full bg-primary-foreground/90" />
+            <span className="bg-primary-foreground/25 mt-1 block h-1 overflow-hidden rounded-full">
+              <span className="bg-primary-foreground/90 block h-full w-2/3 animate-pulse rounded-full" />
             </span>
           </div>
         )}
@@ -431,7 +298,7 @@ export function MessageBubble({
           <div className="mt-1.5 space-y-1.5">
             {message.delivery_error ? (
               <p
-                className="max-w-56 text-[10px] leading-snug text-primary-foreground/80"
+                className="text-primary-foreground/80 max-w-56 text-[10px] leading-snug"
                 title={message.delivery_error}
               >
                 Falhou: {message.delivery_error}
@@ -440,7 +307,7 @@ export function MessageBubble({
             <button
               type="button"
               onClick={onRetry}
-              className="inline-flex items-center gap-1 text-[10px] font-medium text-primary-foreground/85 underline-offset-2 hover:underline"
+              className="text-primary-foreground/85 inline-flex items-center gap-1 text-[10px] font-medium underline-offset-2 hover:underline"
             >
               <RotateCw className="h-3 w-3" /> Tentar novamente
             </button>

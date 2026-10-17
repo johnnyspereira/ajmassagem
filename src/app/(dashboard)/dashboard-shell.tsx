@@ -26,15 +26,14 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   // Inbox is intentionally a focused workspace, not another dashboard
-  // panel. It keeps the authentication/providers from this shell while
-  // removing the global navigation chrome.
+  // panel. Keep its navigation available in a drawer so conversations have
+  // the full width while the agent can still reach every CRM tool.
   // `usePathname` can transiently return null while a client navigation is
   // hydrating. Treat that state as the normal dashboard shell instead of
   // allowing a string call to take down every authenticated route.
   const isInboxWorkspace = pathname?.startsWith('/inbox') ?? false;
 
-  // Sidebar drawer state — only used on mobile. On lg+ the sidebar is
-  // always visible and this stays at `false` (ignored by the component).
+  // Drawer on mobile and at every screen size inside the Inbox.
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
@@ -59,9 +58,9 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
 
   return (
     <WorkTimeProvider>
-      <NavigationState enabled={!isInboxWorkspace}>
+      <NavigationState>
         <DocumentTitle />
-        <div className="bg-background flex h-screen overflow-hidden">
+        <div className="bg-background flex h-dvh overflow-hidden">
           {/* Reports this tab's online/away presence once we know a user is
           signed in. Headless — renders nothing. */}
           <PresenceHeartbeat />
@@ -69,6 +68,11 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           <NotificationRealtimeAlerts />
           <PushNotifications />
           <ContextualHelp />
+          <Sidebar
+            open={sidebarOpen}
+            onClose={closeSidebar}
+            drawerOnly={isInboxWorkspace}
+          />
           {!isInboxWorkspace && (
             <>
               <Link
@@ -80,18 +84,18 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
                 <ShoppingCart className="size-5" />
                 <span className="sr-only">Abrir POS</span>
               </Link>
-              <Sidebar open={sidebarOpen} onClose={closeSidebar} />
               <MobileAppNavigation onOpenMenu={() => setSidebarOpen(true)} />
             </>
           )}
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            {!isInboxWorkspace && (
-              <Header onOpenSidebar={() => setSidebarOpen(true)} />
-            )}
+            <Header
+              onOpenSidebar={() => setSidebarOpen(true)}
+              drawerMenu={isInboxWorkspace}
+            />
             <main
               className={
                 isInboxWorkspace
-                  ? 'flex-1 overflow-hidden'
+                  ? 'min-h-0 flex-1 overflow-hidden'
                   : 'flex-1 overflow-y-auto p-4 pb-28 sm:p-6 sm:pb-28'
               }
             >

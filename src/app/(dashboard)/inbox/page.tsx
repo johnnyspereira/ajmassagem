@@ -24,7 +24,6 @@ import { ContactSidebar } from '@/components/inbox/contact-sidebar';
 import {
   AlertTriangle,
   Loader2,
-  LayoutGrid,
   MessageCircleMore,
   Radio,
   RefreshCw,
@@ -513,7 +512,9 @@ export default function InboxPage() {
 
       if (event.eventType === 'UPDATE') {
         if (isInternalAlertConversation(conv)) {
-          setConversations((prev) => prev.filter((item) => item.id !== conv.id));
+          setConversations((prev) =>
+            prev.filter((item) => item.id !== conv.id)
+          );
           return;
         }
         if (knownConvIdsRef.current.has(conv.id)) {
@@ -852,7 +853,9 @@ export default function InboxPage() {
       const selected = new Set(ids);
       setConversations((prev) =>
         prev.map((conversation) =>
-          selected.has(conversation.id) ? { ...conversation, status } : conversation
+          selected.has(conversation.id)
+            ? { ...conversation, status }
+            : conversation
         )
       );
       setActiveConversation((current) =>
@@ -923,65 +926,75 @@ export default function InboxPage() {
   ).length;
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-muted/35">
-      <header className="flex shrink-0 flex-col gap-3 border-b border-border/70 bg-background/90 px-4 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6">
+    <div className="bg-muted/35 flex h-full min-h-0 flex-col overflow-hidden">
+      <header className="border-border/70 bg-background/90 flex shrink-0 flex-col gap-3 border-b px-4 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex items-center gap-3">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push('/dashboard')}
-            className="text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Voltar ao CRM"
-            title="Voltar ao CRM"
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </Button>
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+          <div className="bg-primary text-primary-foreground shadow-primary/20 flex h-10 w-10 items-center justify-center rounded-2xl shadow-lg">
             <MessageCircleMore className="h-5 w-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base font-semibold tracking-tight">Inbox de atendimento</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-base font-semibold tracking-tight">
+                Inbox de atendimento
+              </h1>
               {whatsappConnection?.connected ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> WhatsApp ligado
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{' '}
+                  WhatsApp ligado
                 </span>
               ) : null}
             </div>
-            <p className="text-muted-foreground text-xs">Uma vista de trabalho para cada conversa e cliente.</p>
+            <p className="text-muted-foreground hidden text-xs sm:block">
+              Uma vista de trabalho para cada conversa e cliente.
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs">
-          <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-card px-3 py-2 shadow-sm">
-            <Radio className="h-3.5 w-3.5 text-primary" />
+          <div className="border-border/70 bg-card flex items-center gap-2 rounded-xl border px-3 py-2 shadow-sm">
+            <Radio className="text-primary h-3.5 w-3.5" />
             <span className="text-muted-foreground">A responder</span>
-            <strong className="text-foreground">{conversationsNeedingReply}</strong>
+            <strong className="text-foreground">
+              {conversationsNeedingReply}
+            </strong>
           </div>
-          <div className="hidden items-center gap-2 rounded-xl border border-border/70 bg-card px-3 py-2 shadow-sm sm:flex">
+          <div className="border-border/70 bg-card hidden items-center gap-2 rounded-xl border px-3 py-2 shadow-sm sm:flex">
             <UsersRound className="h-3.5 w-3.5 text-violet-500" />
             <span className="text-muted-foreground">Conversas</span>
             <strong className="text-foreground">{conversations.length}</strong>
           </div>
           {whatsappConnection?.connected ? (
             <div
-              className="hidden items-center gap-1.5 rounded-xl border border-border/70 bg-card px-3 py-2 text-[11px] text-muted-foreground shadow-sm lg:flex"
+              className="border-border/70 bg-card text-muted-foreground hidden items-center gap-1.5 rounded-xl border px-3 py-2 text-[11px] shadow-sm lg:flex"
               title="O Inbox verifica novas mensagens do WhatsApp a cada minuto enquanto esta página está aberta."
             >
               <RefreshCw className="h-3.5 w-3.5 text-emerald-500" />
               <span>
                 {lastInboxSyncAt
-                  ? `Sincronizado às ${lastInboxSyncAt.toLocaleTimeString('pt-PT', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}`
+                  ? `Sincronizado às ${lastInboxSyncAt.toLocaleTimeString(
+                      'pt-PT',
+                      {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      }
+                    )}`
                   : 'Sincronização automática ativa'}
               </span>
             </div>
           ) : null}
           {isOwner ? (
-            <Button type="button" variant="outline" size="sm" onClick={() => setClearInboxOpen(true)} disabled={clearingInbox || conversations.length === 0} className="border-red-500/25 text-red-600 hover:bg-red-500/10 hover:text-red-700 dark:text-red-400">
-              {clearingInbox ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setClearInboxOpen(true)}
+              disabled={clearingInbox || conversations.length === 0}
+              className="border-red-500/25 text-red-600 hover:bg-red-500/10 hover:text-red-700 dark:text-red-400"
+            >
+              {clearingInbox ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
               <span className="hidden sm:inline">Limpar conversas</span>
             </Button>
           ) : null}
@@ -1026,13 +1039,13 @@ export default function InboxPage() {
         </div>
       )}
 
-      <div className="flex flex-1 gap-0 overflow-hidden p-2 sm:p-3">
+      <div className="flex min-h-0 flex-1 gap-2 overflow-hidden p-2 sm:gap-3 sm:p-3">
         {/* Left panel: Conversation list.
             Hidden on mobile when a conversation is selected so the
             thread can occupy the full width. Always visible on lg+. */}
         <div
           className={cn(
-            'flex h-full flex-1 overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm lg:flex-none',
+            'border-border/70 bg-card flex h-full flex-1 overflow-hidden rounded-2xl border shadow-sm lg:flex-none',
             hasActiveConv ? 'hidden lg:flex' : 'flex'
           )}
         >
@@ -1058,7 +1071,7 @@ export default function InboxPage() {
             on the right. Issue #165. */}
         <div
           className={cn(
-            'flex h-full min-w-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm lg:flex',
+            'border-border/70 bg-card flex h-full min-w-0 flex-1 overflow-hidden rounded-2xl border shadow-sm lg:flex',
             hasActiveConv ? 'flex' : 'hidden lg:flex'
           )}
         >
@@ -1085,7 +1098,7 @@ export default function InboxPage() {
             On mobile it's always hidden (the `lg:block` below), so the
             toggle — which is itself desktop-only — never affects it. */}
         {contactPanelOpen && (
-          <div className="ml-3 hidden overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm xl:block">
+          <div className="border-border/70 bg-card ml-3 hidden overflow-hidden rounded-2xl border shadow-sm xl:block">
             <ContactSidebar
               contact={activeContact}
               conversationId={activeConversation?.id ?? null}

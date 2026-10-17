@@ -10,7 +10,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { navigationGroups, groupLinks } from './navigation-model';
+import { navigationGroups, searchableGroupLinks } from './navigation-model';
 export function NavigationSearch() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -24,17 +24,6 @@ export function NavigationSearch() {
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
   }, []);
-  const match = (label: string) =>
-    label
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .includes(
-        query
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .toLowerCase()
-      );
   return (
     <>
       <button
@@ -69,9 +58,7 @@ export function NavigationSearch() {
           />
           <div className="max-h-[55vh] overflow-y-auto">
             {navigationGroups.map((group) => {
-              const links = groupLinks(group.id).filter((item) =>
-                match(item.label)
-              );
+              const links = searchableGroupLinks(group.id, query);
               return links.length ? (
                 <section key={group.id} className="mb-4">
                   <p className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wider uppercase">
@@ -92,8 +79,8 @@ export function NavigationSearch() {
                 </section>
               ) : null;
             })}
-            {!navigationGroups.some((group) =>
-              groupLinks(group.id).some((item) => match(item.label))
+            {!navigationGroups.some(
+              (group) => searchableGroupLinks(group.id, query).length > 0
             ) && (
               <p className="text-muted-foreground p-6 text-center text-sm">
                 Nenhuma área encontrada.

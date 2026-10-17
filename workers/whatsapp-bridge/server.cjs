@@ -31,6 +31,7 @@ function installWhatsAppWebMediaPatch() {
 
 installWhatsAppWebMediaPatch();
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
+const { downloadCompatibleMedia } = require('./media-download.cjs');
 
 const PORT = Number(process.env.PORT || 4100);
 const SECRET = process.env.WORKER_SECRET;
@@ -199,12 +200,12 @@ function isPossibleMedia(message) {
   return Boolean(message?.hasMedia) || encryptedBody || !['', 'chat', 'text', 'e2e_notification'].includes(type);
 }
 async function inboundMediaPayload(message) {
-  if (!message || message?.fromMe || !isPossibleMedia(message)) return {};
+  if (!message || !isPossibleMedia(message)) return {};
   // WhatsApp Web may report a message before its encrypted media is ready to
   // download. Retry after reloading the message so photos are not persisted
   // as a permanent "unavailable" placeholder in the Inbox.
   for (let attempt = 0; attempt < 3; attempt++) {
-    const media = await message.downloadMedia().catch(() => null);
+    const media = await downloadCompatibleMedia(message);
     if (media?.data && media?.mimetype) {
       return {
         mediaBase64: media.data,
@@ -992,6 +993,7 @@ async function sync(input) {
           .slice(-messageLimit);
         for (const message of rawMessages) {
           const messageId = message.id?._serialized || message.id?.id;
+          const lookupMessageId = message.id?._serialized || message.id?.$1 || messageId;
           const phone =
             contact?.id?._serialized ||
             contact?.id?.user ||
@@ -1001,6 +1003,7 @@ async function sync(input) {
           rows.push({
             chatId,
             messageId,
+            lookupMessageId,
             phone,
             name:
               contact?.pushname ||
@@ -1042,7 +1045,7 @@ async function sync(input) {
         continue;
       }
       const message = await client
-        .getMessageById(snapshot.messageId)
+        .getMessageById(snapshot.lookupMessageId || snapshot.messageId)
         .catch(() => null);
       const contact = message
         ? await message.getContact().catch(() => null)

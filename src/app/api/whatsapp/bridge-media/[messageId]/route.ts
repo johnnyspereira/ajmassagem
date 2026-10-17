@@ -1,9 +1,10 @@
-import { getCurrentAccount } from '@/lib/auth/account';
+import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account';
+import { mediaResponse } from '@/lib/inbox/media-response';
 import { selectRows } from '@/lib/mysql/db';
 import type { RowDataPacket } from 'mysql2';
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ messageId: string }> }
 ) {
   try {
@@ -25,22 +26,9 @@ export async function GET(
       return Response.json({ error: 'Media not found.' }, { status: 404 });
     }
 
-    const filename = media.filename
-      ?.replace(/[\\\r\n"]/g, '_')
-      .slice(0, 180);
-    return new Response(new Uint8Array(media.data), {
-      headers: {
-        'Content-Type': media.mime_type || 'application/octet-stream',
-        'Cache-Control': 'private, max-age=3600',
-        ...(filename
-          ? {
-              'Content-Disposition': `inline; filename="${filename}"`,
-            }
-          : {}),
-      },
-    });
+    return mediaResponse(request, media);
   } catch (error) {
     console.error('[whatsapp-bridge-media] failed:', error);
-    return Response.json({ error: 'Could not load media.' }, { status: 500 });
+    return toErrorResponse(error);
   }
 }

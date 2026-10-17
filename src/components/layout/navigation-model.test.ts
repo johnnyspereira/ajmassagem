@@ -4,8 +4,26 @@ import {
   navigationLinks,
   activeNavigation,
   groupLinks,
+  searchableGroupLinks,
 } from './navigation-model';
 describe('navigation architecture', () => {
+  it('finds WhatsApp conversations and configuration by the words users type', () => {
+    expect(
+      searchableGroupLinks('daily', 'Whatsapp').map((item) => item.href)
+    ).toContain('/inbox');
+    expect(
+      searchableGroupLinks('system', 'whatsapp configuração').map(
+        (item) => item.href
+      )
+    ).toContain('/settings?tab=whatsapp');
+    expect(
+      searchableGroupLinks('daily', 'CALENDÁRIO').map((item) => item.href)
+    ).toContain('/agenda');
+    expect(
+      searchableGroupLinks('business', 'pagamentos').map((item) => item.href)
+    ).toContain('/finance');
+    expect(searchableGroupLinks('daily', 'xyz inexistente')).toEqual([]);
+  });
   it('includes every tool once and keeps notifications out of navigation groups', () => {
     const hrefs = navigationGroups.flatMap((group) => group.hrefs);
     expect(new Set(hrefs).size).toBe(hrefs.length);
