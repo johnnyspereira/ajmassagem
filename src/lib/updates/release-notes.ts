@@ -15,6 +15,22 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-17-brand-icons',
+    date: '2026-10-17',
+    category: 'Correção',
+    title: 'O logótipo JP Massagem nos ícones da aplicação',
+    areas: ['Identidade visual', 'Sistema'],
+    summary:
+      'O ícone genérico foi substituído pelo logótipo fornecido da JP Massagem.',
+    changes: [
+      'Logótipo no separador do navegador e nos ícones de instalação da aplicação.',
+      'Imagens próprias para os tamanhos 32, 64, 180, 192 e 512 píxeis, preservando as proporções do original.',
+      'Ícone adaptável com margem de segurança e manifesto com os tamanhos reais, corrigindo o aviso apresentado pelo navegador.',
+    ],
+    howTo:
+      'Atualize a página para ver o novo ícone. Se o sistema operativo mantiver um ícone antigo numa instalação existente, poderá ser necessário voltar a adicionar o atalho da aplicação.',
+  },
+  {
     id: '2026-10-17-update-history',
     date: '2026-10-17',
     category: 'Novidade',

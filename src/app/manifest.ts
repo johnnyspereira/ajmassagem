@@ -10,9 +10,20 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: '#020617',
     theme_color: '#020617',
     icons: [
-      { src: '/icon', sizes: '512x512', type: 'image/png', purpose: 'any' },
       {
-        src: '/icon',
+        src: '/icons/jp-massagem-192-v1.png',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: '/icons/jp-massagem-512-v1.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: '/icons/jp-massagem-maskable-512-v1.png',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable',

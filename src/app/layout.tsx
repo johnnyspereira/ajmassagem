@@ -29,7 +29,9 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://jpmassagem.pt'),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL || 'https://jpmassagem.pt'
+  ),
   manifest: '/manifest.webmanifest',
   applicationName: 'CRM WhatsApp',
   appleWebApp: {
@@ -47,8 +49,25 @@ export const metadata: Metadata = {
     follow: false,
   },
   icons: {
-    icon: [{ url: '/icon' }],
-    apple: [{ url: '/icon' }],
+    icon: [
+      {
+        url: '/icons/jp-massagem-32-v1.png',
+        sizes: '32x32',
+        type: 'image/png',
+      },
+      {
+        url: '/icons/jp-massagem-64-v1.png',
+        sizes: '64x64',
+        type: 'image/png',
+      },
+    ],
+    apple: [
+      {
+        url: '/icons/jp-massagem-180-v1.png',
+        sizes: '180x180',
+        type: 'image/png',
+      },
+    ],
   },
   formatDetection: {
     email: false,
