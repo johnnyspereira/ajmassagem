@@ -440,17 +440,16 @@ export function GeneralSettings() {
                 {t('navigationTitle')}
               </CardTitle>
               <CardDescription>
-                Navegação superior e lateral em simultâneo.
+                Menu lateral com uma barra de ferramentas no topo.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="border-primary/20 bg-primary/5 rounded-xl border p-4">
-                <p className="text-sm font-semibold">
-                  {t('sidebar')} + {t('topbar')}
-                </p>
+                <p className="text-sm font-semibold">{t('sidebar')}</p>
                 <p className="text-muted-foreground mt-1 text-xs">
-                  O menu lateral e a barra superior aparecem juntos no
-                  computador. No telemóvel, abra o menu pelo botão no cabeçalho.
+                  Navegue pelo menu lateral. A barra superior reúne pesquisa,
+                  ponto, notificações, tema e perfil. No telemóvel, abra o menu
+                  pelo botão no cabeçalho.
                 </p>
               </div>
             </CardContent>
@@ -559,7 +558,7 @@ function GeneralPreview({
           <PreviewFact
             icon={LayoutDashboard}
             label={t('previewNavigation')}
-            value={`${t('sidebar')} + ${t('topbar')}`}
+            value={t('sidebar')}
           />
         </div>
 

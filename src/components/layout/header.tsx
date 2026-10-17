@@ -1,16 +1,7 @@
 'use client';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import {
-  Bell,
-  ChevronDown,
-  Menu,
-  LogOut,
-  User,
-  Settings,
-  ArrowUpRight,
-} from 'lucide-react';
+import { Bell, ChevronDown, Menu, LogOut, User, Settings } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import {
@@ -23,36 +14,20 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ModeToggle } from './mode-toggle';
 import { NavigationSearch } from './navigation-search';
-import {
-  navigationGroups,
-  groupLinks,
-  activeNavigation,
-} from './navigation-model';
+import { navigationGroups, activeNavigation } from './navigation-model';
 import { useNavigationCounts } from './navigation-state';
 import { WorkTimeClock } from '@/components/work-time/work-time-clock';
-export function Header({
-  onOpenSidebar,
-  navigationLayout = 'sidebar',
-}: {
-  onOpenSidebar?: () => void;
-  navigationLayout?: 'sidebar' | 'topbar';
-}) {
+export function Header({ onOpenSidebar }: { onOpenSidebar?: () => void }) {
   const pathname = usePathname();
-  const { account, profile, signOut } = useAuth();
+  const { profile, signOut } = useAuth();
   const counts = useNavigationCounts();
   const active = activeNavigation(pathname);
-  const top = navigationLayout === 'topbar';
   const group = navigationGroups.find((item) =>
     item.hrefs.includes(active?.href || '')
   );
   return (
     <header className="border-border bg-card/95 z-30 shrink-0 border-b backdrop-blur">
-      <div
-        className={cn(
-          'flex h-14 min-w-0 items-center justify-between gap-2 px-4 sm:px-6',
-          top && 'mx-auto w-full max-w-[1528px]'
-        )}
-      >
+      <div className="flex h-14 min-w-0 items-center justify-between gap-2 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
@@ -65,35 +40,16 @@ export function Header({
           >
             <Menu className="size-5" />
           </button>
-          {top ? (
-            <Link
-              href="/dashboard"
-              className="flex min-w-0 items-center gap-2.5"
-            >
-              <Image
-                src={account?.logo_url || '/icons/jp-massagem-64-v1.png'}
-                alt=""
-                width={36}
-                height={36}
-                unoptimized
-                className="size-9 shrink-0 rounded-xl object-contain"
-              />
-              <span className="hidden truncate text-sm font-semibold sm:block">
-                {account?.name || 'JP Massagem'}
-              </span>
-            </Link>
-          ) : (
-            <div className="min-w-0">
-              <p className="text-muted-foreground hidden text-[10px] tracking-wider uppercase sm:block">
-                {group?.label || 'Espaço de trabalho'}
-              </p>
-              <p className="truncate text-sm font-semibold">
-                {pathname === '/notifications'
-                  ? 'Notificações'
-                  : active?.label || 'JP Massagem'}
-              </p>
-            </div>
-          )}
+          <div className="min-w-0">
+            <p className="text-muted-foreground hidden text-[10px] tracking-wider uppercase sm:block">
+              {group?.label || 'Espaço de trabalho'}
+            </p>
+            <p className="truncate text-sm font-semibold">
+              {pathname === '/notifications'
+                ? 'Notificações'
+                : active?.label || 'JP Massagem'}
+            </p>
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
           <NavigationSearch />
@@ -173,76 +129,6 @@ export function Header({
           </div>
         </div>
       </div>
-      {top && (
-        <div className="border-border/60 border-t">
-          <nav
-            aria-label="Navegação superior"
-            className="mx-auto hidden w-full max-w-[1528px] flex-wrap items-center gap-1 px-6 py-1.5 lg:flex"
-          >
-            {groupLinks('daily').map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={active?.href === item.href ? 'page' : undefined}
-                className={cn(
-                  'flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-medium',
-                  active?.href === item.href
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-muted'
-                )}
-              >
-                <item.icon className="size-4" />
-                {item.label}
-              </Link>
-            ))}
-            <span className="border-border mx-2 h-5 border-r" />
-            {navigationGroups
-              .filter((item) => item.id !== 'daily')
-              .map((section) => (
-                <DropdownMenu key={section.id}>
-                  <DropdownMenuTrigger
-                    className={cn(
-                      'flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-medium',
-                      section.id === group?.id
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:bg-muted'
-                    )}
-                  >
-                    {section.label}
-                    <ChevronDown className="size-3" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="start"
-                    className="w-72 rounded-2xl p-2"
-                  >
-                    <div className="px-2 py-2">
-                      <p className="text-sm font-semibold">{section.label}</p>
-                      <p className="text-muted-foreground text-xs">
-                        {section.description}
-                      </p>
-                    </div>
-                    <DropdownMenuSeparator />
-                    {groupLinks(section.id).map((item) => (
-                      <DropdownMenuItem
-                        key={item.href}
-                        render={<Link href={item.href} />}
-                        className={cn(
-                          'gap-3 rounded-lg py-2.5',
-                          active?.href === item.href &&
-                            'bg-primary/10 text-primary'
-                        )}
-                      >
-                        <item.icon className="size-4" />
-                        {item.label}
-                        <ArrowUpRight className="ml-auto size-3 opacity-40" />
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ))}
-          </nav>
-        </div>
-      )}
     </header>
   );
 }

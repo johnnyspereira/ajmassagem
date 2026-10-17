@@ -451,7 +451,7 @@ export function SettingsOverview({
     {
       icon: LayoutDashboard,
       label: t('facts.navigation'),
-      value: `${t('facts.sidebar')} + ${t('facts.topbar')}`,
+      value: t('facts.sidebar'),
     },
     {
       icon: WalletCards,

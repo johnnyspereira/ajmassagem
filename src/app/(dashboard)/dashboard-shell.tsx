@@ -86,10 +86,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           )}
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             {!isInboxWorkspace && (
-              <Header
-                onOpenSidebar={() => setSidebarOpen(true)}
-                navigationLayout="topbar"
-              />
+              <Header onOpenSidebar={() => setSidebarOpen(true)} />
             )}
             <main
               className={

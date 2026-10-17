@@ -15,6 +15,22 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-17-single-navigation',
+    date: '2026-10-17',
+    category: 'Correção',
+    title: 'Uma única navegação, sem menus duplicados',
+    areas: ['Menus', 'Definições'],
+    summary:
+      'Os links ficam na sidebar e o cabeçalho concentra as ferramentas da conta.',
+    changes: [
+      'Removidos os menus e o logótipo repetidos na barra superior.',
+      'Cabeçalho com o título da página, pesquisa, ponto, sino, tema e perfil.',
+      'Sidebar recolhível e menu móvel preservados.',
+    ],
+    howTo:
+      'Use o menu lateral para navegar e Ctrl+K para procurar uma ferramenta.',
+  },
+  {
     id: '2026-10-17-combined-navigation',
     date: '2026-10-17',
     category: 'Melhoria',
