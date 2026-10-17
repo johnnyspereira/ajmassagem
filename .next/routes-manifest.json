@@ -196,6 +196,14 @@
       "namedRegex": "^/api/clinic/appointments/(?<nxtPid>[^/]+?)/confirmation(?:/)?$"
     },
     {
+      "page": "/api/clinic/appointments/[id]/dashboard-action",
+      "regex": "^/api/clinic/appointments/([^/]+?)/dashboard\\-action(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/clinic/appointments/(?<nxtPid>[^/]+?)/dashboard\\-action(?:/)?$"
+    },
+    {
       "page": "/api/clinic/appointments/[id]/refund-notification",
       "regex": "^/api/clinic/appointments/([^/]+?)/refund\\-notification(?:/)?$",
       "routeKeys": {
