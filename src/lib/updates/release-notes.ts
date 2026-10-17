@@ -15,6 +15,25 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-17-navigation-redesign',
+    date: '2026-10-17',
+    category: 'Melhoria',
+    title: 'Uma navegação organizada à volta do seu trabalho',
+    areas: ['Menus', 'Navegação', 'Definições'],
+    summary:
+      'Sidebar e topbar redesenhadas com os mesmos grupos, pesquisa rápida e controlos alinhados.',
+    changes: [
+      'Ferramentas organizadas em O meu dia, Negócio, Comunicação, Automação e Espaço de trabalho.',
+      'Sidebar recolhível para ícones e menu móvel com navegação por grupos.',
+      'Topbar com acessos diretos às tarefas diárias e menus das restantes áreas.',
+      'Notificações acessíveis apenas pelo sino junto ao modo claro/escuro.',
+      'Pesquisa de ferramentas com Ctrl+K e acessos ao perfil, definições e atualizações no menu da conta.',
+      'Contadores partilhados entre os menus para evitar consultas repetidas.',
+    ],
+    howTo:
+      'Escolha o formato de navegação em Definições → Aparência. Use Ctrl+K para procurar uma área, Recolher menu para ganhar espaço e o sino para consultar as notificações.',
+  },
+  {
     id: '2026-10-17-link-previews',
     date: '2026-10-17',
     category: 'Novidade',

@@ -5,9 +5,12 @@ import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Menu } from 'lucide-react';
 
-import { navItems, isNavItemActive, type NavItem } from '@/components/layout/navigation';
-import { useTotalUnread } from '@/hooks/use-total-unread';
-import { useUnreadNotifications } from '@/hooks/use-unread-notifications';
+import {
+  navItems,
+  isNavItemActive,
+  type NavItem,
+} from '@/components/layout/navigation';
+import { useNavigationCounts } from './navigation-state';
 import { cn } from '@/lib/utils';
 
 const MOBILE_PRIMARY_HREFS = [
@@ -29,16 +32,13 @@ export function MobileAppNavigation({
 }) {
   const pathname = usePathname();
   const t = useTranslations('Sidebar');
-  const unreadInbox = useTotalUnread();
-  const unreadNotifications = useUnreadNotifications();
+  const { inbox: unreadInbox } = useNavigationCounts();
   const primaryItems = MOBILE_PRIMARY_HREFS.map((href) =>
     navItems.find((item) => item.href === href)
   ).filter((item): item is NavItem => Boolean(item));
 
   function counterFor(item: NavItem) {
     if (item.href === '/inbox' && unreadInbox > 0) return unreadInbox;
-    if (item.href === '/notifications' && unreadNotifications > 0)
-      return unreadNotifications;
     return 0;
   }
 

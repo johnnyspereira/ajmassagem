@@ -15,6 +15,7 @@ import { WorkTimeProvider } from '@/components/work-time/work-time-provider';
 import { DocumentTitle } from '@/components/layout/document-title';
 import { ContextualHelp } from '@/components/support/contextual-help';
 import { MobileAppNavigation } from '@/components/layout/mobile-app-navigation';
+import { NavigationState } from '@/components/layout/navigation-state';
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
 // itself can stay a server component and export metadata (noindex) —
@@ -59,58 +60,60 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
 
   return (
     <WorkTimeProvider>
-      <DocumentTitle />
-      <div className="bg-background flex h-screen overflow-hidden">
-        {/* Reports this tab's online/away presence once we know a user is
+      <NavigationState enabled={!isInboxWorkspace}>
+        <DocumentTitle />
+        <div className="bg-background flex h-screen overflow-hidden">
+          {/* Reports this tab's online/away presence once we know a user is
           signed in. Headless — renders nothing. */}
-        <PresenceHeartbeat />
-        <InboxFloatingAlerts />
-        <NotificationRealtimeAlerts />
-        <PushNotifications />
-        <ContextualHelp />
-        {!isInboxWorkspace && (
-          <>
-            <Link
-              href="/finance?tab=pos"
-              aria-label="Abrir ponto de venda"
-              title="Abrir POS"
-              className="bg-primary text-primary-foreground hover:bg-primary-hover fixed right-5 bottom-24 z-40 flex size-12 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-offset-2 sm:right-5 sm:bottom-5"
-            >
-              <ShoppingCart className="size-5" />
-              <span className="sr-only">Abrir POS</span>
-            </Link>
-            <div
+          <PresenceHeartbeat />
+          <InboxFloatingAlerts />
+          <NotificationRealtimeAlerts />
+          <PushNotifications />
+          <ContextualHelp />
+          {!isInboxWorkspace && (
+            <>
+              <Link
+                href="/finance?tab=pos"
+                aria-label="Abrir ponto de venda"
+                title="Abrir POS"
+                className="bg-primary text-primary-foreground hover:bg-primary-hover fixed right-5 bottom-24 z-40 flex size-12 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-offset-2 sm:right-5 sm:bottom-5"
+              >
+                <ShoppingCart className="size-5" />
+                <span className="sr-only">Abrir POS</span>
+              </Link>
+              <div
+                className={
+                  navigationLayout === 'topbar' ? '2xl:hidden' : 'contents'
+                }
+              >
+                <Sidebar
+                  open={sidebarOpen}
+                  onClose={closeSidebar}
+                  drawerOnly={navigationLayout === 'topbar'}
+                />
+              </div>
+              <MobileAppNavigation onOpenMenu={() => setSidebarOpen(true)} />
+            </>
+          )}
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            {!isInboxWorkspace && (
+              <Header
+                onOpenSidebar={() => setSidebarOpen(true)}
+                navigationLayout={navigationLayout}
+              />
+            )}
+            <main
               className={
-                navigationLayout === 'topbar' ? '2xl:hidden' : 'contents'
+                isInboxWorkspace
+                  ? 'flex-1 overflow-hidden'
+                  : 'flex-1 overflow-y-auto p-4 pb-28 sm:p-6 sm:pb-28'
               }
             >
-              <Sidebar
-                open={sidebarOpen}
-                onClose={closeSidebar}
-                drawerOnly={navigationLayout === 'topbar'}
-              />
-            </div>
-            <MobileAppNavigation onOpenMenu={() => setSidebarOpen(true)} />
-          </>
-        )}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {!isInboxWorkspace && (
-            <Header
-              onOpenSidebar={() => setSidebarOpen(true)}
-              navigationLayout={navigationLayout}
-            />
-          )}
-          <main
-            className={
-              isInboxWorkspace
-                ? 'flex-1 overflow-hidden'
-                : 'flex-1 overflow-y-auto p-4 pb-28 sm:p-6 sm:pb-28'
-            }
-          >
-            {children}
-          </main>
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
+      </NavigationState>
     </WorkTimeProvider>
   );
 }
