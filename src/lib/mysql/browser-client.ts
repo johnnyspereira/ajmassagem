@@ -1,4 +1,5 @@
 'use client';
+import { scheduleMysqlRequest } from './request-queue';
 
 import type {
   MysqlOperation,
@@ -169,13 +170,24 @@ class BrowserQueryBuilder<T = unknown> implements PromiseLike<
   }
 
   private async execute(): Promise<MysqlQueryResponse<T>> {
+    return scheduleMysqlRequest(() => this.executeRequest());
+  }
+
+  private async executeRequest(): Promise<MysqlQueryResponse<T>> {
     try {
-      const response = await fetch('/api/mysql/query', {
+      const send = () => fetch('/api/mysql/query', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.request),
       });
+      let response = await send();
+      // Retry transient hosting failures only for reads. Never repeat writes.
+      if (this.request.operation === 'select' && [429, 502, 503, 504, 508].includes(response.status)) {
+        await response.text();
+        await new Promise(resolve => setTimeout(resolve, 750));
+        response = await send();
+      }
       const raw = await response.text();
       const contentType = response.headers.get('content-type') ?? '';
 

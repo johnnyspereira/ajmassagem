@@ -40,13 +40,22 @@ export function PortalPendingConfirmationsCard({
           <Skeleton className="h-28 rounded-xl" />
           <Skeleton className="h-28 rounded-xl" />
         </div>
-      ) : error ? (
+      ) : error && !appointments ? (
         <p role="alert" className="p-5 text-sm text-amber-700">
           Não foi possível carregar os pedidos. Atualize o painel ou consulte a
           agenda.
         </p>
       ) : appointments?.length ? (
         <div className="divide-border divide-y">
+          {error && (
+            <p
+              role="status"
+              className="bg-amber-500/5 px-5 py-3 text-xs text-amber-700 dark:text-amber-400"
+            >
+              A última atualização falhou. Estes pedidos podem estar
+              desatualizados.
+            </p>
+          )}
           {appointments.slice(0, limit).map((appointment) => (
             <article key={appointment.id} className="p-4 sm:p-5">
               <div className="mb-3 flex items-start justify-between gap-3">
@@ -100,9 +109,13 @@ export function PortalPendingConfirmationsCard({
           <span className="mb-3 rounded-full bg-emerald-500/10 p-3 text-emerald-600">
             <CheckCheck className="size-6" />
           </span>
-          <p className="text-sm font-semibold">Tudo tratado</p>
+          <p className="text-sm font-semibold">
+            {error ? 'Atualização indisponível' : 'Tudo tratado'}
+          </p>
           <p className="text-muted-foreground mt-1 max-w-60 text-xs">
-            As reservas confirmadas estão na agenda. Não há pedidos pendentes.
+            {error
+              ? 'Não foi possível verificar se existem novos pedidos. Tente atualizar novamente.'
+              : 'As reservas confirmadas estão na agenda. Não há pedidos pendentes.'}
           </p>
         </div>
       )}

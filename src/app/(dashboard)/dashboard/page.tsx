@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   CalendarDays,
@@ -72,6 +72,11 @@ type RangeDays = 7 | 30 | 90;
 export default function DashboardPage() {
   const { defaultCurrency, profile } = useAuth();
   const [view, setView] = useState<'day' | 'reports' | 'activity'>('day');
+  const viewRef = useRef<'day' | 'reports' | 'activity'>('day');
+  const inFlight = useRef(false);
+  const pendingLoad = useRef<(() => void) | null>(null);
+  const loadVersion = useRef(0);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
   const [metrics, setMetrics] = useState<MetricsBundle | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -127,111 +132,167 @@ export default function DashboardPage() {
   >(null);
   const [portalPendingLoading, setPortalPendingLoading] = useState(true);
   const dashboardDataUnavailable =
-    !metricsLoading && !metrics && Object.keys(loadErrors).length >= 5;
+    !todayLoading &&
+    !inboxOpsLoading &&
+    !today &&
+    !inboxOps &&
+    Boolean(loadErrors['Operação diária']) &&
+    Boolean(loadErrors.Inbox);
 
-  const loadAll = useCallback(
-    (rangeToLoad: RangeDays = 30, showLoading = true) => {
-      const db = createClient();
-      if (showLoading) {
-        setRefreshing(true);
-        setMetricsLoading(true);
-        setSeriesLoading(true);
-        setPipelineLoading(true);
-        setResponseTimeLoading(true);
-        setActivityLoading(true);
-        setWhatsAppLoading(true);
-        setInboxOpsLoading(true);
-        setSalesLoading(true);
-        setAutomationLoading(true);
-        setTeamLoading(true);
-        setTodayLoading(true);
-        setExpiringBenefitsLoading(true);
-        setPortalPendingLoading(true);
+  const loadAll: (
+    rangeToLoad?: RangeDays,
+    showLoading?: boolean,
+    scope?: 'day' | 'reports' | 'activity'
+  ) => void = useCallback(
+    (rangeToLoad = 30, showLoading = true, scope = viewRef.current) => {
+      if (inFlight.current) {
+        pendingLoad.current = () => loadAll(rangeToLoad, showLoading, scope);
+        return;
       }
-      setLoadErrors({});
-
-      const recordFailure = (key: string, error: unknown) => {
-        console.error(`[dashboard] ${key} failed:`, error);
-        setLoadErrors((current) => ({
-          ...current,
-          [key]: error instanceof Error ? error.message : 'Falha ao carregar',
-        }));
-      };
-
-      // Kick everything off in parallel. Each block has its own
-      // setState + finally so a slow query doesn't hold up faster
-      // sections — each widget shows its own skeleton independently.
-      const tasks = [
-        loadMetrics(db)
-          .then((m) => setMetrics(m))
-          .catch((err) => recordFailure('Indicadores', err))
-          .finally(() => setMetricsLoading(false)),
-
-        loadConversationsSeries(db, rangeToLoad)
-          .then((s) => setSeries((prev) => ({ ...prev, [rangeToLoad]: s })))
-          .catch((err) => recordFailure('Conversas', err))
-          .finally(() => setSeriesLoading(false)),
-
-        loadPipelineDonut(db)
-          .then((p) => setPipeline(p))
-          .catch((err) => recordFailure('Pipeline', err))
-          .finally(() => setPipelineLoading(false)),
-
-        loadResponseTime(db)
-          .then((r) => setResponseTime(r))
-          .catch((err) => recordFailure('Tempo de resposta', err))
-          .finally(() => setResponseTimeLoading(false)),
-
-        // Fetch up to 50 so the biggest page-size option in the feed
-        // (50 rows) is already in memory — switching sizes then becomes
-        // a pure client-side slice with no extra round trip.
-        loadActivity(db, 50)
-          .then((a) => setActivity(a))
-          .catch((err) => recordFailure('Atividade', err))
-          .finally(() => setActivityLoading(false)),
-
-        loadWhatsAppHealth(db)
-          .then((w) => setWhatsApp(w))
-          .catch((err) => recordFailure('WhatsApp', err))
-          .finally(() => setWhatsAppLoading(false)),
-
-        loadInboxOperations(db)
-          .then((ops) => setInboxOps(ops))
-          .catch((err) => recordFailure('Inbox', err))
-          .finally(() => setInboxOpsLoading(false)),
-
-        loadSalesInsights(db)
-          .then((s) => setSales(s))
-          .catch((err) => recordFailure('Comercial', err))
-          .finally(() => setSalesLoading(false)),
-
-        loadAutomationInsights(db)
-          .then((a) => setAutomation(a))
-          .catch((err) => recordFailure('Automações', err))
-          .finally(() => setAutomationLoading(false)),
-
-        loadTeamPerformance(db)
-          .then((performance) => setTeam(performance))
-          .catch((err) => recordFailure('Equipa', err))
-          .finally(() => setTeamLoading(false)),
-        loadTodayOperations(db)
-          .then((operations) => setToday(operations))
-          .catch((err) => recordFailure('Operação diária', err))
-          .finally(() => setTodayLoading(false)),
-        loadExpiringBenefits(db)
-          .then((benefits) => setExpiringBenefits(benefits))
-          .catch((err) => recordFailure('Validades', err))
-          .finally(() => setExpiringBenefitsLoading(false)),
-        loadPortalPendingConfirmations(db)
-          .then((appointments) => setPortalPending(appointments))
-          .catch((err) => recordFailure('Marcações do Portal 360', err))
-          .finally(() => setPortalPendingLoading(false)),
-      ];
-
-      void Promise.allSettled(tasks).finally(() => {
-        setRefreshing(false);
-        setLastUpdatedAt(new Date());
-      });
+      inFlight.current = true;
+      const version = ++loadVersion.current;
+      const db = createClient();
+      setRefreshing(true);
+      const tasks: Array<() => Promise<void>> = [];
+      const keys: string[] = [];
+      let failed = false;
+      function add<T>(
+        key: string,
+        read: () => Promise<T>,
+        save: (value: T) => void,
+        loading: (value: boolean) => void
+      ) {
+        keys.push(key);
+        if (showLoading) loading(true);
+        tasks.push(async () => {
+          try {
+            const value = await read();
+            if (loadVersion.current === version) save(value);
+          } catch (error) {
+            failed = true;
+            console.error('[dashboard] ' + key + ' failed:', error);
+            const detail =
+              error && typeof error === 'object' && 'message' in error
+                ? String(error.message)
+                : 'Falha ao carregar';
+            if (loadVersion.current === version)
+              setLoadErrors((current) => ({ ...current, [key]: detail }));
+          } finally {
+            if (loadVersion.current === version) loading(false);
+          }
+        });
+      }
+      // Agenda and pending requests first. Reports never load in the day view.
+      add(
+        'Operação diária',
+        () => loadTodayOperations(db),
+        setToday,
+        setTodayLoading
+      );
+      add(
+        'Inbox',
+        () => loadInboxOperations(db),
+        setInboxOps,
+        setInboxOpsLoading
+      );
+      add(
+        'WhatsApp',
+        () => loadWhatsAppHealth(db),
+        setWhatsApp,
+        setWhatsAppLoading
+      );
+      if (scope === 'day') {
+        add(
+          'Marcações do Portal 360',
+          () => loadPortalPendingConfirmations(db),
+          setPortalPending,
+          setPortalPendingLoading
+        );
+        add(
+          'Validades',
+          () => loadExpiringBenefits(db),
+          setExpiringBenefits,
+          setExpiringBenefitsLoading
+        );
+        add(
+          'Comercial',
+          () => loadSalesInsights(db),
+          setSales,
+          setSalesLoading
+        );
+        add(
+          'Automações',
+          () => loadAutomationInsights(db),
+          setAutomation,
+          setAutomationLoading
+        );
+      } else if (scope === 'reports') {
+        add(
+          'Indicadores',
+          () => loadMetrics(db),
+          setMetrics,
+          setMetricsLoading
+        );
+        add(
+          'Conversas',
+          () => loadConversationsSeries(db, rangeToLoad),
+          (value) =>
+            setSeries((previous) => ({ ...previous, [rangeToLoad]: value })),
+          setSeriesLoading
+        );
+        add(
+          'Pipeline',
+          () => loadPipelineDonut(db),
+          setPipeline,
+          setPipelineLoading
+        );
+        add(
+          'Tempo de resposta',
+          () => loadResponseTime(db),
+          setResponseTime,
+          setResponseTimeLoading
+        );
+        add(
+          'Comercial',
+          () => loadSalesInsights(db),
+          setSales,
+          setSalesLoading
+        );
+        add(
+          'Automações',
+          () => loadAutomationInsights(db),
+          setAutomation,
+          setAutomationLoading
+        );
+        add('Equipa', () => loadTeamPerformance(db), setTeam, setTeamLoading);
+      } else {
+        add(
+          'Atividade',
+          () => loadActivity(db, 50),
+          setActivity,
+          setActivityLoading
+        );
+      }
+      setLoadErrors((current) =>
+        Object.fromEntries(
+          Object.entries(current).filter(([key]) => !keys.includes(key))
+        )
+      );
+      // Each section can issue several SQL requests; process sections in order.
+      void (async () => {
+        try {
+          for (const task of tasks) await task();
+        } finally {
+          inFlight.current = false;
+          if (loadVersion.current === version) {
+            setRefreshing(false);
+            if (!failed) setLastUpdatedAt(new Date());
+          }
+          const pending = pendingLoad.current;
+          pendingLoad.current = null;
+          pending?.();
+        }
+      })();
     },
     []
   );
@@ -287,6 +348,7 @@ export default function DashboardPage() {
     setPortalPending(
       (current) => current?.filter((item) => item.id !== id) ?? null
     );
+    loadVersion.current++;
     loadAll(range, false);
   };
   const whatsappOnline = whatsapp?.qrConnected || whatsapp?.metaConnected;
@@ -385,13 +447,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Summary
           label="Marcações de hoje"
-          value={
-            todayLoading
-              ? '…'
-              : loadErrors['Operação diária']
-                ? '—'
-                : String(today?.appointmentsTotal ?? '—')
-          }
+          value={todayLoading ? '…' : String(today?.appointmentsTotal ?? '—')}
           detail={
             today
               ? today.confirmed +
@@ -468,7 +524,11 @@ export default function DashboardPage() {
             key={tab.id}
             type="button"
             aria-current={view === tab.id ? 'page' : undefined}
-            onClick={() => setView(tab.id)}
+            onClick={() => {
+              setView(tab.id);
+              viewRef.current = tab.id;
+              loadAll(range, false, tab.id);
+            }}
             className={cn(
               '-mb-px inline-flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-medium transition-colors',
               view === tab.id
@@ -558,7 +618,10 @@ export default function DashboardPage() {
             loading={expiringBenefitsLoading}
             error={Boolean(loadErrors.Validades)}
           />
-          <details className="group border-border bg-card rounded-2xl border">
+          <details
+            className="group border-border bg-card rounded-2xl border"
+            onToggle={(event) => setFollowUpOpen(event.currentTarget.open)}
+          >
             <summary className="cursor-pointer px-5 py-4 text-sm font-semibold">
               Seguimento de clientes
               <span className="text-muted-foreground ml-2 text-xs font-normal">
@@ -566,7 +629,7 @@ export default function DashboardPage() {
               </span>
             </summary>
             <div className="border-border border-t p-4">
-              <FollowUpCommandCenter />
+              {followUpOpen && <FollowUpCommandCenter />}
             </div>
           </details>
         </>

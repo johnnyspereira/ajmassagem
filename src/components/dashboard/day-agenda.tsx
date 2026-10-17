@@ -110,13 +110,22 @@ export function DayAgenda({
           />
         </div>
       </div>
+      {error && data && (
+        <p
+          role="status"
+          className="border-b border-amber-500/20 bg-amber-500/5 px-5 py-3 text-xs text-amber-700 dark:text-amber-400"
+        >
+          A última atualização falhou. A mostrar os últimos dados carregados;
+          atualize antes de tomar decisões.
+        </p>
+      )}
       {loading ? (
         <div className="space-y-4 p-5">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
         </div>
-      ) : error || !data ? (
+      ) : !data ? (
         <p role="alert" className="p-8 text-sm text-amber-700">
           Não foi possível carregar a agenda. Atualize o painel para tentar
           novamente.

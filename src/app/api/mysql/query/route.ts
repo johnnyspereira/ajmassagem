@@ -61,6 +61,35 @@ export async function POST(request: Request) {
     });
 
     if (compiled.operation === 'select') {
+      const readCount = async () => {
+        const countQuery = compileQuery(
+          {
+            ...query,
+            columns: 'id',
+            limit: undefined,
+            offset: undefined,
+            head: false,
+            single: undefined,
+            orders: undefined,
+          },
+          { accountId: auth.account.id, userId: auth.user.id }
+        );
+        const [counts] = await db().execute<RowDataPacket[]>(
+          `SELECT COUNT(*) AS total FROM (${countQuery.sql}) AS scoped_count`,
+          countQuery.values
+        );
+        return Number(counts[0]?.total ?? 0);
+      };
+      // Count-only widgets must not fetch/hydrate every row before counting.
+      if (query.head) {
+        return Response.json({
+          data: null,
+          error: null,
+          count: query.count ? await readCount() : null,
+          status: 200,
+          statusText: 'OK',
+        });
+      }
       const [rows] = await db().execute<RowDataPacket[]>(
         compiled.sql,
         compiled.values
@@ -68,21 +97,7 @@ export async function POST(request: Request) {
       await hydrateRelationships(query.table, query.columns, rows);
       let count: number | null = null;
       if (query.count) {
-        const countQuery = compileQuery(
-          { ...query, columns: 'id', limit: undefined, offset: undefined, head: false, single: undefined, orders: undefined },
-          { accountId: auth.account.id, userId: auth.user.id }
-        );
-        const [countRows] = await db().execute<RowDataPacket[]>(countQuery.sql, countQuery.values);
-        count = countRows.length;
-      }
-      if (query.head) {
-        return Response.json({
-          data: null,
-          error: null,
-          count,
-          status: 200,
-          statusText: 'OK',
-        });
+        count = await readCount();
       }
       if (query.single === 'single' && rows.length !== 1) {
         return errorResponse('Expected exactly one row.', 406, 'PGRST116');
@@ -108,7 +123,9 @@ export async function POST(request: Request) {
           table: query.table,
           operation: 'select',
           columns: query.columns,
-          filters: [{ column: 'id', operator: 'in', value: compiled.insertedIds }],
+          filters: [
+            { column: 'id', operator: 'in', value: compiled.insertedIds },
+          ],
           single: query.single,
         },
         { accountId: auth.account.id, userId: auth.user.id }
