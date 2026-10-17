@@ -6,5 +6,27 @@ Disallow: /login
 Disallow: /api
 Disallow: /anamnese
 Disallow: /voucher
+Disallow: /avaliar
+Disallow: /refer
+Disallow: /join
+
+User-Agent: facebookexternalhit
+User-Agent: Facebot
+User-Agent: Twitterbot
+User-Agent: LinkedInBot
+User-Agent: WhatsApp
+User-Agent: TelegramBot
+User-Agent: Slackbot
+User-Agent: Discordbot
+User-Agent: Pinterestbot
+Allow: /
+Disallow: /api
+Disallow: /dashboard
+Disallow: /inbox
+Disallow: /contacts
+Disallow: /finance
+Disallow: /settings
+Disallow: /reports
+Disallow: /private-management
 
 Sitemap: https://jpmassagem.pt/sitemap.xml
