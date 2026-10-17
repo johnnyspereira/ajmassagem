@@ -37,9 +37,7 @@ import {
   setCrmLocaleCookie,
   writeLocalAccountPreferences,
   type CrmLocale,
-  type NavigationLayout,
 } from '@/lib/account-preferences';
-import { cn } from '@/lib/utils';
 import { EmailDeliveryPanel } from './email-delivery-panel';
 
 const BRANDING_BUCKET = 'account-branding';
@@ -111,9 +109,7 @@ export function GeneralSettings() {
   const [timezone, setTimezone] = useState(
     account?.timezone ?? 'Europe/Lisbon'
   );
-  const [navigationLayout, setNavigationLayout] = useState<NavigationLayout>(
-    account?.navigation_layout ?? 'sidebar'
-  );
+  const navigationLayout = 'sidebar' as const;
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -123,7 +119,6 @@ export function GeneralSettings() {
     setPublicUrl(account.public_url ?? '');
     setLocale(account.crm_locale);
     setTimezone(account.timezone);
-    setNavigationLayout(account.navigation_layout);
   }, [account]);
 
   useEffect(() => {
@@ -444,33 +439,19 @@ export function GeneralSettings() {
                 <LayoutDashboard className="text-primary size-4" />
                 {t('navigationTitle')}
               </CardTitle>
-              <CardDescription>{t('navigationDescription')}</CardDescription>
+              <CardDescription>
+                Navegação superior e lateral em simultâneo.
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {(['sidebar', 'topbar'] as const).map((layout) => (
-                  <button
-                    key={layout}
-                    type="button"
-                    onClick={() => setNavigationLayout(layout)}
-                    disabled={!canEditSettings || saving}
-                    className={cn(
-                      'rounded-md border p-4 text-left transition-colors',
-                      navigationLayout === layout
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border bg-muted/30 text-foreground hover:bg-muted'
-                    )}
-                  >
-                    <p className="text-sm font-semibold">
-                      {layout === 'sidebar' ? t('sidebar') : t('topbar')}
-                    </p>
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      {layout === 'sidebar'
-                        ? t('sidebarHint')
-                        : t('topbarHint')}
-                    </p>
-                  </button>
-                ))}
+              <div className="border-primary/20 bg-primary/5 rounded-xl border p-4">
+                <p className="text-sm font-semibold">
+                  {t('sidebar')} + {t('topbar')}
+                </p>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  O menu lateral e a barra superior aparecem juntos no
+                  computador. No telemóvel, abra o menu pelo botão no cabeçalho.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -483,7 +464,6 @@ export function GeneralSettings() {
           publicUrl={previewUrl}
           locale={locale}
           timezone={timezone}
-          navigationLayout={navigationLayout}
         />
       </div>
 
@@ -516,7 +496,6 @@ function GeneralPreview({
   publicUrl,
   locale,
   timezone,
-  navigationLayout,
 }: {
   name: string;
   logoUrl: string | null;
@@ -524,7 +503,6 @@ function GeneralPreview({
   publicUrl: string | null;
   locale: CrmLocale;
   timezone: string;
-  navigationLayout: NavigationLayout;
 }) {
   const t = useTranslations('Settings.general');
 
@@ -581,7 +559,7 @@ function GeneralPreview({
           <PreviewFact
             icon={LayoutDashboard}
             label={t('previewNavigation')}
-            value={navigationLayout === 'sidebar' ? t('sidebar') : t('topbar')}
+            value={`${t('sidebar')} + ${t('topbar')}`}
           />
         </div>
 

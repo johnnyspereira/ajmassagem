@@ -15,6 +15,22 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-17-combined-navigation',
+    date: '2026-10-17',
+    category: 'Melhoria',
+    title: 'Menu superior e lateral sempre juntos',
+    areas: ['Menus', 'Definições'],
+    summary:
+      'No computador, a topbar e a sidebar passam a aparecer em simultâneo.',
+    changes: [
+      'Navegação superior e lateral disponíveis juntas, independentemente da preferência antiga.',
+      'Sidebar recolhível e menus superiores adaptados ao espaço disponível.',
+      'No telemóvel, a barra superior mantém o botão para abrir o menu lateral.',
+    ],
+    howTo:
+      'Use a sidebar ou os atalhos superiores. Recolha a sidebar para ganhar espaço sem perder os menus.',
+  },
+  {
     id: '2026-10-17-navigation-alignment',
     date: '2026-10-17',
     category: 'Melhoria',

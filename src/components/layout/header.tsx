@@ -177,7 +177,7 @@ export function Header({
         <div className="border-border/60 border-t">
           <nav
             aria-label="Navegação superior"
-            className="mx-auto hidden w-full max-w-[1528px] items-center gap-1 px-6 py-1.5 lg:flex"
+            className="mx-auto hidden w-full max-w-[1528px] flex-wrap items-center gap-1 px-6 py-1.5 lg:flex"
           >
             {groupLinks('daily').map((item) => (
               <Link

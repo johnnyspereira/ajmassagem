@@ -22,10 +22,9 @@ import { NavigationState } from '@/components/layout/navigation-state';
 // client components can't export Next's metadata object.
 
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
-  const { user, loading, account } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const navigationLayout = account?.navigation_layout ?? 'sidebar';
   // Inbox is intentionally a focused workspace, not another dashboard
   // panel. It keeps the authentication/providers from this shell while
   // removing the global navigation chrome.
@@ -81,17 +80,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
                 <ShoppingCart className="size-5" />
                 <span className="sr-only">Abrir POS</span>
               </Link>
-              <div
-                className={
-                  navigationLayout === 'topbar' ? '2xl:hidden' : 'contents'
-                }
-              >
-                <Sidebar
-                  open={sidebarOpen}
-                  onClose={closeSidebar}
-                  drawerOnly={navigationLayout === 'topbar'}
-                />
-              </div>
+              <Sidebar open={sidebarOpen} onClose={closeSidebar} />
               <MobileAppNavigation onOpenMenu={() => setSidebarOpen(true)} />
             </>
           )}
@@ -99,7 +88,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
             {!isInboxWorkspace && (
               <Header
                 onOpenSidebar={() => setSidebarOpen(true)}
-                navigationLayout={navigationLayout}
+                navigationLayout="topbar"
               />
             )}
             <main
