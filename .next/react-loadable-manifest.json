@@ -3,7 +3,7 @@
     "id": 3167,
     "files": [
       "static/chunks/bc98253f.4a23ead7728fef77.js",
-      "static/chunks/5902.db4c98dbe7f2f679.js"
+      "static/chunks/5902.a6f2544207fd05fc.js"
     ]
   },
   "../node_modules/jspdf/dist/jspdf.es.min.js -> dompurify": {
@@ -29,8 +29,8 @@
       "static/chunks/8902-fa65129c30e4d366.js",
       "static/chunks/7488-60259234af24d043.js",
       "static/chunks/9308.bd87970f32883945.js",
-      "static/chunks/9400-4fead499c419a53d.js",
-      "static/chunks/2984.ac0d6aa1e197cc43.js"
+      "static/chunks/6881-fd280e20fa820b0c.js",
+      "static/chunks/2984.6cd45be929311440.js"
     ]
   },
   "components/inbox/message-composer.tsx -> opus-recorder": {
