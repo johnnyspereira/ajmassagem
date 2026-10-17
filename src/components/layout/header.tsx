@@ -47,7 +47,12 @@ export function Header({
   );
   return (
     <header className="border-border bg-card/95 z-30 shrink-0 border-b backdrop-blur">
-      <div className="flex h-16 min-w-0 items-center justify-between gap-2 px-3 sm:px-5">
+      <div
+        className={cn(
+          'flex h-14 min-w-0 items-center justify-between gap-2 px-4 sm:px-6',
+          top && 'mx-auto w-full max-w-[1528px]'
+        )}
+      >
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
@@ -55,7 +60,7 @@ export function Header({
             aria-label="Abrir menu"
             className={cn(
               'text-muted-foreground hover:bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl',
-              !top && 'lg:hidden'
+              'lg:hidden'
             )}
           >
             <Menu className="size-5" />
@@ -169,72 +174,74 @@ export function Header({
         </div>
       </div>
       {top && (
-        <nav
-          aria-label="Navegação superior"
-          className="border-border/60 hidden items-center gap-1 border-t px-5 py-2 lg:flex"
-        >
-          {groupLinks('daily').map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={active?.href === item.href ? 'page' : undefined}
-              className={cn(
-                'flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-medium',
-                active?.href === item.href
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:bg-muted'
-              )}
-            >
-              <item.icon className="size-4" />
-              {item.label}
-            </Link>
-          ))}
-          <span className="border-border mx-2 h-5 border-r" />
-          {navigationGroups
-            .filter((item) => item.id !== 'daily')
-            .map((section) => (
-              <DropdownMenu key={section.id}>
-                <DropdownMenuTrigger
-                  className={cn(
-                    'flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-medium',
-                    section.id === group?.id
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-muted'
-                  )}
-                >
-                  {section.label}
-                  <ChevronDown className="size-3" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="start"
-                  className="w-72 rounded-2xl p-2"
-                >
-                  <div className="px-2 py-2">
-                    <p className="text-sm font-semibold">{section.label}</p>
-                    <p className="text-muted-foreground text-xs">
-                      {section.description}
-                    </p>
-                  </div>
-                  <DropdownMenuSeparator />
-                  {groupLinks(section.id).map((item) => (
-                    <DropdownMenuItem
-                      key={item.href}
-                      render={<Link href={item.href} />}
-                      className={cn(
-                        'gap-3 rounded-lg py-2.5',
-                        active?.href === item.href &&
-                          'bg-primary/10 text-primary'
-                      )}
-                    >
-                      <item.icon className="size-4" />
-                      {item.label}
-                      <ArrowUpRight className="ml-auto size-3 opacity-40" />
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+        <div className="border-border/60 border-t">
+          <nav
+            aria-label="Navegação superior"
+            className="mx-auto hidden w-full max-w-[1528px] items-center gap-1 px-6 py-1.5 lg:flex"
+          >
+            {groupLinks('daily').map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active?.href === item.href ? 'page' : undefined}
+                className={cn(
+                  'flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-medium',
+                  active?.href === item.href
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted'
+                )}
+              >
+                <item.icon className="size-4" />
+                {item.label}
+              </Link>
             ))}
-        </nav>
+            <span className="border-border mx-2 h-5 border-r" />
+            {navigationGroups
+              .filter((item) => item.id !== 'daily')
+              .map((section) => (
+                <DropdownMenu key={section.id}>
+                  <DropdownMenuTrigger
+                    className={cn(
+                      'flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-medium',
+                      section.id === group?.id
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-muted'
+                    )}
+                  >
+                    {section.label}
+                    <ChevronDown className="size-3" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    className="w-72 rounded-2xl p-2"
+                  >
+                    <div className="px-2 py-2">
+                      <p className="text-sm font-semibold">{section.label}</p>
+                      <p className="text-muted-foreground text-xs">
+                        {section.description}
+                      </p>
+                    </div>
+                    <DropdownMenuSeparator />
+                    {groupLinks(section.id).map((item) => (
+                      <DropdownMenuItem
+                        key={item.href}
+                        render={<Link href={item.href} />}
+                        className={cn(
+                          'gap-3 rounded-lg py-2.5',
+                          active?.href === item.href &&
+                            'bg-primary/10 text-primary'
+                        )}
+                      >
+                        <item.icon className="size-4" />
+                        {item.label}
+                        <ArrowUpRight className="ml-auto size-3 opacity-40" />
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ))}
+          </nav>
+        </div>
       )}
     </header>
   );

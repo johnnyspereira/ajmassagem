@@ -15,6 +15,22 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-17-navigation-alignment',
+    date: '2026-10-17',
+    category: 'Melhoria',
+    title: 'Cabeçalho mais compacto e alinhado com o painel',
+    areas: ['Menus', 'Painel'],
+    summary:
+      'A navegação superior acompanha a largura do painel em ecrãs grandes.',
+    changes: [
+      'Logótipo, menus e controlos alinhados com as margens do dashboard.',
+      'Altura do cabeçalho reduzida para dar mais espaço ao conteúdo.',
+      'Botão do menu lateral reservado aos ecrãs pequenos, onde é necessário.',
+    ],
+    howTo:
+      'No formato de navegação superior, os menus continuam disponíveis por área. No telemóvel, abra o menu pelo botão no cabeçalho.',
+  },
+  {
     id: '2026-10-17-navigation-redesign',
     date: '2026-10-17',
     category: 'Melhoria',
