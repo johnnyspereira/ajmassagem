@@ -1378,6 +1378,12 @@
       "namedRegex": "^/dashboard(?:/)?$"
     },
     {
+      "page": "/favicon.ico",
+      "regex": "^/favicon\\.ico(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
       "page": "/finance",
       "regex": "^/finance(?:/)?$",
       "routeKeys": {},
@@ -1400,12 +1406,6 @@
       "regex": "^/help(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/help(?:/)?$"
-    },
-    {
-      "page": "/icon",
-      "regex": "^/icon(?:/)?$",
-      "routeKeys": {},
-      "namedRegex": "^/icon(?:/)?$"
     },
     {
       "page": "/inbox",

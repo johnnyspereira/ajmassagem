@@ -30,7 +30,6 @@
     "/api/whatsapp/webhook": {
       "maxDuration": 60
     },
-    "/icon": {},
     "/uploads/[bucket]/[...path]": {}
   }
 }
