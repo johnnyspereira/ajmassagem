@@ -117,6 +117,7 @@ function decodeBridgeMedia(value: unknown) {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
+    if (isEncodedMediaText(typeof body.text === 'string' ? body.text : null)) body.text = '';
     const action = String(body.action ?? '');
     const accountId = String(body.accountId ?? '');
     if (!accountId) throw new Error('accountId is required.');
