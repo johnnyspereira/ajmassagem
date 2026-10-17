@@ -175,17 +175,21 @@ class BrowserQueryBuilder<T = unknown> implements PromiseLike<
 
   private async executeRequest(): Promise<MysqlQueryResponse<T>> {
     try {
-      const send = () => fetch('/api/mysql/query', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(this.request),
-      });
+      const send = () =>
+        fetch('/api/mysql/query', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.request),
+        });
       let response = await send();
       // Retry transient hosting failures only for reads. Never repeat writes.
-      if (this.request.operation === 'select' && [429, 502, 503, 504, 508].includes(response.status)) {
+      if (
+        this.request.operation === 'select' &&
+        [429, 502, 503, 504, 508].includes(response.status)
+      ) {
         await response.text();
-        await new Promise(resolve => setTimeout(resolve, 750));
+        await new Promise((resolve) => setTimeout(resolve, 750));
         response = await send();
       }
       const raw = await response.text();
@@ -199,12 +203,16 @@ class BrowserQueryBuilder<T = unknown> implements PromiseLike<
       // error keeps the form usable and avoids the misleading JSON parser
       // message "Unexpected token '<'" in every CRM screen.
       const status = response.status || 502;
-      const detail = status === 508
-        ? 'O alojamento atingiu o limite de recursos (508).'
-        : `O servidor respondeu HTTP ${status}.`;
+      const detail =
+        status === 508
+          ? 'O alojamento atingiu o limite de recursos (508).'
+          : `O servidor respondeu HTTP ${status}.`;
       return {
         data: null,
-        error: { message: `${detail} Tente novamente após reiniciar a aplicação.`, code: `HTTP_${status}` },
+        error: {
+          message: `${detail} Tente novamente após reiniciar a aplicação.`,
+          code: `HTTP_${status}`,
+        },
         count: null,
         status,
         statusText: response.statusText || 'Server error',
@@ -226,48 +234,105 @@ class BrowserQueryBuilder<T = unknown> implements PromiseLike<
 
 type ChangeHandler = {
   config: { event?: string; table: string; filter?: string };
-  callback: (payload: { eventType: 'INSERT' | 'UPDATE' | 'DELETE'; new: Record<string, unknown>; old: Record<string, unknown> }) => void;
+  callback: (payload: {
+    eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+    new: Record<string, unknown>;
+    old: Record<string, unknown>;
+  }) => void;
   rows: Map<string, Record<string, unknown>> | null;
 };
 
 class LocalPollingChannel {
   private handlers: ChangeHandler[] = [];
   private timer: ReturnType<typeof setInterval> | null = null;
+  private polling = false;
+  private stopped = false;
   constructor(readonly name: string) {}
-  on(_kind: string, config: ChangeHandler['config'], callback: ChangeHandler['callback']) {
+  on(
+    _kind: string,
+    config: ChangeHandler['config'],
+    callback: ChangeHandler['callback']
+  ) {
     this.handlers.push({ config, callback, rows: null });
     return this;
   }
   subscribe(callback?: (status: string) => void) {
+    this.stopped = false;
     void this.poll();
     this.timer = setInterval(() => void this.poll(), 4000);
     callback?.('SUBSCRIBED');
     return this;
   }
-  unsubscribe() { if (this.timer) clearInterval(this.timer); this.timer = null; return Promise.resolve('ok'); }
+  unsubscribe() {
+    this.stopped = true;
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    return Promise.resolve('ok');
+  }
   private async poll() {
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-    await Promise.all(this.handlers.map(async (handler) => {
-      let query = new BrowserQueryBuilder<Record<string, unknown>>(handler.config.table).select('*').limit(500);
-      const filter = handler.config.filter?.match(/^([A-Za-z_][A-Za-z0-9_]*)=eq\.(.+)$/);
-      if (filter) query = query.eq(filter[1], filter[2]);
-      const response = await query;
-      if (response.error || !Array.isArray(response.data)) return;
-      const next = new Map(response.data.map((row) => [String(row.id), row]));
-      if (handler.rows) {
-        for (const [id, row] of next) {
-          const previous = handler.rows.get(id);
-          const eventType = previous ? 'UPDATE' : 'INSERT';
-          if ((!previous || JSON.stringify(previous) !== JSON.stringify(row)) && (handler.config.event === '*' || handler.config.event === eventType)) {
-            handler.callback({ eventType, new: row, old: previous ?? {} });
+    if (this.polling || this.stopped) return;
+    if (
+      typeof document !== 'undefined' &&
+      document.visibilityState === 'hidden'
+    )
+      return;
+    this.polling = true;
+    try {
+      await Promise.all(
+        this.handlers.map(async (handler) => {
+          let query = new BrowserQueryBuilder<Record<string, unknown>>(
+            handler.config.table
+          )
+            .select('*')
+            .limit(500);
+          // A bounded snapshot must include the newest rows. Unordered LIMIT 500
+          // kept watching old messages forever once an account grew past 500.
+          if (handler.config.table === 'messages')
+            query = query
+              .order('created_at', { ascending: false })
+              .order('id', { ascending: false });
+          if (handler.config.table === 'conversations')
+            query = query
+              .order('updated_at', { ascending: false })
+              .order('id', { ascending: false });
+          const filter = handler.config.filter?.match(
+            /^([A-Za-z_][A-Za-z0-9_]*)=eq\.(.+)$/
+          );
+          if (filter) query = query.eq(filter[1], filter[2]);
+          const response = await query;
+          if (this.stopped || response.error || !Array.isArray(response.data))
+            return;
+          const next = new Map(
+            response.data.map((row) => [String(row.id), row])
+          );
+          if (handler.rows) {
+            for (const [id, row] of next) {
+              const previous = handler.rows.get(id);
+              const eventType = previous ? 'UPDATE' : 'INSERT';
+              if (
+                (!previous ||
+                  JSON.stringify(previous) !== JSON.stringify(row)) &&
+                (handler.config.event === '*' ||
+                  handler.config.event === eventType)
+              ) {
+                handler.callback({ eventType, new: row, old: previous ?? {} });
+              }
+            }
+            for (const [id, row] of handler.rows)
+              if (
+                !next.has(id) &&
+                (handler.config.event === '*' ||
+                  handler.config.event === 'DELETE')
+              ) {
+                handler.callback({ eventType: 'DELETE', new: {}, old: row });
+              }
           }
-        }
-        for (const [id, row] of handler.rows) if (!next.has(id) && (handler.config.event === '*' || handler.config.event === 'DELETE')) {
-          handler.callback({ eventType: 'DELETE', new: {}, old: row });
-        }
-      }
-      handler.rows = next;
-    }));
+          handler.rows = next;
+        })
+      );
+    } finally {
+      this.polling = false;
+    }
   }
 }
 
@@ -275,53 +340,139 @@ export function createMysqlBrowserClient() {
   const channels = new Set<LocalPollingChannel>();
   const auth = {
     async getSession() {
-      const response = await fetch('/api/auth/session', { credentials: 'same-origin' });
+      const response = await fetch('/api/auth/session', {
+        credentials: 'same-origin',
+      });
       const payload = await response.json();
-      return { data: { session: payload.session ?? null }, error: payload.error ?? null };
+      return {
+        data: { session: payload.session ?? null },
+        error: payload.error ?? null,
+      };
     },
     async getUser() {
-      const response = await fetch('/api/auth/session', { credentials: 'same-origin' });
+      const response = await fetch('/api/auth/session', {
+        credentials: 'same-origin',
+      });
       const payload = await response.json();
-      return { data: { user: payload.session?.user ?? null }, error: payload.error ?? null };
+      return {
+        data: { user: payload.session?.user ?? null },
+        error: payload.error ?? null,
+      };
     },
     async signInWithPassword(credentials: { email: string; password: string }) {
-      const response = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(credentials) });
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      });
       const payload = await response.json();
-      return { data: { session: payload.session ?? null, user: payload.session?.user ?? null }, error: response.ok ? null : (payload.error ?? { message: 'Login failed.' }) };
+      return {
+        data: {
+          session: payload.session ?? null,
+          user: payload.session?.user ?? null,
+        },
+        error: response.ok
+          ? null
+          : (payload.error ?? { message: 'Login failed.' }),
+      };
     },
     async signOut() {
       const response = await fetch('/api/auth/logout', { method: 'POST' });
       return { error: response.ok ? null : { message: 'Logout failed.' } };
     },
     async updateUser(attributes: Record<string, unknown>) {
-      const response = await fetch('/api/auth/user', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(attributes) });
+      const response = await fetch('/api/auth/user', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(attributes),
+      });
       const payload = await response.json();
-      return { data: payload.data ?? {}, error: response.ok ? null : (payload.error ?? { message: 'Update failed.' }) };
+      return {
+        data: payload.data ?? {},
+        error: response.ok
+          ? null
+          : (payload.error ?? { message: 'Update failed.' }),
+      };
     },
-    async resetPasswordForEmail(email: string, options?: { redirectTo?: string }) {
-      const response = await fetch('/api/auth/password/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, redirectTo: options?.redirectTo }) });
+    async resetPasswordForEmail(
+      email: string,
+      options?: { redirectTo?: string }
+    ) {
+      const response = await fetch('/api/auth/password/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, redirectTo: options?.redirectTo }),
+      });
       const payload = await response.json();
-      return { data: payload.data ?? {}, error: response.ok ? null : (payload.error ?? { message: 'Request failed.' }) };
+      return {
+        data: payload.data ?? {},
+        error: response.ok
+          ? null
+          : (payload.error ?? { message: 'Request failed.' }),
+      };
     },
   };
 
   return {
     auth,
     storage: {
-      from(bucket: string) { return {
-        async upload(path: string, file: Blob, options?: { upsert?: boolean }) { const form = new FormData(); form.set('path', path); form.set('file', file); form.set('upsert', String(Boolean(options?.upsert))); const response = await fetch(`/api/storage/${encodeURIComponent(bucket)}`, { method: 'POST', body: form }); return response.json(); },
-        async remove(paths: string[]) { const response = await fetch(`/api/storage/${encodeURIComponent(bucket)}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paths }) }); return response.json(); },
-        getPublicUrl(path: string) { return { data: { publicUrl: `/uploads/${encodeURIComponent(bucket)}/${path.split('/').map(encodeURIComponent).join('/')}` } }; },
-      }; },
+      from(bucket: string) {
+        return {
+          async upload(
+            path: string,
+            file: Blob,
+            options?: { upsert?: boolean }
+          ) {
+            const form = new FormData();
+            form.set('path', path);
+            form.set('file', file);
+            form.set('upsert', String(Boolean(options?.upsert)));
+            const response = await fetch(
+              `/api/storage/${encodeURIComponent(bucket)}`,
+              { method: 'POST', body: form }
+            );
+            return response.json();
+          },
+          async remove(paths: string[]) {
+            const response = await fetch(
+              `/api/storage/${encodeURIComponent(bucket)}`,
+              {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ paths }),
+              }
+            );
+            return response.json();
+          },
+          getPublicUrl(path: string) {
+            return {
+              data: {
+                publicUrl: `/uploads/${encodeURIComponent(bucket)}/${path.split('/').map(encodeURIComponent).join('/')}`,
+              },
+            };
+          },
+        };
+      },
     },
     from<T = unknown>(table: string) {
       return new BrowserQueryBuilder<T>(table);
     },
     async rpc(name: string, args: Record<string, unknown> = {}) {
-      const response = await fetch('/api/mysql/rpc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, args }) });
+      const response = await fetch('/api/mysql/rpc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, args }),
+      });
       return response.json();
     },
-    channel(name: string) { const channel = new LocalPollingChannel(name); channels.add(channel); return channel; },
-    async removeChannel(channel: LocalPollingChannel) { channels.delete(channel); return channel.unsubscribe(); },
+    channel(name: string) {
+      const channel = new LocalPollingChannel(name);
+      channels.add(channel);
+      return channel;
+    },
+    async removeChannel(channel: LocalPollingChannel) {
+      channels.delete(channel);
+      return channel.unsubscribe();
+    },
   };
 }

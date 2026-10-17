@@ -556,7 +556,9 @@ export function ContactSidebar({
 
   const handleSendPortalAccess = useCallback(async () => {
     if (!activeContact?.phone) {
-      toast.error('Adicione um número de WhatsApp antes de enviar o acesso ao Portal 360.');
+      toast.error(
+        'Adicione um número de WhatsApp antes de enviar o acesso ao Portal 360.'
+      );
       return;
     }
     if (!accountId) return;
@@ -589,7 +591,9 @@ export function ContactSidebar({
       );
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(payload.error || 'Não foi possível enviar o acesso ao Portal 360.');
+        throw new Error(
+          payload.error || 'Não foi possível enviar o acesso ao Portal 360.'
+        );
       }
       pushSessionEvent(
         'Acesso ao Portal 360 enviado',
@@ -925,7 +929,7 @@ export function ContactSidebar({
   const openDeals = deals.filter((deal) => (deal.status ?? 'open') === 'open');
 
   return (
-    <div className="border-border bg-card flex h-full min-h-0 w-full flex-col overflow-hidden border-l xl:w-96">
+    <div className="border-border bg-card flex h-full min-h-0 w-full flex-col overflow-hidden 2xl:w-80">
       <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-3 p-4">
           <section className="space-y-3">
@@ -1186,7 +1190,8 @@ export function ContactSidebar({
                             : 'Sem data limite'}
                         </p>
                         <p className="text-muted-foreground mt-1 text-[11px]">
-                          Valor original: {formatCurrency(
+                          Valor original:{' '}
+                          {formatCurrency(
                             Number(voucher.initial_balance),
                             voucher.currency || defaultCurrency
                           )}
@@ -1198,7 +1203,7 @@ export function ContactSidebar({
                         </p>
                       </div>
                       <span className="shrink-0 text-right text-xs font-semibold text-rose-600 dark:text-rose-300">
-                        <span className="block text-[10px] font-medium text-muted-foreground">
+                        <span className="text-muted-foreground block text-[10px] font-medium">
                           {voucher.voucher_type === 'service'
                             ? 'Sessões disponíveis'
                             : 'Saldo disponível'}

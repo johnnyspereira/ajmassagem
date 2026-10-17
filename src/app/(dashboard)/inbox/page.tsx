@@ -21,6 +21,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { ConversationList } from '@/components/inbox/conversation-list';
 import { MessageThread } from '@/components/inbox/message-thread';
 import { ContactSidebar } from '@/components/inbox/contact-sidebar';
+import styles from '@/components/inbox/inbox.module.css';
 import {
   AlertTriangle,
   Loader2,
@@ -560,6 +561,7 @@ export default function InboxPage() {
     channelName: 'inbox-realtime',
     onMessageEvent: handleMessageEvent,
     onConversationEvent: handleConversationEvent,
+    messageConversationId: activeConversation?.id,
     enabled: true,
   });
 
@@ -926,7 +928,7 @@ export default function InboxPage() {
   ).length;
 
   return (
-    <div className="bg-muted/35 flex h-full min-h-0 flex-col overflow-hidden">
+    <div className={cn('bg-muted/35', styles.workspace)}>
       <header className="border-border/70 bg-background/90 flex shrink-0 flex-col gap-3 border-b px-4 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex items-center gap-3">
           <div className="bg-primary text-primary-foreground shadow-primary/20 flex h-10 w-10 items-center justify-center rounded-2xl shadow-lg">
@@ -1039,13 +1041,13 @@ export default function InboxPage() {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 gap-2 overflow-hidden p-2 sm:gap-3 sm:p-3">
+      <div className={styles.panels}>
         {/* Left panel: Conversation list.
             Hidden on mobile when a conversation is selected so the
             thread can occupy the full width. Always visible on lg+. */}
         <div
           className={cn(
-            'border-border/70 bg-card flex h-full flex-1 overflow-hidden rounded-2xl border shadow-sm lg:flex-none',
+            'border-border/70 bg-card flex h-full min-w-0 flex-1 overflow-hidden rounded-2xl border shadow-sm lg:flex-none',
             hasActiveConv ? 'hidden lg:flex' : 'flex'
           )}
         >
@@ -1098,7 +1100,7 @@ export default function InboxPage() {
             On mobile it's always hidden (the `lg:block` below), so the
             toggle — which is itself desktop-only — never affects it. */}
         {contactPanelOpen && (
-          <div className="border-border/70 bg-card ml-3 hidden overflow-hidden rounded-2xl border shadow-sm xl:block">
+          <div className="border-border/70 bg-card hidden shrink-0 overflow-hidden rounded-2xl border shadow-sm 2xl:block">
             <ContactSidebar
               contact={activeContact}
               conversationId={activeConversation?.id ?? null}
@@ -1109,7 +1111,7 @@ export default function InboxPage() {
 
         {hasActiveConv && contactDrawerOpen && (
           <div
-            className="bg-background/70 fixed inset-0 z-50 flex justify-end backdrop-blur-sm xl:hidden"
+            className="bg-background/70 fixed inset-0 z-50 flex justify-end backdrop-blur-sm 2xl:hidden"
             onClick={() => setContactDrawerOpen(false)}
           >
             <div

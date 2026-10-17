@@ -28,8 +28,8 @@ import {
   UserRound,
   X,
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { pt } from 'date-fns/locale';
+import { conversationTime } from '@/lib/inbox/conversation-time';
+import styles from './inbox.module.css';
 import { useTranslations } from 'next-intl';
 import { Input } from '@/components/ui/input';
 import {
@@ -39,7 +39,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 
@@ -89,13 +88,12 @@ const STATUS_COLORS: Record<ConversationStatus, string> = {
 
 type InboxFilter = ConversationStatus | 'all' | 'unread';
 type CrmFilter = 'all' | 'needsReply' | 'withoutDeal' | 'automationActive';
-type WorkQueue = 'all' | 'new' | 'active' | 'waiting' | 'resolved';
 
 const CRM_FILTER_OPTIONS: { label: string; value: CrmFilter }[] = [
-  { label: 'All CRM', value: 'all' },
-  { label: 'Needs reply', value: 'needsReply' },
-  { label: 'No deal', value: 'withoutDeal' },
-  { label: 'Automation', value: 'automationActive' },
+  { label: 'Todo o CRM', value: 'all' },
+  { label: 'Por responder', value: 'needsReply' },
+  { label: 'Sem oportunidade', value: 'withoutDeal' },
+  { label: 'Automação', value: 'automationActive' },
 ];
 
 export function ConversationList({
@@ -121,7 +119,6 @@ export function ConversationList({
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<InboxFilter>('all');
-  const [workQueue, setWorkQueue] = useState<WorkQueue>('all');
   const [crmFilter, setCrmFilter] = useState<CrmFilter>('all');
   const [loading, setLoading] = useState(true);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -217,11 +214,9 @@ export function ConversationList({
     );
     const conversationIds = conversations.map((c) => c.id);
     if (contactIds.length === 0 || conversationIds.length === 0) {
-      /* eslint-disable react-hooks/set-state-in-effect */
       setConversationDeals([]);
       setContactAppointments([]);
       setLastSenderByConversation({});
-      /* eslint-enable react-hooks/set-state-in-effect */
       return;
     }
 
@@ -322,20 +317,6 @@ export function ConversationList({
   const filtered = useMemo(() => {
     let result = conversations;
 
-    if (workQueue === 'new') {
-      result = result.filter(
-        (c) => c.status === 'open' && !c.assigned_agent_id
-      );
-    } else if (workQueue === 'active') {
-      result = result.filter(
-        (c) => c.status === 'open' && Boolean(c.assigned_agent_id)
-      );
-    } else if (workQueue === 'waiting') {
-      result = result.filter((c) => c.status === 'pending');
-    } else if (workQueue === 'resolved') {
-      result = result.filter((c) => c.status === 'closed');
-    }
-
     if (filter === 'unread') {
       result = result.filter((c) => c.unread_count > 0);
     } else if (filter !== 'all') {
@@ -412,27 +393,7 @@ export function ConversationList({
     selectedCompany,
     selectedStageId,
     selectedTagIds,
-    workQueue,
   ]);
-
-  const queueCounts = useMemo(
-    () => ({
-      new: conversations.filter(
-        (c) => c.status === 'open' && !c.assigned_agent_id
-      ).length,
-      active: conversations.filter(
-        (c) => c.status === 'open' && Boolean(c.assigned_agent_id)
-      ).length,
-      waiting: conversations.filter((c) => c.status === 'pending').length,
-      resolved: conversations.filter((c) => c.status === 'closed').length,
-    }),
-    [conversations]
-  );
-
-  const selectWorkQueue = useCallback((queue: WorkQueue) => {
-    setWorkQueue(queue);
-    setFilter('all');
-  }, []);
 
   const toggleTag = useCallback((id: string) => {
     setSelectedTagIds((prev) =>
@@ -473,7 +434,7 @@ export function ConversationList({
   const activeCrmFilter = CRM_FILTER_OPTIONS.find((o) => o.value === crmFilter);
   const activeAssignee =
     selectedAssigneeId === 'unassigned'
-      ? 'Unassigned'
+      ? 'Sem respons?vel'
       : profiles.find((p) => p.user_id === selectedAssigneeId)?.full_name;
   const activeStage = stagesById.get(selectedStageId)?.name;
   const unreadTotal = conversations.filter(
@@ -539,7 +500,7 @@ export function ConversationList({
   );
 
   return (
-    <div className="bg-card flex h-full w-full min-w-0 flex-col lg:w-[19rem] 2xl:w-[21rem]">
+    <div className={cn('bg-card', styles.listRoot)}>
       <div className="border-border/70 space-y-3 border-b p-4">
         <div className="flex items-end justify-between gap-3">
           <div>
@@ -674,7 +635,9 @@ export function ConversationList({
               )}
             >
               <UserRound className="h-3 w-3" />
-              <span className="truncate">{activeAssignee ?? 'Owner'}</span>
+              <span className="truncate">
+                {activeAssignee ?? 'Responsável'}
+              </span>
               <ChevronDown className="h-3 w-3 shrink-0" />
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -690,7 +653,7 @@ export function ConversationList({
                     : 'text-popover-foreground'
                 )}
               >
-                All owners
+                Todos os responsáveis
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setSelectedAssigneeId('unassigned')}
@@ -701,7 +664,7 @@ export function ConversationList({
                     : 'text-popover-foreground'
                 )}
               >
-                Unassigned
+                Sem responsável
               </DropdownMenuItem>
               {profiles.map((profile) => (
                 <DropdownMenuItem
@@ -731,7 +694,7 @@ export function ConversationList({
                 )}
               >
                 <GitBranch className="h-3 w-3" />
-                <span className="truncate">{activeStage ?? 'Stage'}</span>
+                <span className="truncate">{activeStage ?? 'Etapa'}</span>
                 <ChevronDown className="h-3 w-3 shrink-0" />
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -747,7 +710,7 @@ export function ConversationList({
                       : 'text-popover-foreground'
                   )}
                 >
-                  All stages
+                  Todas as etapas
                 </DropdownMenuItem>
                 {stages.map((stage) => (
                   <DropdownMenuItem
@@ -872,13 +835,13 @@ export function ConversationList({
             )}
             {selectedAssigneeId !== 'all' && (
               <FilterChip
-                label={activeAssignee ?? 'Owner'}
+                label={activeAssignee ?? 'Respons?vel'}
                 onClear={() => setSelectedAssigneeId('all')}
               />
             )}
             {selectedStageId !== 'all' && (
               <FilterChip
-                label={activeStage ?? 'Stage'}
+                label={activeStage ?? 'Etapa'}
                 onClear={() => setSelectedStageId('all')}
               />
             )}
@@ -961,7 +924,7 @@ export function ConversationList({
         </div>
       </div>
 
-      <ScrollArea className="min-h-0 flex-1 p-1.5">
+      <div className={styles.listScroll} aria-label="Lista de conversas">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
@@ -1000,7 +963,7 @@ export function ConversationList({
             })}
           </div>
         )}
-      </ScrollArea>
+      </div>
     </div>
   );
 }
@@ -1044,30 +1007,31 @@ function ConversationItem({
     onSelect(conversation);
   }, [onSelect, conversation]);
 
-  const timeAgo = conversation.last_message_at
-    ? formatDistanceToNow(new Date(conversation.last_message_at), {
-        addSuffix: false,
-        locale: pt,
-      })
-    : '';
+  const timeAgo = conversationTime(conversation.last_message_at);
 
   return (
-    <div className="group flex items-start gap-1">
+    <div className={cn('group', styles.row)}>
       <Checkbox
         checked={selected}
         onCheckedChange={() => onToggleSelected(conversation.id)}
         aria-label={`Selecionar ${displayName}`}
-        className="mt-4 ml-2 shrink-0"
+        className="mt-4 justify-self-center"
       />
       <button
         type="button"
         onClick={handleClick}
         className={cn(
-          'hover:bg-muted/65 flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-all',
+          styles.rowButton,
+          'hover:bg-muted/65 transition-colors',
           isActive && 'bg-primary/8 ring-primary/20 shadow-sm ring-1'
         )}
       >
-        <div className="bg-muted text-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm font-medium shadow-sm">
+        <div
+          className={cn(
+            styles.rowAvatar,
+            'bg-muted text-foreground text-sm font-medium'
+          )}
+        >
           {contact?.avatar_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -1080,23 +1044,28 @@ function ConversationItem({
           )}
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
+        <div className={styles.rowMain}>
+          <div className={styles.rowHeading}>
             <span className="text-foreground truncate text-sm font-medium">
               {displayName}
             </span>
-            <span className="text-muted-foreground shrink-0 text-[10px]">
+            <span
+              className={cn('text-muted-foreground', styles.rowTime)}
+              title={conversation.last_message_at || undefined}
+            >
               {timeAgo}
             </span>
           </div>
-          <div className="mt-0.5 flex items-center justify-between gap-2">
+          <div className={styles.rowPreview}>
             <p className="text-muted-foreground truncate text-xs">
               {conversation.last_message_text || t('noMessagesYet')}
             </p>
             <div className="flex shrink-0 items-center gap-1.5">
               {conversation.unread_count > 0 && (
                 <span className="bg-primary text-primary-foreground flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold">
-                  {conversation.unread_count}
+                  {conversation.unread_count > 99
+                    ? '99+'
+                    : conversation.unread_count}
                 </span>
               )}
               <span
@@ -1115,7 +1084,7 @@ function ConversationItem({
             appointmentCount > 0 ||
             automationActive ||
             tags.length > 0) && (
-            <div className="mt-2 flex flex-wrap items-center gap-1">
+            <div className={styles.rowBadges}>
               {contact?.client_reference && (
                 <MiniBadge className="bg-primary/10 text-primary">
                   Ref. {contact.client_reference}
@@ -1124,7 +1093,7 @@ function ConversationItem({
               {needsReply && (
                 <MiniBadge className="bg-amber-500/15 text-amber-500">
                   <MessageCircleReply className="h-3 w-3" />
-                  Reply
+                  Responder
                 </MiniBadge>
               )}
               {dealCount > 0 && (

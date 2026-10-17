@@ -15,6 +15,24 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-17-inbox-layout-live',
+    date: '2026-10-17',
+    category: 'Correção',
+    title: 'Inbox alinhado e novas conversas sem sincronização manual',
+    areas: ['Inbox', 'WhatsApp', 'Atualização automática'],
+    summary:
+      'Layout revisto para preservar espaço de leitura e acompanhar as novas conversas automaticamente.',
+    changes: [
+      'Grelha consistente para seleção, avatar, nome, horário, mensagem e etiquetas.',
+      'Horários compactos, filtros em português e lista sem cortes laterais.',
+      'Cabeçalho, conversa, compositor e painel de contacto adaptados a telemóveis e portáteis.',
+      'Consulta automática ordenada pelos registos mais recentes, corrigindo a perda de novidades após os primeiros 500 registos.',
+      'Worker repete a entrega quando o contacto ainda não está resolvido ou ocorre uma falha temporária, sem depender de sincronização manual.',
+    ],
+    howTo:
+      'Mantenha o Inbox aberto para acompanhar novas conversas. No telemóvel, selecione uma conversa e use a seta para voltar à lista. O painel de contacto abre por botão em ecrãs menores.',
+  },
+  {
     id: '2026-10-17-inbox-media-search',
     date: '2026-10-17',
     category: 'Correção',

@@ -1,4 +1,5 @@
 'use client';
+import styles from './inbox.module.css';
 
 import { useState, useRef, useCallback, useEffect, KeyboardEvent } from 'react';
 import {
@@ -316,7 +317,10 @@ export function MessageComposer({
         const res = await fetch('/api/ai/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: source, target_language: targetLanguage }),
+          body: JSON.stringify({
+            text: source,
+            target_language: targetLanguage,
+          }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -698,7 +702,12 @@ export function MessageComposer({
   // ---- Render --------------------------------------------------------
 
   return (
-    <div className="border-border/70 bg-card/95 border-t p-3.5 backdrop-blur sm:p-4">
+    <div
+      className={cn(
+        styles.composer,
+        'border-border/70 bg-card/95 border-t p-3 backdrop-blur sm:p-4'
+      )}
+    >
       {replyTo && (
         <div className="mb-2">
           <ReplyQuote
@@ -792,7 +801,7 @@ export function MessageComposer({
           </Button>
         </div>
       ) : (
-        <div className="flex items-end gap-2 rounded-2xl border border-border/70 bg-muted/45 p-1.5 shadow-inner">
+        <div className="border-border/70 bg-muted/45 flex items-end gap-2 rounded-2xl border p-1.5 shadow-inner">
           {/* Attach menu — photo / video / document / voice. */}
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -880,7 +889,11 @@ export function MessageComposer({
             className="text-muted-foreground hover:bg-card hover:text-primary h-9 w-9 shrink-0 rounded-xl p-0"
             onClick={() => void handleProofreadDraft()}
           >
-            {proofreading ? <Loader2 className="h-4 w-4 animate-spin" /> : <SpellCheck2 className="h-4 w-4" />}
+            {proofreading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <SpellCheck2 className="h-4 w-4" />
+            )}
           </GatedButton>
 
           <GatedButton
@@ -911,7 +924,10 @@ export function MessageComposer({
                 <Languages className="h-4 w-4" />
               )}
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="border-border bg-popover">
+            <DropdownMenuContent
+              align="start"
+              className="border-border bg-popover"
+            >
               <DropdownMenuItem onClick={() => void handleTranslateDraft('en')}>
                 Traduzir para inglês
               </DropdownMenuItem>
@@ -969,7 +985,7 @@ export function MessageComposer({
             // The placeholder text also surfaces the read-only state.
             title={readOnly ? t('readOnlyTitle') : undefined}
             className={cn(
-              'border-0 bg-transparent text-foreground placeholder-muted-foreground focus:ring-0 flex-1 resize-none px-2 py-2.5 text-sm transition-colors outline-none',
+              'text-foreground placeholder-muted-foreground flex-1 resize-none border-0 bg-transparent px-2 py-2.5 text-sm transition-colors outline-none focus:ring-0',
               textInputsDisabled && 'cursor-not-allowed opacity-50'
             )}
           />
@@ -980,7 +996,7 @@ export function MessageComposer({
             gateReason="send messages"
             disabled={!text.trim() || textInputsDisabled || sending}
             onClick={handleSend}
-            className="bg-primary hover:bg-primary/90 h-9 w-9 shrink-0 rounded-xl p-0 shadow-md shadow-primary/20 disabled:opacity-40"
+            className="bg-primary hover:bg-primary/90 shadow-primary/20 h-9 w-9 shrink-0 rounded-xl p-0 shadow-md disabled:opacity-40"
           >
             <Send className="h-4 w-4" />
           </GatedButton>

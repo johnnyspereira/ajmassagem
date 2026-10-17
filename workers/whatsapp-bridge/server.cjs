@@ -32,6 +32,7 @@ function installWhatsAppWebMediaPatch() {
 installWhatsAppWebMediaPatch();
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const { downloadCompatibleMedia } = require('./media-download.cjs');
+const { createIncomingDelivery } = require('./incoming-delivery.cjs');
 
 const PORT = Number(process.env.PORT || 4100);
 const SECRET = process.env.WORKER_SECRET;
@@ -294,19 +295,12 @@ async function profilePicturePayload(contact) {
     });
   return value;
 }
-function persistWithMediaRecovery(message) {
-  persist(message).catch((e) => console.error('[bridge] entrada:', e.message));
-  if (!isPossibleMedia(message) || message?.fromMe) return;
-  // WhatsApp Web often announces encrypted media before the download key is
-  // ready. Re-persisting the same external id safely fills media_url later.
-  for (const delay of [5000, 15000, 45000]) {
-    setTimeout(() => {
-      persist(message).catch((e) =>
-        console.error('[bridge] media retry:', e.message)
-      );
-    }, delay);
-  }
-}
+const persistWithMediaRecovery = createIncomingDelivery({
+  persist,
+  isMedia: isPossibleMedia,
+  getId: (message) => /@(c\.us|lid)$/.test(String(message?.from || '')) ? externalId(message) : null,
+  onError: (error) => logActivity('error', `Falha ao guardar mensagem recebida: ${error.message}`),
+});
 function rememberOutgoing(message) {
   if (!message?.fromMe || !externalId(message)) return;
   recentOutgoing.push({
@@ -443,7 +437,7 @@ async function persist(message) {
     timestamp,
     ...media,
   });
-  return result?.duplicate ? null : result;
+  return result ? { ...result, mediaSaved: Boolean(media.mediaBase64) } : null;
 }
 async function persistSyncSnapshot(snapshot, media = {}) {
   if (!snapshot?.messageId || !snapshot.phone) return null;

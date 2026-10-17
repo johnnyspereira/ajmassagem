@@ -16,6 +16,7 @@ interface UseRealtimeOptions {
   onMessageEvent?: (event: RealtimeEvent<Message>) => void;
   onConversationEvent?: (event: RealtimeEvent<Conversation>) => void;
   enabled?: boolean;
+  messageConversationId?: string | null;
 }
 
 export function useRealtime({
@@ -23,6 +24,7 @@ export function useRealtime({
   onMessageEvent,
   onConversationEvent,
   enabled = true,
+  messageConversationId,
 }: UseRealtimeOptions) {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -48,7 +50,14 @@ export function useRealtime({
       .channel(channelName)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'messages' },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          ...(messageConversationId
+            ? { filter: `conversation_id=eq.${messageConversationId}` }
+            : {}),
+        },
         (payload) => {
           onMessageRef.current?.({
             eventType: payload.eventType as RealtimeEvent<Message>['eventType'],
@@ -80,7 +89,7 @@ export function useRealtime({
       channelRef.current = null;
       setIsConnected(false);
     };
-  }, [channelName, enabled]);
+  }, [channelName, enabled, messageConversationId]);
 
   const unsubscribe = useCallback(() => {
     if (channelRef.current) {

@@ -1,4 +1,5 @@
 'use client';
+import styles from './inbox.module.css';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -338,7 +339,9 @@ export function MessageThread({
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(payload.error || 'Não foi possível sincronizar esta conversa.');
+        throw new Error(
+          payload.error || 'Não foi possível sincronizar esta conversa.'
+        );
       }
       toast.success(
         payload.queued
@@ -387,7 +390,10 @@ export function MessageThread({
 
     // Find last customer message
     const lastCustomerMsg = [...messages]
-      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      .sort(
+        (a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
       .reverse()
       .find((m) => m.sender_type === 'customer');
 
@@ -702,7 +708,11 @@ export function MessageThread({
       .eq('type', 'new_message_received')
       .is('read_at', null)
       .then(({ error }) => {
-        if (error) console.error('Failed to mark conversation notifications read:', error);
+        if (error)
+          console.error(
+            'Failed to mark conversation notifications read:',
+            error
+          );
       });
   }, [conversationId, hasUnread]);
 
@@ -741,11 +751,18 @@ export function MessageThread({
           body: JSON.stringify({ message_id: message.id }),
         });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.error || 'Não foi possível reenviar a mensagem.');
+        if (!response.ok)
+          throw new Error(
+            payload.error || 'Não foi possível reenviar a mensagem.'
+          );
         toast.success('Mensagem colocada novamente na fila de envio.');
       } catch (error) {
         onUpdateMessage(message.id, { status: 'failed' });
-        toast.error(error instanceof Error ? error.message : 'Não foi possível reenviar a mensagem.');
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível reenviar a mensagem.'
+        );
       }
     },
     [onUpdateMessage]
@@ -1203,10 +1220,15 @@ export function MessageThread({
     // clipped and the hover toolbar overlaps the Tags panel. Letting the
     // root shrink lets the bubbles' break-words / max-w caps apply.
     // Issue #257.
-    <div className={cn('flex min-w-0 flex-1 flex-col', DOODLE_BG_CLASSES)}>
+    <div className={cn(styles.thread, DOODLE_BG_CLASSES)}>
       {/* Header — solid card surface sits on top of the doodle so the
           name/avatar/dropdowns stay legible. */}
-      <div className="border-border/70 bg-card/95 flex items-center justify-between gap-2 border-b px-4 py-3.5 backdrop-blur sm:px-5">
+      <div
+        className={cn(
+          styles.threadHeader,
+          'border-border/70 bg-card/95 border-b backdrop-blur'
+        )}
+      >
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           {/* Back-to-list button — mobile only. Hidden on lg+ where the
               conversation list is always visible next to the thread. */}
@@ -1245,7 +1267,7 @@ export function MessageThread({
           </Badge>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className={styles.threadControls}>
           {threadTimelineEvents.length > 0 && (
             <button
               type="button"
@@ -1282,7 +1304,7 @@ export function MessageThread({
               title={contactPanelOpen ? t('hideContact') : t('showContact')}
               aria-pressed={contactPanelOpen}
               className={cn(
-                'hover:bg-muted hover:text-foreground hidden h-7 w-7 items-center justify-center rounded-md transition-colors xl:inline-flex',
+                'hover:bg-muted hover:text-foreground hidden h-7 w-7 items-center justify-center rounded-md transition-colors 2xl:inline-flex',
                 contactPanelOpen ? 'text-primary' : 'text-muted-foreground'
               )}
             >
@@ -1300,7 +1322,7 @@ export function MessageThread({
               onClick={onOpenContactProfile}
               aria-label="Open contact profile"
               title="Contact profile"
-              className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors xl:hidden"
+              className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors 2xl:hidden"
             >
               <UserRound className="h-4 w-4" />
             </button>
@@ -1443,125 +1465,152 @@ export function MessageThread({
       </div>
 
       {/* Messages Area */}
-      <div ref={scrollRef} className="bg-muted/20 flex-1 overflow-y-auto px-3 py-4 sm:px-6">
+      <div
+        ref={scrollRef}
+        className={cn(styles.messages, 'bg-muted/20 px-3 py-4 sm:px-6')}
+      >
         <div className="mx-auto w-full max-w-4xl">
-        {timelineOpen && threadTimelineEvents.length > 0 && (
-          <div className="border-primary/15 bg-card mb-5 rounded-2xl border p-3.5 shadow-sm">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="text-muted-foreground flex items-center gap-2 text-[11px] font-semibold tracking-wide uppercase">
-                <Activity className="h-3.5 w-3.5 text-primary" />
-                Contexto CRM
+          {timelineOpen && threadTimelineEvents.length > 0 && (
+            <div className="border-primary/15 bg-card mb-5 rounded-2xl border p-3.5 shadow-sm">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="text-muted-foreground flex items-center gap-2 text-[11px] font-semibold tracking-wide uppercase">
+                  <Activity className="text-primary h-3.5 w-3.5" />
+                  Contexto CRM
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTimelineOpen(false)}
+                  className="text-muted-foreground hover:text-foreground text-xs"
+                >
+                  Ocultar
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setTimelineOpen(false)}
-                className="text-muted-foreground hover:text-foreground text-xs"
-              >
-                Ocultar
-              </button>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {threadTimelineEvents.map((event) => {
-                const Icon = threadTimelineIcon(event.tone);
-                return (
-                  <div
-                    key={event.id}
-                    className="bg-muted/55 grid grid-cols-[20px_minmax(0,1fr)] gap-2 rounded-xl px-3 py-2.5"
-                  >
-                    <Icon
-                      className={cn(
-                        'mt-0.5 h-3.5 w-3.5',
-                        threadTimelineToneClass(event.tone)
-                      )}
-                    />
-                    <div className="min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-foreground truncate text-[11px] font-medium">
-                          {event.title}
+              <div className="grid gap-2 sm:grid-cols-2">
+                {threadTimelineEvents.map((event) => {
+                  const Icon = threadTimelineIcon(event.tone);
+                  return (
+                    <div
+                      key={event.id}
+                      className="bg-muted/55 grid grid-cols-[20px_minmax(0,1fr)] gap-2 rounded-xl px-3 py-2.5"
+                    >
+                      <Icon
+                        className={cn(
+                          'mt-0.5 h-3.5 w-3.5',
+                          threadTimelineToneClass(event.tone)
+                        )}
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-foreground truncate text-[11px] font-medium">
+                            {event.title}
+                          </p>
+                          <span className="text-muted-foreground shrink-0 text-[10px]">
+                            {format(new Date(event.createdAt), 'MMM d HH:mm')}
+                          </span>
+                        </div>
+                        <p className="text-muted-foreground mt-0.5 line-clamp-2 text-[11px]">
+                          {event.detail}
                         </p>
-                        <span className="text-muted-foreground shrink-0 text-[10px]">
-                          {format(new Date(event.createdAt), 'MMM d HH:mm')}
-                        </span>
                       </div>
-                      <p className="text-muted-foreground mt-0.5 line-clamp-2 text-[11px]">
-                        {event.detail}
-                      </p>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground text-sm">
-              {t('noMessagesYet')}
-            </p>
-            <p className="text-muted-foreground text-xs">
-              {t('sendTemplateHint')}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-5">
-            {messageGroups.map((group) => (
-              <div key={group.date}>
-                {/* Date separator */}
-                <div className="mb-4 flex items-center justify-center">
-                  <span className="bg-muted text-muted-foreground rounded-full px-3 py-1 text-[10px] font-medium">
-                    {formatDateSeparator(group.date, t)}
-                  </span>
-                </div>
-                {/* Messages */}
-                <div>
-                  {group.messages.map((msg, index) => {
-                    const previous = group.messages[index - 1];
-                    const sameSide = Boolean(
-                      previous &&
-                        (previous.sender_type === 'agent' || previous.sender_type === 'bot') ===
-                          (msg.sender_type === 'agent' || msg.sender_type === 'bot') &&
-                        Date.parse(msg.created_at) - Date.parse(previous.created_at) < 5 * 60_000
-                    );
-                    const parent = msg.reply_to_message_id
-                      ? messagesById.get(msg.reply_to_message_id)
-                      : null;
-                    const reply = parent
-                      ? {
-                          authorLabel:
-                            parent.sender_type === 'agent' ||
-                            parent.sender_type === 'bot'
-                              ? t('me')
-                              : contact?.name || contact?.phone || 'Unknown',
-                          preview: buildReplyPreview(parent, tQuote),
-                        }
-                      : null;
-                    const msgReactions = reactionsByMessageId.get(msg.id);
-                    // Toggle is computed at the call site — `msgReactions`
-                    // and `user?.id` are already in scope, no extra hook.
-                    const handlePillToggle = (emoji: string) => {
-                      const own = msgReactions?.find(
-                        (r) =>
-                          r.actor_type === 'agent' && r.actor_id === user?.id
-                      );
-                      const next = own?.emoji === emoji ? '' : emoji;
-                      void postReaction(msg.id, next);
-                    };
-                    return <div key={msg.id} className={sameSide ? 'mt-1' : 'mt-3 first:mt-0'}>
-                      <MessageActions message={msg} onReply={() => handleStartReply(msg)} onReact={(emoji) => { if (emoji) void postReaction(msg.id, emoji); }} onRetry={() => void retryFailedMessage(msg)}>
-                        <MessageBubble message={msg} groupedWithPrevious={sameSide} reply={reply} reactions={msgReactions} currentUserId={user?.id} onToggleReaction={handlePillToggle} onRetry={() => void retryFailedMessage(msg)} />
-                      </MessageActions>
-                    </div>;
-                  })}
-                </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <p className="text-muted-foreground text-sm">
+                {t('noMessagesYet')}
+              </p>
+              <p className="text-muted-foreground text-xs">
+                {t('sendTemplateHint')}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {messageGroups.map((group) => (
+                <div key={group.date}>
+                  {/* Date separator */}
+                  <div className="mb-4 flex items-center justify-center">
+                    <span className="bg-muted text-muted-foreground rounded-full px-3 py-1 text-[10px] font-medium">
+                      {formatDateSeparator(group.date, t)}
+                    </span>
+                  </div>
+                  {/* Messages */}
+                  <div>
+                    {group.messages.map((msg, index) => {
+                      const previous = group.messages[index - 1];
+                      const sameSide = Boolean(
+                        previous &&
+                        (previous.sender_type === 'agent' ||
+                          previous.sender_type === 'bot') ===
+                          (msg.sender_type === 'agent' ||
+                            msg.sender_type === 'bot') &&
+                        Date.parse(msg.created_at) -
+                          Date.parse(previous.created_at) <
+                          5 * 60_000
+                      );
+                      const parent = msg.reply_to_message_id
+                        ? messagesById.get(msg.reply_to_message_id)
+                        : null;
+                      const reply = parent
+                        ? {
+                            authorLabel:
+                              parent.sender_type === 'agent' ||
+                              parent.sender_type === 'bot'
+                                ? t('me')
+                                : contact?.name || contact?.phone || 'Unknown',
+                            preview: buildReplyPreview(parent, tQuote),
+                          }
+                        : null;
+                      const msgReactions = reactionsByMessageId.get(msg.id);
+                      // Toggle is computed at the call site — `msgReactions`
+                      // and `user?.id` are already in scope, no extra hook.
+                      const handlePillToggle = (emoji: string) => {
+                        const own = msgReactions?.find(
+                          (r) =>
+                            r.actor_type === 'agent' && r.actor_id === user?.id
+                        );
+                        const next = own?.emoji === emoji ? '' : emoji;
+                        void postReaction(msg.id, next);
+                      };
+                      return (
+                        <div
+                          key={msg.id}
+                          className={sameSide ? 'mt-1' : 'mt-3 first:mt-0'}
+                        >
+                          <MessageActions
+                            message={msg}
+                            onReply={() => handleStartReply(msg)}
+                            onReact={(emoji) => {
+                              if (emoji) void postReaction(msg.id, emoji);
+                            }}
+                            onRetry={() => void retryFailedMessage(msg)}
+                          >
+                            <MessageBubble
+                              message={msg}
+                              groupedWithPrevious={sameSide}
+                              reply={reply}
+                              reactions={msgReactions}
+                              currentUserId={user?.id}
+                              onToggleReaction={handlePillToggle}
+                              onRetry={() => void retryFailedMessage(msg)}
+                            />
+                          </MessageActions>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
