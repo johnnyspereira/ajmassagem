@@ -2374,7 +2374,8 @@
       "members": "Team members",
       "api": "API keys",
       "data-cleanup": "Data cleanup",
-      "new-features": "What's new"
+      "new-features": "What's new",
+      "updates": "Update history"
     },
     "workTime": {
       "title": "Work time",

@@ -6,6 +6,7 @@ import {
   LayoutGrid,
   LayoutPanelTop,
   HeartHandshake,
+  History,
   MonitorSmartphone,
   Palette,
   PlugZap,
@@ -53,6 +54,7 @@ export const SETTINGS_SECTIONS = [
   'api',
   'data-cleanup',
   'new-features',
+  'updates',
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
@@ -76,6 +78,12 @@ export interface SectionMeta {
 }
 
 export const SECTION_META: Record<SettingsSection, SectionMeta> = {
+  updates: {
+    id: 'updates',
+    label: 'Atualizações',
+    icon: History,
+    group: 'system',
+  },
   overview: {
     id: 'overview',
     label: 'Overview',

@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
 import { SettingsRail } from '@/components/settings/settings-rail';
 import { SettingsOverview } from '@/components/settings/settings-overview';
+import { UpdatesPanel } from '@/components/settings/updates-panel';
 import { GeneralSettings } from '@/components/settings/general-settings';
 import { ProfileForm } from '@/components/settings/profile-form';
 import { WorkTimePanel } from '@/components/settings/work-time-panel';
@@ -87,6 +88,7 @@ export default function SettingsPage() {
   );
 
   const panel: Record<SettingsSection, ReactNode> = {
+    updates: <UpdatesPanel />,
     overview: <SettingsOverview onSelect={go} />,
     general: <GeneralSettings />,
     profile: <ProfileForm />,
@@ -115,10 +117,29 @@ export default function SettingsPage() {
     <div>
       <section className="border-primary/15 from-primary-soft/50 via-card to-card flex flex-wrap items-center justify-between gap-4 rounded-2xl border bg-gradient-to-br p-5 shadow-sm">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="bg-primary text-primary-foreground flex size-11 shrink-0 items-center justify-center rounded-xl shadow-sm"><Settings2 className="size-5" /></span>
-          <div className="min-w-0"><p className="text-primary text-xs font-semibold tracking-[0.1em] uppercase">Área de administração</p><h1 className="text-foreground mt-0.5 text-2xl font-bold tracking-tight">{t('pageTitle')}</h1><p className="text-muted-foreground mt-1 text-sm">{t('pageDesc')}</p></div>
+          <span className="bg-primary text-primary-foreground flex size-11 shrink-0 items-center justify-center rounded-xl shadow-sm">
+            <Settings2 className="size-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-primary text-xs font-semibold tracking-[0.1em] uppercase">
+              Área de administração
+            </p>
+            <h1 className="text-foreground mt-0.5 text-2xl font-bold tracking-tight">
+              {t('pageTitle')}
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              {t('pageDesc')}
+            </p>
+          </div>
         </div>
-        <div className="border-border bg-background/75 min-w-44 rounded-xl border px-4 py-3"><p className="text-muted-foreground text-[10px] font-semibold tracking-[0.08em] uppercase">A editar agora</p><p className="text-foreground mt-1 text-sm font-semibold">{t(`sections.${activeMeta.id}`)}</p></div>
+        <div className="border-border bg-background/75 min-w-44 rounded-xl border px-4 py-3">
+          <p className="text-muted-foreground text-[10px] font-semibold tracking-[0.08em] uppercase">
+            A editar agora
+          </p>
+          <p className="text-foreground mt-1 text-sm font-semibold">
+            {t(`sections.${activeMeta.id}`)}
+          </p>
+        </div>
       </section>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[272px_minmax(0,1fr)] lg:items-start">

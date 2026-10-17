@@ -2364,7 +2364,8 @@
       "members": "Membros da equipe",
       "api": "Chaves de API",
       "data-cleanup": "Limpeza de dados",
-      "new-features": "Novidades"
+      "new-features": "Novidades",
+      "updates": "Atualizações"
     },
     "workTime": {
       "title": "Jornada de trabalho",

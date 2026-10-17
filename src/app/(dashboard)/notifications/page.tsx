@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { notificationGroupKey as getBundleKey } from '@/lib/notifications/group-key';
 import {
   Activity,
   AlertTriangle,
@@ -71,6 +72,7 @@ interface NotificationBundle {
   primary: Notification;
   items: Notification[];
   isAssignmentGroup: boolean;
+  groupKind: 'assignment' | 'conversation' | 'contact' | 'situation' | 'single';
   isUnread: boolean;
   isResolved: boolean;
   latestAt: string;
@@ -1054,192 +1056,214 @@ function NotificationRow({
   const isUnread = bundle.isUnread;
   const href = getActionHref(notification);
   const assignmentCount = getAssignmentCount(bundle);
-  const assignmentTimeline = getAssignmentTimeline(bundle);
+  const timeline = getBundleTimeline(bundle);
   const body = getBundleBody(bundle);
-  const canShowTimeline =
-    bundle.isAssignmentGroup && assignmentTimeline.length > 1;
+  const canShowTimeline = bundle.items.length > 1 && timeline.length > 1;
 
   return (
-    <article
+    <div
       className={cn(
-        'bg-card rounded-lg border p-4 transition-colors',
-        isUnread
-          ? 'border-primary/35 shadow-sm'
-          : 'border-border hover:border-border/80',
-        isResolved && 'opacity-75'
+        'relative',
+        bundle.items.length > 1 &&
+          "after:bg-card after:border-border after:absolute after:inset-x-3 after:-bottom-2 after:z-0 after:h-full after:rounded-lg after:border after:content-['']"
       )}
     >
-      <div className="flex items-start gap-3">
-        <div
-          className={cn(
-            'flex h-11 w-11 shrink-0 items-center justify-center rounded-lg',
-            categoryMeta.className
-          )}
-        >
-          <Icon className="h-5 w-5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3
-              className={cn(
-                'max-w-full min-w-0 truncate text-sm font-semibold',
-                isUnread ? 'text-foreground' : 'text-muted-foreground'
-              )}
-            >
-              {notification.title}
-            </h3>
-            {isUnread && (
-              <span className="bg-primary h-2 w-2 shrink-0 rounded-full" />
+      <article
+        className={cn(
+          'bg-card relative z-10 rounded-lg border p-4 transition-colors',
+          isUnread
+            ? 'border-primary/35 shadow-sm'
+            : 'border-border hover:border-border/80',
+          isResolved && 'opacity-75'
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <div
+            className={cn(
+              'flex h-11 w-11 shrink-0 items-center justify-center rounded-lg',
+              categoryMeta.className
             )}
-            <Badge
-              variant="outline"
-              className={cn('text-[10px]', categoryMeta.className)}
-            >
-              {categoryMeta.label}
-            </Badge>
-            <Badge
-              variant="outline"
-              className={cn('gap-1 text-[10px]', priorityMeta.className)}
-            >
-              <span
+          >
+            <Icon className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3
                 className={cn(
-                  'h-1.5 w-1.5 rounded-full',
-                  priorityMeta.dotClassName
+                  'max-w-full min-w-0 truncate text-sm font-semibold',
+                  isUnread ? 'text-foreground' : 'text-muted-foreground'
                 )}
-              />
-              {priorityMeta.label}
-            </Badge>
-            {bundle.isAssignmentGroup && assignmentCount > 1 && (
+              >
+                {notification.title}
+              </h3>
+              {isUnread && (
+                <span className="bg-primary h-2 w-2 shrink-0 rounded-full" />
+              )}
               <Badge
                 variant="outline"
-                className="border-primary/30 bg-primary-soft text-primary gap-1 text-[10px]"
+                className={cn('text-[10px]', categoryMeta.className)}
               >
-                <UserPlus className="h-3 w-3" />
-                Atribuído {assignmentCount} vezes
+                {categoryMeta.label}
               </Badge>
-            )}
-            {isResolved && (
-              <Badge variant="outline" className="gap-1 text-[10px]">
-                <CheckCircle2 className="h-3 w-3" />
-                Resolvida
-              </Badge>
-            )}
-          </div>
-
-          <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
-            <span>{meta.label}</span>
-            <span>•</span>
-            <span>{formatRelativePt(bundle.latestAt)}</span>
-            {bundle.items.length > 1 && (
-              <>
-                <span>•</span>
-                <span>
-                  {bundle.items.length} evento
-                  {bundle.items.length > 1 ? 's' : ''} agrupado
-                  {bundle.items.length > 1 ? 's' : ''}
-                </span>
-              </>
-            )}
-          </div>
-
-          {body && (
-            <p className="text-muted-foreground mt-2 line-clamp-2 text-sm leading-relaxed">
-              {body}
-            </p>
-          )}
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {href && (
-              <Button size="sm" onClick={onOpen}>
-                <Sparkles className="h-3.5 w-3.5" />
-                {meta.actionLabel}
-              </Button>
-            )}
-            {!href && (
-              <Button size="sm" variant="outline" onClick={onOpen}>
-                <Eye className="h-3.5 w-3.5" />
-                Marcar lida
-              </Button>
-            )}
-            {!isResolved && (
-              <>
-                {isUnread ? (
-                  <Button size="sm" variant="ghost" onClick={onMarkRead}>
-                    <CheckCheck className="h-3.5 w-3.5" />
-                    Lida
-                  </Button>
-                ) : (
-                  <Button size="sm" variant="ghost" onClick={onMarkUnread}>
-                    <Bell className="h-3.5 w-3.5" />
-                    Não lida
-                  </Button>
-                )}
-              </>
-            )}
-            {supportsResolved && !isResolved && (
-              <Button size="sm" variant="ghost" onClick={onResolve}>
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Resolver
-              </Button>
-            )}
-            {canShowTimeline && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setShowTimeline((current) => !current)}
+              <Badge
+                variant="outline"
+                className={cn('gap-1 text-[10px]', priorityMeta.className)}
               >
-                <Clock3 className="h-3.5 w-3.5" />
-                {showTimeline ? 'Ocultar histórico' : 'Ver histórico'}
-                {showTimeline ? (
-                  <ChevronUp className="h-3.5 w-3.5" />
-                ) : (
-                  <ChevronDown className="h-3.5 w-3.5" />
-                )}
-              </Button>
-            )}
-          </div>
-
-          {canShowTimeline && showTimeline && (
-            <div className="border-border bg-muted/20 mt-3 rounded-lg border p-3">
-              <div className="text-foreground mb-2 flex items-center gap-2 text-xs font-semibold">
-                <Clock3 className="text-primary h-3.5 w-3.5" />
-                Histórico de atribuição
-              </div>
-              <div className="space-y-2">
-                {assignmentTimeline.map((event, index) => (
-                  <div key={event.key} className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <span
-                        className={cn(
-                          'mt-1 h-2 w-2 rounded-full',
-                          index === 0 ? 'bg-primary' : 'bg-muted-foreground/50'
-                        )}
-                      />
-                      {index < assignmentTimeline.length - 1 && (
-                        <span className="bg-border mt-1 h-full min-h-5 w-px" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-foreground text-xs font-medium">
-                        {event.label}
-                      </p>
-                      {event.detail && (
-                        <p className="text-muted-foreground mt-0.5 text-xs">
-                          {event.detail}
-                        </p>
-                      )}
-                      <p className="text-muted-foreground mt-0.5 text-[11px]">
-                        {formatRelativePt(event.at)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                <span
+                  className={cn(
+                    'h-1.5 w-1.5 rounded-full',
+                    priorityMeta.dotClassName
+                  )}
+                />
+                {priorityMeta.label}
+              </Badge>
+              {bundle.isAssignmentGroup && assignmentCount > 1 && (
+                <Badge
+                  variant="outline"
+                  className="border-primary/30 bg-primary-soft text-primary gap-1 text-[10px]"
+                >
+                  <UserPlus className="h-3 w-3" />
+                  Atribuído {assignmentCount} vezes
+                </Badge>
+              )}
+              {!bundle.isAssignmentGroup && bundle.items.length > 1 && (
+                <Badge
+                  variant="outline"
+                  className="border-primary/30 bg-primary-soft text-primary gap-1 text-[10px]"
+                >
+                  <Inbox className="h-3 w-3" />
+                  {bundle.items.length} no mesmo grupo
+                </Badge>
+              )}
+              {isResolved && (
+                <Badge variant="outline" className="gap-1 text-[10px]">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Resolvida
+                </Badge>
+              )}
             </div>
-          )}
+
+            <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
+              <span>{meta.label}</span>
+              <span>•</span>
+              <span>{formatRelativePt(bundle.latestAt)}</span>
+              {bundle.items.length > 1 && (
+                <>
+                  <span>•</span>
+                  <span>{bundle.items.length} eventos agrupados</span>
+                </>
+              )}
+            </div>
+
+            {body && (
+              <p className="text-muted-foreground mt-2 line-clamp-2 text-sm leading-relaxed">
+                {body}
+              </p>
+            )}
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {href && (
+                <Button size="sm" onClick={onOpen}>
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {meta.actionLabel}
+                </Button>
+              )}
+              {!href && (
+                <Button size="sm" variant="outline" onClick={onOpen}>
+                  <Eye className="h-3.5 w-3.5" />
+                  Marcar lida
+                </Button>
+              )}
+              {!isResolved && (
+                <>
+                  {isUnread ? (
+                    <Button size="sm" variant="ghost" onClick={onMarkRead}>
+                      <CheckCheck className="h-3.5 w-3.5" />
+                      Lida
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="ghost" onClick={onMarkUnread}>
+                      <Bell className="h-3.5 w-3.5" />
+                      Não lida
+                    </Button>
+                  )}
+                </>
+              )}
+              {supportsResolved && !isResolved && (
+                <Button size="sm" variant="ghost" onClick={onResolve}>
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Resolver
+                </Button>
+              )}
+              {canShowTimeline && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowTimeline((current) => !current)}
+                >
+                  <Clock3 className="h-3.5 w-3.5" />
+                  {showTimeline ? 'Ocultar histórico' : 'Ver histórico'}
+                  {showTimeline ? (
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+              )}
+            </div>
+
+            {canShowTimeline && showTimeline && (
+              <div className="border-border bg-muted/20 mt-3 rounded-lg border p-3">
+                <div className="text-foreground mb-2 flex items-center gap-2 text-xs font-semibold">
+                  <Clock3 className="text-primary h-3.5 w-3.5" />
+                  Histórico deste grupo
+                </div>
+                <div className="space-y-2">
+                  {timeline.map((event, index) => (
+                    <div key={event.key} className="flex gap-3">
+                      <div className="flex flex-col items-center">
+                        <span
+                          className={cn(
+                            'mt-1 h-2 w-2 rounded-full',
+                            index === 0
+                              ? 'bg-primary'
+                              : 'bg-muted-foreground/50'
+                          )}
+                        />
+                        {index < timeline.length - 1 && (
+                          <span className="bg-border mt-1 h-full min-h-5 w-px" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-foreground text-xs font-medium">
+                          {event.label}
+                        </p>
+                        {event.detail && (
+                          <p className="text-muted-foreground mt-0.5 text-xs">
+                            {event.detail}
+                          </p>
+                        )}
+                        <p className="text-muted-foreground mt-0.5 text-[11px]">
+                          {formatRelativePt(event.at)}
+                        </p>
+                        {event.href && (
+                          <a
+                            href={event.href}
+                            className="text-primary mt-1 inline-block text-xs font-medium hover:underline"
+                          >
+                            Abrir este evento
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </article>
+      </article>
+    </div>
   );
 }
 
@@ -1495,13 +1519,15 @@ function bundleNotifications(
   return Array.from(map, ([key, items]) => {
     const sorted = sortByNewest(items);
     const primary = sorted[0];
-    const isAssignmentGroup = key.startsWith('assignment:');
+    const groupKind = key.split(':', 1)[0] as NotificationBundle['groupKind'];
+    const isAssignmentGroup = groupKind === 'assignment';
 
     return {
       key,
       primary,
       items: sorted,
       isAssignmentGroup,
+      groupKind,
       isUnread: sorted.some(
         (notification) => !notification.read_at && !notification.resolved_at
       ),
@@ -1511,16 +1537,6 @@ function bundleNotifications(
       latestAt: sorted[0]?.created_at ?? new Date(0).toISOString(),
     };
   }).sort((a, b) => Date.parse(b.latestAt) - Date.parse(a.latestAt));
-}
-
-function getBundleKey(notification: Notification) {
-  if (
-    notification.type === 'conversation_assigned' &&
-    notification.conversation_id
-  ) {
-    return `assignment:${notification.conversation_id}:${notification.user_id}`;
-  }
-  return `single:${notification.id}`;
 }
 
 function getBundleBody(bundle: NotificationBundle) {
@@ -1571,6 +1587,21 @@ function getAssignmentTimeline(
   return Array.from(deduped.values()).sort(
     (a, b) => Date.parse(b.at) - Date.parse(a.at)
   );
+}
+
+function getBundleTimeline(bundle: NotificationBundle) {
+  if (bundle.isAssignmentGroup)
+    return getAssignmentTimeline(bundle).map((event) => ({
+      ...event,
+      href: null as string | null,
+    }));
+  return bundle.items.map((notification) => ({
+    key: notification.id,
+    at: notification.created_at,
+    label: notification.title,
+    detail: notification.body || getNotificationMeta(notification).label,
+    href: getActionHref(notification),
+  }));
 }
 
 function readNumberMetadata(
