@@ -15,6 +15,19 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-17-header-weekday',
+    date: '2026-10-17',
+    category: 'Melhoria',
+    title: 'Dia da semana e ícone de relógio no menu',
+    areas: ['Navegação'],
+    summary:
+      'O relógio do cabeçalho mostra o dia da semana por extenso, a hora e a data.',
+    changes: [
+      'Dia da semana em português e ícone de relógio junto à data e hora, no fuso da conta.',
+    ],
+    howTo: 'Consulte o relógio entre a pesquisa e o ponto.',
+  },
+  {
     id: '2026-10-17-account-clock',
     date: '2026-10-17',
     category: 'Correção',

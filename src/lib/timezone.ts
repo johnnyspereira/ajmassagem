@@ -1,5 +1,12 @@
 const FALLBACK_TIME_ZONE = 'Europe/Lisbon';
 
+export function accountWeekday(value: Date, timeZone?: string | null) {
+  return new Intl.DateTimeFormat('pt-PT', {
+    weekday: 'long',
+    timeZone: resolvedTimeZone(timeZone),
+  }).format(value);
+}
+
 function resolvedTimeZone(timeZone?: string | null) {
   const candidate = timeZone?.trim() || FALLBACK_TIME_ZONE;
   try {
@@ -13,27 +20,58 @@ function resolvedTimeZone(timeZone?: string | null) {
 function parts(value: Date, timeZone?: string | null) {
   const formatted = new Intl.DateTimeFormat('en-GB', {
     timeZone: resolvedTimeZone(timeZone),
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
     hourCycle: 'h23',
   }).formatToParts(value);
   const get = (type: Intl.DateTimeFormatPartTypes) =>
     Number(formatted.find((part) => part.type === type)?.value ?? 0);
-  return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour'), minute: get('minute'), second: get('second') };
+  return {
+    year: get('year'),
+    month: get('month'),
+    day: get('day'),
+    hour: get('hour'),
+    minute: get('minute'),
+    second: get('second'),
+  };
 }
 
 /** Converts a date and time selected in the account timezone into one UTC instant. */
-export function accountDateTimeToUtc(date: string, time: string, timeZone?: string | null) {
+export function accountDateTimeToUtc(
+  date: string,
+  time: string,
+  timeZone?: string | null
+) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
   const clock = /^(\d{2}):(\d{2})$/.exec(time || '09:00');
   if (!match || !clock) return new Date(NaN);
-  const desired = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(clock[1]), Number(clock[2]));
+  const desired = Date.UTC(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+    Number(clock[1]),
+    Number(clock[2])
+  );
   let instant = desired;
   // Offset may differ before and after a daylight-saving transition. Two
   // passes make the selected wall-clock time stable for account timezones.
   for (let pass = 0; pass < 2; pass += 1) {
     const local = parts(new Date(instant), timeZone);
-    instant = desired - (Date.UTC(local.year, local.month - 1, local.day, local.hour, local.minute, local.second) - instant);
+    instant =
+      desired -
+      (Date.UTC(
+        local.year,
+        local.month - 1,
+        local.day,
+        local.hour,
+        local.minute,
+        local.second
+      ) -
+        instant);
   }
   return new Date(instant);
 }
@@ -48,19 +86,35 @@ export function accountTimeInput(value: Date, timeZone?: string | null) {
   return `${String(local.hour).padStart(2, '0')}:${String(local.minute).padStart(2, '0')}`;
 }
 
-export function formatAccountDateTime(value: string | Date, timeZone?: string | null) {
+export function formatAccountDateTime(
+  value: string | Date,
+  timeZone?: string | null
+) {
   return new Intl.DateTimeFormat('pt-PT', {
     timeZone: resolvedTimeZone(timeZone),
-    weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
   }).format(typeof value === 'string' ? new Date(value) : value);
 }
 
 /** Compact timestamp for operational history, always in the account timezone. */
-export function formatAccountEventTime(value: string | Date, timeZone?: string | null) {
+export function formatAccountEventTime(
+  value: string | Date,
+  timeZone?: string | null
+) {
   return new Intl.DateTimeFormat('pt-PT', {
     timeZone: resolvedTimeZone(timeZone),
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
   }).format(typeof value === 'string' ? new Date(value) : value);
 }
