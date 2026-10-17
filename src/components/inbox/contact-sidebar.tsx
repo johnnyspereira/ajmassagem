@@ -12,6 +12,8 @@ import { format } from 'date-fns';
 import {
   Building2,
   CalendarClock,
+  CalendarPlus,
+  RefreshCw,
   Check,
   ChevronDown,
   Copy,
@@ -43,6 +45,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
 import { createClient } from '@/lib/supabase/client';
+import { InboxBookingDialog } from './booking-dialog';
+import {
+  availableVoucher,
+  availablePackSessions,
+  usableExpiry,
+  type BenefitReservation,
+  type InboxBookingBenefit,
+} from '@/lib/inbox/available-benefits';
+import { formatAccountEventTime } from '@/lib/timezone';
 import type {
   Contact,
   ContactCustomValue,
@@ -87,6 +98,7 @@ interface ContactAppointmentItem {
 type InboxClientPack = FinanceClientPack & {
   balances?: Array<{
     id: string;
+    service_id?: string;
     remaining_sessions: number;
     service?: { name?: string | null } | null;
   }>;
@@ -186,7 +198,18 @@ export function ContactSidebar({
   onContactUpdated,
 }: ContactSidebarProps) {
   const router = useRouter();
-  const { accountId, user, defaultCurrency } = useAuth();
+  const {
+    accountId,
+    user,
+    account,
+    defaultCurrency,
+    canSendMessages: canOperate,
+  } = useAuth();
+  const [booking, setBooking] = useState<{
+    benefit: InboxBookingBenefit | null;
+  } | null>(null);
+  const [showAppointmentHistory, setShowAppointmentHistory] = useState(false);
+  const [benefitsError, setBenefitsError] = useState(false);
   const [localContact, setLocalContact] = useState<Contact | null>(contact);
   const [draft, setDraft] = useState<ContactDraft>(() =>
     draftFromContact(contact)
@@ -454,13 +477,12 @@ export function ContactSidebar({
         )
         .eq('contact_id', contact.id)
         .order('scheduled_start', { ascending: false })
-        .limit(8),
+        .limit(30),
       supabase
         .from('finance_vouchers')
-        .select('*')
+        .select('*, service:clinic_services(name)')
         .eq('owner_contact_id', contact.id)
         .eq('status', 'active')
-        .gt('current_balance', 0)
         .order('expires_at', { ascending: true, nullsFirst: false }),
       supabase
         .from('finance_client_packs')
@@ -495,26 +517,71 @@ export function ContactSidebar({
         : ((appointmentsRes.data as ContactAppointmentItem[] | null) ?? [])
     );
     const now = Date.now();
+    const vouchers = (vouchersRes.data as FinanceVoucher[] | null) ?? [];
+    const packs = (packsRes.data as InboxClientPack[] | null) ?? [];
+    const balanceIds = packs.flatMap((pack) =>
+      (pack.balances || []).map((balance) => balance.id)
+    );
+    const [voucherReservations, packReservations] = await Promise.all([
+      vouchers.length
+        ? supabase
+            .from('finance_appointment_benefits')
+            .select('voucher_id,reserved_amount,reserved_sessions,status')
+            .eq('status', 'reserved')
+            .in(
+              'voucher_id',
+              vouchers.map((voucher) => voucher.id)
+            )
+        : Promise.resolve({ data: [], error: null }),
+      balanceIds.length
+        ? supabase
+            .from('finance_appointment_benefits')
+            .select('client_pack_balance_id,reserved_sessions,status')
+            .eq('status', 'reserved')
+            .in('client_pack_balance_id', balanceIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    const reservations = [
+      ...(voucherReservations.data || []),
+      ...(packReservations.data || []),
+    ] as BenefitReservation[];
+    setBenefitsError(
+      Boolean(
+        vouchersRes.error ||
+        packsRes.error ||
+        voucherReservations.error ||
+        packReservations.error
+      )
+    );
     setActiveVouchers(
-      vouchersRes.error
+      vouchersRes.error || voucherReservations.error
         ? []
-        : ((vouchersRes.data as FinanceVoucher[] | null) ?? []).filter(
-            (voucher) =>
-              !voucher.expires_at ||
-              new Date(voucher.expires_at).getTime() > now
-          )
+        : vouchers
+            .map((voucher) => availableVoucher(voucher, reservations, now))
+            .filter((voucher): voucher is FinanceVoucher => !!voucher)
     );
     setActivePacks(
-      packsRes.error
+      packsRes.error || packReservations.error
         ? []
-        : ((packsRes.data as InboxClientPack[] | null) ?? []).filter(
-            (clientPack) =>
-              (!clientPack.expires_at ||
-                new Date(clientPack.expires_at).getTime() > now) &&
-              (clientPack.balances ?? []).some(
-                (balance) => Number(balance.remaining_sessions) > 0
-              )
-          )
+        : packs
+            .map((pack) => ({
+              ...pack,
+              balances: (pack.balances || []).map((balance) => ({
+                ...balance,
+                remaining_sessions: availablePackSessions(
+                  balance.id,
+                  balance.remaining_sessions,
+                  reservations
+                ),
+              })),
+            }))
+            .filter(
+              (clientPack) =>
+                usableExpiry(clientPack.expires_at, now) &&
+                (clientPack.balances ?? []).some(
+                  (balance) => Number(balance.remaining_sessions) > 0
+                )
+            )
     );
 
     const nextCustomValues: Record<string, string> = {};
@@ -927,6 +994,16 @@ export function ContactSidebar({
   const displayName = activeContact.name || activeContact.phone;
   const initials = displayName.charAt(0).toUpperCase();
   const openDeals = deals.filter((deal) => (deal.status ?? 'open') === 'open');
+  const upcomingAppointments = appointments
+    .filter(
+      (item) =>
+        ['scheduled', 'confirmed'].includes(item.status) &&
+        new Date(item.scheduled_end).getTime() >= Date.now()
+    )
+    .sort((a, b) => a.scheduled_start.localeCompare(b.scheduled_start));
+  const visibleAppointments = showAppointmentHistory
+    ? appointments
+    : upcomingAppointments;
 
   return (
     <div className="border-border bg-card flex h-full min-h-0 w-full flex-col overflow-hidden 2xl:w-80">
@@ -951,25 +1028,27 @@ export function ContactSidebar({
                   {displayName}
                 </p>
                 <p className="text-muted-foreground truncate text-xs">
-                  {activeContact.company || 'No company'}
+                  {activeContact.company || 'Cliente JP Massagem'}
                 </p>
-                <div className="mt-2 flex gap-2">
-                  <span className="bg-primary/10 text-primary rounded-md px-2 py-1 text-[10px] font-semibold">
-                    Ref. {activeContact.client_reference ?? '--'}
-                  </span>
-                  <span className="bg-muted text-muted-foreground rounded-md px-2 py-1 text-[10px]">
-                    {openDeals.length} active deals
-                  </span>
-                  <span className="bg-muted text-muted-foreground rounded-md px-2 py-1 text-[10px]">
-                    {contactTags.length} tags
-                  </span>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {activeContact.client_reference && (
+                    <span className="bg-primary/10 text-primary rounded-md px-2 py-1 text-[10px] font-semibold">
+                      Ref. {activeContact.client_reference}
+                    </span>
+                  )}
+                  {openDeals.length > 0 && (
+                    <span className="bg-muted text-muted-foreground rounded-md px-2 py-1 text-[10px]">
+                      {openDeals.length} oportunidades
+                    </span>
+                  )}
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setEditingContact((prev) => !prev)}
                 className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
-                title={editingContact ? 'Close editor' : 'Edit contact'}
+                title={editingContact ? 'Fechar edição' : 'Editar cliente'}
+                aria-label={editingContact ? 'Fechar edição' : 'Editar cliente'}
               >
                 {editingContact ? (
                   <X className="h-4 w-4" />
@@ -979,6 +1058,14 @@ export function ContactSidebar({
               </button>
             </div>
 
+            <Button
+              className="h-10 w-full justify-center rounded-xl"
+              disabled={!canOperate}
+              onClick={() => setBooking({ benefit: null })}
+            >
+              <CalendarPlus className="size-4" />
+              Agendar sessão avulsa
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -1020,7 +1107,7 @@ export function ContactSidebar({
                         name: event.target.value,
                       }))
                     }
-                    placeholder="Name"
+                    placeholder="Nome"
                     className="border-border bg-card h-8 text-xs"
                   />
                 </FieldIcon>
@@ -1046,7 +1133,7 @@ export function ContactSidebar({
                         phone: event.target.value,
                       }))
                     }
-                    placeholder="Phone"
+                    placeholder="Telefone"
                     className="border-border bg-card h-8 text-xs"
                   />
                 </FieldIcon>
@@ -1072,7 +1159,7 @@ export function ContactSidebar({
                         company: event.target.value,
                       }))
                     }
-                    placeholder="Company"
+                    placeholder="Empresa"
                     className="border-border bg-card h-8 text-xs"
                   />
                 </FieldIcon>
@@ -1117,22 +1204,43 @@ export function ContactSidebar({
             )}
           </section>
 
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              disabled={loadingData}
+              onClick={() => void fetchContactData()}
+              className="text-muted-foreground hover:text-primary flex items-center gap-1.5 text-[11px] disabled:opacity-50"
+            >
+              <RefreshCw
+                className={`size-3 ${loadingData ? 'animate-spin' : ''}`}
+              />
+              {loadingData ? 'A atualizar…' : 'Atualizar dados do cliente'}
+            </button>
+          </div>
           <Section
-            title="Agendamentos"
+            title="Marcações"
             icon={CalendarClock}
             defaultOpen
-            summary={`${appointments.length} ligados`}
+            summary={`${upcomingAppointments.length} próximas`}
           >
-            {appointments.length === 0 ? (
+            {visibleAppointments.length === 0 ? (
               <p className="text-muted-foreground text-xs">
-                Nenhum agendamento ligado a este contato.
+                {loadingData
+                  ? 'A carregar marcações…'
+                  : 'Sem marcações futuras. Use Agendar sessão avulsa ou um benefício disponível.'}
               </p>
             ) : (
               <div className="space-y-2">
-                {appointments.map((appointment) => (
-                  <div
+                {visibleAppointments.map((appointment) => (
+                  <button
                     key={appointment.id}
-                    className="border-border bg-muted/30 rounded-md border p-3"
+                    className="border-border bg-muted/30 hover:border-primary/40 w-full rounded-xl border p-3 text-left"
+                    type="button"
+                    onClick={() =>
+                      router.push(
+                        `/agenda?appointment=${encodeURIComponent(appointment.id)}`
+                      )
+                    }
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -1140,9 +1248,9 @@ export function ContactSidebar({
                           {appointment.service?.name ?? 'Serviço'}
                         </p>
                         <p className="text-muted-foreground text-[11px]">
-                          {format(
-                            new Date(appointment.scheduled_start),
-                            'dd/MM/yyyy HH:mm'
+                          {formatAccountEventTime(
+                            appointment.scheduled_start,
+                            account?.timezone
                           )}
                         </p>
                         <p className="text-muted-foreground text-[11px]">
@@ -1155,117 +1263,166 @@ export function ContactSidebar({
                         {formatAppointmentStatus(appointment.status)}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
           </Section>
 
-          <Section
-            title="Benefícios"
-            icon={Gift}
-            defaultOpen
-            summary={`${activeVouchers.length} vouchers · ${activePacks.length} packs`}
-          >
-            {activeVouchers.length === 0 && activePacks.length === 0 ? (
-              <p className="text-muted-foreground text-xs">
-                Este cliente não possui vouchers ou packs ativos.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {activeVouchers.map((voucher) => (
-                  <div
-                    key={voucher.id}
-                    className="border-border rounded-md border bg-rose-500/5 p-3"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="flex items-center gap-1.5 text-xs font-semibold">
-                          <Gift className="size-3.5 text-rose-500" />
-                          Voucher {voucher.code}
-                        </p>
-                        <p className="text-muted-foreground mt-1 text-[11px]">
-                          {voucher.expires_at
-                            ? `Válido até ${format(new Date(voucher.expires_at), 'dd/MM/yyyy')}`
-                            : 'Sem data limite'}
-                        </p>
-                        <p className="text-muted-foreground mt-1 text-[11px]">
-                          Valor original:{' '}
-                          {formatCurrency(
-                            Number(voucher.initial_balance),
-                            voucher.currency || defaultCurrency
+          {appointments.length > upcomingAppointments.length && (
+            <button
+              type="button"
+              onClick={() => setShowAppointmentHistory((current) => !current)}
+              className="text-muted-foreground hover:text-primary flex w-full items-center justify-center gap-2 rounded-lg p-2 text-xs"
+            >
+              <History className="size-3.5" />
+              {showAppointmentHistory
+                ? 'Mostrar apenas próximas marcações'
+                : 'Consultar marcações anteriores'}
+            </button>
+          )}
+          {benefitsError && (
+            <p
+              role="status"
+              className="text-muted-foreground rounded-lg border p-3 text-xs"
+            >
+              Não foi possível verificar os benefícios disponíveis.{' '}
+              <button
+                type="button"
+                className="text-primary underline"
+                onClick={() => void fetchContactData()}
+              >
+                Tentar novamente
+              </button>
+            </p>
+          )}
+          {(activeVouchers.length > 0 || activePacks.length > 0) &&
+            !loadingData && (
+              <Section
+                title="Disponível para agendar"
+                icon={Gift}
+                defaultOpen
+                summary={String(activeVouchers.length + activePacks.length)}
+              >
+                <p className="text-muted-foreground mb-3 text-[11px]">
+                  Apenas saldo e sessões livres, descontando as reservas
+                  existentes.
+                </p>
+                <div className="space-y-2">
+                  {activeVouchers.map((voucher) => (
+                    <button
+                      key={voucher.id}
+                      type="button"
+                      disabled={!canOperate}
+                      onClick={() =>
+                        setBooking({
+                          benefit: {
+                            type: 'voucher',
+                            id: voucher.id,
+                            label: 'Voucher ' + voucher.code,
+                            serviceId:
+                              voucher.voucher_type === 'service'
+                                ? voucher.service_id
+                                : null,
+                          },
+                        })
+                      }
+                      className="border-primary/15 bg-primary/5 hover:border-primary/40 hover:bg-primary/10 w-full space-y-2 rounded-xl border p-3 text-left transition-colors disabled:opacity-50"
+                    >
+                      <span className="flex items-start justify-between gap-2">
+                        <span className="min-w-0">
+                          <span className="flex items-center gap-1.5 text-xs font-semibold">
+                            <Gift className="size-3.5 shrink-0" />
+                            <span className="truncate">
+                              Voucher {voucher.code}
+                            </span>
+                          </span>
+                          {voucher.service?.name && (
+                            <span className="mt-1 block text-xs">
+                              {voucher.service.name}
+                            </span>
                           )}
-                        </p>
-                        <p className="mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
-                          {voucher.paid_amount != null
-                            ? `Pago pelo cliente: ${formatCurrency(Number(voucher.paid_amount), voucher.currency || defaultCurrency)}`
-                            : 'Pago pelo cliente: valor ainda por apurar'}
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-right text-xs font-semibold text-rose-600 dark:text-rose-300">
-                        <span className="text-muted-foreground block text-[10px] font-medium">
-                          {voucher.voucher_type === 'service'
-                            ? 'Sessões disponíveis'
-                            : 'Saldo disponível'}
+                          <span className="text-muted-foreground mt-1 block text-[11px]">
+                            {voucher.expires_at
+                              ? 'Válido até ' +
+                                format(
+                                  new Date(voucher.expires_at),
+                                  'dd/MM/yyyy'
+                                )
+                              : 'Sem data limite'}
+                          </span>
                         </span>
-                        {voucher.voucher_type === 'service'
-                          ? `${Number(voucher.remaining_uses ?? 0)} sessão(ões)`
-                          : formatCurrency(
-                              Number(voucher.current_balance),
-                              voucher.currency || defaultCurrency
-                            )}
+                        <strong className="text-primary shrink-0 text-xs">
+                          {voucher.voucher_type === 'service'
+                            ? voucher.remaining_uses +
+                              (Number(voucher.remaining_uses) > 1
+                                ? ' sessões'
+                                : ' sessão')
+                            : formatCurrency(
+                                Number(voucher.current_balance),
+                                voucher.currency || defaultCurrency
+                              )}
+                        </strong>
                       </span>
-                    </div>
-                  </div>
-                ))}
-                {activePacks.map((clientPack) => (
-                  <div
-                    key={clientPack.id}
-                    className="border-border rounded-md border bg-sky-500/5 p-3"
-                  >
-                    <p className="flex items-center gap-1.5 text-xs font-semibold">
-                      <PackageCheck className="size-3.5 text-sky-500" />
-                      {clientPack.pack?.name ?? 'Pack de serviços'}
-                    </p>
-                    <div className="mt-2 space-y-1">
-                      {(clientPack.balances ?? [])
+                      <span className="text-primary flex items-center justify-between text-xs font-medium">
+                        Agendar com este voucher
+                        <CalendarPlus className="size-3.5" />
+                      </span>
+                    </button>
+                  ))}
+                  {activePacks.map((pack) => (
+                    <div
+                      key={pack.id}
+                      className="border-border space-y-2 rounded-xl border p-3"
+                    >
+                      <p className="flex items-center gap-2 text-xs font-semibold">
+                        <PackageCheck className="size-3.5" />
+                        {pack.pack?.name || 'Pack de sessões'}
+                      </p>
+                      {(pack.balances || [])
                         .filter(
                           (balance) => Number(balance.remaining_sessions) > 0
                         )
                         .map((balance) => (
-                          <div
+                          <button
+                            type="button"
                             key={balance.id}
-                            className="text-muted-foreground flex items-center justify-between gap-2 text-[11px]"
+                            disabled={!canOperate}
+                            onClick={() =>
+                              setBooking({
+                                benefit: {
+                                  type: 'pack',
+                                  id: pack.id,
+                                  label: pack.pack?.name || 'Pack',
+                                  serviceId: balance.service_id,
+                                },
+                              })
+                            }
+                            className="bg-muted hover:bg-primary/10 flex w-full items-center gap-2 rounded-lg p-2 text-left text-xs"
                           >
-                            <span className="truncate">
-                              {balance.service?.name ?? 'Serviço'}
+                            <span className="min-w-0 flex-1 truncate">
+                              {balance.service?.name || 'Serviço'}
                             </span>
-                            <strong className="text-foreground shrink-0">
-                              {balance.remaining_sessions} sessões
-                            </strong>
-                          </div>
+                            <strong>{balance.remaining_sessions} livres</strong>
+                            <CalendarPlus className="size-3.5 shrink-0" />
+                          </button>
                         ))}
                     </div>
-                    <p className="text-muted-foreground mt-2 text-[10px]">
-                      {clientPack.expires_at
-                        ? `Válido até ${format(new Date(clientPack.expires_at), 'dd/MM/yyyy')}`
-                        : 'Sem data limite'}
-                    </p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </Section>
             )}
-          </Section>
 
           <Section
-            title="Tags"
+            title="Etiquetas"
             icon={TagIcon}
-            defaultOpen
-            summary={`${contactTags.length} linked`}
+            summary={
+              contactTags.length ? String(contactTags.length) : undefined
+            }
           >
             <div className="flex flex-wrap gap-1.5">
               {contactTags.length === 0 ? (
-                <p className="text-muted-foreground text-xs">No tags</p>
+                <p className="text-muted-foreground text-xs">Sem etiquetas</p>
               ) : (
                 contactTags.map((tag) => (
                   <span
@@ -1300,7 +1457,7 @@ export function ContactSidebar({
                 onChange={(event) => setSelectedTagId(event.target.value)}
                 className="border-border bg-muted text-foreground focus:border-primary h-8 min-w-0 flex-1 rounded-md border px-2 text-xs outline-none"
               >
-                <option value="">Add tag...</option>
+                <option value="">Adicionar etiqueta…</option>
                 {availableTags.map((tag) => (
                   <option key={tag.id} value={tag.id}>
                     {tag.name}
@@ -1323,59 +1480,62 @@ export function ContactSidebar({
             </div>
           </Section>
 
-          <Section
-            title="Custom fields"
-            icon={SlidersHorizontal}
-            summary={`${customFields.length} fields`}
-          >
-            {loadingData ? (
-              <p className="text-muted-foreground text-xs">Loading fields...</p>
-            ) : customFields.length === 0 ? (
-              <p className="text-muted-foreground text-xs">
-                No custom fields configured.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {customFields.map((field) => (
-                  <label key={field.id} className="block space-y-1">
-                    <span className="text-muted-foreground text-[10px] font-medium uppercase">
-                      {field.field_name}
-                    </span>
-                    <Input
-                      value={customValues[field.id] ?? ''}
-                      onChange={(event) =>
-                        setCustomValues((prev) => ({
-                          ...prev,
-                          [field.id]: event.target.value,
-                        }))
-                      }
-                      placeholder="Empty"
-                      className="border-border bg-muted h-8 text-xs"
-                    />
-                  </label>
-                ))}
-                <Button
-                  size="sm"
-                  onClick={handleSaveCustomFields}
-                  disabled={savingCustomFields}
-                  className="h-8 w-full"
-                >
-                  {savingCustomFields ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Save className="h-3.5 w-3.5" />
-                  )}
-                  Save fields
-                </Button>
-              </div>
-            )}
-          </Section>
+          {customFields.length > 0 && (
+            <Section
+              title="Dados adicionais"
+              icon={SlidersHorizontal}
+              summary={`${customFields.length} fields`}
+            >
+              {loadingData ? (
+                <p className="text-muted-foreground text-xs">
+                  Loading fields...
+                </p>
+              ) : customFields.length === 0 ? (
+                <p className="text-muted-foreground text-xs">
+                  No custom fields configured.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {customFields.map((field) => (
+                    <label key={field.id} className="block space-y-1">
+                      <span className="text-muted-foreground text-[10px] font-medium uppercase">
+                        {field.field_name}
+                      </span>
+                      <Input
+                        value={customValues[field.id] ?? ''}
+                        onChange={(event) =>
+                          setCustomValues((prev) => ({
+                            ...prev,
+                            [field.id]: event.target.value,
+                          }))
+                        }
+                        placeholder="Empty"
+                        className="border-border bg-muted h-8 text-xs"
+                      />
+                    </label>
+                  ))}
+                  <Button
+                    size="sm"
+                    onClick={handleSaveCustomFields}
+                    disabled={savingCustomFields}
+                    className="h-8 w-full"
+                  >
+                    {savingCustomFields ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5" />
+                    )}
+                    Save fields
+                  </Button>
+                </div>
+              )}
+            </Section>
+          )}
 
           <Section
-            title="Deals"
+            title="Oportunidades"
             icon={DollarSign}
-            defaultOpen
-            summary={`${openDeals.length} active`}
+            summary={openDeals.length ? String(openDeals.length) : undefined}
             action={
               <button
                 type="button"
@@ -1467,7 +1627,9 @@ export function ContactSidebar({
                   Loading CRM data...
                 </p>
               ) : deals.length === 0 ? (
-                <p className="text-muted-foreground text-xs">No deals linked</p>
+                <p className="text-muted-foreground text-xs">
+                  Sem oportunidades associadas.
+                </p>
               ) : (
                 deals.map((deal) => {
                   const dealStages =
@@ -1560,15 +1722,16 @@ export function ContactSidebar({
           </Section>
 
           <Section
-            title="Notes"
+            title="Notas internas"
             icon={StickyNote}
-            summary={`${notes.length} notes`}
+            defaultOpen
+            summary={notes.length ? String(notes.length) : undefined}
           >
             <div className="flex gap-2">
               <Textarea
                 value={newNote}
                 onChange={(event) => setNewNote(event.target.value)}
-                placeholder="Add an internal note"
+                placeholder="Preferências, cuidados ou próximo passo…"
                 rows={2}
                 className="border-border bg-muted min-h-16 flex-1 resize-none text-xs"
               />
@@ -1589,7 +1752,9 @@ export function ContactSidebar({
 
             <div className="mt-2 space-y-2">
               {notes.length === 0 ? (
-                <p className="text-muted-foreground text-xs">No notes yet</p>
+                <p className="text-muted-foreground text-xs">
+                  Registe aqui o que é importante para o próximo atendimento.
+                </p>
               ) : (
                 notes.slice(0, 4).map((note) => (
                   <div key={note.id} className="bg-muted rounded-md px-3 py-2">
@@ -1606,7 +1771,7 @@ export function ContactSidebar({
           </Section>
 
           <Section
-            title="Timeline"
+            title="Histórico"
             icon={History}
             summary={`${timelineEvents.length} events`}
           >
@@ -1645,7 +1810,7 @@ export function ContactSidebar({
 
           {automationLogs.length > 0 && (
             <Section
-              title="Automations"
+              title="Automações"
               icon={Workflow}
               summary={`${automationLogs.length} runs`}
             >
@@ -1670,6 +1835,17 @@ export function ContactSidebar({
           )}
         </div>
       </ScrollArea>
+      {booking && (
+        <InboxBookingDialog
+          key={activeContact.id}
+          contact={activeContact}
+          benefit={booking.benefit}
+          onClose={() => setBooking(null)}
+          onCreated={() => {
+            void fetchContactData();
+          }}
+        />
+      )}
     </div>
   );
 }

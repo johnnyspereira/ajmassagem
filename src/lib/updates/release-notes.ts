@@ -15,6 +15,25 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-17-inbox-client-actions',
+    date: '2026-10-17',
+    category: 'Melhoria',
+    title:
+      'Agendar diretamente no Inbox e mostrar apenas benefícios disponíveis',
+    areas: ['Inbox', 'Atendimento', 'Marcações'],
+    summary:
+      'Painel do cliente centrado em agendar, consultar próximas sessões e guardar notas sem sair da conversa.',
+    changes: [
+      'Botão Agendar sessão avulsa e agendamento ao clicar num voucher ou numa sessão de pack.',
+      'Formulário dentro do Inbox com cliente e benefício preenchidos, serviço, data, hora, profissional, sala e confirmação opcional.',
+      'Vouchers esgotados, expirados, cancelados ou totalmente reservados ocultos; saldo livre desconta reservas existentes.',
+      'Próximas marcações em destaque e histórico por opção. Notas internas acessíveis, dados adicionais e oportunidades recolhidos.',
+      'Removidos contadores vazios e informação financeira da compra que não ajuda a agendar.',
+    ],
+    howTo:
+      'Abra o painel do cliente na conversa. Clique em Agendar sessão avulsa ou num benefício disponível, escolha o horário e confirme. A criação reserva o benefício e mantém o Inbox aberto.',
+  },
+  {
     id: '2026-10-17-header-weekday',
     date: '2026-10-17',
     category: 'Melhoria',

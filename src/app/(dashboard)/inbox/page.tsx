@@ -1102,6 +1102,7 @@ export default function InboxPage() {
         {contactPanelOpen && (
           <div className="border-border/70 bg-card hidden shrink-0 overflow-hidden rounded-2xl border shadow-sm 2xl:block">
             <ContactSidebar
+              key={activeContact?.id || 'empty-contact'}
               contact={activeContact}
               conversationId={activeConversation?.id ?? null}
               onContactUpdated={handleContactUpdated}
@@ -1128,6 +1129,7 @@ export default function InboxPage() {
                 <X className="h-4 w-4" />
               </button>
               <ContactSidebar
+                key={activeContact?.id || 'empty-contact-drawer'}
                 contact={activeContact}
                 conversationId={activeConversation?.id ?? null}
                 onContactUpdated={handleContactUpdated}
