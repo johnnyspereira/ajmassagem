@@ -14,6 +14,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ModeToggle } from './mode-toggle';
 import { NavigationSearch } from './navigation-search';
+import { AccountClock } from './account-clock';
 import { navigationGroups, activeNavigation } from './navigation-model';
 import { useNavigationCounts } from './navigation-state';
 import { WorkTimeClock } from '@/components/work-time/work-time-clock';
@@ -59,6 +60,7 @@ export function Header({
         </div>
         <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
           <NavigationSearch />
+          <AccountClock />
           <div className="border-border mx-2 hidden border-r pr-3 2xl:block">
             <WorkTimeClock />
           </div>

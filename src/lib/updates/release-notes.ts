@@ -15,6 +15,22 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-17-account-clock',
+    date: '2026-10-17',
+    category: 'Correção',
+    title: 'Data e hora no cabeçalho e fuso horário consistente',
+    areas: ['Sistema', 'Inbox', 'Navegação'],
+    summary:
+      'Relógio visível entre a pesquisa e o ponto, usando o fuso da conta.',
+    changes: [
+      'Data e hora atuais no cabeçalho, atualizadas automaticamente.',
+      'Horário das mensagens apresentado no fuso configurado da conta.',
+      'Sessões MySQL em UTC para evitar a hora adicional nos novos registos gerados pelo servidor.',
+    ],
+    howTo:
+      'Consulte a data e hora junto à pesquisa. O fuso é o configurado nas Definições gerais. Registos antigos não são deslocados automaticamente.',
+  },
+  {
     id: '2026-10-17-media-caption-layout',
     date: '2026-10-17',
     category: 'Correção',

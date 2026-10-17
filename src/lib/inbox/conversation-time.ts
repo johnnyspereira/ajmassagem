@@ -1,19 +1,22 @@
-import { format, isSameDay, isValid } from 'date-fns';
+import { isValid } from 'date-fns';
+import { accountDateInput, accountTimeInput } from '@/lib/timezone';
 
 export function conversationTime(
   value?: string | null,
-  now = new Date()
+  now = new Date(),
+  timeZone?: string | null
 ): string {
   if (!value) return '';
   const date = new Date(value);
   if (!isValid(date)) return '';
-  if (isSameDay(date, now)) return format(date, 'HH:mm');
+  const day = accountDateInput(date, timeZone);
+  if (day === accountDateInput(now, timeZone))
+    return accountTimeInput(date, timeZone);
   // Compare against the supplied clock so tests and previews remain stable.
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  if (isSameDay(date, yesterday)) return 'Ontem';
-  return format(
-    date,
-    date.getFullYear() === now.getFullYear() ? 'dd/MM' : 'dd/MM/yy'
-  );
+  const localDay = accountDateInput(now, timeZone);
+  const yesterday = new Date(`${localDay}T12:00:00Z`);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  if (day === yesterday.toISOString().slice(0, 10)) return 'Ontem';
+  const [year, month, dateNumber] = day.split('-');
+  return `${dateNumber}/${month}${year === localDay.slice(0, 4) ? '' : `/${year.slice(2)}`}`;
 }

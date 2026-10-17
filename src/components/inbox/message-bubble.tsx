@@ -16,7 +16,8 @@ import {
   RotateCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { accountTimeInput } from '@/lib/timezone';
+import { useAuth } from '@/hooks/use-auth';
 import { ReplyQuote } from './reply-quote';
 import { MediaAttachment } from './media-attachment';
 import {
@@ -170,7 +171,11 @@ export function MessageBubble({
 
   const isAgent =
     message.sender_type === 'agent' || message.sender_type === 'bot';
-  const time = format(new Date(message.created_at), 'HH:mm');
+  const { account } = useAuth();
+  const time = accountTimeInput(
+    new Date(message.created_at),
+    account?.timezone
+  );
   const [translation, setTranslation] = useState<string | null>(null);
   const [translating, setTranslating] = useState(false);
 

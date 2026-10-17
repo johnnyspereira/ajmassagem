@@ -22,6 +22,7 @@ function createMysqlPool(): Pool {
       enableKeepAlive: true,
       keepAliveInitialDelay: 0,
       charset: 'utf8mb4',
+      timezone: 'Z',
     });
   }
 
@@ -52,6 +53,11 @@ function createMysqlPool(): Pool {
 export function db(): Pool {
   if (!globalForMysql.mysqlPool) {
     globalForMysql.mysqlPool = createMysqlPool();
+    // DATETIME defaults use the SQL session timezone. Keep CURRENT_TIMESTAMP
+    // aligned with UTC dates sent by Node, including on cPanel servers in BST.
+    globalForMysql.mysqlPool.on('connection', (connection) => {
+      connection.query("SET time_zone = '+00:00'");
+    });
   }
 
   return globalForMysql.mysqlPool;

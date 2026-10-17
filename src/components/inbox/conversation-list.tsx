@@ -9,6 +9,7 @@ import {
   normalizeConversations,
 } from '@/lib/inbox/conversations';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/use-auth';
 import type {
   Conversation,
   ConversationStatus,
@@ -998,6 +999,7 @@ function ConversationItem({
   onToggleSelected,
 }: ConversationItemProps) {
   const contact = conversation.contact;
+  const { account } = useAuth();
   const displayName = contact?.name || contact?.phone || t('unknown');
   const initials = displayName.charAt(0).toUpperCase();
   const tags = contact?.tags?.slice(0, 2) ?? [];
@@ -1011,7 +1013,11 @@ function ConversationItem({
     onSelect(conversation);
   }, [onSelect, conversation]);
 
-  const timeAgo = conversationTime(conversation.last_message_at);
+  const timeAgo = conversationTime(
+    conversation.last_message_at,
+    new Date(),
+    account?.timezone
+  );
 
   return (
     <div className={cn('group', styles.row)}>
