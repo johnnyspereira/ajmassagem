@@ -1,10 +1,18 @@
-import type { Metadata } from 'next';
 import { ClientPortal } from '@/components/portal/client-portal';
 
-export const metadata: Metadata = {
-  title: 'Portal do cliente',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({
+  searchParams,
+  params,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  return portalShareMetadata(
+    await searchParams,
+    '/portal/' + encodeURIComponent(slug)
+  );
+}
 
 export default async function ClientPortalPage({
   params,
@@ -14,3 +22,5 @@ export default async function ClientPortalPage({
   const { slug } = await params;
   return <ClientPortal slug={slug} />;
 }
+
+import { portalShareMetadata } from '@/lib/sharing/metadata';

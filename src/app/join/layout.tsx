@@ -25,14 +25,11 @@
 //   export, this surfaces as `<meta name="referrer" content="no-referrer">`.
 // ============================================================
 
-import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
-export const metadata: Metadata = {
-  referrer: 'no-referrer',
-  // Belt-and-braces against an invite URL ending up in search
-  // results if a join page is ever crawled.
-  robots: { index: false, follow: false },
+export const metadata = {
+  ...metadataForRoute('/join/[token]'),
+  referrer: 'no-referrer' as const,
 };
 
 export default function JoinLayout({ children }: { children: ReactNode }) {
@@ -42,3 +39,5 @@ export default function JoinLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+import { metadataForRoute } from '@/lib/sharing/metadata';

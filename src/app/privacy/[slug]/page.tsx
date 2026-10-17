@@ -1,4 +1,3 @@
-import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
@@ -15,12 +14,7 @@ import {
 
 import { supabaseAdmin } from '@/lib/flows/admin-client';
 
-export const metadata: Metadata = {
-  title: 'Política de privacidade',
-  description:
-    'Como recolhemos, utilizamos e protegemos os seus dados pessoais.',
-  robots: { index: true, follow: true },
-};
+export const metadata = metadataForRoute('/privacy/[slug]');
 
 export default async function PrivacyPolicyPage({
   params,
@@ -436,3 +430,5 @@ function Callout({
     </div>
   );
 }
+
+import { metadataForRoute } from '@/lib/sharing/metadata';

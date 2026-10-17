@@ -7,6 +7,7 @@ import {
   LayoutPanelTop,
   HeartHandshake,
   History,
+  Link2,
   MonitorSmartphone,
   Palette,
   PlugZap,
@@ -55,6 +56,7 @@ export const SETTINGS_SECTIONS = [
   'data-cleanup',
   'new-features',
   'updates',
+  'link-previews',
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
@@ -78,6 +80,12 @@ export interface SectionMeta {
 }
 
 export const SECTION_META: Record<SettingsSection, SectionMeta> = {
+  'link-previews': {
+    id: 'link-previews',
+    label: 'Partilha de links',
+    icon: Link2,
+    group: 'system',
+  },
   updates: {
     id: 'updates',
     label: 'Atualizações',

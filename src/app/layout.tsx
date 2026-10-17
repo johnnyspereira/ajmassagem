@@ -3,6 +3,8 @@ import localFont from 'next/font/local';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import './globals.css';
+import { shareMetadata } from '@/lib/sharing/metadata';
+import { previewForRoute } from '@/lib/sharing/previews';
 import { ThemeProvider } from '@/hooks/use-theme';
 import { ThemedToaster } from '@/components/themed-toaster';
 import {
@@ -29,21 +31,22 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
+  ...shareMetadata({ ...previewForRoute('/'), index: false }),
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL || 'https://jpmassagem.pt'
   ),
   manifest: '/manifest.webmanifest',
-  applicationName: 'CRM WhatsApp',
+  applicationName: 'JP Massagem',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'CRM',
+    title: 'JP Massagem',
   },
   title: {
-    default: 'CRM',
-    template: '%s · CRM',
+    default: 'JP Massagem',
+    template: '%s | JP Massagem',
   },
-  description: 'CRM para atendimento, vendas e automações via WhatsApp.',
+  description: previewForRoute('/').description,
   robots: {
     index: false,
     follow: false,

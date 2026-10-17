@@ -1,11 +1,6 @@
-import type { Metadata } from 'next';
-
 import { PublicAnamnesis } from '@/components/clinic/public-anamnesis';
 
-export const metadata: Metadata = {
-  title: 'Ficha de anamnese',
-  robots: { index: false, follow: false },
-};
+export const metadata = metadataForRoute('/anamnese/public/[slug]');
 
 export default async function PublicAnamnesisPage({
   params,
@@ -15,3 +10,5 @@ export default async function PublicAnamnesisPage({
   const { slug } = await params;
   return <PublicAnamnesis publicSlug={slug} />;
 }
+
+import { metadataForRoute } from '@/lib/sharing/metadata';

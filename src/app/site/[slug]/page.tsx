@@ -11,33 +11,22 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const site = await getPublicBusinessSite(slug);
-
-  if (!site) {
-    return {
+  if (!site)
+    return shareMetadata({
       title: 'Site indisponível',
-      robots: { index: false, follow: false },
-    };
-  }
-
-  const description =
-    site.settings.seo_description ||
-    site.settings.hero_subtitle ||
-    site.settings.about_text ||
-    undefined;
-
-  return {
+      description:
+        'Esta página não está disponível. Consulte o site JP Massagem para conhecer os serviços.',
+    });
+  return shareMetadata({
     title: site.settings.seo_title || site.account.name,
-    description,
-    openGraph: {
-      title: site.settings.seo_title || site.account.name,
-      description,
-      images: site.settings.hero_image_url
-        ? [site.settings.hero_image_url]
-        : site.account.logo_url
-          ? [site.account.logo_url]
-          : undefined,
-    },
-  };
+    description:
+      site.settings.seo_description ||
+      site.settings.hero_subtitle ||
+      previewForRoute('/site/[slug]').description,
+    path: '/site/' + encodeURIComponent(slug),
+    brand: site.account.name,
+    index: true,
+  });
 }
 
 export async function PublicBusinessPage({
@@ -57,3 +46,6 @@ export async function PublicBusinessPage({
 }
 
 export default PublicBusinessPage;
+
+import { shareMetadata } from '@/lib/sharing/metadata';
+import { previewForRoute } from '@/lib/sharing/previews';

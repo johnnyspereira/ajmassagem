@@ -2375,7 +2375,8 @@
       "api": "API keys",
       "data-cleanup": "Data cleanup",
       "new-features": "What's new",
-      "updates": "Update history"
+      "updates": "Update history",
+      "link-previews": "Link previews"
     },
     "workTime": {
       "title": "Work time",

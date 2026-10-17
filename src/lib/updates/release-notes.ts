@@ -15,6 +15,28 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-17-link-previews',
+    date: '2026-10-17',
+    category: 'Novidade',
+    title: 'Textos e imagens preparados para partilhar os links',
+    areas: ['Site', 'Portal 360', 'Definições'],
+    summary:
+      'As páginas passam a ter títulos, descrições e imagens de pré-visualização para WhatsApp e redes sociais.',
+    changes: [
+      'Catálogo de textos para todas as famílias de páginas, incluindo marcações, portal, vouchers, anamnese, avaliações e convites.',
+      'Pré-visualizações de serviços e profissionais com os respetivos conteúdos públicos.',
+      'Imagem de partilha JP Massagem com o logótipo e formatos de metadados para redes sociais.',
+      'Links pessoais com textos genéricos, sem nomes de clientes, saldos ou respostas de formulários nos cartões.',
+      'Nova secção Partilha de links nas Definições, com pesquisa, consulta dos textos e botões para copiar.',
+    ],
+    howTo:
+      'Abra Definições → Partilha de links para consultar os textos. Partilhe o endereço real da página. Secções com # usam a pré-visualização da página principal; as plataformas podem manter em cache uma pré-visualização anterior.',
+    link: {
+      label: 'Consultar textos de partilha',
+      href: '/settings?tab=link-previews',
+    },
+  },
+  {
     id: '2026-10-17-brand-icons',
     date: '2026-10-17',
     category: 'Correção',

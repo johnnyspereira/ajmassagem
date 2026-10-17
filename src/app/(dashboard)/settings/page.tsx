@@ -10,6 +10,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { SettingsRail } from '@/components/settings/settings-rail';
 import { SettingsOverview } from '@/components/settings/settings-overview';
 import { UpdatesPanel } from '@/components/settings/updates-panel';
+import { LinkPreviewsPanel } from '@/components/settings/link-previews-panel';
 import { GeneralSettings } from '@/components/settings/general-settings';
 import { ProfileForm } from '@/components/settings/profile-form';
 import { WorkTimePanel } from '@/components/settings/work-time-panel';
@@ -88,6 +89,7 @@ export default function SettingsPage() {
   );
 
   const panel: Record<SettingsSection, ReactNode> = {
+    'link-previews': <LinkPreviewsPanel />,
     updates: <UpdatesPanel />,
     overview: <SettingsOverview onSelect={go} />,
     general: <GeneralSettings />,

@@ -66,6 +66,9 @@ const SECURITY_HEADERS = [
 const nextConfig: NextConfig = {
   output: 'standalone',
   serverExternalPackages: ['mysql2'],
+  // Preserve Next's HTML-only crawler list and include Telegram/Pinterest previews.
+  htmlLimitedBots:
+    /[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight|TelegramBot|Pinterestbot/i,
   allowedDevOrigins: ['192.168.1.17'],
 
   /**

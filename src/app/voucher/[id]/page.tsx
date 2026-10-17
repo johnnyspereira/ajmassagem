@@ -1,4 +1,3 @@
-import type { Metadata } from 'next';
 import Image from 'next/image';
 import {
   BadgeCheck,
@@ -14,12 +13,7 @@ import { supabaseAdmin } from '@/lib/flows/admin-client';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Consultar voucher',
-  description:
-    'Consulte a autenticidade, o estado e a validade do seu voucher.',
-  robots: { index: false, follow: false },
-};
+export const metadata = metadataForRoute('/voucher/[id]');
 
 type VoucherResult = {
   id: string;
@@ -311,3 +305,5 @@ function InvalidVoucher() {
     </main>
   );
 }
+
+import { metadataForRoute } from '@/lib/sharing/metadata';

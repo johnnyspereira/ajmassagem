@@ -1,4 +1,3 @@
-import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { RowDataPacket } from 'mysql2';
 
@@ -6,11 +5,7 @@ import { selectRows } from '@/lib/mysql/db';
 import styles from './testemunhos.module.css';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = {
-  title: 'Testemunhos | JP Massagem',
-  description: 'Opiniões de clientes da JP Massagem publicadas com autorização.',
-  robots: { index: true, follow: true },
-};
+export const metadata = metadataForRoute('/testemunhos');
 
 type Row = RowDataPacket & {
   rating: number;
@@ -35,7 +30,9 @@ export default async function Testimonials() {
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <Link href="/" className={styles.back}>← Voltar ao site</Link>
+        <Link href="/" className={styles.back}>
+          ← Voltar ao site
+        </Link>
         <p>JP Massagem · Testemunhos</p>
         <h1>Opiniões de quem já nos visitou.</h1>
         <span>Feedback publicado apenas com autorização dos clientes.</span>
@@ -43,11 +40,24 @@ export default async function Testimonials() {
       {rows.length ? (
         <section className={styles.grid} aria-label="Testemunhos de clientes">
           {rows.map((review, index) => (
-            <article key={`${review.client_name}-${index}`} className={styles.card}>
-              <div className={styles.stars} aria-label={`${review.rating} de 5 estrelas`}>
-                {'★'.repeat(Math.max(1, Math.min(5, Number(review.rating) || 5)))}
+            <article
+              key={`${review.client_name}-${index}`}
+              className={styles.card}
+            >
+              <div
+                className={styles.stars}
+                aria-label={`${review.rating} de 5 estrelas`}
+              >
+                {'★'.repeat(
+                  Math.max(1, Math.min(5, Number(review.rating) || 5))
+                )}
               </div>
-              <blockquote>“{review.comment?.trim() || `Avaliação verificada de ${review.rating} estrelas.`}”</blockquote>
+              <blockquote>
+                “
+                {review.comment?.trim() ||
+                  `Avaliação verificada de ${review.rating} estrelas.`}
+                ”
+              </blockquote>
               <footer>
                 <strong>{review.client_name || 'Cliente'}.</strong>
                 <span>{review.service_name || 'Sessão de bem-estar'}</span>
@@ -58,10 +68,15 @@ export default async function Testimonials() {
       ) : (
         <section className={styles.empty}>
           <h2>As primeiras opiniões serão publicadas em breve.</h2>
-          <p>Quando clientes autorizarem a publicação das suas avaliações, elas aparecerão aqui.</p>
+          <p>
+            Quando clientes autorizarem a publicação das suas avaliações, elas
+            aparecerão aqui.
+          </p>
           <Link href="/portal?book=1">Marcar uma sessão</Link>
         </section>
       )}
     </main>
   );
 }
+
+import { metadataForRoute } from '@/lib/sharing/metadata';
