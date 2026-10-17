@@ -15,6 +15,24 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-17-agenda-header',
+    date: '2026-10-17',
+    category: 'Melhoria',
+    title: 'Agenda com ações essenciais e indicadores mais claros',
+    areas: ['Agenda', 'Navegação'],
+    summary:
+      'Cabeçalho simplificado com marcação e bloqueio em destaque, e ferramentas secundárias no menu de três pontos.',
+    changes: [
+      'Nova marcação e Bloquear horário permanecem visíveis.',
+      'Configurar clínica, Calendários externos e Importar histórico reunidos em Mais opções.',
+      'Indicadores de marcações, confirmações, pagamentos e valores em aberto em cartões separados.',
+      'Navegação por data organizada e filtros de profissional e sala apresentados quando necessários.',
+      'Detalhe de benefícios e pagamentos recolhido para dar mais espaço à agenda.',
+    ],
+    howTo:
+      'Use os dois botões principais para trabalhar na agenda. Abra os três pontos para configuração, calendários ou importação. Expanda Benefícios e pagamentos quando precisar do detalhe.',
+  },
+  {
     id: '2026-10-17-inbox-client-actions',
     date: '2026-10-17',
     category: 'Melhoria',

@@ -17,8 +17,6 @@ import {
   CalendarClock,
   CalendarSync,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   CircleDollarSign,
   Clock3,
   ClipboardList,
@@ -35,7 +33,6 @@ import {
   Search,
   Save,
   Send,
-  Settings2,
   StickyNote,
   Trash2,
   UserCheck,
@@ -75,6 +72,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactSearchSelect } from '@/components/contacts/contact-search-select';
 import { AppointmentHistoryImportModal } from '@/components/agenda/appointment-history-import-modal';
+import { AgendaHeader } from './agenda-header';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import {
@@ -308,7 +306,8 @@ function appointmentHasSettledBenefit(appointment: AppointmentRow) {
  */
 function appointmentOutstandingAmount(appointment: AppointmentRow) {
   if (appointment.status === 'cancelled') return 0;
-  if (appointmentHasSettledBenefit(appointment) || appointment.paid_at) return 0;
+  if (appointmentHasSettledBenefit(appointment) || appointment.paid_at)
+    return 0;
   const activeSales = (appointment.sales ?? []).filter((sale) =>
     ['open', 'partially_paid', 'paid'].includes(sale.status)
   );
@@ -330,16 +329,28 @@ function isVoucherUsableForAppointment(
   if (voucher.expires_at && new Date(voucher.expires_at).getTime() <= now)
     return false;
   return voucher.voucher_type === 'service'
-    ? voucher.service_id === serviceId && Number(voucher.remaining_uses ?? 0) > 0
+    ? voucher.service_id === serviceId &&
+        Number(voucher.remaining_uses ?? 0) > 0
     : Number(voucher.current_balance) > 0;
 }
 
 function voucherValidityLabel(voucher: FinanceVoucher) {
-  if (!voucher.expires_at) return { text: 'Sem prazo de validade', tone: 'secondary' as const, className: '' };
+  if (!voucher.expires_at)
+    return {
+      text: 'Sem prazo de validade',
+      tone: 'secondary' as const,
+      className: '',
+    };
   const milliseconds = new Date(voucher.expires_at).getTime() - Date.now();
   const days = Math.ceil(milliseconds / 86_400_000);
-  if (days <= 1) return { text: 'Vence hoje', tone: 'destructive' as const, className: '' };
-  if (days <= 7) return { text: `Vence em ${days} dias`, tone: 'outline' as const, className: 'border-amber-300 bg-amber-50 text-amber-800' };
+  if (days <= 1)
+    return { text: 'Vence hoje', tone: 'destructive' as const, className: '' };
+  if (days <= 7)
+    return {
+      text: `Vence em ${days} dias`,
+      tone: 'outline' as const,
+      className: 'border-amber-300 bg-amber-50 text-amber-800',
+    };
   return {
     text: `Válido até ${new Date(voucher.expires_at).toLocaleDateString('pt-PT')}`,
     tone: 'secondary' as const,
@@ -1013,9 +1024,8 @@ export function AgendaPage({
   const selectedNewVoucher = availableVouchers.find(
     (voucher) => voucher.id === newBenefitSourceId
   );
-  const compatibleNewVouchers = availableVouchers.filter(
-    (voucher) =>
-      isVoucherUsableForAppointment(voucher, appointmentDraft.serviceId)
+  const compatibleNewVouchers = availableVouchers.filter((voucher) =>
+    isVoucherUsableForAppointment(voucher, appointmentDraft.serviceId)
   );
   const newAppointmentStart = accountDateTimeToUtc(
     appointmentDraft.date,
@@ -1974,7 +1984,11 @@ export function AgendaPage({
         const confirmationPayload = (await confirmationResponse.json()) as {
           skipped?: boolean;
           deliveries?: {
-            whatsapp?: { sent?: boolean; queued?: boolean; error?: string | null };
+            whatsapp?: {
+              sent?: boolean;
+              queued?: boolean;
+              error?: string | null;
+            };
             email?: { sent?: boolean; error?: string | null };
           };
         };
@@ -2922,20 +2936,32 @@ export function AgendaPage({
       );
       const payload = (await response.json().catch(() => ({}))) as {
         error?: string;
-        deliveries?: { whatsapp?: { sent?: boolean; queued?: boolean; error?: string | null } };
+        deliveries?: {
+          whatsapp?: {
+            sent?: boolean;
+            queued?: boolean;
+            error?: string | null;
+          };
+        };
       };
-      if (!response.ok) throw new Error(payload.error || 'Não foi possível reenviar a mensagem.');
+      if (!response.ok)
+        throw new Error(
+          payload.error || 'Não foi possível reenviar a mensagem.'
+        );
       if (payload.deliveries?.whatsapp?.queued)
-        toast.message('Mensagem colocada na fila. Será enviada quando o worker voltar a estar online.');
+        toast.message(
+          'Mensagem colocada na fila. Será enviada quando o worker voltar a estar online.'
+        );
       else if (payload.deliveries?.whatsapp?.sent)
         toast.success('Mensagem de confirmação reenviada pelo WhatsApp.');
-      else
-        toast.message('O reenvio foi registado. Consulte o estado abaixo.');
+      else toast.message('O reenvio foi registado. Consulte o estado abaixo.');
       setAppointmentEvents(
         await loadAgendaEvents('appointment', selectedAppointment.id)
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Falha ao reenviar a mensagem.');
+      toast.error(
+        error instanceof Error ? error.message : 'Falha ao reenviar a mensagem.'
+      );
     } finally {
       setRetryingAppointmentMessage(false);
     }
@@ -3269,7 +3295,9 @@ export function AgendaPage({
         !['voided', 'refunded'].includes(sale.status)
     );
     if (!refundableSales.length) {
-      toast.error('Esta marcação não possui pagamento recebido para reembolsar.');
+      toast.error(
+        'Esta marcação não possui pagamento recebido para reembolsar.'
+      );
       return;
     }
     if (refundReason.trim().length < 3) {
@@ -3371,7 +3399,9 @@ export function AgendaPage({
       void loadAgenda();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : 'Não foi possível iniciar o reembolso.'
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível iniciar o reembolso.'
       );
     } finally {
       setRequestingRefund(false);
@@ -3926,98 +3956,33 @@ export function AgendaPage({
 
   return (
     <section className="space-y-5">
-      <div className="dark:via-background flex flex-col gap-5 rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50 via-white to-sky-50 p-5 shadow-sm xl:flex-row xl:items-center xl:justify-between dark:border-violet-900/60 dark:from-violet-950/40 dark:to-sky-950/30">
-        <div className="flex items-center gap-4">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-500/25">
-            <CalendarClock className="size-6" />
-          </span>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-foreground text-2xl font-bold tracking-tight">
-                Agenda
-              </h1>
-              <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300">
-                Operacional
-              </Badge>
-            </div>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Organize horários, clientes, benefícios e pagamentos num só lugar.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setSelectedDate((date) => addDays(date, -step))}
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-          <Button variant="outline" onClick={() => setSelectedDate(new Date())}>
-            Hoje
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setSelectedDate((date) => addDays(date, step))}
-          >
-            <ChevronRight className="size-4" />
-          </Button>
-          <div className="min-h-9 rounded-lg border border-violet-200 bg-white/80 px-3 py-2 text-sm font-semibold text-violet-950 capitalize shadow-sm dark:border-violet-900 dark:bg-violet-950/30 dark:text-violet-100">
-            {formatRangeTitle(selectedDate, view)}
-          </div>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => void loadAgenda()}
-            disabled={loading}
-            title={
-              lastUpdatedAt
-                ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}`
-                : 'Atualizar agenda'
-            }
-          >
-            <RefreshCw className={cn('size-4', loading && 'animate-spin')} />
-          </Button>
-          <Link
-            href="/settings?tab=clinic"
-            className="border-border bg-background hover:bg-muted hover:text-foreground inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-2.5 text-sm font-medium whitespace-nowrap transition-colors"
-          >
-            <Settings2 className="size-4" />
-            Configurar clínica
-          </Link>
-          {canOperate ? (
-            <>
-              <Button
-                variant="outline"
-                onClick={() => void openCalendarFeeds()}
-              >
-                <CalendarSync className="size-4" />
-                Calendários externos
-              </Button>
-              <Button variant="outline" onClick={openTimeBlockDialog}>
-                <Lock className="size-4" />
-                Bloquear horário
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setHistoryImportOpen(true)}
-              >
-                <History className="size-4" />
-                Importar histórico
-              </Button>
-              <Button
-                className="bg-violet-600 text-white shadow-md shadow-violet-500/20 hover:bg-violet-700"
-                onClick={() => openAppointmentDialog()}
-              >
-                <Plus className="size-4" />
-                Nova marcação
-              </Button>
-            </>
-          ) : null}
-        </div>
-      </div>
+      <AgendaHeader
+        dateTitle={formatRangeTitle(selectedDate, view)}
+        date={dateInputValue(selectedDate)}
+        onDate={(value) => setSelectedDate(new Date(value + 'T12:00:00'))}
+        onPrevious={() => setSelectedDate((date) => addDays(date, -step))}
+        onNext={() => setSelectedDate((date) => addDays(date, step))}
+        onToday={() => setSelectedDate(new Date())}
+        onRefresh={() => void loadAgenda()}
+        onCreate={() => openAppointmentDialog()}
+        onBlock={openTimeBlockDialog}
+        onCalendars={() => void openCalendarFeeds()}
+        onImport={() => setHistoryImportOpen(true)}
+        canOperate={canOperate}
+        loading={loading}
+        refreshTitle={
+          lastUpdatedAt ? lastUpdatedAt.toLocaleTimeString('pt-PT') : ''
+        }
+        count={filteredAppointments.length}
+        confirmed={
+          filteredAppointments.filter((item) => item.status === 'confirmed')
+            .length
+        }
+        paid={paidAppointments}
+        receivable={formatCurrency(amountToReceive, defaultCurrency)}
+        pendingPayments={appointmentsToReceive}
+        period={view}
+      />
 
       <AppointmentHistoryImportModal
         open={historyImportOpen}
@@ -4162,9 +4127,9 @@ export function AgendaPage({
         </DialogContent>
       </Dialog>
 
-      <Card className="overflow-hidden rounded-2xl border-slate-200/80 shadow-md shadow-slate-950/5 dark:border-slate-800">
+      <Card className="border-border overflow-hidden rounded-2xl shadow-none">
         <CardContent className="space-y-3 p-4">
-          <div className="grid gap-3 xl:grid-cols-[auto_auto_1fr_auto] xl:items-center">
+          <div className="flex flex-wrap items-center gap-3">
             <SegmentedControl
               value={view}
               options={[
@@ -4182,92 +4147,77 @@ export function AgendaPage({
               ]}
               onChange={(value) => setResourceMode(value as ResourceMode)}
             />
-            <div className="grid gap-2 md:grid-cols-3">
-              <Input
-                type="date"
-                value={dateInputValue(selectedDate)}
-                onChange={(event) =>
-                  setSelectedDate(new Date(`${event.target.value}T12:00:00`))
-                }
-              />
-              <NativeSelect
-                value={selectedProfessionalId}
-                disabled={resourceMode !== 'professional'}
-                onChange={setSelectedProfessionalId}
-              >
-                <option value="all">Todos os profissionais</option>
-                {visibleProfessionals.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {professionalName(member)}
-                  </option>
-                ))}
-              </NativeSelect>
-              <NativeSelect
-                value={selectedRoomId}
-                disabled={resourceMode !== 'room'}
-                onChange={setSelectedRoomId}
-              >
-                <option value="all">Todas as salas</option>
-                {activeRooms.map((room) => (
-                  <option key={room.id} value={room.id}>
-                    {room.name}
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
-            <div className="text-muted-foreground grid grid-cols-3 gap-2 text-xs xl:min-w-80">
-              <Stat label="Agenda" value={filteredAppointments.length} />
-              <Stat
-                label="Confirmados"
-                value={
-                  filteredAppointments.filter(
-                    (item) => item.status === 'confirmed'
-                  ).length
-                }
-              />
-              <Stat
-                label="A receber"
-                value={formatCurrency(amountToReceive, defaultCurrency)}
-              />
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              {resourceMode === 'professional' && (
+                <NativeSelect
+                  value={selectedProfessionalId}
+                  onChange={setSelectedProfessionalId}
+                >
+                  <option value="all">Todos os profissionais</option>
+                  {visibleProfessionals.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {professionalName(member)}
+                    </option>
+                  ))}
+                </NativeSelect>
+              )}
+              {resourceMode === 'room' && (
+                <NativeSelect
+                  value={selectedRoomId}
+                  onChange={setSelectedRoomId}
+                >
+                  <option value="all">Todas as salas</option>
+                  {activeRooms.map((room) => (
+                    <option key={room.id} value={room.id}>
+                      {room.name}
+                    </option>
+                  ))}
+                </NativeSelect>
+              )}
             </div>
           </div>
-          <div className="border-border grid gap-2 border-t pt-3 sm:grid-cols-2 xl:grid-cols-5">
-            <AgendaBenefitStat
-              icon={HeartHandshake}
-              label="Indicações"
-              value={referralAppointments}
-              detail="benefício de novo cliente"
-              tone="emerald"
-            />
-            <AgendaBenefitStat
-              icon={Gift}
-              label="Vouchers"
-              value={voucherReserved + voucherUsed}
-              detail={`${voucherReserved} agendados · ${voucherUsed} utilizados`}
-              tone="amber"
-            />
-            <AgendaBenefitStat
-              icon={PackageCheck}
-              label="Packs"
-              value={packReserved + packUsed}
-              detail={`${packReserved} agendados · ${packUsed} utilizados`}
-              tone="violet"
-            />
-            <AgendaBenefitStat
-              icon={CircleDollarSign}
-              label="Pagamentos"
-              value={paidAppointments}
-              detail={`${partialPayments} pagamentos parciais`}
-              tone="emerald"
-            />
-            <AgendaBenefitStat
-              icon={Clock3}
-              label={view === 'day' ? 'Resumo do dia' : 'Resumo da semana'}
-              value={filteredAppointments.length}
-              detail={`${appointmentsToReceive} por liquidar`}
-              tone="sky"
-            />
-          </div>
+          <details className="border-border border-t pt-3">
+            <summary className="text-muted-foreground hover:text-foreground cursor-pointer text-xs font-medium">
+              Benefícios e pagamentos
+            </summary>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+              <AgendaBenefitStat
+                icon={HeartHandshake}
+                label="Indicações"
+                value={referralAppointments}
+                detail="benefício de novo cliente"
+                tone="emerald"
+              />
+              <AgendaBenefitStat
+                icon={Gift}
+                label="Vouchers"
+                value={voucherReserved + voucherUsed}
+                detail={`${voucherReserved} agendados · ${voucherUsed} utilizados`}
+                tone="amber"
+              />
+              <AgendaBenefitStat
+                icon={PackageCheck}
+                label="Packs"
+                value={packReserved + packUsed}
+                detail={`${packReserved} agendados · ${packUsed} utilizados`}
+                tone="violet"
+              />
+              <AgendaBenefitStat
+                icon={CircleDollarSign}
+                label="Pagamentos"
+                value={paidAppointments}
+                detail={`${partialPayments} pagamentos parciais`}
+                tone="emerald"
+              />
+              <AgendaBenefitStat
+                icon={Clock3}
+                label={view === 'day' ? 'Resumo do dia' : 'Resumo da semana'}
+                value={filteredAppointments.length}
+                detail={`${appointmentsToReceive} por liquidar`}
+                tone="sky"
+              />
+            </div>
+          </details>
         </CardContent>
       </Card>
 
@@ -5251,7 +5201,9 @@ export function AgendaPage({
                                 !(selectedAppointment.sales ?? []).some(
                                   (sale) =>
                                     Number(sale.paid_amount ?? 0) > 0 &&
-                                    !['voided', 'refunded'].includes(sale.status)
+                                    !['voided', 'refunded'].includes(
+                                      sale.status
+                                    )
                                 )
                               }
                               onClick={() => {
@@ -5308,7 +5260,11 @@ export function AgendaPage({
                     title="Histórico da agenda"
                     summary={`${appointmentEvents.length} registo${appointmentEvents.length === 1 ? '' : 's'}`}
                   >
-                    <AgendaEventList events={appointmentEvents} compact timeZone={accountTimeZone} />
+                    <AgendaEventList
+                      events={appointmentEvents}
+                      compact
+                      timeZone={accountTimeZone}
+                    />
                   </AppointmentSection>
                 </div>
               </div>
@@ -5370,18 +5326,24 @@ export function AgendaPage({
           <DialogHeader>
             <DialogTitle>Cancelar e iniciar reembolso</DialogTitle>
             <DialogDescription>
-              A marcação será cancelada e o valor recebido será deduzido do financeiro. O cliente recebe uma mensagem a confirmar que o processo foi iniciado.
+              A marcação será cancelada e o valor recebido será deduzido do
+              financeiro. O cliente recebe uma mensagem a confirmar que o
+              processo foi iniciado.
             </DialogDescription>
           </DialogHeader>
           {selectedAppointment ? (
             <div className="space-y-4">
               <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
-                <p className="font-semibold">Devolução pela forma de pagamento original</p>
+                <p className="font-semibold">
+                  Devolução pela forma de pagamento original
+                </p>
                 <p className="mt-1 text-xs leading-5">
-                  O prazo estimado para conclusão é de 24 a 48 horas e depende da entidade de pagamento. Esta ação deduz o recebido no sistema e não pode ser desfeita pela Agenda.
+                  O prazo estimado para conclusão é de 24 a 48 horas e depende
+                  da entidade de pagamento. Esta ação deduz o recebido no
+                  sistema e não pode ser desfeita pela Agenda.
                 </p>
               </div>
-              <div className="space-y-2 rounded-lg bg-muted/50 p-3 text-sm">
+              <div className="bg-muted/50 space-y-2 rounded-lg p-3 text-sm">
                 {(selectedAppointment.sales ?? [])
                   .filter(
                     (sale) =>
@@ -5389,7 +5351,10 @@ export function AgendaPage({
                       !['voided', 'refunded'].includes(sale.status)
                   )
                   .map((sale) => (
-                    <div key={sale.id} className="flex items-center justify-between gap-3">
+                    <div
+                      key={sale.id}
+                      className="flex items-center justify-between gap-3"
+                    >
                       <span className="text-muted-foreground">
                         Venda #{sale.sale_number}
                       </span>
@@ -5424,7 +5389,11 @@ export function AgendaPage({
               onClick={() => void requestAppointmentRefund()}
               disabled={requestingRefund || refundReason.trim().length < 3}
             >
-              {requestingRefund ? <Loader2 className="animate-spin" /> : <CircleDollarSign />}
+              {requestingRefund ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <CircleDollarSign />
+              )}
               Confirmar reembolso
             </Button>
           </DialogFooter>
@@ -6210,11 +6179,17 @@ export function AgendaPage({
                 </Field>
               </div>
 
-              {selectedNewContact && contactAgeLabel(selectedNewContact.birth_date) ? (
+              {selectedNewContact &&
+              contactAgeLabel(selectedNewContact.birth_date) ? (
                 <div className="mt-3 flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
                   <UserCheck className="size-4" />
-                  Cliente com <strong>{contactAgeLabel(selectedNewContact.birth_date)}</strong>
-                  <span className="text-sky-700">· informação calculada pela data de nascimento.</span>
+                  Cliente com{' '}
+                  <strong>
+                    {contactAgeLabel(selectedNewContact.birth_date)}
+                  </strong>
+                  <span className="text-sky-700">
+                    · informação calculada pela data de nascimento.
+                  </span>
                 </div>
               ) : null}
 
@@ -6626,8 +6601,12 @@ export function AgendaPage({
                     {selectedNewVoucher ? (
                       <div className="flex flex-wrap items-center gap-2 rounded-md border border-violet-200 bg-violet-50/60 px-3 py-2 text-xs">
                         <Badge
-                          variant={voucherValidityLabel(selectedNewVoucher).tone}
-                          className={voucherValidityLabel(selectedNewVoucher).className}
+                          variant={
+                            voucherValidityLabel(selectedNewVoucher).tone
+                          }
+                          className={
+                            voucherValidityLabel(selectedNewVoucher).className
+                          }
                         >
                           {voucherValidityLabel(selectedNewVoucher).text}
                         </Badge>
@@ -6636,7 +6615,9 @@ export function AgendaPage({
                             ? `${selectedNewVoucher.remaining_uses ?? 0} sessão disponível`
                             : `${formatCurrency(Number(selectedNewVoucher.current_balance), selectedNewVoucher.currency)} disponível`}
                         </span>
-                        <span className="text-muted-foreground">Código {selectedNewVoucher.code}</span>
+                        <span className="text-muted-foreground">
+                          Código {selectedNewVoucher.code}
+                        </span>
                       </div>
                     ) : null}
                     <p className="text-muted-foreground text-xs">
@@ -7395,9 +7376,9 @@ function AppointmentBlock({
             ? 'border-amber-400/50 bg-gradient-to-br from-amber-100 to-orange-50 text-amber-950 dark:from-amber-950 dark:to-orange-950 dark:text-amber-100'
             : portalApprovalPending
               ? 'border-amber-400/60 bg-gradient-to-br from-amber-100 to-orange-50 text-amber-950 dark:from-amber-950 dark:to-orange-950 dark:text-amber-100'
-            : appointment.paid_at
-              ? 'border-emerald-400/50 bg-gradient-to-br from-emerald-100 to-teal-50 dark:from-emerald-950 dark:to-teal-950'
-              : 'border-sky-400/50 bg-gradient-to-br from-sky-100 to-cyan-50 dark:from-sky-950 dark:to-cyan-950'
+              : appointment.paid_at
+                ? 'border-emerald-400/50 bg-gradient-to-br from-emerald-100 to-teal-50 dark:from-emerald-950 dark:to-teal-950'
+                : 'border-sky-400/50 bg-gradient-to-br from-sky-100 to-cyan-50 dark:from-sky-950 dark:to-cyan-950'
       )}
       style={{
         top: calendarTop(appointment.scheduled_start),
@@ -7694,17 +7675,19 @@ function AppointmentCommunicationStatus({
   onRetry: () => void;
 }) {
   const event = events.find((item) => item.action === 'message_sent');
-  const metadata = event?.metadata as {
-    deliveries?: {
-      whatsapp?: {
-        sent?: boolean;
-        queued?: boolean;
-        skipped?: boolean;
-        error?: string | null;
-      };
-      email?: { sent?: boolean; error?: string | null };
-    };
-  } | undefined;
+  const metadata = event?.metadata as
+    | {
+        deliveries?: {
+          whatsapp?: {
+            sent?: boolean;
+            queued?: boolean;
+            skipped?: boolean;
+            error?: string | null;
+          };
+          email?: { sent?: boolean; error?: string | null };
+        };
+      }
+    | undefined;
   const whatsapp = metadata?.deliveries?.whatsapp;
   const failed = Boolean(whatsapp?.error);
   const queued = Boolean(whatsapp?.queued);
@@ -7742,7 +7725,8 @@ function AppointmentCommunicationStatus({
         ) : null}
         {event ? (
           <p className="mt-2 text-xs opacity-80">
-            Última tentativa: {formatAccountEventTime(event.created_at, timeZone)}
+            Última tentativa:{' '}
+            {formatAccountEventTime(event.created_at, timeZone)}
           </p>
         ) : null}
         {canRetry && (failed || queued) ? (
@@ -7754,7 +7738,11 @@ function AppointmentCommunicationStatus({
             disabled={retrying}
             onClick={onRetry}
           >
-            {retrying ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+            {retrying ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <RefreshCw className="size-4" />
+            )}
             {queued ? 'Tentar enviar agora' : 'Reenviar mensagem'}
           </Button>
         ) : null}
@@ -8013,15 +8001,6 @@ function SegmentedControl({
           {option.label}
         </button>
       ))}
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="bg-muted/40 rounded-md px-3 py-2">
-      <p>{label}</p>
-      <p className="text-foreground truncate text-sm font-semibold">{value}</p>
     </div>
   );
 }
