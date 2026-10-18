@@ -1060,6 +1060,12 @@
       "namedRegex": "^/api/integrations/google/sync(?:/)?$"
     },
     {
+      "page": "/api/leads/session-history",
+      "regex": "^/api/leads/session\\-history(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leads/session\\-history(?:/)?$"
+    },
+    {
       "page": "/api/marketing/automation-rules/process",
       "regex": "^/api/marketing/automation\\-rules/process(?:/)?$",
       "routeKeys": {},
