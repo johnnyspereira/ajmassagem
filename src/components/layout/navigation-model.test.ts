@@ -23,6 +23,10 @@ describe('navigation architecture', () => {
       searchableGroupLinks('business', 'pagamentos').map((item) => item.href)
     ).toContain('/finance');
     expect(searchableGroupLinks('daily', 'xyz inexistente')).toEqual([]);
+    expect(
+      searchableGroupLinks('business', 'leads').map((item) => item.href)
+    ).toContain('/leads');
+    expect(activeNavigation('/leads')?.label).toBe('Leads');
   });
   it('includes every tool once and keeps notifications out of navigation groups', () => {
     const hrefs = navigationGroups.flatMap((group) => group.hrefs);

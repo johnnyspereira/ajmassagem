@@ -15,6 +15,24 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-18-leads-workspace',
+    date: '2026-10-18',
+    category: 'Melhoria',
+    title: 'Leads com prioridades e ações de acompanhamento',
+    areas: ['Leads', 'Clientes', 'Agenda', 'Campanhas'],
+    summary: 'Fila de trabalho adaptada ao computador e ao telemóvel, com prioridade a benefícios perto do prazo e contactos por agendar.',
+    changes: [
+      'Indicadores de contactos, benefícios perto do prazo, contactos por agendar e novos contactos, com filtros rápidos.',
+      'Pesquisa por nome, telefone, email, empresa ou referência; ordenação por prioridade, data ou nome e paginação de 30 contactos.',
+      'Agendamento avulso diretamente na lista, acesso à conversa existente e ao Cliente 360, e criação de contactos.',
+      'Benefícios expirados, esgotados ou totalmente reservados excluídos; marcações futuras afastam o contacto da fila urgente.',
+      'Seleção mantida entre páginas e filtros, com contagem dos autorizados antes de preparar uma campanha para revisão.',
+      'Falhas de atualização preservam os últimos dados carregados e apresentam uma opção para tentar novamente.',
+      'Leads disponível no menu Negócio e na pesquisa de ferramentas.',
+    ],
+    howTo: 'Abra Leads e escolha um indicador ou filtro. Use Agendar para criar uma marcação avulsa, Conversa para retomar o atendimento ou a seta para o Cliente 360. Selecione contactos e toque em Preparar campanha para rever uma campanha apenas com os autorizados.',
+  },
+  {
     id: '2026-10-18-finance-layout',
     date: '2026-10-18',
     category: 'Melhoria',

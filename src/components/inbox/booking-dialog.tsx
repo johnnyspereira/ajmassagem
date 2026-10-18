@@ -323,7 +323,7 @@ export function InboxBookingDialog({
           <DialogDescription>
             {benefit
               ? `Usar ${benefit.label}. O benefício será reservado para esta sessão.`
-              : 'Marcação avulsa, sem sair da conversa.'}
+              : 'Marcação avulsa para este cliente.'}
           </DialogDescription>
         </DialogHeader>
         {loading ? (

@@ -25,6 +25,7 @@ import {
   Star,
   Target,
   Users,
+  UserRoundSearch,
   Workflow,
   Zap,
 } from 'lucide-react';
@@ -71,6 +72,7 @@ export const navItems: NavItem[] = [
     newBadge: { key: 'contacts-import-export', ...TODAY_NEW_BADGE },
   },
   { href: '/pipelines', labelKey: 'pipelines', icon: GitBranch },
+  { href: '/leads', labelKey: 'leads', icon: UserRoundSearch },
   {
     href: '/finance',
     labelKey: 'finance',
