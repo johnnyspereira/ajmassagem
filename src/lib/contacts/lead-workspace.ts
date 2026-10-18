@@ -1,4 +1,5 @@
 import type { Contact } from '@/types';
+import { accountDateInput } from '@/lib/timezone';
 import type { BenefitReservation } from '@/lib/inbox/available-benefits';
 
 type LeadPageQuery = {
@@ -55,7 +56,13 @@ export type LeadFilter =
   | 'new'
   | 'marketing_ready'
   | 'upcoming';
-export type LeadSort = 'priority' | 'recent' | 'name';
+export type LeadSort = 'priority' | 'recent' | 'name' | 'inactive';
+export type LeadRecency = 'all' | '30' | '60' | '90' | 'never';
+export type LeadHistory = {
+  contact_id: string;
+  last_session: string;
+  total_sessions: number;
+};
 export type LeadRow = {
   contact: Contact;
   benefits: number;
@@ -64,6 +71,9 @@ export type LeadRow = {
   ready: boolean;
   isNew: boolean;
   priority: number;
+  lastSession?: string;
+  daysSinceSession?: number;
+  totalSessions: number;
 };
 const DAY = 86_400_000;
 /** MySQL timestamps are UTC even when the transport omits the suffix. */
@@ -80,7 +90,9 @@ export function buildLeadRows(
   packs: LeadPack[],
   appointments: LeadAppointment[],
   reservations: BenefitReservation[],
-  now: number
+  now: number,
+  history: LeadHistory[] = [],
+  zone = 'Europe/Lisbon'
 ): LeadRow[] {
   const held = new Map<string, { uses: number; amount: number }>();
   for (const reservation of reservations) {
@@ -151,13 +163,38 @@ export function buildLeadRows(
     )
       nextAppointments.set(appointment.contact_id, appointment.scheduled_start);
   }
+  const lastVisits = new Map(history.map((visit) => [visit.contact_id, visit]));
   return contacts.map((contact) => {
     const benefit = benefits.get(contact.id);
     const nextAppointment = nextAppointments.get(contact.id);
     const age = now - leadTimestamp(contact.created_at);
     const isNew = age >= 0 && age <= 30 * DAY;
+    const visit = lastVisits.get(contact.id);
+    const validVisit =
+      visit &&
+      Number(visit.total_sessions) > 0 &&
+      Number.isFinite(leadTimestamp(visit.last_session)) &&
+      leadTimestamp(visit.last_session) <= now;
+    const daysSinceSession = validVisit
+      ? Math.max(
+          0,
+          Math.round(
+            (Date.parse(accountDateInput(new Date(now), zone)) -
+              Date.parse(
+                accountDateInput(
+                  new Date(leadTimestamp(visit.last_session)),
+                  zone
+                )
+              )) /
+              DAY
+          )
+        )
+      : undefined;
     return {
       contact,
+      lastSession: validVisit ? visit.last_session : undefined,
+      daysSinceSession,
+      totalSessions: validVisit ? Number(visit.total_sessions) : 0,
       benefits: benefit?.count || 0,
       expiring: benefit?.expiring,
       nextAppointment,
@@ -191,13 +228,22 @@ export function filterLeadRows(
   filter: LeadFilter,
   query: string,
   gender: string,
-  sort: LeadSort
+  sort: LeadSort,
+  recency: LeadRecency = 'all'
 ) {
   const term = normalizeLeadSearch(query);
   const phoneTerm = term.replace(/\D/g, '');
   return rows
     .filter((row) => {
       const c = row.contact;
+      if (recency === 'never' && row.totalSessions > 0) return false;
+      if (
+        recency !== 'all' &&
+        recency !== 'never' &&
+        (row.daysSinceSession === undefined ||
+          row.daysSinceSession < Number(recency))
+      )
+        return false;
       if (
         gender !== 'all' &&
         c.gender !== gender &&
@@ -223,6 +269,11 @@ export function filterLeadRows(
       return true;
     })
     .sort((a, b) => {
+      if (sort === 'inactive') {
+        const difference =
+          (b.daysSinceSession ?? -1) - (a.daysSinceSession ?? -1);
+        if (difference) return difference;
+      }
       if (sort === 'name')
         return (a.contact.name || a.contact.phone || '').localeCompare(
           b.contact.name || b.contact.phone || '',

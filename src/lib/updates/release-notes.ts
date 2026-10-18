@@ -15,6 +15,35 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-18-benefits-layout',
+    date: '2026-10-18',
+    category: 'Melhoria',
+    title: 'Benefícios com o mesmo estilo do Financeiro',
+    areas: ['Benefícios', 'Vouchers', 'Packs'],
+    summary: 'Cabeçalho compacto, indicadores claros e separadores adaptados ao computador e ao telemóvel.',
+    changes: [
+      'Nova venda em destaque e atualização, histórico de entregas, apuramento de valores antigos e acesso ao Financeiro no menu de três pontos.',
+      'Cartões de indicadores e benefícios com espaçamento, contornos e cores alinhados com as restantes páginas.',
+      'Separadores com deslocação horizontal em ecrãs pequenos e histórico de entregas com melhor adaptação à largura disponível.',
+    ],
+    howTo: 'Abra Vouchers e packs no menu Negócio. Escolha um separador para consultar benefícios e use os três pontos para as ferramentas secundárias.',
+  },
+  {
+    id: '2026-10-18-leads-last-session',
+    date: '2026-10-18',
+    category: 'Melhoria',
+    title: 'Última sessão e tempo sem visitar nos Leads',
+    areas: ['Leads', 'Clientes', 'Agenda'],
+    summary: 'Cada contacto apresenta a última sessão concluída, os dias desde essa visita e o total de sessões concluídas.',
+    changes: [
+      'Histórico resumido por cliente sem carregar todas as marcações no navegador; só conta sessões concluídas no passado.',
+      'Indicação própria para contactos sem sessão concluída registada.',
+      'Filtros de 30, 60 e 90 dias sem sessão e ordenação por quem está há mais tempo sem visitar.',
+      'Contagem em dias de calendário no fuso da conta, incluindo mudanças da hora.',
+    ],
+    howTo: 'Na lista de Leads, consulte Última sessão concluída. Use o filtro Última sessão e escolha 30+, 60+, 90+ dias ou Sem sessão concluída. Pode combinar com Por agendar para preparar o acompanhamento.',
+  },
+  {
     id: '2026-10-18-leads-workspace',
     date: '2026-10-18',
     category: 'Melhoria',

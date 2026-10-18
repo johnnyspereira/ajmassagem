@@ -28,6 +28,67 @@ const voucher = (extra: Partial<LeadVoucher> = {}): LeadVoucher => ({
 });
 
 describe('Lead work queue', () => {
+  it('shows completed sessions with calendar days in the account timezone, including DST changes', () => {
+    const rows = buildLeadRows(
+      [contact('a')],
+      [],
+      [],
+      [],
+      [],
+      Date.parse('2026-10-26T00:10:00Z'),
+      [
+        {
+          contact_id: 'a',
+          last_session: '2026-10-24T23:30:00Z',
+          total_sessions: 4,
+        },
+      ],
+      'Europe/Lisbon'
+    );
+    expect(rows[0].daysSinceSession).toBe(1);
+    expect(rows[0].totalSessions).toBe(4);
+    expect(rows[0].lastSession).toBe('2026-10-24T23:30:00Z');
+  });
+  it('filters by time since a completed session and separates never-attended contacts', () => {
+    const rows = buildLeadRows(
+      [contact('a'), contact('b'), contact('c')],
+      [],
+      [],
+      [],
+      [],
+      now,
+      [
+        {
+          contact_id: 'a',
+          last_session: '2026-07-01T12:00:00Z',
+          total_sessions: 2,
+        },
+        {
+          contact_id: 'b',
+          last_session: '2026-10-18T08:00:00Z',
+          total_sessions: 1,
+        },
+      ]
+    );
+    expect(rows[0].daysSinceSession).toBe(109);
+    expect(rows[1].daysSinceSession).toBe(0);
+    expect(rows[2].daysSinceSession).toBeUndefined();
+    expect(
+      filterLeadRows(rows, 'all', '', 'all', 'inactive').map(
+        (row) => row.contact.id
+      )
+    ).toEqual(['a', 'b', 'c']);
+    expect(
+      filterLeadRows(rows, 'all', '', 'all', 'priority', '90').map(
+        (row) => row.contact.id
+      )
+    ).toEqual(['a']);
+    expect(
+      filterLeadRows(rows, 'all', '', 'all', 'priority', 'never').map(
+        (row) => row.contact.id
+      )
+    ).toEqual(['c']);
+  });
   it('loads beyond the API page cap without silently cutting the dataset', async () => {
     const source = Array.from({ length: 1201 }, (_, id) => ({ id }));
     const ranges: number[][] = [];

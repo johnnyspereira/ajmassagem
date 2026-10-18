@@ -1,0 +1,125 @@
+.root {
+  width: 100%;
+  min-width: 0;
+  max-width: 1600px;
+  margin-inline: auto;
+}
+.root :global([data-slot='card']) {
+  min-width: 0;
+  border-radius: 16px;
+  box-shadow: none;
+}
+.root :global([data-slot='card-content']) {
+  min-width: 0;
+}
+.root p,
+.root code {
+  overflow-wrap: anywhere;
+}
+.root :global([data-slot='tabs-content']) {
+  min-width: 0;
+}
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.metric {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+}
+.metricIcon {
+  display: flex;
+  order: 2;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+.search {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+}
+.tabsNav {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: thin;
+  padding-bottom: 4px;
+}
+.tabsList {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  height: auto;
+  padding: 4px;
+  gap: 4px;
+  background: transparent;
+}
+.tab {
+  height: 40px;
+  flex: 1 0 auto;
+  padding-inline: 14px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+.conversion {
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+.voucherAccent,
+.packAccent {
+  height: 3px;
+  background: color-mix(in srgb, var(--primary) 55%, var(--border));
+}
+.delivery {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px;
+}
+.delivery time {
+  margin-left: auto;
+}
+@media (max-width: 1100px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 639px) {
+  .metrics {
+    gap: 8px;
+  }
+  .metric {
+    padding: 12px;
+    gap: 6px;
+  }
+  .metricIcon {
+    width: 24px;
+    height: 24px;
+  }
+  .root :global([data-slot='card-content']) {
+    padding: 16px;
+  }
+  .root :global([data-slot='dialog-content']) {
+    min-width: 0;
+  }
+  .delivery time {
+    margin-left: 44px;
+  }
+}

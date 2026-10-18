@@ -45,6 +45,8 @@ import {
   leadTimestamp,
   type LeadFilter,
   type LeadSort,
+  type LeadHistory,
+  type LeadRecency,
   type LeadVoucher,
   type LeadPack,
   type LeadAppointment,
@@ -100,6 +102,7 @@ type Snapshot = {
   packs: LeadPack[];
   appointments: LeadAppointment[];
   reservations: BenefitReservation[];
+  history: LeadHistory[];
   at: number;
   accountId: string;
   limited: boolean;
@@ -111,6 +114,7 @@ export function LeadsWorkspacePage() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [filter, setFilter] = useState<LeadFilter>('all');
   const [sort, setSort] = useState<LeadSort>('priority');
+  const [recency, setRecency] = useState<LeadRecency>('all');
   const [gender, setGender] = useState('all');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -199,7 +203,26 @@ export function LeadsWorkspacePage() {
         throw new Error(
           'A base de benefícios ou marcações excede o limite desta vista. Consulte os detalhes no Cliente 360.'
         );
+      const contactIds = (results[0].data || [])
+        .slice(0, 2000)
+        .map((item) => (item as Contact).id);
+      let history: LeadHistory[] = [];
+      if (contactIds.length) {
+        const response = await fetch('/api/leads/session-history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contactIds }),
+        });
+        const result = await response.json();
+        if (!response.ok || !Array.isArray(result.data))
+          throw new Error(
+            'Não foi possível carregar o histórico de sessões. Tente novamente.'
+          );
+        history = result.data;
+      }
+      if (id !== request.current) return;
       setSnapshot({
+        history,
         contacts: (results[0].data || []).slice(0, 2000) as Contact[],
         vouchers: (results[1].data || []) as LeadVoucher[],
         packs: (results[2].data || []) as LeadPack[],
@@ -238,14 +261,16 @@ export function LeadsWorkspacePage() {
             current.packs,
             current.appointments,
             current.reservations,
-            current.at
+            current.at,
+            current.history,
+            account?.timezone || 'Europe/Lisbon'
           )
         : [],
-    [current]
+    [current, account?.timezone]
   );
   const visible = useMemo(
-    () => filterLeadRows(rows, filter, query, gender, sort),
-    [rows, filter, query, gender, sort]
+    () => filterLeadRows(rows, filter, query, gender, sort, recency),
+    [rows, filter, query, gender, sort, recency]
   );
   const counts = useMemo(
     () =>
@@ -331,11 +356,13 @@ export function LeadsWorkspacePage() {
     }
   }
   const clear = () => {
+    setRecency('all');
     setQuery('');
     setGender('all');
     chooseFilter('all');
   };
-  const hasFilters = filter !== 'all' || query !== '' || gender !== 'all';
+  const hasFilters =
+    filter !== 'all' || query !== '' || gender !== 'all' || recency !== 'all';
   return (
     <div className={cn(styles.root, 'space-y-5')}>
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
@@ -489,8 +516,23 @@ export function LeadsWorkspacePage() {
               }}
             >
               <option value="priority">Prioridade de acompanhamento</option>
+              <option value="inactive">Há mais tempo sem sessão</option>
               <option value="recent">Mais recentes primeiro</option>
               <option value="name">Nome de A a Z</option>
+            </select>
+            <select
+              aria-label="Filtrar pela última sessão"
+              value={recency}
+              onChange={(event) => {
+                setRecency(event.target.value as LeadRecency);
+                setPage(0);
+              }}
+            >
+              <option value="all">Última sessão: todas</option>
+              <option value="30">30+ dias sem sessão</option>
+              <option value="60">60+ dias sem sessão</option>
+              <option value="90">90+ dias sem sessão</option>
+              <option value="never">Sem sessão concluída</option>
             </select>
             <select
               aria-label="Filtrar por género"
@@ -784,6 +826,41 @@ function LeadItem({
             )}
           </div>
         </div>
+      </div>
+      <div className={styles.visit}>
+        <p className="text-muted-foreground text-[11px]">
+          Última sessão concluída
+        </p>
+        {row.lastSession ? (
+          <>
+            <p className="mt-1 text-xs font-medium">
+              {new Intl.DateTimeFormat('pt-PT', {
+                timeZone: zone,
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              }).format(leadTimestamp(row.lastSession))}
+            </p>
+            <p
+              className={cn(
+                'mt-1 text-xs font-semibold',
+                (row.daysSinceSession || 0) >= 60 &&
+                  'text-amber-700 dark:text-amber-400'
+              )}
+            >
+              {row.daysSinceSession === 0
+                ? 'Veio hoje'
+                : `${row.daysSinceSession} dia(s) sem sessão`}
+            </p>
+            <p className="text-muted-foreground mt-1 text-[11px]">
+              {row.totalSessions} sessão(ões) concluída(s)
+            </p>
+          </>
+        ) : (
+          <p className="text-muted-foreground mt-1 text-xs">
+            Sem sessão concluída registada
+          </p>
+        )}
       </div>
       <div className={styles.followup}>
         <p
