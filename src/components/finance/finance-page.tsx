@@ -26,7 +26,6 @@ import {
   Phone,
   Plus,
   ReceiptText,
-  RefreshCw,
   RotateCcw,
   ArrowRightLeft,
   Search,
@@ -36,6 +35,8 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { FinanceHeader as PageHeader } from './finance-header';
+import styles from './finance.module.css';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -1411,7 +1412,7 @@ export function FinancePage({
 
   if (schemaMissing) {
     return (
-      <div className="space-y-5">
+      <div className={cn(styles.root, "space-y-5")}>
         <PageHeader
           cashSession={cashSession}
           onRefresh={loadFinance}
@@ -1433,7 +1434,7 @@ export function FinancePage({
   }
 
   return (
-    <div className="space-y-5">
+    <div className={cn(styles.root, "space-y-5")}>
       <PageHeader
         cashSession={cashSession}
         onRefresh={loadFinance}
@@ -1441,7 +1442,7 @@ export function FinancePage({
         isOwner={isOwner}
       />
       {activeTab === 'overview' && (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <div className={styles.metrics}>
           <FinanceMetric
             label="Faturado"
             value={money(financeMetrics.billed, defaultCurrency)}
@@ -1500,32 +1501,32 @@ export function FinancePage({
         </div>
       ) : null}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-5">
-        <nav aria-label="Navegação financeira" className="rounded-xl border border-border bg-card p-1.5 shadow-sm">
-          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-transparent p-0 sm:grid-cols-4 xl:grid-cols-7">
+        <nav aria-label="Navegação financeira" className={styles.tabsNav}>
+          <TabsList className={styles.tabsList}>
             <TabsTrigger
               value="overview"
-              className="data-active:border-primary data-active:bg-primary/10 h-11 justify-center gap-2 rounded-lg border border-transparent px-2 text-sm font-semibold whitespace-nowrap hover:bg-muted/70"
+              className={cn(styles.tab, "data-active:bg-primary/10 data-active:text-primary justify-center gap-2 border-0 font-medium whitespace-nowrap hover:bg-muted/70")}
             >
               <LayoutDashboard />
               Visão geral
             </TabsTrigger>
             <TabsTrigger
               value="pos"
-              className="data-active:border-primary data-active:bg-primary/10 h-11 justify-center gap-2 rounded-lg border border-transparent px-2 text-sm font-semibold whitespace-nowrap hover:bg-muted/70"
+              className={cn(styles.tab, "data-active:bg-primary/10 data-active:text-primary justify-center gap-2 border-0 font-medium whitespace-nowrap hover:bg-muted/70")}
             >
               <ShoppingCart />
               Ponto de venda
             </TabsTrigger>
             <TabsTrigger
               value="sales"
-              className="data-active:border-primary data-active:bg-primary/10 h-11 justify-center gap-2 rounded-lg border border-transparent px-2 text-sm font-semibold whitespace-nowrap hover:bg-muted/70"
+              className={cn(styles.tab, "data-active:bg-primary/10 data-active:text-primary justify-center gap-2 border-0 font-medium whitespace-nowrap hover:bg-muted/70")}
             >
               <ReceiptText />
               Vendas
             </TabsTrigger>
             <TabsTrigger
               value="invoices"
-              className="data-active:border-primary data-active:bg-primary/10 h-11 justify-center gap-2 rounded-lg border border-transparent px-2 text-sm font-semibold whitespace-nowrap hover:bg-muted/70"
+              className={cn(styles.tab, "data-active:bg-primary/10 data-active:text-primary justify-center gap-2 border-0 font-medium whitespace-nowrap hover:bg-muted/70")}
             >
               <FileClock />
               Faturas
@@ -1541,21 +1542,21 @@ export function FinancePage({
             </TabsTrigger>
             <TabsTrigger
               value="cash"
-              className="data-active:border-primary data-active:bg-primary/10 h-11 justify-center gap-2 rounded-lg border border-transparent px-2 text-sm font-semibold whitespace-nowrap hover:bg-muted/70"
+              className={cn(styles.tab, "data-active:bg-primary/10 data-active:text-primary justify-center gap-2 border-0 font-medium whitespace-nowrap hover:bg-muted/70")}
             >
               <Banknote />
               Caixa
             </TabsTrigger>
             <TabsTrigger
               value="vouchers"
-              className="data-active:border-primary data-active:bg-primary/10 h-11 justify-center gap-2 rounded-lg border border-transparent px-2 text-sm font-semibold whitespace-nowrap hover:bg-muted/70"
+              className={cn(styles.tab, "data-active:bg-primary/10 data-active:text-primary justify-center gap-2 border-0 font-medium whitespace-nowrap hover:bg-muted/70")}
             >
               <Gift />
               Vouchers
             </TabsTrigger>
             <TabsTrigger
               value="packs"
-              className="data-active:border-primary data-active:bg-primary/10 h-11 justify-center gap-2 rounded-lg border border-transparent px-2 text-sm font-semibold whitespace-nowrap hover:bg-muted/70"
+              className={cn(styles.tab, "data-active:bg-primary/10 data-active:text-primary justify-center gap-2 border-0 font-medium whitespace-nowrap hover:bg-muted/70")}
             >
               <PackageCheck />
               Packs
@@ -2629,84 +2630,6 @@ function OverviewLine({
   );
 }
 
-function PageHeader({
-  cashSession,
-  onRefresh,
-  onNavigate,
-  isOwner,
-}: {
-  cashSession: FinanceCashSession | null;
-  onRefresh: () => void;
-  onNavigate: (tab: string) => void;
-  isOwner: boolean;
-}) {
-  return (
-    <header className="relative overflow-hidden rounded-[28px] border border-slate-800 bg-slate-950 px-5 py-6 text-white shadow-xl shadow-slate-950/10 sm:px-7 sm:py-7">
-      <div className="absolute -top-32 -right-24 size-80 rounded-full bg-emerald-400/20 blur-3xl" />
-      <div className="absolute -bottom-40 left-1/4 size-72 rounded-full bg-cyan-500/15 blur-3xl" />
-      <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-        <div className="max-w-2xl">
-          <div className="mb-3 flex items-center gap-2 text-xs font-semibold tracking-[0.18em] text-emerald-300 uppercase">
-            <CircleDollarSign className="size-4" /> Command center
-          </div>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            Centro Financeiro
-          </h1>
-          <p className="mt-2 text-sm leading-relaxed text-slate-300 sm:text-base">
-            Vendas, caixa, benefícios e tesouraria reunidos numa operação
-            simples, mensurável e pronta para agir.
-          </p>
-          <div className="mt-5 flex flex-wrap items-center gap-2 text-xs">
-            <span
-              className={cn(
-                'inline-flex items-center gap-2 rounded-full border px-3 py-2 font-semibold',
-                cashSession
-                  ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
-                  : 'border-amber-300/25 bg-amber-300/10 text-amber-200'
-              )}
-            >
-              <span
-                className={cn(
-                  'size-2 rounded-full',
-                  cashSession ? 'bg-emerald-400' : 'bg-amber-300'
-                )}
-              />
-              {cashSession ? 'Caixa aberto e operacional' : 'Caixa encerrado'}
-            </span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-slate-300">
-              Atualização em tempo real
-            </span>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex">
-          <Button
-            variant="outline"
-            className="border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-            onClick={onRefresh}
-          >
-            <RefreshCw /> Atualizar
-          </Button>
-          <Button
-            className="bg-emerald-400 text-slate-950 hover:bg-emerald-300"
-            onClick={() => onNavigate('pos')}
-          >
-            <ShoppingCart /> Abrir POS
-          </Button>
-          {isOwner ? (
-            <Button
-              variant="outline"
-              className="col-span-2 border-white/15 bg-transparent text-white hover:bg-white/10 hover:text-white"
-              onClick={() => onNavigate('treasury')}
-            >
-              <Landmark /> Tesouraria
-            </Button>
-          ) : null}
-        </div>
-      </div>
-    </header>
-  );
-}
-
 function PosView(props: {
   catalogMode: 'services' | 'products' | 'packs';
   setCatalogMode: (value: 'services' | 'products' | 'packs') => void;
@@ -2794,8 +2717,8 @@ function PosView(props: {
   const selectedContact = contacts.find((contact) => contact.id === contactId);
 
   return (
-    <div className="grid min-h-[680px] min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px]">
-      <section className="border-border bg-card min-w-0 overflow-hidden rounded-xl border shadow-sm">
+    <div className={styles.posGrid}>
+      <section className={cn(styles.catalog, "border-border bg-card border")}>
         <div className="border-border bg-card/95 sticky top-0 z-10 space-y-3 border-b p-4 backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="bg-muted flex rounded-md p-1">
@@ -2855,7 +2778,8 @@ function PosView(props: {
             ) : null}
           </div>
         </div>
-        <div className="grid gap-3 p-3 sm:grid-cols-2 2xl:grid-cols-3">
+        <Button variant="secondary" className={styles.jump} onClick={() => document.getElementById('finance-checkout')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><ShoppingCart className="size-4" />Ver venda atual ({cart.length} itens)</Button>
+        <div className={cn(styles.catalogList, "grid gap-3 p-3 sm:grid-cols-2 2xl:grid-cols-3")}>
           {catalog.map((item) => (
             <button
               key={`${item.type}-${item.id}`}
@@ -2910,7 +2834,7 @@ function PosView(props: {
           ) : null}
         </div>
       </section>
-      <section className="border-border bg-card flex min-h-0 min-w-0 flex-col overflow-y-auto rounded-xl border shadow-sm xl:sticky xl:top-16 xl:max-h-[calc(100vh-5rem)]">
+      <section id="finance-checkout" className={cn(styles.checkout, "border-border bg-card flex flex-col border")}>
         <div className="border-border flex items-center justify-between border-b p-4">
           <div>
             <h2 className="flex items-center gap-2 font-semibold">

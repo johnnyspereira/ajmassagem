@@ -19,6 +19,7 @@ import { Empty, NativeSelect } from '@/components/finance/finance-ui';
 import { downloadReceiptPdf } from '@/lib/finance/receipt-pdf';
 import { money, PAYMENT_METHODS, SALE_STATUS } from '@/components/finance/finance-utils';
 import type { FinanceSale } from '@/types';
+import styles from './finance.module.css';
 
 export function SalesView({
   sales,
@@ -87,7 +88,7 @@ export function SalesView({
           <option value="refunded">Reembolsadas</option>
         </NativeSelect>
       </div>
-      <div className="border-border bg-muted/30 flex items-center justify-between border-b px-4 py-2 text-xs">
+      <div className="border-border bg-muted/30 flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 text-xs">
         <span className="text-muted-foreground">
           {filtered.length} registos encontrados
         </span>
@@ -105,7 +106,7 @@ export function SalesView({
               id={`sale-${sale.id}`}
               className="group target:bg-primary/5 target:ring-primary/30 scroll-mt-24 target:ring-2"
             >
-              <summary className="grid cursor-pointer list-none items-center gap-3 p-4 md:grid-cols-[90px_1fr_130px_130px_auto]">
+              <summary className={styles.salesSummary}>
                 <div>
                   <p className="font-mono text-xs">#{sale.sale_number}</p>
                   <p className="text-muted-foreground text-[11px]">

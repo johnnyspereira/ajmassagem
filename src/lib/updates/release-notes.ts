@@ -15,6 +15,21 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-18-finance-layout',
+    date: '2026-10-18',
+    category: 'Melhoria',
+    title: 'Financeiro mais claro no computador e no telemóvel',
+    areas: ['Financeiro', 'POS', 'Vendas'],
+    summary: 'Navegação simplificada, indicadores legíveis e venda atual acessível em ecrãs pequenos.',
+    changes: [
+      'Nova venda e acesso ao caixa em destaque, com atualização, faturas e gestão reunidas no menu de três pontos.',
+      'Separadores compactos com deslocação horizontal no telemóvel e indicadores adaptados à largura disponível.',
+      'Catálogo do POS com deslocação própria, resumo da venda fixo no computador e atalho para a venda atual no telemóvel.',
+      'Listas de vendas reorganizadas para separar cliente, valor e estado sem apertar a leitura.',
+    ],
+    howTo: 'Entre em Financeiro. Use Nova venda para abrir o POS e Ver caixa para consultar o caixa. No telemóvel, deslize os separadores e toque em Ver venda atual para chegar ao resumo. As opções secundárias estão nos três pontos.',
+  },
+  {
     id: '2026-10-17-agenda-header',
     date: '2026-10-17',
     category: 'Melhoria',
