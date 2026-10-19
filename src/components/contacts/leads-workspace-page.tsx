@@ -18,6 +18,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Settings2,
   Sparkles,
   Users,
   X,
@@ -34,6 +35,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ContactForm } from '@/components/contacts/contact-form';
+import { LeadTreatmentDialog } from './lead-treatment-dialog';
+import { LeadSettingsDialog } from './lead-settings-dialog';
+import {
+  DEFAULT_LEAD_SETTINGS,
+  LEAD_STATUSES,
+  matchesLeadWork,
+  type LeadWorkflow,
+  type LeadFollowup,
+  type LeadWorkflowSettings,
+  type LeadWorkFilter,
+} from '@/lib/contacts/lead-workflow';
+import { formatAccountEventTime } from '@/lib/timezone';
 import { InboxBookingDialog } from '@/components/inbox/booking-dialog';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -103,6 +116,7 @@ type Snapshot = {
   appointments: LeadAppointment[];
   reservations: BenefitReservation[];
   history: LeadHistory[];
+  workflow: LeadWorkflow;
   at: number;
   accountId: string;
   limited: boolean;
@@ -110,7 +124,7 @@ type Snapshot = {
 
 export function LeadsWorkspacePage() {
   const router = useRouter();
-  const { accountId, account, canSendMessages } = useAuth();
+  const { accountId, account, canSendMessages, canEditSettings } = useAuth();
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [filter, setFilter] = useState<LeadFilter>('all');
   const [sort, setSort] = useState<LeadSort>('priority');
@@ -123,7 +137,14 @@ export function LeadsWorkspacePage() {
   const [error, setError] = useState('');
   const [newContact, setNewContact] = useState(false);
   const [booking, setBooking] = useState<Contact | null>(null);
-  const [openingChat, setOpeningChat] = useState<string | null>(null);
+  const [treatingId, setTreatingId] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [workFilter, setWorkFilter] = useState<LeadWorkFilter>('all');
+  const [workNow, setWorkNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setWorkNow(Date.now()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
   const request = useRef(0);
   const load = useCallback(async () => {
     if (!accountId) return;
@@ -221,7 +242,22 @@ export function LeadsWorkspacePage() {
         history = result.data;
       }
       if (id !== request.current) return;
+      const workflow = await (async () => {
+        const response = await fetch('/api/leads/workflow', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'load', contactIds }),
+        });
+        const result = await response.json();
+        if (!response.ok || !result.settings || !Array.isArray(result.items))
+          throw new Error(
+            result.error || 'Não foi possível carregar a tratativa dos Leads.'
+          );
+        return result as LeadWorkflow;
+      })();
+      if (id !== request.current) return;
       setSnapshot({
+        workflow,
         history,
         contacts: (results[0].data || []).slice(0, 2000) as Contact[],
         vouchers: (results[1].data || []) as LeadVoucher[],
@@ -268,9 +304,82 @@ export function LeadsWorkspacePage() {
         : [],
     [current, account?.timezone]
   );
+  const workflowSettings = current?.workflow.settings || DEFAULT_LEAD_SETTINGS;
+  const followupMap = useMemo(
+    () =>
+      new Map(
+        (current?.workflow.items || []).map((item) => [item.contact_id, item])
+      ),
+    [current?.workflow.items]
+  );
+  const workCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        (['recover', 'due', 'new'] as LeadWorkFilter[]).map((key) => [
+          key,
+          rows.filter((row) =>
+            matchesLeadWork(
+              row,
+              followupMap.get(row.contact.id),
+              key,
+              workflowSettings,
+              workNow
+            )
+          ).length,
+        ])
+      ),
+    [rows, followupMap, workflowSettings, workNow]
+  );
+  const treatingRow = rows.find((row) => row.contact.id === treatingId);
+  function updateFollowup(item: LeadFollowup) {
+    setSnapshot((previous) =>
+      previous?.accountId === accountId
+        ? {
+            ...previous,
+            workflow: {
+              ...previous.workflow,
+              items: [
+                ...previous.workflow.items.filter(
+                  (value) => value.contact_id !== item.contact_id
+                ),
+                item,
+              ],
+            },
+          }
+        : previous
+    );
+  }
+  function updateSettings(settings: LeadWorkflowSettings) {
+    setSnapshot((previous) =>
+      previous?.accountId === accountId
+        ? { ...previous, workflow: { ...previous.workflow, settings } }
+        : previous
+    );
+    setPage(0);
+  }
   const visible = useMemo(
-    () => filterLeadRows(rows, filter, query, gender, sort, recency),
-    [rows, filter, query, gender, sort, recency]
+    () =>
+      filterLeadRows(rows, filter, query, gender, sort, recency).filter((row) =>
+        matchesLeadWork(
+          row,
+          followupMap.get(row.contact.id),
+          workFilter,
+          workflowSettings,
+          workNow
+        )
+      ),
+    [
+      rows,
+      filter,
+      query,
+      gender,
+      sort,
+      recency,
+      workFilter,
+      followupMap,
+      workflowSettings,
+      workNow,
+    ]
   );
   const counts = useMemo(
     () =>
@@ -329,40 +438,19 @@ export function LeadsWorkspacePage() {
       );
     }
   }
-  async function openChat(contact: Contact) {
-    if (openingChat || !accountId) return;
-    setOpeningChat(contact.id);
-    try {
-      const { data, error } = await createClient()
-        .from('conversations')
-        .select('id')
-        .eq('account_id', accountId)
-        .eq('contact_id', contact.id)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) throw new Error(error.message);
-      if (data?.id) router.push(`/inbox?c=${encodeURIComponent(data.id)}`);
-      else {
-        toast.info(
-          'Este contacto ainda não tem conversa. Abra o Inbox no Cliente 360 para iniciar.'
-        );
-        router.push(`/contacts/${contact.id}`);
-      }
-    } catch {
-      toast.error('Não foi possível abrir a conversa. Tente novamente.');
-    } finally {
-      setOpeningChat(null);
-    }
-  }
   const clear = () => {
+    setWorkFilter('all');
     setRecency('all');
     setQuery('');
     setGender('all');
     chooseFilter('all');
   };
   const hasFilters =
-    filter !== 'all' || query !== '' || gender !== 'all' || recency !== 'all';
+    filter !== 'all' ||
+    query !== '' ||
+    gender !== 'all' ||
+    recency !== 'all' ||
+    workFilter !== 'all';
   return (
     <div className={cn(styles.root, 'space-y-5')}>
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
@@ -375,7 +463,15 @@ export function LeadsWorkspacePage() {
             Saiba quem acompanhar e transforme interesse em marcações.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            className="h-10 rounded-xl"
+            disabled={!current || loading}
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings2 className="size-4" /> Mensagens e tratativa
+          </Button>
           <Button
             className="h-10 rounded-xl"
             disabled={!canSendMessages}
@@ -432,32 +528,86 @@ export function LeadsWorkspacePage() {
           </Button>
         </div>
       )}
-      <div className={styles.metrics}>
-        {segments.map((segment) => (
-          <button
-            key={segment.id}
-            aria-pressed={filter === segment.id}
-            onClick={() => chooseFilter(segment.id)}
-            className={cn(
-              styles.metric,
-              filter === segment.id && styles.active
-            )}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-muted-foreground text-xs">
-                {segment.label}
-              </span>
-              <segment.icon className="text-primary size-4 shrink-0" />
-            </div>
-            <p className="my-2 text-2xl font-semibold tabular-nums">
-              {!current ? '—' : counts[segment.id]}
-            </p>
-            <p className="text-muted-foreground text-[11px] leading-relaxed">
-              {segment.hint}
-            </p>
-          </button>
-        ))}
-      </div>
+      <details className="bg-card rounded-xl border p-4">
+        <summary className="cursor-pointer text-sm font-medium">
+          Segmentos de clientes · {rows.length} contactos
+        </summary>
+        <div className={cn(styles.metrics, 'mt-4')}>
+          {segments.map((segment) => (
+            <button
+              key={segment.id}
+              aria-pressed={filter === segment.id}
+              onClick={() => chooseFilter(segment.id)}
+              className={cn(
+                styles.metric,
+                filter === segment.id && styles.active
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground text-xs">
+                  {segment.label}
+                </span>
+                <segment.icon className="text-primary size-4 shrink-0" />
+              </div>
+              <p className="my-2 text-2xl font-semibold tabular-nums">
+                {!current ? '—' : counts[segment.id]}
+              </p>
+              <p className="text-muted-foreground text-[11px] leading-relaxed">
+                {segment.hint}
+              </p>
+            </button>
+          ))}
+        </div>
+      </details>
+      {current && (
+        <section
+          aria-label="Prioridades de acompanhamento"
+          className="grid gap-3 sm:grid-cols-3"
+        >
+          {(
+            [
+              {
+                key: 'recover',
+                title: 'Clientes a recuperar',
+                detail: `${workflowSettings.recoveryDays}+ dias sem sessão · por agendar`,
+              },
+              {
+                key: 'due',
+                title: 'Seguimentos vencidos',
+                detail: 'Próximo contacto já chegou',
+              },
+              {
+                key: 'new',
+                title: 'Leads por tratar',
+                detail: 'Ainda sem abordagem registada',
+              },
+            ] as const
+          ).map((item) => (
+            <button
+              key={item.key}
+              aria-pressed={workFilter === item.key}
+              onClick={() => {
+                setWorkFilter(workFilter === item.key ? 'all' : item.key);
+                setPage(0);
+              }}
+              className={cn(
+                'bg-card rounded-xl border p-4 text-left',
+                workFilter === item.key && 'border-primary bg-primary/5'
+              )}
+            >
+              <p className="text-sm font-medium">
+                {item.title}{' '}
+                <span className="text-primary ml-2 text-lg tabular-nums">
+                  {workCounts[item.key]}
+                </span>
+              </p>
+              <p className="text-muted-foreground mt-1 text-xs">
+                {item.detail}
+              </p>
+            </button>
+          ))}
+        </section>
+      )}
       <section
         className={styles.workspace}
         aria-label="Lista de trabalho dos leads"
@@ -467,10 +617,11 @@ export function LeadsWorkspacePage() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-sm font-semibold">
-                A sua fila de acompanhamento
+                Preparar, contactar e acompanhar
               </h2>
               <p className="text-muted-foreground mt-1 text-xs">
-                Prioridade aos benefícios perto do prazo e sem marcação.
+                Abra Tratar lead para escolher uma mensagem, registar a
+                abordagem e definir o próximo passo.
               </p>
             </div>
             <p className="text-muted-foreground text-xs" aria-live="polite">
@@ -550,6 +701,26 @@ export function LeadsWorkspacePage() {
             </select>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <select
+              className="border-input bg-background h-9 max-w-full rounded-lg border px-2 text-xs"
+              aria-label="Filtrar tratativa"
+              value={workFilter}
+              onChange={(event) => {
+                setWorkFilter(event.target.value as LeadWorkFilter);
+                setPage(0);
+              }}
+            >
+              <option value="all">Todas as tratativas</option>
+              <option value="recover">Clientes a recuperar</option>
+              <option value="due">Seguimentos vencidos</option>
+              {(
+                Object.keys(LEAD_STATUSES) as (keyof typeof LEAD_STATUSES)[]
+              ).map((key) => (
+                <option key={key} value={key}>
+                  {LEAD_STATUSES[key]}
+                </option>
+              ))}
+            </select>
             {(Object.keys(labels) as LeadFilter[]).map((key) => (
               <Button
                 key={key}
@@ -660,8 +831,8 @@ export function LeadsWorkspacePage() {
                   selected={selected.has(row.contact.id)}
                   onSelect={(value) => toggle(row.contact.id, value)}
                   onBook={() => setBooking(row.contact)}
-                  onChat={() => void openChat(row.contact)}
-                  openingChat={openingChat === row.contact.id}
+                  onTreat={() => setTreatingId(row.contact.id)}
+                  followup={followupMap.get(row.contact.id)}
                   canOperate={canSendMessages && !loading && !error}
                   zone={account?.timezone || 'Europe/Lisbon'}
                 />
@@ -741,14 +912,57 @@ export function LeadsWorkspacePage() {
         onSaved={() => void load()}
         onViewExisting={(id) => router.push(`/contacts/${id}`)}
       />
+      {settingsOpen && current && (
+        <LeadSettingsDialog
+          settings={workflowSettings}
+          canEdit={canEditSettings}
+          onSaved={updateSettings}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+      {treatingRow && current && (
+        <LeadTreatmentDialog
+          key={treatingRow.contact.id}
+          row={treatingRow}
+          item={followupMap.get(treatingRow.contact.id)}
+          settings={workflowSettings}
+          onSaved={updateFollowup}
+          onClose={() => setTreatingId(null)}
+        />
+      )}
       {booking && (
         <InboxBookingDialog
           contact={booking}
           benefit={null}
           onClose={() => setBooking(null)}
           onCreated={() => {
-            setBooking(null);
-            void load();
+            void (async () => {
+              const contact = booking;
+              if (contact)
+                await fetch('/api/leads/workflow', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    contactId: contact.id,
+                    status: 'scheduled',
+                    contacted: false,
+                    nextFollowupAt: null,
+                    notes: followupMap.get(contact.id)?.notes || '',
+                  }),
+                })
+                  .then(async (response) => {
+                    const result = await response.json();
+                    if (!response.ok || !result.item) throw new Error();
+                    updateFollowup(result.item);
+                  })
+                  .catch(() =>
+                    toast.error(
+                      'A marcação foi criada, mas não foi possível atualizar o estado do lead.'
+                    )
+                  );
+              setBooking(null);
+              await load();
+            })();
           }}
         />
       )}
@@ -761,8 +975,8 @@ function LeadItem({
   selected,
   onSelect,
   onBook,
-  onChat,
-  openingChat,
+  onTreat,
+  followup,
   canOperate,
   zone,
 }: {
@@ -770,8 +984,8 @@ function LeadItem({
   selected: boolean;
   onSelect: (value: boolean) => void;
   onBook: () => void;
-  onChat: () => void;
-  openingChat: boolean;
+  onTreat: () => void;
+  followup?: LeadFollowup;
   canOperate: boolean;
   zone: string;
 }) {
@@ -863,6 +1077,20 @@ function LeadItem({
         )}
       </div>
       <div className={styles.followup}>
+        <p className="mb-2 text-xs">
+          <Badge variant="outline">
+            {LEAD_STATUSES[followup?.status || 'new']}
+          </Badge>
+        </p>
+        {followup?.next_followup_at && (
+          <p className="text-primary mb-2 text-xs font-medium">
+            Próximo contacto:{' '}
+            {formatAccountEventTime(
+              new Date(leadTimestamp(followup.next_followup_at)),
+              zone
+            )}
+          </p>
+        )}
         <p
           className={cn(
             'flex items-center gap-1.5 text-xs font-medium',
@@ -911,18 +1139,12 @@ function LeadItem({
           <CalendarPlus className="size-3.5" /> Agendar
         </Button>
         <Button
-          variant="ghost"
+          variant="default"
           size="sm"
-          aria-label={`Abrir conversa de ${name}`}
-          disabled={openingChat}
-          onClick={onChat}
+          aria-label={`Tratar lead de ${name}`}
+          onClick={onTreat}
         >
-          {openingChat ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <MessageCircle className="size-3.5" />
-          )}{' '}
-          Conversa
+          <MessageCircle className="size-3.5" /> Tratar lead
         </Button>
         <Button
           variant="ghost"

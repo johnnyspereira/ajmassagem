@@ -15,6 +15,24 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-19-lead-treatment',
+    date: '2026-10-19',
+    category: 'Novidade',
+    title: 'Tratativa de Leads com mensagens prontas e próximos contactos',
+    areas: ['Leads', 'Inbox', 'Clientes'],
+    summary: 'Acompanhamento com mensagens personalizadas, situação do lead, notas, histórico e próxima ação guardados na conta.',
+    changes: [
+      'Botão Mensagens e tratativa para configurar o prazo de recuperação, o intervalo sugerido de seguimento e quatro textos de abordagem.',
+      'Textos para primeiro contacto, recuperação de cliente, benefício perto do prazo e seguimento sem resposta, com variáveis do cliente e da empresa.',
+      'Tratar lead abre a preparação da mensagem e o registo do resultado: Por tratar, Em contacto, Interessado, Agendado e Sem interesse.',
+      'Próximo contacto, notas e abordagens registadas ficam persistidos, com histórico por cliente e filas de recuperação e seguimentos vencidos.',
+      'Abrir Inbox com texto guarda o próximo passo e carrega um rascunho editável na conversa existente ou numa nova conversa. O envio continua a depender da ação no Inbox.',
+      'Agendar a partir dos Leads atualiza a situação para Agendado; Agendado e Sem interesse deixam de aparecer nos seguimentos pendentes.',
+      'Configurações partilhadas reservadas a proprietários e administradores; perfis de consulta mantêm acesso apenas de leitura.',
+    ],
+    howTo: 'Abra Leads → Mensagens e tratativa para preparar os textos e prazos. Em cada contacto, escolha Tratar lead, reveja a mensagem e abra o Inbox ou copie o texto. Use Registar abordagem depois do contacto, indique o resultado e marque a próxima ação. Consulte Seguimentos vencidos para continuar o acompanhamento.',
+  },
+  {
     id: '2026-10-19-deployment-assets',
     date: '2026-10-19',
     category: 'Correção',

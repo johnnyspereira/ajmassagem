@@ -1,5 +1,7 @@
 'use client';
 import styles from './inbox.module.css';
+import { useAuth } from '@/hooks/use-auth';
+import { takeLeadInboxDraft } from '@/lib/contacts/lead-inbox-draft';
 
 import { useState, useRef, useCallback, useEffect, KeyboardEvent } from 'react';
 import {
@@ -144,6 +146,8 @@ export function MessageComposer({
   const t = useTranslations('Inbox.composer');
 
   const [text, setText] = useState('');
+  const [fromLeads, setFromLeads] = useState(false);
+  const { accountId } = useAuth();
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const [translating, setTranslating] = useState(false);
@@ -192,6 +196,13 @@ export function MessageComposer({
   // every capability — so the disabled branch is a no-op there.
   const canSend = useCan('send-messages');
   const readOnly = !canSend;
+  useEffect(() => {
+    if (!accountId || readOnly) return;
+    try {
+      const pending = takeLeadInboxDraft(sessionStorage, accountId, conversationId);
+      if (pending) { setText(pending); setFromLeads(true); }
+    } catch { /* A disabled storage area must not block the normal composer. */ }
+  }, [accountId, conversationId, readOnly]);
   // QR/Web sends are not bound to Meta's 24h customer-care window, so
   // the composer only gates by role. The warning banner can still
   // explain the Meta limitation, but it should not block QR sends.
@@ -234,6 +245,7 @@ export function MessageComposer({
     try {
       await onSend(trimmed, replyTo?.id);
       setText('');
+      setFromLeads(false);
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
       }
@@ -1013,7 +1025,7 @@ export function MessageComposer({
           under the textarea left edge. */}
       {!draft && !recording && (
         <p className="text-muted-foreground mt-1 px-2 text-[10px]">
-          {t('draftHint')}
+          {fromLeads ? 'Mensagem preparada nos Leads. Reveja o texto antes de enviar.' : t('draftHint')}
         </p>
       )}
 
