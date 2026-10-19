@@ -76,7 +76,35 @@
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
     }
   ],
-  "onMatchHeaders": [],
+  "onMatchHeaders": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "header",
+          "key": "rsc",
+          "value": "1"
+        }
+      ],
+      "headers": [
+        {
+          "key": "x-nextjs-deployment-id",
+          "value": "3b48f3002a2a8aebbbf56346075dad6f2ed0f644"
+        }
+      ],
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
+    },
+    {
+      "source": "/_next/data/(.*)",
+      "headers": [
+        {
+          "key": "x-nextjs-deployment-id",
+          "value": "3b48f3002a2a8aebbbf56346075dad6f2ed0f644"
+        }
+      ],
+      "regex": "^/_next/data(?:/(.*))(?:/)?$"
+    }
+  ],
   "rewrites": {
     "beforeFiles": [],
     "afterFiles": [],
@@ -1605,5 +1633,6 @@
   "rewriteHeaders": {
     "pathHeader": "x-nextjs-rewritten-path",
     "queryHeader": "x-nextjs-rewritten-query"
-  }
+  },
+  "deploymentId": "3b48f3002a2a8aebbbf56346075dad6f2ed0f644"
 }
