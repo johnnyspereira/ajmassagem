@@ -27,6 +27,10 @@ jobs:
     timeout-minutes: 30
     env:
       NEXT_TELEMETRY_DISABLED: '1'
+      # Next appends ?dpl=<commit> to CSS/JS URLs and reloads stale clients.
+      # Some hosting/CDN caches retain 404s requested while cPanel is updating.
+      # A new deployment must not reuse those previously cached asset URLs.
+      NEXT_DEPLOYMENT_ID: ${{ github.sha }}
       PUPPETEER_SKIP_DOWNLOAD: 'true'
       # The cPanel app delegates WhatsApp QR to the local/remote worker.
       # Building as polling_worker makes Next include the local Chromium
@@ -82,6 +86,16 @@ jobs:
           fi
         env:
           NODE_ENV: production
+
+      - name: Verify static asset deployment version
+        run: |
+          node <<'EOF'
+          const { config } = require('./.next/required-server-files.json');
+          if (!process.env.NEXT_DEPLOYMENT_ID || config.deploymentId !== process.env.NEXT_DEPLOYMENT_ID) {
+            throw new Error('Next runtime must contain this deployment ID for versioned CSS/JS URLs.');
+          }
+          console.log('Next static assets use deployment ' + config.deploymentId);
+          EOF
 
       - name: Assemble cPanel runtime branch
         shell: bash

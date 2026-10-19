@@ -15,6 +15,19 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-19-deployment-assets',
+    date: '2026-10-19',
+    category: 'Correção',
+    title: 'Carregamento dos ficheiros após uma atualização',
+    areas: ['Sistema', 'Publicação', 'Benefícios'],
+    summary: 'Cada publicação passa a identificar a sua versão nos endereços dos ficheiros CSS e JavaScript.',
+    changes: [
+      'Identificador de publicação do Next.js associado ao commit da cpanel-runtime para evitar reutilizar respostas antigas de ficheiros indisponíveis.',
+      'Proteção de versão do Next.js permite recarregar a página quando a navegação encontra uma publicação diferente.',
+    ],
+    howTo: 'Depois de instalar a atualização no cPanel e reiniciar a aplicação, recarregue a página. Os ficheiros passam a ser pedidos com a versão da publicação.',
+  },
+  {
     id: '2026-10-18-benefits-layout',
     date: '2026-10-18',
     category: 'Melhoria',
