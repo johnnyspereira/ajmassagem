@@ -21,6 +21,7 @@
     "/api/finance/webhooks/sumup": {},
     "/api/health/mysql": {},
     "/api/leads/session-history": {},
+    "/api/leads/workflow": {},
     "/api/mysql/query": {},
     "/api/mysql/rpc": {},
     "/api/storage/[bucket]": {},

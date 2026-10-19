@@ -89,7 +89,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "3b48f3002a2a8aebbbf56346075dad6f2ed0f644"
+          "value": "42dddc3d47ea714048b9fd102961907bf06d7df6"
         }
       ],
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
@@ -99,7 +99,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "3b48f3002a2a8aebbbf56346075dad6f2ed0f644"
+          "value": "42dddc3d47ea714048b9fd102961907bf06d7df6"
         }
       ],
       "regex": "^/_next/data(?:/(.*))(?:/)?$"
@@ -1094,6 +1094,12 @@
       "namedRegex": "^/api/leads/session\\-history(?:/)?$"
     },
     {
+      "page": "/api/leads/workflow",
+      "regex": "^/api/leads/workflow(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leads/workflow(?:/)?$"
+    },
+    {
       "page": "/api/marketing/automation-rules/process",
       "regex": "^/api/marketing/automation\\-rules/process(?:/)?$",
       "routeKeys": {},
@@ -1634,5 +1640,5 @@
     "pathHeader": "x-nextjs-rewritten-path",
     "queryHeader": "x-nextjs-rewritten-query"
   },
-  "deploymentId": "3b48f3002a2a8aebbbf56346075dad6f2ed0f644"
+  "deploymentId": "42dddc3d47ea714048b9fd102961907bf06d7df6"
 }
