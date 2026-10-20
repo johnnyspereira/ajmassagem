@@ -15,6 +15,16 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-20-hidden-reminder-cron',
+    date: '2026-10-20',
+    category: 'Correção',
+    title: 'Lembretes em segundo plano sem abrir o terminal',
+    areas: ['Agenda', 'Automação local'],
+    summary: 'O agendador local executa a rotina de lembretes com a janela do terminal oculta.',
+    changes: ['Executor invisível preserva o resultado da execução e aguarda o fim da rotina, mantendo a proteção contra execuções sobrepostas.'],
+    howTo: 'No computador que executa os lembretes, instale ou atualize a tarefa com scripts/install-appointment-reminders.ps1. O intervalo de cinco minutos e os registos de diagnóstico continuam disponíveis.',
+  },
+  {
     id: '2026-10-20-reminders-future-only',
     date: '2026-10-20',
     category: 'Correção',
