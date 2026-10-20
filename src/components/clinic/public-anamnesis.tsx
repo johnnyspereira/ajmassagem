@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { BodyPainMap } from '@/components/clinic/body-pain-map';
+import { normalizeBirthDate } from '@/lib/clinic/birth-date';
 import {
   DEFAULT_ANAMNESIS_CONFIG,
   findMissingRequiredQuestion,
@@ -91,7 +92,7 @@ export function PublicAnamnesis({
           name: next.client_name || '',
           email: next.client_email || '',
           phone: next.client_phone || '',
-          birthDate: next.birth_date?.slice(0, 10) || '',
+          birthDate: normalizeBirthDate(next.birth_date) || '',
         });
         setModalities(next.selected_modalities || []);
         setAnswers(

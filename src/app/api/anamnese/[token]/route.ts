@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { normalizeBirthDate } from '@/lib/clinic/birth-date';
 import {
   findMissingRequiredQuestion,
   mergeAnamnesisConfig,
@@ -37,7 +38,7 @@ export async function GET(
     return Response.json({ error: 'Este link expirou.' }, { status: 410 });
   // Pending forms created before the contact's birthday was recorded may
   // have an empty snapshot. Read only the contact bound to this form/account.
-  let birthDate = form.birth_date;
+  let birthDate = normalizeBirthDate(form.birth_date);
   const { contact_id: contactId, ...publicForm } = form;
   if (!birthDate && form.status === 'pending' && contactId) {
     const { data: contact } = await db
@@ -46,7 +47,7 @@ export async function GET(
       .eq('id', contactId)
       .eq('account_id', form.account_id)
       .maybeSingle();
-    birthDate = contact?.birth_date || null;
+    birthDate = normalizeBirthDate(contact?.birth_date);
   }
   const { data: settings } = await db
     .from('clinic_communication_settings')
@@ -61,7 +62,7 @@ export async function GET(
   return Response.json({
     form: {
       ...publicForm,
-      birth_date: birthDate ? String(birthDate).slice(0, 10) : null,
+      birth_date: birthDate,
       modality_locked: Boolean(
         form.appointment_id &&
         (form.service_id || form.selected_modalities?.length)
@@ -76,7 +77,7 @@ export async function GET(
           }
         : null,
     },
-  });
+  }, { headers: { 'Cache-Control': 'private, no-store' } });
 }
 
 export async function POST(

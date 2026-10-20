@@ -15,6 +15,20 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-20-anamnesis-mysql-birth-date',
+    date: '2026-10-20',
+    category: 'Correção',
+    title: 'Data de nascimento da anamnese no formato correto',
+    areas: ['Anamnese', 'Clientes'],
+    summary: 'Datas devolvidas pelo MySQL como objetos Date passam a chegar ao campo de nascimento no formato ano-mês-dia.',
+    changes: [
+      'Normalização de datas nativas do MySQL e datas em texto, sem conversão para o fuso horário local.',
+      'Datas inválidas deixam de ser apresentadas como valores incompatíveis com o campo de nascimento.',
+      'Resposta da ficha sem cache para que uma nova abertura consulte os dados atuais.',
+    ],
+    howTo: 'Após aplicar a versão, volte a abrir o link da anamnese. Uma ficha pendente com nascimento em falta usa a data guardada no cliente associado; datas já registadas na ficha são preservadas.',
+  },
+  {
     id: '2026-10-20-agenda-fixed-workspace',
     date: '2026-10-20',
     category: 'Melhoria',
