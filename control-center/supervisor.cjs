@@ -230,10 +230,15 @@ class Supervisor {
       try {
         await run('taskkill.exe', ['/PID', String(pid), '/T', '/F']);
       } catch (error) {
-        // A service may exit between discovery and taskkill. Only ignore the
-        // failure when Windows confirms that this PID no longer exists.
-        const alive = await powershell(`if(Get-Process -Id ${pid} -ErrorAction SilentlyContinue){'alive'}`);
-        if (alive) throw error;
+        // taskkill /T can fail on an already-ended child while the parent is
+        // still completing shutdown. Wait for the actual parent, then retry
+        // that PID alone instead of retrying a stale process tree.
+        const check = `$targetProcess=Get-Process -Id ${pid} -ErrorAction SilentlyContinue; if($targetProcess -and -not $targetProcess.WaitForExit(1500)){'alive'}`;
+        if (await powershell(check)) {
+          try { await run('taskkill.exe', ['/PID', String(pid), '/F']); }
+          catch { /* Verify the final state, including another exit race. */ }
+          if (await powershell(check)) throw new Error(`Não foi possível parar ${service.label}. O processo ${pid} continua ativo; verifique as permissões do Windows.`);
+        }
       }
     }
     this.children.delete(id);

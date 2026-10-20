@@ -15,6 +15,21 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-20-control-center-child-exit',
+    date: '2026-10-20',
+    category: 'Correção',
+    title: 'Paragem de serviços quando um processo filho já terminou',
+    areas: ['Control Center'],
+    summary: 'O Control Center verifica a saída do processo principal após uma falha na árvore de processos e ordena os comandos recebidos.',
+    changes: [
+      'Espera pela saída do processo principal quando o Windows reporta um filho já encerrado.',
+      'Se necessário, repete a paragem apenas no processo principal e confirma o resultado.',
+      'Comandos executados em sequência para evitar reinícios concorrentes causados por cliques repetidos.',
+      'Se o processo continuar ativo, apresenta uma mensagem clara em português.',
+    ],
+    howTo: 'Reabra o Control Center para carregar a correção e utilize Reiniciar no serviço pretendido.',
+  },
+  {
     id: '2026-10-20-worker-browser-recovery',
     date: '2026-10-20',
     category: 'Correção',
