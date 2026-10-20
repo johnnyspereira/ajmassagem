@@ -15,6 +15,21 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-20-worker-browser-recovery',
+    date: '2026-10-20',
+    category: 'Correção',
+    title: 'Recuperação da sessão WhatsApp e reinício no Control Center',
+    areas: ['WhatsApp', 'Control Center'],
+    summary: 'Falhas do navegador acionam a recuperação da sessão guardada e processos já encerrados deixam de bloquear a paragem.',
+    changes: [
+      'Erros de frame desligado ou sessão do navegador encerrada acionam a recuperação também nos pedidos e no processamento da fila.',
+      'A ligação deixa de ser apresentada como conectada apenas por existir uma identidade antiga em memória.',
+      'Eventos de clientes antigos são ignorados na ligação e desligação; uma recuperação pendente impede arranques concorrentes.',
+      'O Control Center confirma se o processo ainda existe quando taskkill falha, preservando os restantes erros de paragem.',
+    ],
+    howTo: 'Reabra o Control Center e reinicie o WhatsApp Worker para carregar a correção local. A autenticação guardada é preservada. Aguarde Sessão QR conectada antes de utilizar os envios.',
+  },
+  {
     id: '2026-10-20-lead-brand-messages',
     date: '2026-10-20',
     category: 'Melhoria',

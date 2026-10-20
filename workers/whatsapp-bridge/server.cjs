@@ -1,4 +1,11 @@
 const http = require('node:http');
+// The detached worker outlives the Control Center that owns its output pipes.
+// Closing that window must not turn a console write into a session restart.
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on('error', (error) => {
+    if (error.code !== 'EPIPE' && error.code !== 'ERR_STREAM_DESTROYED') throw error;
+  });
+}
 const { createHmac } = require('node:crypto');
 const path = require('node:path');
 const { existsSync, readFileSync, writeFileSync } = require('node:fs');
@@ -33,6 +40,7 @@ installWhatsAppWebMediaPatch();
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const { downloadCompatibleMedia } = require('./media-download.cjs');
 const { createIncomingDelivery } = require('./incoming-delivery.cjs');
+const { isBrowserSessionError } = require('./browser-health.cjs');
 
 const PORT = Number(process.env.PORT || 4100);
 const SECRET = process.env.WORKER_SECRET;
@@ -91,21 +99,28 @@ function scheduleRecovery(instance, error) {
   // whatsapp-web.js occasionally evaluates the page while WhatsApp is
   // navigating after it emits a QR.  That transient Puppeteer error must not
   // take down the HTTP worker (and consequently the Cloudflare tunnel).
-  if (instance && client && client !== instance) return;
+  if (instance && client !== instance) return;
+  if (recoveryTimer) return;
   const detail = error?.message || String(error || 'Falha desconhecida');
   lastError = detail;
   state = 'error';
   connectedAt = null;
   if (instance && client === instance) client = null;
-  if (recoveryTimer) return;
   logActivity('error', `Sessao WhatsApp reiniciada automaticamente: ${detail}`);
-  void Promise.resolve(instance?.destroy?.()).catch(() => {}).finally(() => {
-    recoveryTimer = setTimeout(() => {
+  const closing = Promise.resolve().then(() => instance?.destroy?.()).catch(() => {});
+  recoveryTimer = setTimeout(async () => {
+      // Do not let a stuck Chrome destroy block recovery indefinitely.
+      let deadline;
+      await Promise.race([closing, new Promise(resolve => { deadline = setTimeout(resolve, 8000); })]);
+      clearTimeout(deadline);
       recoveryTimer = null;
+      starting = null;
       // Context is retained after the first authenticated CRM request.
       if (context.accountId && context.userId) void start(context);
     }, 3000);
-  });
+}
+function recoverBrowserError(error) {
+  if (isBrowserSessionError(error)) scheduleRecovery(client, error);
 }
 function saved() {
   return existsSync(path.join(AUTH_DIR, `session-${CLIENT_ID}`));
@@ -118,7 +133,7 @@ function bind(input = {}) {
   return context;
 }
 function status() {
-  const connected = state === 'connected' || Boolean(client?.info?.wid);
+  const connected = state === 'connected' && Boolean(client) && !client.pupPage?.isClosed();
   return {
     connected,
     state: connected ? 'connected' : state,
@@ -468,6 +483,9 @@ function wire(instance) {
     logActivity('qr', 'Novo QR gerado. Aguardando leitura.');
   });
   instance.on('ready', () => {
+    if (client !== instance) return;
+    instance.pupBrowser?.once('disconnected', () => scheduleRecovery(instance, new Error('Browser disconnected')));
+    instance.pupPage?.once('close', () => scheduleRecovery(instance, new Error('Target closed')));
     qr = null;
     state = 'connected';
     connectedAt = new Date().toISOString();
@@ -535,17 +553,17 @@ function wire(instance) {
     logActivity('error', `Falha de autenticação: ${String(value)}`);
   });
   instance.on('disconnected', (value) => {
+    if (client !== instance) return;
     state = 'disconnected';
     lastError = String(value);
     connectedAt = null;
-    client = null;
     logActivity('connection', `WhatsApp desligado: ${String(value)}`);
     scheduleRecovery(instance, new Error(`WhatsApp desligado: ${String(value)}`));
   });
 }
 async function start(input = {}, restoreOnly = false) {
   bind(input);
-  if (client || starting || (restoreOnly && !saved())) return status();
+  if (client || starting || recoveryTimer || (restoreOnly && !saved())) return status();
   state = 'starting';
   qr = null;
   lastError = null;
@@ -563,10 +581,11 @@ async function start(input = {}, restoreOnly = false) {
     },
   });
   wire(client);
-  starting = client
+  const instance = client;
+  starting = instance
     .initialize()
     .catch((e) => {
-      scheduleRecovery(client, e);
+      scheduleRecovery(instance, e);
     })
     .finally(() => {
       starting = null;
@@ -578,8 +597,11 @@ async function start(input = {}, restoreOnly = false) {
   return status();
 }
 async function stop(clear = false) {
-  if (client) await client.destroy().catch(() => {});
+  if (recoveryTimer) clearTimeout(recoveryTimer);
+  recoveryTimer = null;
+  const instance = client;
   client = null;
+  if (instance) await instance.destroy().catch(() => {});
   starting = null;
   qr = null;
   connectedAt = null;
@@ -898,6 +920,7 @@ async function pollOutbox() {
           workerId: WORKER_ID,
         });
       } catch (error) {
+        recoverBrowserError(error);
         await crm('complete_command', {
           ...context,
           commandId: claimedCommand.command.id,
@@ -932,9 +955,12 @@ async function pollOutbox() {
           workerId: WORKER_ID,
           error: error?.message || String(error),
         }).catch(() => {});
+        recoverBrowserError(error);
+        if (!status().connected) break;
       }
     }
   } catch (error) {
+    recoverBrowserError(error);
     lastError = error?.message || String(error);
   } finally {
     polling = false;
@@ -1262,6 +1288,7 @@ const server = http.createServer(async (req, res) => {
       return reply(res, 200, await ollamaChat(input));
     return reply(res, 404, { error: 'Not found' });
   } catch (e) {
+    recoverBrowserError(e);
     // The public tunnel is occasionally probed without credentials (browser,
     // uptime monitor, crawler). Reject it quietly: this is expected security
     // behaviour, not a WhatsApp or outbox failure, and a full stack trace made
