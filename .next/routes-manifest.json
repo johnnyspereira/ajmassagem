@@ -89,7 +89,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "e9dbbaf7358eb804d46814903b67e8ae857e9e13"
+          "value": "e6a081b46eb2ca15f8b88b3df8fe53e8d36e37db"
         }
       ],
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
@@ -99,7 +99,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "e9dbbaf7358eb804d46814903b67e8ae857e9e13"
+          "value": "e6a081b46eb2ca15f8b88b3df8fe53e8d36e37db"
         }
       ],
       "regex": "^/_next/data(?:/(.*))(?:/)?$"
@@ -740,6 +740,12 @@
       "namedRegex": "^/agenda(?:/)?$"
     },
     {
+      "page": "/agenda/lembretes",
+      "regex": "^/agenda/lembretes(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/agenda/lembretes(?:/)?$"
+    },
+    {
       "page": "/agents",
       "regex": "^/agents(?:/)?$",
       "routeKeys": {},
@@ -948,6 +954,12 @@
       "regex": "^/api/clinic/external\\-calendars(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/clinic/external\\-calendars(?:/)?$"
+    },
+    {
+      "page": "/api/clinic/reminder-history",
+      "regex": "^/api/clinic/reminder\\-history(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/clinic/reminder\\-history(?:/)?$"
     },
     {
       "page": "/api/clinic/time-blocks/owner",
@@ -1646,5 +1658,5 @@
     "pathHeader": "x-nextjs-rewritten-path",
     "queryHeader": "x-nextjs-rewritten-query"
   },
-  "deploymentId": "e9dbbaf7358eb804d46814903b67e8ae857e9e13"
+  "deploymentId": "e6a081b46eb2ca15f8b88b3df8fe53e8d36e37db"
 }
