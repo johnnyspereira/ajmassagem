@@ -159,6 +159,11 @@ const entries: Array<[string, string, string, boolean?, boolean?]> = [
     'Espaço reservado à equipa JP Massagem para consultar e gerir marcações, horários e profissionais.',
   ],
   [
+    '/agenda/lembretes',
+    'Lembretes e confirmações da agenda',
+    'Espaço reservado à equipa JP Massagem para acompanhar lembretes de sessões, tentativas de envio e respostas dos clientes. É necessário iniciar sessão.',
+  ],
+  [
     '/inbox',
     'Caixa de entrada',
     'Espaço reservado à equipa JP Massagem para acompanhar conversas e dar continuidade ao atendimento dos clientes.',
