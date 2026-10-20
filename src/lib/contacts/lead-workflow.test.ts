@@ -40,6 +40,27 @@ const item: LeadFollowup = {
   notes: 'Pediu novo contacto.',
 };
 describe('Lead treatment', () => {
+  it('adds the voucher invitation to older settings without replacing customised messages', () => {
+    const legacy: Partial<typeof DEFAULT_LEAD_SETTINGS.templates> = {
+      ...DEFAULT_LEAD_SETTINGS.templates,
+    };
+    delete legacy.voucher;
+    const parsed = parseLeadSettings({
+      ...DEFAULT_LEAD_SETTINGS,
+      templates: { ...legacy, recovery: 'Texto personalizado' },
+    });
+    expect(parsed?.templates.voucher).toContain('O seu voucher');
+    expect(parsed?.templates.recovery).toBe('Texto personalizado');
+    expect(suggestedLeadMessage({ ...row, availableVouchers: 1 })).toBe(
+      'voucher'
+    );
+    expect(
+      suggestedLeadMessage({ ...row, availableVouchers: 1, expiring: 3 })
+    ).toBe('benefit');
+    expect(suggestedLeadMessage({ ...row, availableVouchers: 0 })).toBe(
+      'recovery'
+    );
+  });
   it('validates saved settings and rejects unsupported variables, blank messages and invalid thresholds', () => {
     expect(parseLeadSettings(DEFAULT_LEAD_SETTINGS)).toEqual(
       DEFAULT_LEAD_SETTINGS

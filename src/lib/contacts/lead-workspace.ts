@@ -66,6 +66,7 @@ export type LeadHistory = {
 export type LeadRow = {
   contact: Contact;
   benefits: number;
+  availableVouchers?: number;
   expiring?: number;
   nextAppointment?: string;
   ready: boolean;
@@ -107,6 +108,7 @@ export function buildLeadRows(
     held.set(key, previous);
   }
   const benefits = new Map<string, { count: number; expiring?: number }>();
+  const availableVouchers = new Map<string, number>();
   function addBenefit(
     contactId: string | null,
     status: string,
@@ -128,6 +130,17 @@ export function buildLeadRows(
       voucher.voucher_type === 'service'
         ? Number(voucher.remaining_uses || 0) - (reserved?.uses || 0)
         : Number(voucher.current_balance || 0) - (reserved?.amount || 0);
+    if (
+      voucher.owner_contact_id &&
+      voucher.status === 'active' &&
+      free > 0 &&
+      (!voucher.expires_at || leadTimestamp(voucher.expires_at) > now)
+    ) {
+      availableVouchers.set(
+        voucher.owner_contact_id,
+        (availableVouchers.get(voucher.owner_contact_id) || 0) + 1
+      );
+    }
     addBenefit(
       voucher.owner_contact_id,
       voucher.status,
@@ -196,6 +209,7 @@ export function buildLeadRows(
       daysSinceSession,
       totalSessions: validVisit ? Number(visit.total_sessions) : 0,
       benefits: benefit?.count || 0,
+      availableVouchers: availableVouchers.get(contact.id) || 0,
       expiring: benefit?.expiring,
       nextAppointment,
       ready: Boolean(

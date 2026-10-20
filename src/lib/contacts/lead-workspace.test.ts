@@ -28,6 +28,31 @@ const voucher = (extra: Partial<LeadVoucher> = {}): LeadVoucher => ({
 });
 
 describe('Lead work queue', () => {
+  it('counts only available vouchers for the invitation, separately from packs', () => {
+    const vouchers = [
+      voucher({ id: 'free', expires_at: null }),
+      voucher({ id: 'used', remaining_uses: 0 }),
+      voucher({ id: 'expired', expires_at: '2026-01-01' }),
+      voucher({ id: 'cancelled', status: 'cancelled' }),
+    ];
+    const rows = buildLeadRows(
+      [contact('a')],
+      vouchers,
+      [
+        {
+          contact_id: 'a',
+          status: 'active',
+          expires_at: null,
+          balances: [{ id: 'pack', remaining_sessions: 2 }],
+        },
+      ],
+      [],
+      [],
+      now
+    );
+    expect(rows[0].availableVouchers).toBe(1);
+    expect(rows[0].benefits).toBe(2);
+  });
   it('shows completed sessions with calendar days in the account timezone, including DST changes', () => {
     const rows = buildLeadRows(
       [contact('a')],

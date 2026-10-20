@@ -13,6 +13,7 @@ export const LEAD_MESSAGES = {
   first_contact: 'Primeiro contacto',
   recovery: 'Recuperar cliente',
   benefit: 'Benefício perto do prazo',
+  voucher: 'Voucher disponível',
   follow_up: 'Seguimento sem resposta',
 } as const;
 export type LeadMessageKind = keyof typeof LEAD_MESSAGES;
@@ -54,14 +55,16 @@ export const DEFAULT_LEAD_SETTINGS: LeadWorkflowSettings = {
   recoveryDays: 60,
   followupDays: 3,
   templates: {
+    voucher:
+      'Olá, {primeiro_nome}.\n\nO seu voucher na {empresa} continua disponível para reservar um momento de cuidado e bem-estar. Gostaria de combinar a sua sessão? Posso indicar-lhe os horários disponíveis e ajudar a escolher o mais conveniente para si.\n\nJohnny Pereira\n{empresa}',
     first_contact:
-      'Olá {primeiro_nome}! Sou da {empresa}. Como podemos ajudar? Se quiser, posso explicar os nossos serviços e ajudá-lo a escolher uma sessão e um horário.',
+      'Olá, {primeiro_nome}.\n\nObrigado pelo seu contacto com a {empresa}. Que momento de cuidado procura para si? Conte-me o que gostaria de privilegiar na sua sessão, para poder orientar a escolha e indicar os horários disponíveis.\n\nJohnny Pereira\n{empresa}',
     recovery:
-      'Olá {primeiro_nome}! Aqui é da {empresa}. Como tem passado? Gostaríamos de voltar a recebê-lo. Quer que o ajude a encontrar um horário para a sua próxima sessão?',
+      'Olá, {primeiro_nome}. Como tem passado?\n\nJá passou algum tempo desde a sua última visita à {empresa}. Gostaria de reservar um novo momento para si? Terei todo o gosto em preparar a sua próxima sessão e encontrar um horário que lhe seja conveniente.\n\nJohnny Pereira\n{empresa}',
     benefit:
-      'Olá {primeiro_nome}! Tem um benefício disponível na {empresa} com validade a terminar em {dias_validade} dia(s). Quer que o ajude a marcar a sua sessão?',
+      'Olá, {primeiro_nome}.\n\nDeixo-lhe um lembrete: o seu benefício na {empresa} tem {dias_validade} dia(s) de validade. Se desejar utilizá-lo, podemos combinar a sua sessão dentro desse prazo, de acordo com a disponibilidade da agenda.\n\nPosso indicar-lhe os próximos horários?\n\nJohnny Pereira\n{empresa}',
     follow_up:
-      'Olá {primeiro_nome}! Retomo o nosso contacto para saber se ainda tem interesse em marcar uma sessão na {empresa}. Se quiser, posso ajudá-lo a encontrar um horário conveniente.',
+      'Olá, {primeiro_nome}.\n\nFicou em aberto a possibilidade de marcarmos a sua sessão na {empresa}. Se este for um bom momento para si, estou disponível para esclarecer alguma dúvida ou indicar horários. Se preferir retomar mais tarde, diga-me quando lhe será conveniente.\n\nJohnny Pereira\n{empresa}',
   },
 };
 export const LEAD_VARIABLES = [
@@ -88,7 +91,12 @@ export function parseLeadSettings(value: unknown): LeadWorkflowSettings | null {
     return null;
   const templates = {} as Record<LeadMessageKind, string>;
   for (const kind of Object.keys(LEAD_MESSAGES) as LeadMessageKind[]) {
-    const text = s.templates[kind];
+    // Older saved settings predate the dedicated voucher invitation.
+    const text =
+      s.templates[kind] ??
+      (kind === 'voucher'
+        ? DEFAULT_LEAD_SETTINGS.templates.voucher
+        : undefined);
     if (typeof text !== 'string' || !text.trim() || text.length > 2000)
       return null;
     const variables = [...text.matchAll(/\{([^{}]+)\}/g)].map(
@@ -116,9 +124,11 @@ export function suggestedLeadMessage(
     ? 'follow_up'
     : row.expiring !== undefined
       ? 'benefit'
-      : row.totalSessions
-        ? 'recovery'
-        : 'first_contact';
+      : row.availableVouchers
+        ? 'voucher'
+        : row.totalSessions
+          ? 'recovery'
+          : 'first_contact';
 }
 export function renderLeadMessage(
   template: string,

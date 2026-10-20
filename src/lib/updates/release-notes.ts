@@ -15,6 +15,21 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-20-lead-brand-messages',
+    date: '2026-10-20',
+    category: 'Melhoria',
+    title: 'Mensagens de relacionamento com a identidade JP Massagem',
+    areas: ['Leads'],
+    summary: 'Editor com tons verde e dourado, mensagens mais pessoais e convite dedicado a vouchers disponíveis.',
+    changes: [
+      'Organização por tipo de contacto, com edição de uma mensagem de cada vez e pré-visualização ilustrativa.',
+      'Textos de primeiro contacto, regresso, validade e seguimento com assinatura Johnny Pereira e linguagem de cuidado e bem-estar.',
+      'Nova mensagem Voucher disponível, sugerida para clientes com voucher ativo e saldo ou sessões livres, sem substituir o aviso de validade próxima.',
+      'Textos anteriormente guardados são preservados; o botão Usar textos JP Massagem permite carregar as novas sugestões antes de guardar.',
+    ],
+    howTo: 'Em Leads, abra Mensagens e tratativa. Escolha Usar textos JP Massagem para renovar os textos existentes, personalize e guarde. Em Tratar lead, escolha Voucher disponível para preparar o convite e reveja os dados antes de enviar no Inbox.',
+  },
+  {
     id: '2026-10-20-lead-schema-recovery',
     date: '2026-10-20',
     category: 'Correção',
