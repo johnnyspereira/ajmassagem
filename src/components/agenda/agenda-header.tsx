@@ -24,6 +24,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import styles from './agenda-workspace.module.css';
 
 interface AgendaHeaderProps {
   dateTitle: string;
@@ -81,14 +82,14 @@ export function AgendaHeader(props: AgendaHeaderProps) {
     },
   ];
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-primary mb-1 text-[10px] font-semibold tracking-[0.16em] uppercase">
+    <div className={cn(styles.header, 'shrink-0 space-y-2')}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className={cn(styles.heading, 'hidden min-w-0 lg:block')}>
+          <p className="text-primary mb-1 hidden text-[10px] font-semibold tracking-[0.16em] uppercase lg:block">
             Organização do atendimento
           </p>
-          <h1 className="text-2xl font-semibold tracking-tight">Agenda</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
+          <h1 className="text-xl font-semibold tracking-tight">Agenda</h1>
+          <p className="text-muted-foreground mt-1 hidden text-sm lg:block">
             O seu tempo, com tudo no lugar.
           </p>
         </div>
@@ -97,13 +98,16 @@ export function AgendaHeader(props: AgendaHeaderProps) {
             <>
               <Button
                 variant="outline"
-                className="h-10 rounded-xl"
+                className="h-9 rounded-xl px-2 text-xs sm:px-3 sm:text-sm"
                 onClick={props.onBlock}
               >
                 <Lock className="size-4" />
                 Bloquear horário
               </Button>
-              <Button className="h-10 rounded-xl px-4" onClick={props.onCreate}>
+              <Button
+                className="h-9 rounded-xl px-2 text-xs sm:px-3 sm:text-sm"
+                onClick={props.onCreate}
+              >
                 <Plus className="size-4" />
                 Nova marcação
               </Button>
@@ -113,7 +117,7 @@ export function AgendaHeader(props: AgendaHeaderProps) {
             <DropdownMenuTrigger
               aria-label="Mais opções da agenda"
               title="Mais opções"
-              className="border-border bg-card hover:bg-muted flex size-10 items-center justify-center rounded-xl border"
+              className="border-border bg-card hover:bg-muted flex size-9 items-center justify-center rounded-xl border"
             >
               <MoreHorizontal className="size-5" />
             </DropdownMenuTrigger>
@@ -139,33 +143,35 @@ export function AgendaHeader(props: AgendaHeaderProps) {
           </DropdownMenu>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className={cn(styles.metrics, 'grid grid-cols-4 gap-1.5 sm:gap-3')}>
         {metrics.map((metric) => (
           <div
             key={metric.label}
-            className="border-border bg-card rounded-2xl border p-4"
+            className="border-border bg-card min-w-0 rounded-xl border px-2 py-1.5 sm:px-3"
           >
             <div className="flex items-center justify-between gap-2">
-              <p className="text-muted-foreground text-xs">{metric.label}</p>
+              <p className="text-muted-foreground truncate text-[10px] sm:text-xs">
+                {metric.label}
+              </p>
               <span
                 className={cn(
-                  'flex size-8 items-center justify-center rounded-xl',
+                  'hidden size-6 items-center justify-center rounded-lg sm:flex',
                   metric.tone
                 )}
               >
                 <metric.icon className="size-4" />
               </span>
             </div>
-            <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
+            <p className="text-base font-semibold tracking-tight tabular-nums sm:text-lg">
               {metric.value}
             </p>
-            <p className="text-muted-foreground mt-1 text-[11px]">
+            <p className="text-muted-foreground hidden text-[11px] xl:block">
               {metric.detail}
             </p>
           </div>
         ))}
       </div>
-      <div className="border-border bg-card flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-3 sm:px-4">
+      <div className="border-border bg-card flex flex-wrap items-center justify-between gap-2 rounded-xl border p-2 sm:px-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <div className="bg-muted/60 flex items-center rounded-xl p-1">
             <Button
@@ -194,7 +200,12 @@ export function AgendaHeader(props: AgendaHeaderProps) {
               <ChevronRight className="size-4" />
             </Button>
           </div>
-          <h2 className="text-sm font-semibold capitalize sm:text-base">
+          <h2
+            className={cn(
+              styles.dateTitle,
+              'hidden text-xs font-semibold capitalize lg:block'
+            )}
+          >
             {props.dateTitle}
           </h2>
         </div>

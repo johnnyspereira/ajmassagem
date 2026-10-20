@@ -91,7 +91,7 @@ export function PublicAnamnesis({
           name: next.client_name || '',
           email: next.client_email || '',
           phone: next.client_phone || '',
-          birthDate: next.birth_date || '',
+          birthDate: next.birth_date?.slice(0, 10) || '',
         });
         setModalities(next.selected_modalities || []);
         setAnswers(
@@ -443,7 +443,10 @@ export function PublicAnamnesis({
             )}
             <Field label="Assinatura digital *">
               <SignaturePad value={signature} onChange={setSignature} />
-              <p className="text-muted-foreground mt-2 text-xs">Desenhe a sua assinatura. O nome informado acima será associado a esta confirmação.</p>
+              <p className="text-muted-foreground mt-2 text-xs">
+                Desenhe a sua assinatura. O nome informado acima será associado
+                a esta confirmação.
+              </p>
             </Field>
           </FormSection>
         </div>

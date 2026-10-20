@@ -16,6 +16,7 @@ import { DocumentTitle } from '@/components/layout/document-title';
 import { ContextualHelp } from '@/components/support/contextual-help';
 import { MobileAppNavigation } from '@/components/layout/mobile-app-navigation';
 import { NavigationState } from '@/components/layout/navigation-state';
+import agendaStyles from '@/components/agenda/agenda-workspace.module.css';
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
 // itself can stay a server component and export metadata (noindex) —
@@ -32,6 +33,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   // hydrating. Treat that state as the normal dashboard shell instead of
   // allowing a string call to take down every authenticated route.
   const isInboxWorkspace = pathname?.startsWith('/inbox') ?? false;
+  const isAgendaWorkspace = pathname === '/agenda';
 
   // Drawer on mobile and at every screen size inside the Inbox.
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -75,16 +77,24 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           />
           {!isInboxWorkspace && (
             <>
-              <Link
-                href="/finance?tab=pos"
-                aria-label="Abrir ponto de venda"
-                title="Abrir POS"
-                className="bg-primary text-primary-foreground hover:bg-primary-hover fixed right-5 bottom-24 z-40 flex size-12 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-offset-2 sm:right-5 sm:bottom-5"
+              {!isAgendaWorkspace && (
+                <Link
+                  href="/finance?tab=pos"
+                  aria-label="Abrir ponto de venda"
+                  title="Abrir POS"
+                  className="bg-primary text-primary-foreground hover:bg-primary-hover fixed right-5 bottom-24 z-40 flex size-12 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-offset-2 sm:right-5 sm:bottom-5"
+                >
+                  <ShoppingCart className="size-5" />
+                  <span className="sr-only">Abrir POS</span>
+                </Link>
+              )}
+              <div
+                className={
+                  isAgendaWorkspace ? agendaStyles.mobileNavigation : undefined
+                }
               >
-                <ShoppingCart className="size-5" />
-                <span className="sr-only">Abrir POS</span>
-              </Link>
-              <MobileAppNavigation onOpenMenu={() => setSidebarOpen(true)} />
+                <MobileAppNavigation onOpenMenu={() => setSidebarOpen(true)} />
+              </div>
             </>
           )}
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -93,10 +103,13 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
               drawerMenu={isInboxWorkspace}
             />
             <main
+              data-agenda-workspace={isAgendaWorkspace || undefined}
               className={
                 isInboxWorkspace
                   ? 'min-h-0 flex-1 overflow-hidden'
-                  : 'flex-1 overflow-y-auto p-4 pb-28 sm:p-6 sm:pb-28'
+                  : isAgendaWorkspace
+                    ? `${agendaStyles.agendaMain} min-h-0 flex-1 overflow-hidden p-2 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:px-4 lg:pb-4`
+                    : 'flex-1 overflow-y-auto p-4 pb-28 sm:p-6 sm:pb-28'
               }
             >
               {children}

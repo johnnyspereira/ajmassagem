@@ -1,0 +1,33 @@
+.workspace {
+  min-height: 0;
+}
+@media (max-height: 700px) {
+  .metrics {
+    display: none;
+  }
+}
+@media (max-height: 500px) and (min-width: 640px) {
+  .mobileNavigation {
+    display: none;
+  }
+  .workspace {
+    padding-bottom: 0;
+  }
+  .agendaMain {
+    padding-bottom: 8px;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .heading,
+  .dateTitle,
+  .filters details {
+    display: none;
+  }
+  .header > div {
+    margin: 0;
+  }
+}

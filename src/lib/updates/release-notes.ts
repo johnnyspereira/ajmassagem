@@ -15,6 +15,25 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-20-agenda-fixed-workspace',
+    date: '2026-10-20',
+    category: 'Melhoria',
+    title: 'Agenda com grelha fixa, idade do cliente e bloqueio do proprietário',
+    areas: ['Agenda', 'Clientes', 'Anamnese'],
+    summary: 'A grelha ocupa o espaço disponível, mantém datas e horas visíveis e adapta os controlos a ecrãs pequenos.',
+    changes: [
+      'Uma área de rolagem para horários e marcações, com datas fixas no topo e horas fixas à esquerda.',
+      'Vista diária ajustada à largura do dispositivo; a semana mantém a deslocação horizontal dentro da grelha.',
+      'Filtros recolhidos em telemóveis, resumos compactos e adaptação a ecrãs baixos e orientação horizontal.',
+      'Atalhos Início e Hora atual e posicionamento inicial perto da hora atual no período em curso.',
+      'Cartões com nome e hora em destaque, sem pequenas barras horizontais nos indicadores.',
+      'A agenda carrega a data de nascimento do cliente para calcular a idade na ficha da marcação.',
+      'Anamneses pendentes com data em falta recuperam-na do cliente associado na mesma conta; fichas submetidas ou revistas preservam o seu registo.',
+      'Opção do proprietário para bloquear períodos com marcações existentes, validada no servidor e registada no histórico, sem cancelar ou alterar essas marcações.',
+    ],
+    howTo: 'Abra Agenda e desloque os horários dentro da grelha. No telemóvel, use Filtros para escolher profissional ou sala. Em Bloquear horário, o proprietário pode assinalar Bloquear mesmo com marcações existentes. A idade aparece ao abrir a ficha de um cliente com data de nascimento preenchida.',
+  },
+  {
     id: '2026-10-20-control-center-child-exit',
     date: '2026-10-20',
     category: 'Correção',

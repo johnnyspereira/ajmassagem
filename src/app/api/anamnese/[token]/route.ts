@@ -27,7 +27,7 @@ export async function GET(
   const { data: form } = await db
     .from('clinic_anamnesis_forms')
     .select(
-      'id,account_id,appointment_id,service_id,status,client_name,client_email,client_phone,birth_date,selected_modalities,answers,health_consent,privacy_consent,signature_name,submitted_at,expires_at,service:clinic_services(name,category),appointment:clinic_appointments!clinic_anamnesis_forms_appointment_id_fkey(scheduled_start),account:accounts(name,logo_url)'
+      'id,account_id,contact_id,appointment_id,service_id,status,client_name,client_email,client_phone,birth_date,selected_modalities,answers,health_consent,privacy_consent,signature_name,submitted_at,expires_at,service:clinic_services(name,category),appointment:clinic_appointments!clinic_anamnesis_forms_appointment_id_fkey(scheduled_start),account:accounts(name,logo_url)'
     )
     .eq('public_token', token)
     .maybeSingle();
@@ -35,6 +35,19 @@ export async function GET(
     return Response.json({ error: 'Ficha indisponível.' }, { status: 404 });
   if (new Date(form.expires_at) < new Date() && form.status === 'pending')
     return Response.json({ error: 'Este link expirou.' }, { status: 410 });
+  // Pending forms created before the contact's birthday was recorded may
+  // have an empty snapshot. Read only the contact bound to this form/account.
+  let birthDate = form.birth_date;
+  const { contact_id: contactId, ...publicForm } = form;
+  if (!birthDate && form.status === 'pending' && contactId) {
+    const { data: contact } = await db
+      .from('contacts')
+      .select('birth_date')
+      .eq('id', contactId)
+      .eq('account_id', form.account_id)
+      .maybeSingle();
+    birthDate = contact?.birth_date || null;
+  }
   const { data: settings } = await db
     .from('clinic_communication_settings')
     .select('anamnesis_title,anamnesis_intro,anamnesis_form_config')
@@ -47,7 +60,8 @@ export async function GET(
     .maybeSingle();
   return Response.json({
     form: {
-      ...form,
+      ...publicForm,
+      birth_date: birthDate ? String(birthDate).slice(0, 10) : null,
       modality_locked: Boolean(
         form.appointment_id &&
         (form.service_id || form.selected_modalities?.length)

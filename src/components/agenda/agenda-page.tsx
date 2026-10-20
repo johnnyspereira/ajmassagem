@@ -73,6 +73,7 @@ import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactSearchSelect } from '@/components/contacts/contact-search-select';
 import { AppointmentHistoryImportModal } from '@/components/agenda/appointment-history-import-modal';
 import { AgendaHeader } from './agenda-header';
+import styles from './agenda-workspace.module.css';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import {
@@ -795,6 +796,9 @@ export function AgendaPage({
   const canOperate = useCan('send-messages');
 
   const [view, setView] = useState<CalendarView>('day');
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [preserveExistingAppointments, setPreserveExistingAppointments] =
+    useState(false);
   const [resourceMode, setResourceMode] = useState<ResourceMode>('all');
   const [selectedDate, setSelectedDate] = useState(() =>
     initialDate ? new Date(`${initialDate}T12:00:00`) : new Date()
@@ -955,6 +959,24 @@ export function AgendaPage({
       member.is_professional &&
       (member.id === profile?.id || member.user_id === user?.id)
   );
+  const coincidentBlockAppointments = findAvailabilityConflicts(
+    appointments.map((item) => ({
+      id: item.id,
+      kind: 'appointment',
+      startsAt: item.scheduled_start,
+      endsAt: item.scheduled_end,
+      professionalId: item.professional_profile_id,
+      roomId: item.room_id,
+      status: item.status,
+    })),
+    {
+      startsAt: appointmentDate(blockDraft.date, blockDraft.startTime),
+      endsAt: appointmentDate(blockDraft.date, blockDraft.endTime),
+      professionalId: blockDraft.professionalProfileId || null,
+      roomId: blockDraft.roomId || null,
+      globalResource: !blockDraft.professionalProfileId && !blockDraft.roomId,
+    }
+  ).length;
   const selectedService =
     services.find((service) => service.id === appointmentDraft.serviceId) ??
     null;
@@ -1312,7 +1334,10 @@ export function AgendaPage({
   const ensureAvailability = useCallback(
     async (
       request: AvailabilityRequest,
-      options: { allowTimeBlockOverride?: boolean } = {}
+      options: {
+        allowTimeBlockOverride?: boolean;
+        preserveAppointments?: boolean;
+      } = {}
     ) => {
       if (!accountId) return false;
 
@@ -1362,10 +1387,14 @@ export function AgendaPage({
         })) as AgendaResource[]),
       ];
       const conflicts = findAvailabilityConflicts(resources, request);
+      const checkedConflicts =
+        options.preserveAppointments && isOwner
+          ? conflicts.filter((item) => item.kind !== 'appointment')
+          : conflicts;
       const blockingConflicts =
         options.allowTimeBlockOverride && canOverrideTimeBlocks
-          ? conflicts.filter((item) => item.kind !== 'time_block')
-          : conflicts;
+          ? checkedConflicts.filter((item) => item.kind !== 'time_block')
+          : checkedConflicts;
       const message = availabilityConflictMessage(blockingConflicts);
       if (message) {
         toast.error(message);
@@ -1373,7 +1402,7 @@ export function AgendaPage({
       }
       return true;
     },
-    [accountId, canOverrideTimeBlocks, supabase]
+    [accountId, canOverrideTimeBlocks, isOwner, supabase]
   );
 
   const loadAgenda = useCallback(async () => {
@@ -1422,7 +1451,7 @@ export function AgendaPage({
       supabase
         .from('contacts')
         .select(
-          'id, user_id, account_id, phone, phone_normalized, client_reference, name, email, company, avatar_url, created_at, updated_at'
+          'id, user_id, account_id, phone, phone_normalized, client_reference, name, email, birth_date, company, avatar_url, created_at, updated_at'
         )
         .eq('account_id', accountId)
         .order('updated_at', { ascending: false })
@@ -2105,6 +2134,7 @@ export function AgendaPage({
   }
 
   function openTimeBlockDialog() {
+    setPreserveExistingAppointments(false);
     setEditingBlockId(null);
     setBlockEvents([]);
     setBlockDraft(
@@ -2118,6 +2148,7 @@ export function AgendaPage({
   }
 
   async function openTimeBlockSheet(block: TimeBlockRow) {
+    setPreserveExistingAppointments(false);
     setEditingBlockId(block.id);
     setBlockDraft(timeBlockDraftFromBlock(block));
     setBlockEvents(await loadAgendaEvents('time_block', block.id));
@@ -2135,14 +2166,18 @@ export function AgendaPage({
     }
 
     if (
-      !(await ensureAvailability({
-        startsAt,
-        endsAt,
-        professionalId: blockDraft.professionalProfileId || null,
-        roomId: blockDraft.roomId || null,
-        excludeBlockId: editingBlockId,
-        globalResource: !blockDraft.professionalProfileId && !blockDraft.roomId,
-      }))
+      !(await ensureAvailability(
+        {
+          startsAt,
+          endsAt,
+          professionalId: blockDraft.professionalProfileId || null,
+          roomId: blockDraft.roomId || null,
+          excludeBlockId: editingBlockId,
+          globalResource:
+            !blockDraft.professionalProfileId && !blockDraft.roomId,
+        },
+        { preserveAppointments: preserveExistingAppointments }
+      ))
     ) {
       return;
     }
@@ -2160,23 +2195,46 @@ export function AgendaPage({
       : null;
 
     setSavingBlock(true);
-    const result = editingBlockId
-      ? await supabase
-          .from('clinic_time_blocks')
-          .update(payload)
-          .eq('id', editingBlockId)
-          .eq('account_id', accountId)
-          .select('id')
-          .single()
-      : await supabase
-          .from('clinic_time_blocks')
-          .insert({
-            account_id: accountId,
-            user_id: user.id,
-            ...payload,
+    const ownerOverride = isOwner && preserveExistingAppointments;
+    const result = ownerOverride
+      ? await fetch('/api/clinic/time-blocks/owner', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...payload, id: editingBlockId || null }),
+        })
+          .then(async (response) => {
+            const body = await response.json();
+            return response.ok
+              ? { data: { id: String(body.id) }, error: null }
+              : {
+                  data: null,
+                  error: {
+                    message:
+                      body.error || 'Não foi possível bloquear o horário.',
+                  },
+                };
           })
-          .select('id')
-          .single();
+          .catch(() => ({
+            data: null,
+            error: { message: 'Não foi possível contactar o servidor.' },
+          }))
+      : editingBlockId
+        ? await supabase
+            .from('clinic_time_blocks')
+            .update(payload)
+            .eq('id', editingBlockId)
+            .eq('account_id', accountId)
+            .select('id')
+            .single()
+        : await supabase
+            .from('clinic_time_blocks')
+            .insert({
+              account_id: accountId,
+              user_id: user.id,
+              ...payload,
+            })
+            .select('id')
+            .single();
     setSavingBlock(false);
 
     if (result.error || !result.data) {
@@ -2188,21 +2246,22 @@ export function AgendaPage({
       return;
     }
 
-    void recordAgendaEvent({
-      entityType: 'time_block',
-      entityId: result.data.id,
-      action: editingBlockId ? 'updated' : 'created',
-      reason: blockDraft.reason.trim() || null,
-      oldStart: previousBlock?.starts_at ?? null,
-      oldEnd: previousBlock?.ends_at ?? null,
-      newStart: startsAt.toISOString(),
-      newEnd: endsAt.toISOString(),
-      metadata: {
-        professional_profile_id: payload.professional_profile_id,
-        room_id: payload.room_id,
-        online_block: payload.is_online_block,
-      },
-    });
+    if (!ownerOverride)
+      void recordAgendaEvent({
+        entityType: 'time_block',
+        entityId: result.data.id,
+        action: editingBlockId ? 'updated' : 'created',
+        reason: blockDraft.reason.trim() || null,
+        oldStart: previousBlock?.starts_at ?? null,
+        oldEnd: previousBlock?.ends_at ?? null,
+        newStart: startsAt.toISOString(),
+        newEnd: endsAt.toISOString(),
+        metadata: {
+          professional_profile_id: payload.professional_profile_id,
+          room_id: payload.room_id,
+          online_block: payload.is_online_block,
+        },
+      });
 
     toast.success(
       editingBlockId ? 'Bloqueio atualizado.' : 'Horário bloqueado.'
@@ -3955,7 +4014,13 @@ export function AgendaPage({
   }
 
   return (
-    <section className="space-y-5">
+    <section
+      aria-label="Área de trabalho da agenda"
+      className={cn(
+        styles.workspace,
+        'flex h-full min-h-0 min-w-0 flex-col gap-2'
+      )}
+    >
       <AgendaHeader
         dateTitle={formatRangeTitle(selectedDate, view)}
         date={dateInputValue(selectedDate)}
@@ -4127,9 +4192,14 @@ export function AgendaPage({
         </DialogContent>
       </Dialog>
 
-      <Card className="border-border overflow-hidden rounded-2xl shadow-none">
-        <CardContent className="space-y-3 p-4">
-          <div className="flex flex-wrap items-center gap-3">
+      <Card
+        className={cn(
+          styles.filters,
+          'border-border max-h-[30dvh] shrink-0 gap-0 overflow-y-auto rounded-xl py-0 shadow-none'
+        )}
+      >
+        <CardContent className="space-y-2 p-2 sm:px-3">
+          <div className="flex flex-wrap items-center gap-2">
             <SegmentedControl
               value={view}
               options={[
@@ -4138,45 +4208,71 @@ export function AgendaPage({
               ]}
               onChange={(value) => setView(value as CalendarView)}
             />
-            <SegmentedControl
-              value={resourceMode}
-              options={[
-                { value: 'all', label: 'Geral' },
-                { value: 'professional', label: 'Profissional' },
-                { value: 'room', label: 'Sala' },
-              ]}
-              onChange={(value) => setResourceMode(value as ResourceMode)}
-            />
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-              {resourceMode === 'professional' && (
-                <NativeSelect
-                  value={selectedProfessionalId}
-                  onChange={setSelectedProfessionalId}
-                >
-                  <option value="all">Todos os profissionais</option>
-                  {visibleProfessionals.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {professionalName(member)}
-                    </option>
-                  ))}
-                </NativeSelect>
+            <Button
+              variant="outline"
+              className="h-9 sm:hidden"
+              aria-expanded={filtersExpanded}
+              aria-controls="agenda-resource-filters"
+              onClick={() => setFiltersExpanded((value) => !value)}
+            >
+              {filtersExpanded
+                ? 'Ocultar filtros'
+                : resourceMode === 'all'
+                  ? 'Filtros'
+                  : 'Filtros ativos'}
+            </Button>
+            <div
+              id="agenda-resource-filters"
+              className={cn(
+                'flex min-w-0 flex-wrap items-center gap-2 sm:contents',
+                !filtersExpanded && 'hidden'
               )}
-              {resourceMode === 'room' && (
-                <NativeSelect
-                  value={selectedRoomId}
-                  onChange={setSelectedRoomId}
-                >
-                  <option value="all">Todas as salas</option>
-                  {activeRooms.map((room) => (
-                    <option key={room.id} value={room.id}>
-                      {room.name}
-                    </option>
-                  ))}
-                </NativeSelect>
-              )}
+            >
+              <SegmentedControl
+                value={resourceMode}
+                options={[
+                  { value: 'all', label: 'Geral' },
+                  { value: 'professional', label: 'Profissional' },
+                  { value: 'room', label: 'Sala' },
+                ]}
+                onChange={(value) => setResourceMode(value as ResourceMode)}
+              />
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                {resourceMode === 'professional' && (
+                  <NativeSelect
+                    value={selectedProfessionalId}
+                    onChange={setSelectedProfessionalId}
+                  >
+                    <option value="all">Todos os profissionais</option>
+                    {visibleProfessionals.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {professionalName(member)}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                )}
+                {resourceMode === 'room' && (
+                  <NativeSelect
+                    value={selectedRoomId}
+                    onChange={setSelectedRoomId}
+                  >
+                    <option value="all">Todas as salas</option>
+                    {activeRooms.map((room) => (
+                      <option key={room.id} value={room.id}>
+                        {room.name}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                )}
+              </div>
             </div>
           </div>
-          <details className="border-border border-t pt-3">
+          <details
+            className={cn(
+              'border-border border-t pt-2 sm:block',
+              !filtersExpanded && 'hidden'
+            )}
+          >
             <summary className="text-muted-foreground hover:text-foreground cursor-pointer text-xs font-medium">
               Benefícios e pagamentos
             </summary>
@@ -5657,7 +5753,7 @@ export function AgendaPage({
           }
         }}
       >
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               {editingBlockId ? 'Ficha do bloqueio' : 'Bloquear horário'}
@@ -5774,6 +5870,37 @@ export function AgendaPage({
                 </span>
               </span>
             </label>
+
+            {isOwner && (
+              <label className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={preserveExistingAppointments}
+                  onChange={(event) =>
+                    setPreserveExistingAppointments(event.target.checked)
+                  }
+                />
+                <span>
+                  <span className="block font-medium">
+                    Bloquear mesmo com marcações existentes
+                  </span>
+                  {coincidentBlockAppointments > 0 && (
+                    <span className="mt-1 block text-xs font-medium text-amber-700 dark:text-amber-300">
+                      {coincidentBlockAppointments}{' '}
+                      {coincidentBlockAppointments === 1
+                        ? 'marcação neste período será mantida.'
+                        : 'marcações neste período serão mantidas.'}
+                    </span>
+                  )}
+                  <span className="text-muted-foreground text-xs">
+                    Permissão do proprietário. As marcações existentes
+                    mantêm-se; o bloqueio impede novas reservas neste período.
+                    Não cancela nem altera sessões já agendadas.
+                  </span>
+                </span>
+              </label>
+            )}
 
             {editingBlockId ? (
               <AgendaEventList
@@ -7101,9 +7228,25 @@ function CalendarTimeGrid({
   onCreateAt?: (date: Date) => void;
 }) {
   const [now, setNow] = useState(() => new Date());
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const periodKey = days.map(dateInputValue).join(',');
   const gridHeight = (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * HOUR_HEIGHT;
-  const minDayWidth =
-    days.length === 1 ? 'minmax(680px,1fr)' : 'minmax(190px,1fr)';
+  const minDayWidth = days.length === 1 ? 'minmax(0,1fr)' : 'minmax(180px,1fr)';
+
+  useEffect(() => {
+    const frame = scrollRef.current;
+    if (!frame) return;
+    const current = new Date();
+    const isCurrentPeriod = periodKey
+      .split(',')
+      .includes(dateInputValue(current));
+    frame.scrollTop = Math.max(
+      0,
+      ((isCurrentPeriod ? current.getHours() - 1 : 9) - CALENDAR_START_HOUR) *
+        HOUR_HEIGHT
+    );
+    frame.scrollLeft = 0;
+  }, [periodKey]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
@@ -7111,223 +7254,271 @@ function CalendarTimeGrid({
   }, []);
 
   return (
-    <div className="border-border/70 bg-card max-h-[calc(100dvh-275px)] min-h-[520px] overflow-auto rounded-2xl border shadow-lg shadow-slate-950/5">
-      <div
-        className={days.length === 1 ? 'min-w-[700px]' : 'min-w-[1480px]'}
-        style={{
-          display: 'grid',
-          gridTemplateColumns: `64px repeat(${days.length}, ${minDayWidth})`,
-        }}
-      >
-        <div className="sticky top-0 left-0 z-30 flex min-h-16 items-center justify-center border-r border-b border-violet-200/70 bg-violet-50/95 px-2 text-[10px] font-bold tracking-[0.14em] text-violet-600 uppercase backdrop-blur dark:border-violet-900/60 dark:bg-violet-950/90 dark:text-violet-300">
-          Horário
+    <div className="border-border bg-card flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-1.5">
+        <p className="text-muted-foreground text-[11px]">
+          {days.length > 1
+            ? 'Semana · deslize para ver os dias'
+            : 'Horários e marcações'}
+        </p>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            className="h-7 px-2 text-xs"
+            onClick={() =>
+              scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+            }
+          >
+            Início
+          </Button>
+          <Button
+            variant="outline"
+            className="h-7 px-2 text-xs"
+            onClick={() =>
+              scrollRef.current?.scrollTo({
+                top: Math.max(
+                  0,
+                  (((new Date().getHours() - CALENDAR_START_HOUR) * 60 +
+                    new Date().getMinutes() -
+                    30) /
+                    60) *
+                    HOUR_HEIGHT
+                ),
+                behavior: 'smooth',
+              })
+            }
+          >
+            <Clock3 className="size-3" />
+            Hora atual
+          </Button>
         </div>
-        {days.map((day) => {
-          const today = new Date();
-          const isToday =
-            day.getFullYear() === today.getFullYear() &&
-            day.getMonth() === today.getMonth() &&
-            day.getDate() === today.getDate();
-          return (
-            <div
-              key={day.toISOString()}
-              className={cn(
-                'sticky top-0 z-20 flex min-h-16 items-center gap-3 border-b px-4 backdrop-blur',
-                isToday
-                  ? 'border-violet-300/70 bg-gradient-to-r from-violet-100/95 to-fuchsia-50/95 dark:border-violet-800 dark:from-violet-950/95 dark:to-fuchsia-950/80'
-                  : 'border-border bg-background/95'
-              )}
-            >
-              <span
+      </div>
+      <div
+        ref={scrollRef}
+        role="region"
+        aria-label="Horários e marcações da agenda"
+        tabIndex={0}
+        className="focus-visible:outline-primary relative isolate min-h-0 flex-1 [scrollbar-gutter:stable] overflow-auto overscroll-contain focus-visible:outline-2"
+      >
+        <div
+          className={days.length === 1 ? 'min-w-full' : 'min-w-[1312px]'}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: `52px repeat(${days.length}, ${minDayWidth})`,
+          }}
+        >
+          <div className="bg-card text-muted-foreground sticky top-0 left-0 z-50 flex min-h-14 items-center justify-center border-r border-b px-1 text-[9px] font-semibold">
+            Horário
+          </div>
+          {days.map((day) => {
+            const today = new Date();
+            const isToday =
+              day.getFullYear() === today.getFullYear() &&
+              day.getMonth() === today.getMonth() &&
+              day.getDate() === today.getDate();
+            return (
+              <div
+                key={day.toISOString()}
                 className={cn(
-                  'flex size-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold',
+                  'sticky top-0 z-40 flex min-h-14 items-center gap-2 border-b px-3',
                   isToday
-                    ? 'bg-violet-600 text-white shadow-sm shadow-violet-500/30'
-                    : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
+                    ? 'border-primary/20 bg-card'
+                    : 'border-border bg-card'
                 )}
               >
-                {day.getDate()}
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-bold capitalize">
-                  {new Intl.DateTimeFormat('pt-PT', { weekday: 'long' }).format(
-                    day
+                <span
+                  className={cn(
+                    'flex size-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold',
+                    isToday
+                      ? 'bg-violet-600 text-white shadow-sm shadow-violet-500/30'
+                      : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
                   )}
-                </span>
-                <span className="text-muted-foreground block text-xs capitalize">
-                  {new Intl.DateTimeFormat('pt-PT', {
-                    month: 'long',
-                    year: 'numeric',
-                  }).format(day)}
-                  {isToday ? ' · Hoje' : ''}
-                </span>
-              </span>
-            </div>
-          );
-        })}
-
-        <div
-          className="via-background sticky left-0 z-10 border-r border-violet-200/60 bg-gradient-to-b from-violet-50/80 to-sky-50/60 dark:border-violet-900/50 dark:from-violet-950/30 dark:to-sky-950/20"
-          style={{ height: gridHeight }}
-        >
-          {Array.from(
-            { length: CALENDAR_END_HOUR - CALENDAR_START_HOUR + 1 },
-            (_, index) => CALENDAR_START_HOUR + index
-          ).map((hour) => (
-            <div
-              key={hour}
-              className="bg-background absolute right-2 -translate-y-1/2 rounded-full border border-violet-200/70 px-2 py-0.5 text-[10px] font-semibold text-violet-700 shadow-sm dark:border-violet-900 dark:text-violet-300"
-              style={{ top: (hour - CALENDAR_START_HOUR) * HOUR_HEIGHT }}
-            >
-              {pad(hour)}:00
-            </div>
-          ))}
-        </div>
-
-        {days.map((day) => {
-          const dayStart = new Date(day);
-          dayStart.setHours(0, 0, 0, 0);
-          const dayEnd = addDays(dayStart, 1);
-          const dayAppointments = appointments.filter((appointment) => {
-            const time = new Date(appointment.scheduled_start).getTime();
-            return time >= dayStart.getTime() && time < dayEnd.getTime();
-          });
-          const dayBlocks = blocks.filter((block) => {
-            const time = new Date(block.starts_at).getTime();
-            return time >= dayStart.getTime() && time < dayEnd.getTime();
-          });
-          const appointmentLayout = layoutAppointments(dayAppointments);
-          const isToday =
-            dayStart.getFullYear() === now.getFullYear() &&
-            dayStart.getMonth() === now.getMonth() &&
-            dayStart.getDate() === now.getDate();
-          const currentMinute = now.getHours() * 60 + now.getMinutes();
-          const currentTop =
-            ((currentMinute - CALENDAR_START_HOUR * 60) / 60) * HOUR_HEIGHT;
-
-          return (
-            <div
-              key={day.toISOString()}
-              className="group/day border-border relative border-r last:border-r-0"
-              onDragOver={(event) => event.preventDefault()}
-              onDoubleClick={(event) => {
-                if (!onCreateAt || event.target !== event.currentTarget) return;
-                const rect = event.currentTarget.getBoundingClientRect();
-                const y = Math.max(0, event.clientY - rect.top);
-                const rawMinutes = (y / HOUR_HEIGHT) * 60;
-                const minutesFromStart = Math.max(
-                  0,
-                  Math.min(
-                    (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 60 - 15,
-                    snapMinutesToGrid(rawMinutes)
-                  )
-                );
-                const targetStart = new Date(day);
-                targetStart.setHours(
-                  CALENDAR_START_HOUR + Math.floor(minutesFromStart / 60),
-                  minutesFromStart % 60,
-                  0,
-                  0
-                );
-                onCreateAt(targetStart);
-              }}
-              onDrop={(event) => {
-                if (!onMove) return;
-                const appointmentId = event.dataTransfer.getData('text/plain');
-                if (!appointmentId) return;
-                const rect = event.currentTarget.getBoundingClientRect();
-                const y = Math.max(0, event.clientY - rect.top);
-                const rawMinutes = Math.round((y / HOUR_HEIGHT) * 60);
-                const minutesFromStart = Math.max(
-                  0,
-                  Math.min(
-                    (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 60 - 15,
-                    snapMinutesToGrid(rawMinutes)
-                  )
-                );
-                const targetStart = new Date(day);
-                targetStart.setHours(
-                  CALENDAR_START_HOUR + Math.floor(minutesFromStart / 60),
-                  minutesFromStart % 60,
-                  0,
-                  0
-                );
-                onMove(appointmentId, targetStart);
-              }}
-              style={{
-                height: gridHeight,
-                backgroundImage:
-                  'repeating-linear-gradient(to bottom, rgba(248,250,252,.72) 0, rgba(248,250,252,.72) 41px, rgba(226,232,240,.8) 41px, rgba(226,232,240,.8) 42px, rgba(255,255,255,.78) 42px, rgba(255,255,255,.78) 83px, rgba(148,163,184,.28) 83px, rgba(148,163,184,.28) 84px)',
-              }}
-            >
-              {onCreateAt
-                ? Array.from(
-                    {
-                      length: (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 2,
-                    },
-                    (_, slot) => {
-                      const targetStart = new Date(day);
-                      targetStart.setHours(
-                        CALENDAR_START_HOUR + Math.floor(slot / 2),
-                        (slot % 2) * 30,
-                        0,
-                        0
-                      );
-                      return (
-                        <button
-                          key={slot}
-                          type="button"
-                          className="group/slot absolute right-0 left-0 z-0 flex items-center justify-end pr-3 text-transparent transition hover:bg-violet-500/5 hover:text-violet-600 focus-visible:bg-violet-500/10 focus-visible:text-violet-600 focus-visible:outline-none"
-                          style={{
-                            top: slot * (HOUR_HEIGHT / 2),
-                            height: HOUR_HEIGHT / 2,
-                          }}
-                          onClick={() => onCreateAt(targetStart)}
-                          title={`Criar marcação às ${timeInputValue(targetStart)}`}
-                        >
-                          <span className="rounded-full border border-violet-300 bg-white px-2 py-0.5 text-[10px] font-semibold opacity-0 shadow-sm transition-opacity group-hover/slot:opacity-100 group-focus-visible/slot:opacity-100 dark:bg-slate-950">
-                            + {timeInputValue(targetStart)}
-                          </span>
-                        </button>
-                      );
-                    }
-                  )
-                : null}
-              {isToday && currentTop >= 0 && currentTop <= gridHeight ? (
-                <div
-                  className="pointer-events-none absolute right-0 left-0 z-20 border-t-2 border-rose-500"
-                  style={{ top: currentTop }}
                 >
-                  <span className="absolute -top-1.5 -left-1 size-3 rounded-full bg-rose-500" />
-                </div>
-              ) : null}
-              {dayBlocks.map((block) => (
-                <TimeBlockCard
-                  key={block.id}
-                  block={block}
-                  onSelect={() =>
-                    block.external_calendar_feed_id
-                      ? undefined
-                      : onSelectBlock(block)
-                  }
-                />
-              ))}
-              {dayAppointments.map((appointment) => (
-                <AppointmentBlock
-                  key={appointment.id}
-                  appointment={appointment}
-                  currency={currency}
-                  pendingReschedule={
-                    pendingReschedulePreferences[appointment.id]
-                  }
-                  onSelect={() => onSelect(appointment)}
-                  canMove={Boolean(onMove)}
-                  layout={appointmentLayout.get(appointment.id)}
-                />
-              ))}
-            </div>
-          );
-        })}
+                  {day.getDate()}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-bold capitalize">
+                    {new Intl.DateTimeFormat('pt-PT', {
+                      weekday: 'long',
+                    }).format(day)}
+                  </span>
+                  <span className="text-muted-foreground block text-xs capitalize">
+                    {new Intl.DateTimeFormat('pt-PT', {
+                      month: 'long',
+                      year: 'numeric',
+                    }).format(day)}
+                    {isToday ? ' · Hoje' : ''}
+                  </span>
+                </span>
+              </div>
+            );
+          })}
+
+          <div
+            className="bg-card sticky left-0 z-30 border-r"
+            style={{ height: gridHeight }}
+          >
+            {Array.from(
+              { length: CALENDAR_END_HOUR - CALENDAR_START_HOUR + 1 },
+              (_, index) => CALENDAR_START_HOUR + index
+            ).map((hour) => (
+              <div
+                key={hour}
+                className="bg-background absolute right-2 -translate-y-1/2 rounded-full border border-violet-200/70 px-2 py-0.5 text-[10px] font-semibold text-violet-700 shadow-sm dark:border-violet-900 dark:text-violet-300"
+                style={{ top: (hour - CALENDAR_START_HOUR) * HOUR_HEIGHT }}
+              >
+                {pad(hour)}:00
+              </div>
+            ))}
+          </div>
+
+          {days.map((day) => {
+            const dayStart = new Date(day);
+            dayStart.setHours(0, 0, 0, 0);
+            const dayEnd = addDays(dayStart, 1);
+            const dayAppointments = appointments.filter((appointment) => {
+              const time = new Date(appointment.scheduled_start).getTime();
+              return time >= dayStart.getTime() && time < dayEnd.getTime();
+            });
+            const dayBlocks = blocks.filter((block) => {
+              const time = new Date(block.starts_at).getTime();
+              return time >= dayStart.getTime() && time < dayEnd.getTime();
+            });
+            const appointmentLayout = layoutAppointments(dayAppointments);
+            const isToday =
+              dayStart.getFullYear() === now.getFullYear() &&
+              dayStart.getMonth() === now.getMonth() &&
+              dayStart.getDate() === now.getDate();
+            const currentMinute = now.getHours() * 60 + now.getMinutes();
+            const currentTop =
+              ((currentMinute - CALENDAR_START_HOUR * 60) / 60) * HOUR_HEIGHT;
+
+            return (
+              <div
+                key={day.toISOString()}
+                className="group/day border-border relative border-r last:border-r-0"
+                onDragOver={(event) => event.preventDefault()}
+                onDoubleClick={(event) => {
+                  if (!onCreateAt || event.target !== event.currentTarget)
+                    return;
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  const y = Math.max(0, event.clientY - rect.top);
+                  const rawMinutes = (y / HOUR_HEIGHT) * 60;
+                  const minutesFromStart = Math.max(
+                    0,
+                    Math.min(
+                      (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 60 - 15,
+                      snapMinutesToGrid(rawMinutes)
+                    )
+                  );
+                  const targetStart = new Date(day);
+                  targetStart.setHours(
+                    CALENDAR_START_HOUR + Math.floor(minutesFromStart / 60),
+                    minutesFromStart % 60,
+                    0,
+                    0
+                  );
+                  onCreateAt(targetStart);
+                }}
+                onDrop={(event) => {
+                  if (!onMove) return;
+                  const appointmentId =
+                    event.dataTransfer.getData('text/plain');
+                  if (!appointmentId) return;
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  const y = Math.max(0, event.clientY - rect.top);
+                  const rawMinutes = Math.round((y / HOUR_HEIGHT) * 60);
+                  const minutesFromStart = Math.max(
+                    0,
+                    Math.min(
+                      (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 60 - 15,
+                      snapMinutesToGrid(rawMinutes)
+                    )
+                  );
+                  const targetStart = new Date(day);
+                  targetStart.setHours(
+                    CALENDAR_START_HOUR + Math.floor(minutesFromStart / 60),
+                    minutesFromStart % 60,
+                    0,
+                    0
+                  );
+                  onMove(appointmentId, targetStart);
+                }}
+                style={{
+                  height: gridHeight,
+                  backgroundImage:
+                    'repeating-linear-gradient(to bottom, transparent 0, transparent 41px, var(--border) 41px, var(--border) 42px, transparent 42px, transparent 83px, var(--border) 83px, var(--border) 84px)',
+                }}
+              >
+                {onCreateAt
+                  ? Array.from(
+                      {
+                        length: (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 2,
+                      },
+                      (_, slot) => {
+                        const targetStart = new Date(day);
+                        targetStart.setHours(
+                          CALENDAR_START_HOUR + Math.floor(slot / 2),
+                          (slot % 2) * 30,
+                          0,
+                          0
+                        );
+                        return (
+                          <button
+                            key={slot}
+                            type="button"
+                            className="group/slot absolute right-0 left-0 z-0 flex items-center justify-end pr-3 text-transparent transition hover:bg-violet-500/5 hover:text-violet-600 focus-visible:bg-violet-500/10 focus-visible:text-violet-600 focus-visible:outline-none"
+                            style={{
+                              top: slot * (HOUR_HEIGHT / 2),
+                              height: HOUR_HEIGHT / 2,
+                            }}
+                            onClick={() => onCreateAt(targetStart)}
+                            title={`Criar marcação às ${timeInputValue(targetStart)}`}
+                          >
+                            <span className="rounded-full border border-violet-300 bg-white px-2 py-0.5 text-[10px] font-semibold opacity-0 shadow-sm transition-opacity group-hover/slot:opacity-100 group-focus-visible/slot:opacity-100 dark:bg-slate-950">
+                              + {timeInputValue(targetStart)}
+                            </span>
+                          </button>
+                        );
+                      }
+                    )
+                  : null}
+                {isToday && currentTop >= 0 && currentTop <= gridHeight ? (
+                  <div
+                    className="pointer-events-none absolute right-0 left-0 z-20 border-t-2 border-rose-500"
+                    style={{ top: currentTop }}
+                  >
+                    <span className="absolute -top-1.5 -left-1 size-3 rounded-full bg-rose-500" />
+                  </div>
+                ) : null}
+                {dayBlocks.map((block) => (
+                  <TimeBlockCard
+                    key={block.id}
+                    block={block}
+                    onSelect={() =>
+                      block.external_calendar_feed_id
+                        ? undefined
+                        : onSelectBlock(block)
+                    }
+                  />
+                ))}
+                {dayAppointments.map((appointment) => (
+                  <AppointmentBlock
+                    key={appointment.id}
+                    appointment={appointment}
+                    currency={currency}
+                    pendingReschedule={
+                      pendingReschedulePreferences[appointment.id]
+                    }
+                    onSelect={() => onSelect(appointment)}
+                    canMove={Boolean(onMove)}
+                    layout={appointmentLayout.get(appointment.id)}
+                  />
+                ))}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -7359,6 +7550,8 @@ function AppointmentBlock({
     <button
       type="button"
       draggable={canMove}
+      aria-label={`${appointmentContactLabel(appointment.contact)} · ${appointmentRange(appointment)} · ${appointment.service?.name ?? 'Sessão'} · ${professionalName(appointment.professional)}`}
+      title={`${appointmentContactLabel(appointment.contact)} · ${appointmentRange(appointment)} · ${professionalName(appointment.professional)}`}
       onDragStart={(event) => {
         if (!canMove) {
           event.preventDefault();
@@ -7401,9 +7594,12 @@ function AppointmentBlock({
             {appointmentContactLabel(appointment.contact)}
           </p>
           <p className="truncate text-[11px] font-medium">
+            {appointmentRange(appointment)}
+          </p>
+          <p className="truncate text-[11px] font-medium">
             {appointment.service?.name ?? 'Procedimento'}
           </p>
-          <span className="mt-0.5 flex max-w-full [scrollbar-width:none] flex-nowrap items-center gap-1 overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden">
+          <span className="mt-0.5 hidden max-h-5 max-w-full flex-wrap items-center gap-1 overflow-hidden sm:flex">
             {portalApprovalPending ? (
               <span
                 className="inline-flex items-center gap-0.5 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-amber-950 uppercase"
@@ -7461,12 +7657,8 @@ function AppointmentBlock({
             ) : null}
             <AppointmentBenefitBadge appointment={appointment} />
           </span>
-          <p className="truncate text-[11px]">
-            {appointmentRange(appointment)} ·{' '}
-            {professionalName(appointment.professional)}
-          </p>
-          <p className="truncate text-[11px]">
-            {appointment.room?.name ?? 'Sem sala'} ·{' '}
+          <p className="hidden truncate text-[11px] md:block">
+            {professionalName(appointment.professional)} · {appointment.room?.name ?? 'Sem sala'} ·{' '}
             {formatCurrency(
               Number(appointment.price ?? 0),
               appointment.currency || currency
