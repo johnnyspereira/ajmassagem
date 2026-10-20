@@ -12,7 +12,7 @@ export const defaultAppointmentMessageTemplates: AppointmentMessageTemplates = {
   confirmation:
     '✨ *Detalhes da sua marcação* ✨\nOlá, {cliente} 😊\n\n💆 *Serviço:* {servico}\n📅 *Data:* {data}\n🕘 *Horário:* {hora}\n🎟️ {beneficio}\n🙎🏻‍♂️ *Profissional:* {profissional}\n📍 *Morada:* {morada}\n\nPara confirmar responda *CONFIRMAR*. Para alterar responda *REAGENDAR*.\n\n{link_anamnese}\n\n*{empresa}*',
   reminder:
-    'Olá, {cliente}. 😊\n\nLembramos a sua sessão de *{servico}* em {data}, às {hora}.\n{beneficio}\n\nCaso necessite de apoio, responda a esta mensagem.\n\n*{empresa}*',
+    'Olá, {cliente}.\n\nLembramos o seu momento de cuidado na *{empresa}*: *{servico}*, em {data}, às {hora}.\n{beneficio}\n\nPara confirmar a sua presença, responda *CONFIRMAR*. Se precisar de outro horário, responda *REAGENDAR*.\n\nAté breve,\nJohnny Pereira\n*{empresa}*',
   pending_confirmation:
     'Olá, {cliente}. 😊\n\nAinda aguardamos a confirmação da sua sessão de *{servico}*, em {data}, às {hora}.\n\nResponda *CONFIRMAR* ou *REAGENDAR*.\n\n*{empresa}*',
 };
@@ -189,7 +189,7 @@ export function buildAppointmentMessage(
     options.parkingInfo ? `🚙 ${options.parkingInfo}` : null,
     options.paymentMethods ? `📲 Pagamento: ${options.paymentMethods}` : null,
     action === 'reminder'
-      ? 'Esta é uma lembrança da sua sessão. Caso precise de apoio, responda a esta mensagem.'
+      ? 'Para confirmar a sua presença, responda *CONFIRMAR*. Se precisar de outro horário, responda *REAGENDAR*.'
       : 'Para confirmar a sua presença, responda *CONFIRMAR*. Para solicitar outro horário, responda *REAGENDAR*.',
   ]
     .filter((line): line is string => line !== null)

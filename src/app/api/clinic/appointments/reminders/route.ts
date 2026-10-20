@@ -22,13 +22,13 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const windowMinutes = clampNumber(
-    Number(url.searchParams.get('window_minutes')),
+    Number(url.searchParams.get('window_minutes') ?? DEFAULT_WINDOW_MINUTES),
     DEFAULT_WINDOW_MINUTES,
     1,
     MAX_WINDOW_MINUTES
   );
   const limit = clampNumber(
-    Number(url.searchParams.get('limit')),
+    Number(url.searchParams.get('limit') ?? DEFAULT_LIMIT),
     DEFAULT_LIMIT,
     1,
     MAX_LIMIT
@@ -43,6 +43,7 @@ export async function GET(request: Request) {
     .from('clinic_appointments')
     .select('id,account_id,confirmation_requested_at')
     .eq('confirmation_status', 'pending')
+    .in('status', ['scheduled', 'confirmed'])
     .is('confirmation_reminder_sent_at', null)
     .not('confirmation_requested_at', 'is', null)
     .lte('confirmation_requested_at', pendingBefore.toISOString())
@@ -89,12 +90,21 @@ export async function GET(request: Request) {
       .maybeSingle();
     if (!claimed) continue;
     try {
-      await sendAppointmentCommunication({
+      const delivery = await sendAppointmentCommunication({
         db,
         appointmentId: pending.id,
         origin: new URL(request.url).origin,
         action: 'pending_confirmation',
       });
+      if (
+        !delivery.deliveries ||
+        !(
+          delivery.deliveries.whatsapp.sent ||
+          delivery.deliveries.whatsapp.queued ||
+          delivery.deliveries.email.sent
+        )
+      )
+        throw new Error('Nenhum canal aceitou o pedido de confirmação.');
       confirmationRemindersSent++;
     } catch (pendingSendError) {
       const message =
@@ -156,12 +166,21 @@ export async function GET(request: Request) {
     }
 
     try {
-      await sendAppointmentCommunication({
+      const delivery = await sendAppointmentCommunication({
         db,
         appointmentId: appointment.id,
         origin: new URL(request.url).origin,
         action: 'reminder',
       });
+      if (
+        !delivery.deliveries ||
+        !(
+          delivery.deliveries.whatsapp.sent ||
+          delivery.deliveries.whatsapp.queued ||
+          delivery.deliveries.email.sent
+        )
+      )
+        throw new Error('Nenhum canal aceitou o lembrete.');
       sent++;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

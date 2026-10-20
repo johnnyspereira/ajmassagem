@@ -15,6 +15,22 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-20-automatic-session-reminders',
+    date: '2026-10-20',
+    category: 'Correção',
+    title: 'Execução periódica dos lembretes da agenda',
+    areas: ['Agenda', 'WhatsApp'],
+    summary: 'Rotina local para consultar os lembretes a cada cinco minutos e correção do intervalo de pesquisa das sessões.',
+    changes: [
+      'Janela predefinida corrigida para duas horas antes da sessão, em vez de um minuto quando não eram enviados parâmetros.',
+      'Pedidos pendentes limitados a marcações agendadas ou confirmadas, excluindo canceladas e concluídas.',
+      'Falhas sem canal de entrega deixam de contar como envio concluído e libertam a tentativa para nova execução.',
+      'Texto sugerido de lembrete inclui CONFIRMAR e REAGENDAR.',
+      'Instalador de tarefa Windows e registo local de execuções sem dados de clientes nem credenciais.',
+    ],
+    howTo: 'O agendador local requer computador ligado, sessão Windows iniciada e internet. Os pedidos de confirmação pendentes respeitam o prazo e a opção definidos em Definições → Clínica. Textos personalizados anteriormente guardados são preservados.',
+  },
+  {
     id: '2026-10-20-relationship-pipeline-agenda-cards',
     date: '2026-10-20',
     category: 'Melhoria',
