@@ -133,11 +133,13 @@ export async function sendAppointmentCommunication({
       ? item.service[0]
       : item.service;
     if (!serviceItem?.name) return [];
-    return [{
-      name: serviceItem.name,
-      price: Number(item.price ?? serviceItem.price ?? 0),
-      isOffer: item.is_offer === true,
-    }];
+    return [
+      {
+        name: serviceItem.name,
+        price: Number(item.price ?? serviceItem.price ?? 0),
+        isOffer: item.is_offer === true,
+      },
+    ];
   });
   const messageOptions = {
     clinicAddress: settings?.clinic_address,
@@ -156,9 +158,7 @@ export async function sendAppointmentCommunication({
     messageOptions
   );
   const configuredTemplates = settings?.automated_message_templates as
-    | Partial<AppointmentMessageTemplates>
-    | null
-    | undefined;
+    Partial<AppointmentMessageTemplates> | null | undefined;
   const configuredTemplate = configuredTemplates?.[action];
   const generatedText =
     typeof configuredTemplate === 'string' && configuredTemplate.trim()
@@ -192,14 +192,22 @@ export async function sendAppointmentCommunication({
       anamnesisUrl,
       benefit,
     }),
-    requestKey: `appointment:${appointment.id}:${action}${retry ? `:retry:${Date.now()}` : ''}`,
+    requestKey: `appointment:${appointment.id}:${action}:${new Date(appointment.scheduled_start).toISOString()}${retry ? `:retry:${Date.now()}` : ''}`,
   });
   const now = new Date().toISOString();
   const update =
     action === 'pending_confirmation'
       ? { confirmation_reminder_sent_at: now }
       : action === 'reminder'
-        ? { reminder_sent_at: now }
+        ? {
+            reminder_sent_at: now,
+            confirmation_requested_at:
+              appointment.confirmation_requested_at || now,
+            confirmation_status:
+              appointment.confirmation_status === 'not_requested'
+                ? 'pending'
+                : appointment.confirmation_status,
+          }
         : confirmationApproved
           ? {
               confirmation_status: 'confirmed',
@@ -209,12 +217,12 @@ export async function sendAppointmentCommunication({
               confirmation_request_message: text,
             }
           : {
-            confirmation_status: 'pending',
-            confirmation_requested_at: now,
-            confirmation_response_at: null,
-            confirmation_sent_at: now,
-            confirmation_request_message: text,
-          };
+              confirmation_status: 'pending',
+              confirmation_requested_at: now,
+              confirmation_response_at: null,
+              confirmation_sent_at: now,
+              confirmation_request_message: text,
+            };
   if (deliveries.whatsapp.sent || deliveries.email.sent)
     await db
       .from('clinic_appointments')
@@ -510,7 +518,11 @@ async function deliverChannels(input: {
   } else result.whatsapp.skipped = true;
   if (input.email) {
     try {
-      await sendLocalEmail({ to: input.email, profile: 'agenda', ...input.emailContent });
+      await sendLocalEmail({
+        to: input.email,
+        profile: 'agenda',
+        ...input.emailContent,
+      });
       result.email.sent = true;
     } catch (error) {
       result.email.error = errorMessage(error, 'Falha no email.');

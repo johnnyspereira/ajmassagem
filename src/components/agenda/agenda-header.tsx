@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import {
   CalendarClock,
+  BellRing,
   CalendarCheck,
   CalendarSync,
   ChevronLeft,
@@ -122,6 +123,10 @@ export function AgendaHeader(props: AgendaHeaderProps) {
               <MoreHorizontal className="size-5" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-60 rounded-xl p-1.5">
+              <DropdownMenuItem render={<Link href="/agenda/lembretes" />}>
+                <BellRing className="size-4" />
+                Lembretes e confirmações
+              </DropdownMenuItem>
               <DropdownMenuItem render={<Link href="/settings?tab=clinic" />}>
                 <Settings2 className="size-4" />
                 Configurar clínica

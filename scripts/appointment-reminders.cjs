@@ -6,7 +6,7 @@ const origin=process.env.NEXT_PUBLIC_APP_URL || process.env.CRM_URL;
 async function main(){
   if(!secret||!origin)throw Error('Configure AUTOMATION_CRON_SECRET e NEXT_PUBLIC_APP_URL no ambiente local.');
   const url=new URL('/api/clinic/appointments/reminders',origin);
-  url.searchParams.set('window_minutes','120');url.searchParams.set('limit','25');
+  url.searchParams.set('window_minutes','1440');url.searchParams.set('limit','25');
   const response=await fetch(url,{headers:{'x-cron-secret':secret},signal:AbortSignal.timeout(110000)});
   if(!response.ok)throw Error(`Rotina de lembretes devolveu HTTP ${response.status}.`);
   const result=await response.json();

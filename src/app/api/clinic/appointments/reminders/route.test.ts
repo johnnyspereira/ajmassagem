@@ -61,13 +61,13 @@ it('rejects unauthenticated invocations before querying or sending', async () =>
   expect(mocks.queries).toHaveLength(0);
   expect(mocks.send).not.toHaveBeenCalled();
 });
-it('uses the intended two hour window and batch size without query parameters', async () => {
+it('uses the intended 24 hour window and batch size without query parameters', async () => {
   const response = await GET(
     new Request('https://crm.test/api/clinic/appointments/reminders', {
       headers: { 'x-cron-secret': 'test-cron' },
     })
   );
-  expect((await response.json()).window_minutes).toBe(120);
+  expect((await response.json()).window_minutes).toBe(1440);
   expect(
     mocks.queries.filter((q) => q.method === 'limit').map((q) => q.args[0])
   ).toEqual([25, 25]);

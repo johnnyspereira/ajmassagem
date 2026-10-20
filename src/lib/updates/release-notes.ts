@@ -15,6 +15,23 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-20-session-reminder-tracking',
+    date: '2026-10-20',
+    category: 'Melhoria',
+    title: 'Lembretes com 24 horas de antecedência e acompanhamento das respostas',
+    areas: ['Agenda', 'WhatsApp'],
+    summary: 'Página de lembretes e confirmações e atualização automática de respostas claras recebidas pelo WhatsApp QR.',
+    changes: [
+      'Janela de envio alterada para 24 horas antes da sessão, verificada a cada cinco minutos pelo agendador local.',
+      'Pedidos de confirmação pendentes limitados à mesma janela para evitar avisos antecipados e duplicação do lembrete na mesma execução.',
+      'Página Agenda → Lembretes e confirmações apresenta sessões, tentativas por canal, filas, falhas e respostas registadas.',
+      'CONFIRMAR atualiza a confirmação de uma sessão futura elegível; perguntas, negações e múltiplas sessões não são confirmadas por suposição.',
+      'CANCELAR cancela a sessão identificada e liberta benefícios reservados, sem realizar reembolsos.',
+      'REAGENDAR propõe horários; a escolha do cliente aplica a nova data após validar novamente conflitos, bloqueios e a sessão original, com histórico e aviso à equipa.',
+    ],
+    howTo: 'Na agenda, abra os três pontos e escolha Lembretes e confirmações. Clientes podem responder CONFIRMAR, CANCELAR ou REAGENDAR pelo WhatsApp. Se houver várias sessões possíveis, a equipa identifica a sessão antes de alterar. Sessões já dentro da janela de 24 horas entram na próxima execução se ainda não tiverem lembrete.',
+  },
+  {
     id: '2026-10-20-automatic-session-reminders',
     date: '2026-10-20',
     category: 'Correção',

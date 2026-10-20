@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { sendAppointmentCommunication } from '@/lib/clinic/appointment-communication';
 import { sendBenefitExpiryReminders } from '@/lib/finance/expiry-reminders';
 
-const DEFAULT_WINDOW_MINUTES = 120;
+const DEFAULT_WINDOW_MINUTES = 24 * 60;
 const MAX_WINDOW_MINUTES = 24 * 60;
 const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 100;
@@ -45,9 +45,12 @@ export async function GET(request: Request) {
     .eq('confirmation_status', 'pending')
     .in('status', ['scheduled', 'confirmed'])
     .is('confirmation_reminder_sent_at', null)
+    .is('reminder_sent_at', null)
     .not('confirmation_requested_at', 'is', null)
     .lte('confirmation_requested_at', pendingBefore.toISOString())
     .gt('scheduled_start', now.toISOString())
+    .lte('scheduled_start', until.toISOString())
+    .order('scheduled_start', { ascending: true })
     .limit(limit);
   if (pendingError) {
     return NextResponse.json({ error: pendingError.message }, { status: 500 });
@@ -83,9 +86,13 @@ export async function GET(request: Request) {
     const claimedAt = new Date().toISOString();
     const { data: claimed } = await db
       .from('clinic_appointments')
-      .update({ confirmation_reminder_sent_at: claimedAt })
+      .update({
+        confirmation_reminder_sent_at: claimedAt,
+        reminder_sent_at: claimedAt,
+      })
       .eq('id', pending.id)
       .is('confirmation_reminder_sent_at', null)
+      .is('reminder_sent_at', null)
       .select('id')
       .maybeSingle();
     if (!claimed) continue;
@@ -117,7 +124,7 @@ export async function GET(request: Request) {
       });
       await db
         .from('clinic_appointments')
-        .update({ confirmation_reminder_sent_at: null })
+        .update({ confirmation_reminder_sent_at: null, reminder_sent_at: null })
         .eq('id', pending.id)
         .eq('confirmation_reminder_sent_at', claimedAt);
     }

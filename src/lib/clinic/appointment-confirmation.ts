@@ -57,6 +57,10 @@ export function classifyAppointmentConfirmationReply(
 ): AppointmentConfirmationDecision {
   const normalized = normalizeReply(messageText);
   if (!normalized) return null;
+  if (messageText.includes('?')) return null;
+  if (/\bnao\b/.test(normalized) && !/nao posso|nao consigo/.test(normalized))
+    return null;
+  if (/\bnao\s+(?:vou\s+)?confirm/.test(normalized)) return 'declined';
 
   if (DECLINE_WORDS.has(normalized)) return 'declined';
   if (CONFIRM_WORDS.has(normalized)) return 'confirmed';
@@ -65,6 +69,7 @@ export function classifyAppointmentConfirmationReply(
     return 'declined';
   }
   if (
+    /\bconfirmar\b/.test(normalized) ||
     normalized.includes('confirmo') ||
     normalized.includes('confirmado') ||
     normalized.includes('pode ser')
@@ -121,13 +126,16 @@ export async function handleAppointmentConfirmationReply({
     .select('id, scheduled_start, scheduled_end, status')
     .eq('account_id', accountId)
     .eq('contact_id', contactId)
-    .eq('confirmation_status', 'pending')
-    .gte(
-      'scheduled_start',
-      new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    .in('status', ['scheduled', 'confirmed'])
+    .in(
+      'confirmation_status',
+      /\bconfirm(?:ar|o|ado|ada)\b/.test(normalizeReply(messageText))
+        ? ['not_requested', 'pending', 'confirmed', 'declined']
+        : ['pending']
     )
+    .gte('scheduled_start', new Date().toISOString())
     .order('scheduled_start', { ascending: true })
-    .limit(1);
+    .limit(2);
 
   if (error) {
     if (isMissingConfirmationSchema(error)) {
@@ -138,7 +146,8 @@ export async function handleAppointmentConfirmationReply({
   }
 
   const appointment = (data?.[0] ?? null) as PendingAppointmentRow | null;
-  if (!appointment) return { handled: false, decision };
+  if (!appointment || (data?.length ?? 0) !== 1)
+    return { handled: false, decision };
 
   const now = new Date().toISOString();
   const update =
@@ -155,11 +164,17 @@ export async function handleAppointmentConfirmationReply({
           updated_at: now,
         };
 
-  const { error: updateError } = await db
+  const { data: changed, error: updateError } = await db
     .from('clinic_appointments')
     .update(update)
     .eq('id', appointment.id)
-    .eq('account_id', accountId);
+    .eq('account_id', accountId)
+    .eq('contact_id', contactId)
+    .in('status', ['scheduled', 'confirmed'])
+    .select('id')
+    .maybeSingle();
+
+  if (!updateError && !changed) return { handled: false, decision };
 
   if (updateError) {
     if (!isMissingConfirmationSchema(updateError)) {
@@ -179,7 +194,7 @@ export async function handleAppointmentConfirmationReply({
     action: 'status_changed',
     reason:
       decision === 'confirmed'
-        ? 'Cliente confirmou a alteração pelo WhatsApp'
+        ? 'Cliente confirmou a sessão pelo WhatsApp'
         : 'Cliente pediu alteração/reagendamento pelo WhatsApp',
     metadata: {
       confirmation_decision: decision,
