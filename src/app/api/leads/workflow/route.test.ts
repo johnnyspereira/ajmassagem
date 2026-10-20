@@ -55,6 +55,129 @@ beforeEach(() => {
   );
 });
 describe('Lead workflow API', () => {
+  it('moves a pipeline card while preserving notes, next contact and last approach', async () => {
+    const execute = mocks.execute.getMockImplementation()!;
+    const due = new Date('2026-10-25T12:00:00Z');
+    mocks.execute.mockImplementation((sql, args) =>
+      sql.startsWith('SELECT status,notes')
+        ? Promise.resolve([
+            [
+              {
+                status: 'contacted',
+                notes: 'Nota a preservar',
+                next_followup_at: due,
+              },
+            ],
+          ])
+        : execute(sql, args)
+    );
+    const response = await PATCH(
+      req('PATCH', {
+        action: 'move-stage',
+        contactId: 'contact',
+        status: 'interested',
+        expectedStatus: 'contacted',
+      })
+    );
+    expect(response.status).toBe(200);
+    const update = mocks.execute.mock.calls.find(([sql]) =>
+      sql.startsWith('INSERT INTO lead_followups')
+    )!;
+    expect(update[1]).toEqual([
+      'account-a',
+      'contact',
+      'interested',
+      due,
+      'Nota a preservar',
+      'actor',
+    ]);
+    const duplicateClause = update[0].split('ON DUPLICATE KEY UPDATE')[1];
+    expect(duplicateClause).not.toContain('notes=');
+    expect(duplicateClause).not.toContain('last_contacted_at');
+    expect(
+      mocks.execute.mock.calls.find(([sql]) =>
+        sql.startsWith('INSERT INTO lead_followup_activities')
+      )?.[0]
+    ).toContain('FALSE');
+    expect(
+      mocks.execute.mock.calls.some(([sql]) => sql.includes('FOR UPDATE'))
+    ).toBe(true);
+  });
+  it('clears follow-up reminders for terminal pipeline stages without booking or sending anything', async () => {
+    expect(
+      (
+        await PATCH(
+          req('PATCH', {
+            action: 'move-stage',
+            contactId: 'contact',
+            status: 'scheduled',
+            expectedStatus: 'new',
+          })
+        )
+      ).status
+    ).toBe(200);
+    expect(
+      mocks.execute.mock.calls.find(([sql]) =>
+        sql.startsWith('INSERT INTO lead_followups')
+      )?.[1][3]
+    ).toBeNull();
+    expect(
+      mocks.execute.mock.calls.some(([sql]) =>
+        /clinic_appointments|INSERT INTO messages/.test(sql)
+      )
+    ).toBe(false);
+  });
+  it('rejects a stale stage rather than overwriting another update', async () => {
+    const execute = mocks.execute.getMockImplementation()!;
+    mocks.execute.mockImplementation((sql, args) =>
+      sql.startsWith('SELECT status,notes')
+        ? Promise.resolve([[{ status: 'interested' }]])
+        : execute(sql, args)
+    );
+    expect(
+      (
+        await PATCH(
+          req('PATCH', {
+            action: 'move-stage',
+            contactId: 'contact',
+            status: 'scheduled',
+            expectedStatus: 'contacted',
+          })
+        )
+      ).status
+    ).toBe(409);
+    expect(
+      mocks.execute.mock.calls.some(([sql]) => sql.startsWith('INSERT'))
+    ).toBe(false);
+  });
+  it('validates pipeline transitions and contact ownership', async () => {
+    expect(
+      (
+        await PATCH(
+          req('PATCH', {
+            action: 'move-stage',
+            contactId: 'contact',
+            status: 'won',
+            expectedStatus: 'new',
+          })
+        )
+      ).status
+    ).toBe(400);
+    mocks.execute.mockResolvedValue([[]]);
+    expect(
+      (
+        await PATCH(
+          req('PATCH', {
+            action: 'move-stage',
+            contactId: 'foreign',
+            status: 'interested',
+            expectedStatus: 'new',
+          })
+        )
+      ).status
+    ).toBe(404);
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
   it('initialises the lead schema only after authentication and validation', async () => {
     expect(
       (await POST(req('POST', { action: 'load', contactIds: ['contact'] })))

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Copy, Loader2, MessageCircle, Save, CheckCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -237,6 +238,17 @@ export function LeadTreatmentDialog({
             Prepare a abordagem, registe o resultado e defina o próximo passo.
           </DialogDescription>
         </DialogHeader>
+        <div className="bg-muted/20 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs">
+          <span>
+            Esta situação também define a etapa no pipeline de relacionamento.
+          </span>
+          <Link
+            className="text-primary font-medium hover:underline"
+            href={`/pipelines?lead=${encodeURIComponent(row.contact.id)}`}
+          >
+            Ver no pipeline →
+          </Link>
+        </div>
         <div className="bg-muted/40 grid gap-3 rounded-xl p-3 text-xs sm:grid-cols-3">
           <div>
             <p className="text-muted-foreground">Última sessão</p>

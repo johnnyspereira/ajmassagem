@@ -1,6 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import {
+  Suspense,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from 'react';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { LeadsWorkspacePage } from '@/components/contacts/leads-workspace-page';
 import { createClient } from '@/lib/supabase/client';
 import type { Pipeline, PipelineStage, Deal } from '@/types';
 import { PipelineBoard } from '@/components/pipelines/pipeline-board';
@@ -47,11 +57,11 @@ import { useTranslations } from 'next-intl';
 
 // Spec-defined seed — name and color per the product spec.
 const SPEC_DEFAULT_STAGES = [
-  { name: 'New Lead', color: '#3b82f6', position: 0 }, // blue
-  { name: 'Qualified', color: '#eab308', position: 1 }, // yellow
-  { name: 'Proposal Sent', color: '#f97316', position: 2 }, // orange
-  { name: 'Negotiation', color: '#8b5cf6', position: 3 }, // purple
-  { name: 'Won', color: '#22c55e', position: 4 }, // green
+  { name: 'Novo contacto', color: '#3b82f6', position: 0 },
+  { name: 'Interesse identificado', color: '#eab308', position: 1 },
+  { name: 'Proposta preparada', color: '#f97316', position: 2 },
+  { name: 'Em decisão', color: '#8b5cf6', position: 3 },
+  { name: 'Concluído', color: '#22c55e', position: 4 },
 ];
 
 type DealStatusFilter = 'all' | 'open' | 'won' | 'lost';
@@ -71,6 +81,55 @@ function isDealOverdue(deal: Deal) {
 }
 
 export default function PipelinesPage() {
+  return (
+    <Suspense
+      fallback={
+        <p className="text-muted-foreground p-5 text-sm">
+          A carregar pipeline...
+        </p>
+      }
+    >
+      <PipelineWorkspace />
+    </Suspense>
+  );
+}
+function PipelineWorkspace() {
+  const params = useSearchParams();
+  const commercial =
+    params.get('view') === 'commercial' ||
+    Boolean(params.get('deal') || params.get('contact'));
+  const leadId = params.get('lead');
+  return (
+    <div className="min-w-0 space-y-5">
+      <nav aria-label="Vistas do pipeline" className="flex flex-wrap gap-2">
+        <Link
+          href="/pipelines"
+          aria-current={!commercial ? 'page' : undefined}
+          className={`rounded-xl border px-4 py-2 text-sm font-medium ${!commercial ? 'border-[#073d39] bg-[#073d39] text-white' : 'bg-card text-muted-foreground'}`}
+        >
+          Relacionamento com clientes
+        </Link>
+        <Link
+          href="/pipelines?view=commercial"
+          aria-current={commercial ? 'page' : undefined}
+          className={`rounded-xl border px-4 py-2 text-sm font-medium ${commercial ? 'border-[#073d39] bg-[#073d39] text-white' : 'bg-card text-muted-foreground'}`}
+        >
+          Negócios comerciais
+        </Link>
+      </nav>
+      {commercial ? (
+        <CommercialPipelinesPage />
+      ) : (
+        <LeadsWorkspacePage
+          key={leadId || 'all'}
+          presentation="pipeline"
+          initialLeadId={leadId}
+        />
+      )}
+    </div>
+  );
+}
+function CommercialPipelinesPage() {
   const t = useTranslations('Pipelines.page');
   const supabase = createClient();
   const canEditSettings = useCan('edit-settings');
@@ -157,7 +216,7 @@ export default function PipelinesPage() {
         .insert({
           user_id: user.id,
           account_id: accountId,
-          name: 'Sales Pipeline',
+          name: 'Oportunidades JP Massagem',
         })
         .select()
         .single();
@@ -185,7 +244,7 @@ export default function PipelinesPage() {
       setLoading(true);
       let list = await loadPipelines();
 
-      if (list.length === 0 && !seedAttempted.current) {
+      if (list.length === 0 && canEditSettings && !seedAttempted.current) {
         seedAttempted.current = true;
         const seeded = await seedDefaultPipeline();
         if (seeded) list = await loadPipelines();
@@ -205,7 +264,7 @@ export default function PipelinesPage() {
     return () => {
       cancelled = true;
     };
-  }, [loadPipelines, seedDefaultPipeline]);
+  }, [loadPipelines, seedDefaultPipeline, canEditSettings]);
 
   // Load stages + deals whenever selected pipeline changes.
   // Clearing on no-selection is a legitimate sync with URL/prop

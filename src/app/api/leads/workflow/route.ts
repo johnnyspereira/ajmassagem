@@ -165,6 +165,78 @@ export async function PATCH(request: Request) {
   try {
     const { accountId, userId } = await requireRole('agent');
     const body = await request.json().catch(() => null);
+    if (body?.action === 'move-stage') {
+      if (
+        !validId(body.contactId) ||
+        !Object.hasOwn(LEAD_STATUSES, body.status || '') ||
+        !Object.hasOwn(LEAD_STATUSES, body.expectedStatus || '')
+      )
+        return bad();
+      if (!(await contactExists(accountId, body.contactId)))
+        return Response.json(
+          { error: 'Contacto não encontrado.' },
+          { status: 404 }
+        );
+      await ensureLeadSchema();
+      const result = await transaction(async (connection) => {
+        const [contacts] = await connection.execute<RowDataPacket[]>(
+          'SELECT id FROM contacts WHERE account_id=? AND id=? FOR UPDATE',
+          [accountId, body.contactId]
+        );
+        if (!contacts.length) return { missing: true } as const;
+        const [previous] = await connection.execute<RowDataPacket[]>(
+          'SELECT status,notes,next_followup_at FROM lead_followups WHERE account_id=? AND contact_id=? FOR UPDATE',
+          [accountId, body.contactId]
+        );
+        if ((previous[0]?.status || 'new') !== body.expectedStatus)
+          return { conflict: true } as const;
+        const next = ['scheduled', 'not_interested'].includes(body.status)
+          ? null
+          : previous[0]?.next_followup_at || null;
+        await connection.execute(
+          'INSERT INTO lead_followups(account_id,contact_id,status,next_followup_at,notes,updated_by) VALUES(?,?,?,?,?,?) ON DUPLICATE KEY UPDATE status=VALUES(status),next_followup_at=VALUES(next_followup_at),updated_by=VALUES(updated_by)',
+          [
+            accountId,
+            body.contactId,
+            body.status,
+            next,
+            previous[0]?.notes || null,
+            userId,
+          ]
+        );
+        await connection.execute(
+          'INSERT INTO lead_followup_activities(id,account_id,contact_id,actor_user_id,status,contacted,next_followup_at,notes) VALUES(?,?,?,?,?,FALSE,?,?)',
+          [
+            randomUUID(),
+            accountId,
+            body.contactId,
+            userId,
+            body.status,
+            next,
+            'Etapa alterada no pipeline de relacionamento.',
+          ]
+        );
+        const [rows] = await connection.execute<RowDataPacket[]>(
+          'SELECT contact_id,status,next_followup_at,last_contacted_at,notes,updated_at FROM lead_followups WHERE account_id=? AND contact_id=?',
+          [accountId, body.contactId]
+        );
+        return { item: rows[0] } as const;
+      });
+      if ('missing' in result)
+        return Response.json(
+          { error: 'Contacto não encontrado.' },
+          { status: 404 }
+        );
+      if ('conflict' in result)
+        return Response.json(
+          {
+            error:
+              'Este contacto foi atualizado noutro local. Atualize o quadro antes de mover novamente.',
+          },
+          { status: 409 }
+        );
+      return json(result);
+    }
     if (
       !body ||
       !validId(body.contactId) ||

@@ -4419,7 +4419,7 @@ export function AgendaPage({
                       tablets. A portrait tablet may have enough CSS pixels
                       for an `xl` breakpoint, but not enough real room for a
                       520px status row beside a long client/service title. */}
-                  <div className="grid w-full min-w-0 grid-cols-2 gap-2 2xl:w-auto 2xl:min-w-[520px] 2xl:flex-none 2xl:grid-cols-4">
+                  <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:grid-cols-5">
                     <HeaderStatus
                       label="Estado"
                       value={STATUS_LABEL[editDraft.status]}
@@ -4472,6 +4472,18 @@ export function AgendaPage({
                           : 'amber'
                       }
                     />
+                    {editDraft.contactId && (
+                      <Link
+                        href={`/contacts/${editDraft.contactId}`}
+                        className={cn(
+                          buttonVariants({ variant: 'outline' }),
+                          'h-full min-h-12 gap-2 rounded-xl border-violet-200 bg-white/80 text-xs dark:border-violet-800 dark:bg-slate-950'
+                        )}
+                      >
+                        <UserCheck className="size-4" />
+                        Cliente 360
+                      </Link>
+                    )}
                   </div>
                 </div>
               </DialogHeader>
@@ -4739,28 +4751,11 @@ export function AgendaPage({
                             </p>
                           </div>
                           <div>
-                            <p className="text-muted-foreground">Empresa</p>
-                            <p className="text-foreground font-semibold">
-                              {contact?.company ?? '--'}
-                            </p>
-                          </div>
-                          <div>
                             <p className="text-muted-foreground">E-mail</p>
                             <p className="text-foreground truncate font-semibold">
                               {contact?.email ?? '--'}
                             </p>
                           </div>
-                          {contact?.id ? (
-                            <Link
-                              href={`/contacts/${contact.id}`}
-                              className={buttonVariants({
-                                size: 'sm',
-                                variant: 'outline',
-                              })}
-                            >
-                              <UserCheck className="size-4" /> Cliente 360
-                            </Link>
-                          ) : null}
                         </div>
                       );
                     })()}
@@ -7582,89 +7577,76 @@ function AppointmentBlock({
         borderLeftColor: professionalColor,
       }}
     >
-      <div className="flex items-start gap-1">
-        {appointment.status === 'confirmed' || appointment.arrived_at ? (
-          <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-600" />
-        ) : null}
-        {appointment.paid_at ? (
-          <CircleDollarSign className="mt-0.5 size-3.5 shrink-0 text-emerald-600" />
-        ) : null}
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-bold">
-            {appointmentContactLabel(appointment.contact)}
-          </p>
-          <p className="truncate text-[11px] font-medium">
-            {appointmentRange(appointment)}
-          </p>
+      <div className={styles.appointmentColumns}>
+        <div className="min-w-0 space-y-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="bg-background/80 shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums">
+              {appointmentRange(appointment)}
+            </span>
+            <p className="min-w-0 truncate text-xs font-bold">
+              {appointmentContactLabel(appointment.contact)}
+            </p>
+          </div>
           <p className="truncate text-[11px] font-medium">
             {appointment.service?.name ?? 'Procedimento'}
           </p>
-          <span className="mt-0.5 hidden max-h-5 max-w-full flex-wrap items-center gap-1 overflow-hidden sm:flex">
-            {portalApprovalPending ? (
-              <span
-                className="inline-flex items-center gap-0.5 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-amber-950 uppercase"
-                title="Pedido criado pelo cliente. Reveja e aprove antes de o considerar confirmado."
-              >
-                <Clock3 className="size-2.5" /> Pendente de aprovação
-              </span>
-            ) : null}
-            <span
-              className={cn(
-                'inline-flex rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wide uppercase',
-                stateBadge.className
-              )}
-            >
-              {stateBadge.label}
-            </span>
-            <span
-              className={cn(
-                'inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase',
-                appointment.anamnesis &&
-                  ['submitted', 'reviewed'].includes(
-                    appointment.anamnesis.status
-                  )
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-amber-400 text-amber-950'
-              )}
-              title={
-                appointment.anamnesis &&
-                ['submitted', 'reviewed'].includes(appointment.anamnesis.status)
-                  ? 'Ficha de anamnese preenchida'
-                  : 'Ficha de anamnese ainda não preenchida'
-              }
-            >
-              <ClipboardList className="size-2.5" />
-              {appointment.anamnesis &&
-              ['submitted', 'reviewed'].includes(appointment.anamnesis.status)
-                ? 'Anamnese OK'
-                : 'Anamnese pendente'}
-            </span>
-            {pendingReschedule ? (
-              <span
-                className="inline-flex items-center gap-0.5 rounded bg-fuchsia-600 px-1.5 py-0.5 text-[9px] font-bold text-white uppercase"
-                title={`Cliente pediu ${new Date(pendingReschedule.startsAt).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' })}. Clique para rever e aprovar.`}
-              >
-                <CalendarClock className="size-2.5" /> Pedido de horário
-              </span>
-            ) : null}
-            {appointment.referral_id ? (
-              <span
-                className="inline-flex items-center gap-0.5 rounded bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold text-white uppercase"
-                title={`Indique & Ganhe: ${formatCurrency(Number(appointment.referral_discount_amount ?? 0), appointment.currency || currency)} de benefício`}
-              >
-                <HeartHandshake className="size-2.5" /> Indique & Ganhe
-              </span>
-            ) : null}
-            <AppointmentBenefitBadge appointment={appointment} />
-          </span>
-          <p className="hidden truncate text-[11px] md:block">
-            {professionalName(appointment.professional)} · {appointment.room?.name ?? 'Sem sala'} ·{' '}
-            {formatCurrency(
-              Number(appointment.price ?? 0),
-              appointment.currency || currency
-            )}
-          </p>
         </div>
+        <span className={styles.appointmentTags}>
+          {portalApprovalPending ? (
+            <span
+              className="inline-flex items-center gap-0.5 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-amber-950 uppercase"
+              title="Pedido criado pelo cliente. Reveja e aprove antes de o considerar confirmado."
+            >
+              <Clock3 className="size-2.5" /> Pendente de aprovação
+            </span>
+          ) : null}
+          <span
+            className={cn(
+              'inline-flex rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wide uppercase',
+              stateBadge.className
+            )}
+          >
+            {stateBadge.label}
+          </span>
+          <span
+            className={cn(
+              'inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase',
+              appointment.anamnesis &&
+                ['submitted', 'reviewed'].includes(appointment.anamnesis.status)
+                ? 'bg-emerald-600 text-white'
+                : 'bg-amber-400 text-amber-950'
+            )}
+            title={
+              appointment.anamnesis &&
+              ['submitted', 'reviewed'].includes(appointment.anamnesis.status)
+                ? 'Ficha de anamnese preenchida'
+                : 'Ficha de anamnese ainda não preenchida'
+            }
+          >
+            <ClipboardList className="size-2.5" />
+            {appointment.anamnesis &&
+            ['submitted', 'reviewed'].includes(appointment.anamnesis.status)
+              ? 'Anamnese OK'
+              : 'Anamnese pendente'}
+          </span>
+          {pendingReschedule ? (
+            <span
+              className="inline-flex items-center gap-0.5 rounded bg-fuchsia-600 px-1.5 py-0.5 text-[9px] font-bold text-white uppercase"
+              title={`Cliente pediu ${new Date(pendingReschedule.startsAt).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' })}. Clique para rever e aprovar.`}
+            >
+              <CalendarClock className="size-2.5" /> Pedido de horário
+            </span>
+          ) : null}
+          {appointment.referral_id ? (
+            <span
+              className="inline-flex items-center gap-0.5 rounded bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold text-white uppercase"
+              title={`Indique & Ganhe: ${formatCurrency(Number(appointment.referral_discount_amount ?? 0), appointment.currency || currency)} de benefício`}
+            >
+              <HeartHandshake className="size-2.5" /> Indique & Ganhe
+            </span>
+          ) : null}
+          <AppointmentBenefitBadge appointment={appointment} />
+        </span>
       </div>
     </button>
   );

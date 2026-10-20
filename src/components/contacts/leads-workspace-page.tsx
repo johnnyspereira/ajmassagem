@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Gift,
+  GitBranch,
   Loader2,
   Megaphone,
   MessageCircle,
@@ -37,6 +38,7 @@ import {
 import { ContactForm } from '@/components/contacts/contact-form';
 import { LeadTreatmentDialog } from './lead-treatment-dialog';
 import { LeadSettingsDialog } from './lead-settings-dialog';
+import { RelationshipBoard } from '@/components/pipelines/relationship-board';
 import {
   DEFAULT_LEAD_SETTINGS,
   LEAD_STATUSES,
@@ -45,6 +47,7 @@ import {
   type LeadFollowup,
   type LeadWorkflowSettings,
   type LeadWorkFilter,
+  type LeadStatus,
 } from '@/lib/contacts/lead-workflow';
 import { formatAccountEventTime } from '@/lib/timezone';
 import { InboxBookingDialog } from '@/components/inbox/booking-dialog';
@@ -123,7 +126,14 @@ type Snapshot = {
   limited: boolean;
 };
 
-export function LeadsWorkspacePage() {
+export function LeadsWorkspacePage({
+  presentation = 'list',
+  initialLeadId = null,
+}: {
+  presentation?: 'list' | 'pipeline';
+  initialLeadId?: string | null;
+}) {
+  const isPipeline = presentation === 'pipeline';
   const router = useRouter();
   const { accountId, account, canSendMessages, canEditSettings } = useAuth();
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -140,6 +150,12 @@ export function LeadsWorkspacePage() {
   const [booking, setBooking] = useState<Contact | null>(null);
   const [treatingId, setTreatingId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [pipelineScope, setPipelineScope] = useState<'followed' | 'all'>(
+    initialLeadId ? 'all' : 'followed'
+  );
+  const [focusedId, setFocusedId] = useState(initialLeadId || '');
+  const [moving, setMoving] = useState(false);
+  const moveLock = useRef(false);
   const [workFilter, setWorkFilter] = useState<LeadWorkFilter>('all');
   const [workNow, setWorkNow] = useState(() => Date.now());
   useEffect(() => {
@@ -300,6 +316,20 @@ export function LeadsWorkspacePage() {
     return invalidateRequest;
   }, [load, invalidateRequest]);
   const current = snapshot?.accountId === accountId ? snapshot : null;
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load();
+    };
+    const changed = (event: StorageEvent) => {
+      if (event.key === `jp:lead-workflow:${accountId}`) refresh();
+    };
+    window.addEventListener('focus', refresh);
+    window.addEventListener('storage', changed);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('storage', changed);
+    };
+  }, [accountId, load]);
   const rows = useMemo(
     () =>
       current
@@ -344,6 +374,11 @@ export function LeadsWorkspacePage() {
   );
   const treatingRow = rows.find((row) => row.contact.id === treatingId);
   function updateFollowup(item: LeadFollowup) {
+    try {
+      localStorage.setItem(`jp:lead-workflow:${accountId}`, String(Date.now()));
+    } catch {
+      /* Storage may be unavailable in private browsing. */
+    }
     setSnapshot((previous) =>
       previous?.accountId === accountId
         ? {
@@ -361,6 +396,47 @@ export function LeadsWorkspacePage() {
         : previous
     );
   }
+  async function moveStage(contactId: string, status: LeadStatus) {
+    if (
+      moveLock.current ||
+      !canSendMessages ||
+      !current ||
+      current.workflowUnavailable
+    )
+      return;
+    const expectedStatus = followupMap.get(contactId)?.status || 'new';
+    if (expectedStatus === status) return;
+    moveLock.current = true;
+    setMoving(true);
+    try {
+      const response = await fetch('/api/leads/workflow', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'move-stage',
+          contactId,
+          status,
+          expectedStatus,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.item) {
+        if (response.status === 409) await load();
+        throw new Error(result.error || 'Não foi possível alterar a etapa.');
+      }
+      updateFollowup(result.item);
+      toast.success(`Etapa atualizada: ${LEAD_STATUSES[status]}.`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível alterar a etapa.'
+      );
+    } finally {
+      moveLock.current = false;
+      setMoving(false);
+    }
+  }
   function updateSettings(settings: LeadWorkflowSettings) {
     setSnapshot((previous) =>
       previous?.accountId === accountId
@@ -371,15 +447,23 @@ export function LeadsWorkspacePage() {
   }
   const visible = useMemo(
     () =>
-      filterLeadRows(rows, filter, query, gender, sort, recency).filter((row) =>
-        matchesLeadWork(
-          row,
-          followupMap.get(row.contact.id),
-          current?.workflowUnavailable ? 'all' : workFilter,
-          workflowSettings,
-          workNow
+      filterLeadRows(rows, filter, query, gender, sort, recency)
+        .filter(
+          (row) =>
+            !isPipeline ||
+            current?.workflowUnavailable ||
+            ((!focusedId || row.contact.id === focusedId) &&
+              (pipelineScope === 'all' || followupMap.has(row.contact.id)))
         )
-      ),
+        .filter((row) =>
+          matchesLeadWork(
+            row,
+            followupMap.get(row.contact.id),
+            current?.workflowUnavailable ? 'all' : workFilter,
+            workflowSettings,
+            workNow
+          )
+        ),
     [
       rows,
       filter,
@@ -392,6 +476,9 @@ export function LeadsWorkspacePage() {
       workflowSettings,
       workNow,
       current?.workflowUnavailable,
+      isPipeline,
+      pipelineScope,
+      focusedId,
     ]
   );
   const counts = useMemo(
@@ -466,17 +553,40 @@ export function LeadsWorkspacePage() {
     workFilter !== 'all';
   return (
     <div className={cn(styles.root, 'space-y-5')}>
-      <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+      <header
+        className={cn(
+          'flex flex-col justify-between gap-4 sm:flex-row sm:items-center',
+          isPipeline && 'bg-card rounded-2xl border border-[#bfa16a]/30 p-5'
+        )}
+      >
         <div>
-          <p className="text-primary mb-1 text-[10px] font-semibold tracking-[.16em] uppercase">
+          <p
+            className={cn(
+              'mb-1 text-[10px] font-semibold tracking-[.16em] uppercase',
+              isPipeline ? 'text-[#bfa16a]' : 'text-primary'
+            )}
+          >
             Relacionamento e crescimento
           </p>
-          <h1 className="text-2xl font-semibold tracking-tight">Leads</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {isPipeline ? 'Pipeline de relacionamento' : 'Leads'}
+          </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Saiba quem acompanhar e transforme interesse em marcações.
+            {isPipeline
+              ? 'O percurso de cada cliente, ligado à tratativa dos Leads.'
+              : 'Saiba quem acompanhar e transforme interesse em marcações.'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {!isPipeline && (
+            <Link
+              href="/pipelines"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm"
+            >
+              <GitBranch className="size-4" />
+              Ver pipeline
+            </Link>
+          )}
           <Button
             variant="outline"
             className="h-10 rounded-xl"
@@ -567,7 +677,9 @@ export function LeadsWorkspacePage() {
           </Button>
         </div>
       )}
-      <details className="bg-card rounded-xl border p-4">
+      <details
+        className={cn('bg-card rounded-xl border p-4', isPipeline && 'hidden')}
+      >
         <summary className="cursor-pointer text-sm font-medium">
           Segmentos de clientes · {rows.length} contactos
         </summary>
@@ -598,7 +710,7 @@ export function LeadsWorkspacePage() {
           ))}
         </div>
       </details>
-      {current && !current.workflowUnavailable && (
+      {!isPipeline && current && !current.workflowUnavailable && (
         <section
           aria-label="Prioridades de acompanhamento"
           className="grid gap-3 sm:grid-cols-3"
@@ -656,11 +768,14 @@ export function LeadsWorkspacePage() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-sm font-semibold">
-                Preparar, contactar e acompanhar
+                {isPipeline
+                  ? 'Cada conversa, um próximo passo'
+                  : 'Preparar, contactar e acompanhar'}
               </h2>
               <p className="text-muted-foreground mt-1 text-xs">
-                Abra Tratar lead para escolher uma mensagem, registar a
-                abordagem e definir o próximo passo.
+                {isPipeline
+                  ? 'As etapas são as mesmas dos Leads. Mova um cartão ou use Mover para. Para criar uma marcação, escolha Agendar.'
+                  : 'Abra Tratar lead para escolher uma mensagem, registar a abordagem e definir o próximo passo.'}
               </p>
             </div>
             <p className="text-muted-foreground text-xs" aria-live="polite">
@@ -671,6 +786,42 @@ export function LeadsWorkspacePage() {
                   : 'A carregar contactos...'}
             </p>
           </div>
+          {isPipeline && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant={pipelineScope === 'followed' ? 'default' : 'outline'}
+                onClick={() => {
+                  setPipelineScope('followed');
+                  setFocusedId('');
+                }}
+              >
+                Em acompanhamento ({current?.workflow.items.length || 0})
+              </Button>
+              <Button
+                size="sm"
+                variant={pipelineScope === 'all' ? 'default' : 'outline'}
+                onClick={() => {
+                  setPipelineScope('all');
+                  setFocusedId('');
+                }}
+              >
+                Todos os contactos
+              </Button>
+              {focusedId && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setFocusedId('')}
+                >
+                  Mostrar outros contactos
+                </Button>
+              )}
+              <span className="text-muted-foreground text-xs">
+                Estado, próximo contacto e histórico partilhados com Leads.
+              </span>
+            </div>
+          )}
           <div className={styles.filters}>
             <div className="relative min-w-0">
               <Search className="text-muted-foreground absolute top-3 left-3 size-4" />
@@ -841,6 +992,17 @@ export function LeadsWorkspacePage() {
           <div className="text-muted-foreground p-10 text-center text-sm">
             Tente carregar os dados novamente para consultar os leads.
           </div>
+        ) : isPipeline && current && !current.workflowUnavailable ? (
+          <RelationshipBoard
+            rows={visible}
+            followups={followupMap}
+            canEdit={canSendMessages && !loading && !error}
+            busy={moving || loading}
+            onMove={(id, status) => void moveStage(id, status)}
+            onTreat={setTreatingId}
+            onBook={(row) => setBooking(row.contact)}
+            zone={account?.timezone || 'Europe/Lisbon'}
+          />
         ) : (
           <>
             <div className="text-muted-foreground flex items-center gap-2 border-b px-4 py-3 text-xs sm:px-5">
@@ -952,7 +1114,7 @@ export function LeadsWorkspacePage() {
       <ContactForm
         open={newContact}
         onOpenChange={setNewContact}
-        onSaved={() => void load()}
+        onSaved={() => {if(isPipeline){setPipelineScope('all');setFocusedId('');setSort('recent')}void load()}}
         onViewExisting={(id) => router.push(`/contacts/${id}`)}
       />
       {settingsOpen && current && !current.workflowUnavailable && (

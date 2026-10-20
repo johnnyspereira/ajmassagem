@@ -15,6 +15,24 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-20-relationship-pipeline-agenda-cards',
+    date: '2026-10-20',
+    category: 'Melhoria',
+    title: 'Pipeline ligado aos Leads e cartões da agenda reorganizados',
+    areas: ['Leads', 'Pipeline', 'Agenda'],
+    summary: 'O pipeline de relacionamento partilha os estados da tratativa e os cartões da agenda separam identificação e indicadores.',
+    changes: [
+      'Quadro com Por tratar, Em contacto, Interessado, Agendado e Sem interesse, usando os mesmos registos dos Leads.',
+      'Movimentos por arrastar ou seletor, com validação de permissões e deteção de alterações concorrentes; notas e última abordagem são preservadas.',
+      'Cartões mostram última sessão, dias sem visita, benefícios, próxima sessão e seguimento; Tratar e Agendar abrem as ações do cliente.',
+      'Vista inicial de contactos em acompanhamento e opção Todos os contactos. Os negócios comerciais existentes continuam acessíveis na sua vista.',
+      'Mover para Agendado altera a situação de acompanhamento; criar uma reserva continua a exigir Agendar.',
+      'Agenda com horário em etiqueta, nome e modalidade na primeira coluna; estado, anamnese e benefícios na segunda, incluindo no telemóvel.',
+      'Cliente 360 no cabeçalho fixo da ficha da marcação; campo Empresa removido desse resumo.',
+    ],
+    howTo: 'Abra Pipeline e escolha Relacionamento com clientes. Use Tratar ou Mover para para atualizar a situação partilhada com Leads. Na agenda, abra uma marcação para aceder ao Cliente 360 sem descer a ficha.',
+  },
+  {
     id: '2026-10-20-anamnesis-mysql-birth-date',
     date: '2026-10-20',
     category: 'Correção',

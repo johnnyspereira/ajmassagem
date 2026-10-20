@@ -1,6 +1,31 @@
 .workspace {
   min-height: 0;
 }
+.appointmentColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  height: 100%;
+}
+.appointmentTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-content: start;
+  min-width: 0;
+  max-height: 100%;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.appointmentTags > span {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+}
+.appointmentTags svg {
+  flex-shrink: 0;
+}
 @media (max-height: 700px) {
   .metrics {
     display: none;
