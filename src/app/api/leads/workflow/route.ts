@@ -7,6 +7,10 @@ import {
 } from '@/lib/auth/account';
 import { db, transaction } from '@/lib/mysql/db';
 import {
+  ensureLeadSchema,
+  LeadSchemaInstallError,
+} from '@/lib/contacts/lead-schema';
+import {
   DEFAULT_LEAD_SETTINGS,
   LEAD_STATUSES,
   parseLeadSettings,
@@ -20,6 +24,15 @@ const bad = (message = 'Dados de acompanhamento inválidos.') =>
 const json = (value: unknown) =>
   Response.json(value, { headers: { 'Cache-Control': 'private, no-store' } });
 function fail(error: unknown) {
+  if (error instanceof LeadSchemaInstallError)
+    return Response.json(
+      {
+        error: error.permissionDenied
+          ? 'O utilizador MySQL da aplicação precisa de permissão CREATE para instalar as tabelas dos Leads. Verifique os privilégios da base de dados no cPanel.'
+          : 'Não foi possível preparar a base de acompanhamento. Consulte o registo da aplicação no cPanel e tente novamente.',
+      },
+      { status: 503 }
+    );
   if (
     error &&
     typeof error === 'object' &&
@@ -29,7 +42,7 @@ function fail(error: unknown) {
     return Response.json(
       {
         error:
-          'A base de acompanhamento ainda não está instalada. Reinicie a aplicação no cPanel para aplicar a atualização da base de dados.',
+          'As tabelas de acompanhamento não estão disponíveis. Verifique a instalação e os privilégios MySQL no cPanel.',
       },
       { status: 503 }
     );
@@ -71,6 +84,7 @@ export async function POST(request: Request) {
       )
         return bad();
       const ids = [...new Set<string>(body.contactIds)];
+      await ensureLeadSchema();
       const [items] = ids.length
         ? await db().execute<RowDataPacket[]>(
             `SELECT contact_id,status,next_followup_at,last_contacted_at,notes,updated_at FROM lead_followups WHERE account_id=? AND contact_id IN (${ids.map(() => '?').join(',')})`,
@@ -88,6 +102,7 @@ export async function POST(request: Request) {
         { status: 404 }
       );
     const id = await transaction(async (connection) => {
+      // Conversation preparation does not depend on the follow-up tables.
       // The account/contact unique key makes repeated clicks converge on one conversation.
       await connection.execute(
         'INSERT INTO conversations(id,account_id,user_id,contact_id,status,unread_count) VALUES(?,?,?,?,?,0) ON DUPLICATE KEY UPDATE id=id',
@@ -114,6 +129,7 @@ export async function GET(request: Request) {
         { error: 'Contacto não encontrado.' },
         { status: 404 }
       );
+    await ensureLeadSchema();
     const [activities] = await db().execute<RowDataPacket[]>(
       'SELECT id,status,contacted,next_followup_at,notes,created_at FROM lead_followup_activities WHERE account_id=? AND contact_id=? ORDER BY created_at DESC,id DESC LIMIT 30',
       [accountId, id]
@@ -129,6 +145,7 @@ export async function PUT(request: Request) {
     const value = parseLeadSettings(await request.json().catch(() => null));
     if (!value)
       return bad('Reveja os prazos, as mensagens e as variáveis indicadas.');
+    await ensureLeadSchema();
     await db().execute(
       'INSERT INTO lead_workflow_settings(account_id,recovery_days,followup_days,templates,updated_by) VALUES(?,?,?,?,?) ON DUPLICATE KEY UPDATE recovery_days=VALUES(recovery_days),followup_days=VALUES(followup_days),templates=VALUES(templates),updated_by=VALUES(updated_by)',
       [
@@ -167,6 +184,12 @@ export async function PATCH(request: Request) {
           ? new Date(body.nextFollowupAt)
           : undefined;
     if (due === undefined) return bad('Escolha uma data de seguimento válida.');
+    if (!(await contactExists(accountId, body.contactId)))
+      return Response.json(
+        { error: 'Contacto não encontrado.' },
+        { status: 404 }
+      );
+    await ensureLeadSchema();
     const updated = await transaction(async (connection) => {
       const [contacts] = await connection.execute<RowDataPacket[]>(
         'SELECT id FROM contacts WHERE account_id=? AND id=? FOR UPDATE',

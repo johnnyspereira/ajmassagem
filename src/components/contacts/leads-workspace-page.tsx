@@ -117,6 +117,7 @@ type Snapshot = {
   reservations: BenefitReservation[];
   history: LeadHistory[];
   workflow: LeadWorkflow;
+  workflowUnavailable: string | null;
   at: number;
   accountId: string;
   limited: boolean;
@@ -242,7 +243,12 @@ export function LeadsWorkspacePage() {
         history = result.data;
       }
       if (id !== request.current) return;
-      const workflow = await (async () => {
+      let workflow: LeadWorkflow = {
+        settings: DEFAULT_LEAD_SETTINGS,
+        items: [],
+      };
+      let workflowUnavailable: string | null = null;
+      try {
         const response = await fetch('/api/leads/workflow', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -253,11 +259,17 @@ export function LeadsWorkspacePage() {
           throw new Error(
             result.error || 'Não foi possível carregar a tratativa dos Leads.'
           );
-        return result as LeadWorkflow;
-      })();
+        workflow = result as LeadWorkflow;
+      } catch (cause) {
+        workflowUnavailable =
+          cause instanceof Error
+            ? cause.message
+            : 'Não foi possível preparar a tratativa dos Leads.';
+      }
       if (id !== request.current) return;
       setSnapshot({
         workflow,
+        workflowUnavailable,
         history,
         contacts: (results[0].data || []).slice(0, 2000) as Contact[],
         vouchers: (results[1].data || []) as LeadVoucher[],
@@ -363,7 +375,7 @@ export function LeadsWorkspacePage() {
         matchesLeadWork(
           row,
           followupMap.get(row.contact.id),
-          workFilter,
+          current?.workflowUnavailable ? 'all' : workFilter,
           workflowSettings,
           workNow
         )
@@ -379,6 +391,7 @@ export function LeadsWorkspacePage() {
       followupMap,
       workflowSettings,
       workNow,
+      current?.workflowUnavailable,
     ]
   );
   const counts = useMemo(
@@ -467,7 +480,9 @@ export function LeadsWorkspacePage() {
           <Button
             variant="outline"
             className="h-10 rounded-xl"
-            disabled={!current || loading}
+            disabled={
+              !current || loading || Boolean(current.workflowUnavailable)
+            }
             onClick={() => setSettingsOpen(true)}
           >
             <Settings2 className="size-4" /> Mensagens e tratativa
@@ -528,6 +543,30 @@ export function LeadsWorkspacePage() {
           </Button>
         </div>
       )}
+      {current?.workflowUnavailable && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-300/50 bg-amber-500/5 p-4 text-sm"
+        >
+          <AlertCircle className="size-5 shrink-0 text-amber-600" />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">
+              Os contactos estão disponíveis; a tratativa não pôde ser
+              preparada.
+            </p>
+            <p className="text-muted-foreground mt-1 break-words">
+              {current.workflowUnavailable}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            disabled={loading}
+            onClick={() => void load()}
+          >
+            Tentar novamente
+          </Button>
+        </div>
+      )}
       <details className="bg-card rounded-xl border p-4">
         <summary className="cursor-pointer text-sm font-medium">
           Segmentos de clientes · {rows.length} contactos
@@ -559,7 +598,7 @@ export function LeadsWorkspacePage() {
           ))}
         </div>
       </details>
-      {current && (
+      {current && !current.workflowUnavailable && (
         <section
           aria-label="Prioridades de acompanhamento"
           className="grid gap-3 sm:grid-cols-3"
@@ -704,7 +743,8 @@ export function LeadsWorkspacePage() {
             <select
               className="border-input bg-background h-9 max-w-full rounded-lg border px-2 text-xs"
               aria-label="Filtrar tratativa"
-              value={workFilter}
+              value={current?.workflowUnavailable ? 'all' : workFilter}
+              disabled={Boolean(current?.workflowUnavailable)}
               onChange={(event) => {
                 setWorkFilter(event.target.value as LeadWorkFilter);
                 setPage(0);
@@ -832,6 +872,9 @@ export function LeadsWorkspacePage() {
                   onSelect={(value) => toggle(row.contact.id, value)}
                   onBook={() => setBooking(row.contact)}
                   onTreat={() => setTreatingId(row.contact.id)}
+                  treatmentUnavailable={
+                    Boolean(current?.workflowUnavailable) || loading
+                  }
                   followup={followupMap.get(row.contact.id)}
                   canOperate={canSendMessages && !loading && !error}
                   zone={account?.timezone || 'Europe/Lisbon'}
@@ -912,7 +955,7 @@ export function LeadsWorkspacePage() {
         onSaved={() => void load()}
         onViewExisting={(id) => router.push(`/contacts/${id}`)}
       />
-      {settingsOpen && current && (
+      {settingsOpen && current && !current.workflowUnavailable && (
         <LeadSettingsDialog
           settings={workflowSettings}
           canEdit={canEditSettings}
@@ -920,7 +963,7 @@ export function LeadsWorkspacePage() {
           onClose={() => setSettingsOpen(false)}
         />
       )}
-      {treatingRow && current && (
+      {treatingRow && current && !current.workflowUnavailable && (
         <LeadTreatmentDialog
           key={treatingRow.contact.id}
           row={treatingRow}
@@ -977,6 +1020,7 @@ function LeadItem({
   onBook,
   onTreat,
   followup,
+  treatmentUnavailable,
   canOperate,
   zone,
 }: {
@@ -986,6 +1030,7 @@ function LeadItem({
   onBook: () => void;
   onTreat: () => void;
   followup?: LeadFollowup;
+  treatmentUnavailable: boolean;
   canOperate: boolean;
   zone: string;
 }) {
@@ -1079,7 +1124,9 @@ function LeadItem({
       <div className={styles.followup}>
         <p className="mb-2 text-xs">
           <Badge variant="outline">
-            {LEAD_STATUSES[followup?.status || 'new']}
+            {treatmentUnavailable
+              ? 'Tratativa indisponível'
+              : LEAD_STATUSES[followup?.status || 'new']}
           </Badge>
         </p>
         {followup?.next_followup_at && (
@@ -1142,6 +1189,7 @@ function LeadItem({
           variant="default"
           size="sm"
           aria-label={`Tratar lead de ${name}`}
+          disabled={treatmentUnavailable}
           onClick={onTreat}
         >
           <MessageCircle className="size-3.5" /> Tratar lead

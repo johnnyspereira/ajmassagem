@@ -15,6 +15,22 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-20-lead-schema-recovery',
+    date: '2026-10-20',
+    category: 'Correção',
+    title: 'Instalação independente da base de acompanhamento dos Leads',
+    areas: ['Leads', 'Sistema'],
+    summary: 'A tratativa prepara as suas tabelas na primeira utilização autenticada e mantém os contactos visíveis se a instalação não puder concluir.',
+    changes: [
+      'Criação idempotente apenas das três tabelas de acompanhamento, sem depender de migrações anteriores de outros módulos.',
+      'Compatibilidade das relações com o formato e a collation dos identificadores existentes na base de dados.',
+      'Instalações interrompidas podem retomar sem apagar nem recriar dados existentes.',
+      'Contactos, última sessão e agendamento continuam acessíveis se a preparação da tratativa falhar; estados indisponíveis deixam de aparecer como Por tratar.',
+      'Falta de privilégios MySQL apresenta uma indicação específica em vez de pedir reinícios repetidos.',
+    ],
+    howTo: 'Instale esta versão e abra Leads. A preparação das tabelas é automática. Se aparecer um impedimento, os contactos continuam visíveis; corrija o motivo indicado e use Tentar novamente.',
+  },
+  {
     id: '2026-10-19-lead-treatment',
     date: '2026-10-19',
     category: 'Novidade',

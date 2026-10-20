@@ -128,8 +128,11 @@ jobs:
           rsync -a cpanel-runtime/.next/static/ cpanel-runtime/runtime-static/
           cp -a public cpanel-runtime/public
           cp .cpanel.yml .gitignore cpanel-runtime/
-          mkdir -p cpanel-runtime/mysql cpanel-runtime/scripts
-          cp -a mysql/migrations cpanel-runtime/mysql/migrations
+          mkdir -p cpanel-runtime/mysql/migrations cpanel-runtime/scripts
+          # Next may already trace an individual migration into standalone.
+          # Merge contents rather than creating mysql/migrations/migrations.
+          rsync -a mysql/migrations/ cpanel-runtime/mysql/migrations/
+          test -f cpanel-runtime/mysql/migrations/051_lead_followup_workflow.sql
           cp scripts/mysql-migrate.mjs cpanel-runtime/scripts/mysql-migrate.mjs
           cp package-lock.json cpanel-runtime/package-lock.json
           node <<'EOF'

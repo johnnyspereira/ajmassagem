@@ -4,6 +4,13 @@ const mocks = vi.hoisted(() => ({
   role: vi.fn(),
   execute: vi.fn(),
   transaction: vi.fn(),
+  ensureSchema: vi.fn(),
+}));
+vi.mock('@/lib/contacts/lead-schema', async () => ({
+  ...(await vi.importActual<typeof import('@/lib/contacts/lead-schema')>(
+    '@/lib/contacts/lead-schema'
+  )),
+  ensureLeadSchema: mocks.ensureSchema,
 }));
 vi.mock('@/lib/auth/account', () => ({
   getCurrentAccount: mocks.account,
@@ -17,6 +24,7 @@ vi.mock('@/lib/mysql/db', () => ({
 }));
 import { GET, POST, PATCH, PUT } from './route';
 import { DEFAULT_LEAD_SETTINGS } from '@/lib/contacts/lead-workflow';
+import { LeadSchemaInstallError } from '@/lib/contacts/lead-schema';
 const req = (method: string, body?: unknown, query = '') =>
   new Request('https://crm.test/api/leads/workflow' + query, {
     method,
@@ -28,6 +36,7 @@ const req = (method: string, body?: unknown, query = '') =>
       : {}),
   });
 beforeEach(() => {
+  mocks.ensureSchema.mockResolvedValue(undefined);
   mocks.account.mockResolvedValue({ accountId: 'account-a', userId: 'actor' });
   mocks.role.mockResolvedValue({ accountId: 'account-a', userId: 'actor' });
   mocks.execute.mockImplementation(async (sql: string) =>
@@ -46,6 +55,34 @@ beforeEach(() => {
   );
 });
 describe('Lead workflow API', () => {
+  it('initialises the lead schema only after authentication and validation', async () => {
+    expect(
+      (await POST(req('POST', { action: 'load', contactIds: ['contact'] })))
+        .status
+    ).toBe(200);
+    expect(mocks.ensureSchema).toHaveBeenCalledTimes(1);
+    mocks.ensureSchema.mockClear();
+    expect(
+      (await POST(req('POST', { action: 'load', contactIds: ['invalid;id'] })))
+        .status
+    ).toBe(400);
+    expect(mocks.ensureSchema).not.toHaveBeenCalled();
+    mocks.account.mockRejectedValue({ status: 401 });
+    expect(
+      (await POST(req('POST', { action: 'load', contactIds: ['contact'] })))
+        .status
+    ).toBe(401);
+    expect(mocks.ensureSchema).not.toHaveBeenCalled();
+  });
+  it('returns an actionable privilege error instead of asking for repeated restarts', async () => {
+    mocks.ensureSchema.mockRejectedValue(new LeadSchemaInstallError(true));
+    const response = await POST(
+      req('POST', { action: 'load', contactIds: ['contact'] })
+    );
+    expect(response.status).toBe(503);
+    expect((await response.json()).error).toContain('permissão CREATE');
+    expect(mocks.execute).not.toHaveBeenCalled();
+  });
   it('explains a pending schema installation without exposing SQL details', async () => {
     mocks.execute.mockRejectedValue({
       code: 'ER_NO_SUCH_TABLE',
@@ -56,7 +93,7 @@ describe('Lead workflow API', () => {
     );
     expect(response.status).toBe(503);
     const body = await response.json();
-    expect(body.error).toContain('Reinicie a aplicação no cPanel');
+    expect(body.error).toContain('Verifique a instalação');
     expect(body.error).not.toContain('private SQL');
   });
   it('scopes reads to the authenticated account and returns persisted settings or defaults', async () => {

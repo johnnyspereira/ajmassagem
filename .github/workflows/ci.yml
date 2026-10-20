@@ -13,6 +13,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lead-schema:
+    name: Lead schema on MariaDB
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: lead-schema-ci
+          MARIADB_DATABASE: crm_leads_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+      LEAD_SCHEMA_TEST_URL: mysql://root:lead-schema-ci@127.0.0.1:3306/crm_leads_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --include=dev
+      - run: npx vitest run src/lib/contacts/lead-schema.integration.test.ts
+
   check:
     name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
