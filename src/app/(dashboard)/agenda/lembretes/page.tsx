@@ -5,6 +5,10 @@ import { BellRing, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import { formatAccountEventTime } from '@/lib/timezone';
+import {
+  isUpcomingReminder,
+  reminderStart,
+} from '@/lib/clinic/reminder-schedule';
 type Appointment = {
   id: string;
   scheduled_start: string;
@@ -41,6 +45,7 @@ export default function ReminderHistory() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState('');
+  const [now, setNow] = useState(() => Date.now());
   async function load() {
     setBusy(true);
     setError('');
@@ -52,6 +57,7 @@ export default function ReminderHistory() {
       if (!response.ok)
         throw Error(body.error || 'Não foi possível carregar os lembretes.');
       setData(body);
+      setNow(Date.now());
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Falha ao carregar');
     } finally {
@@ -60,10 +66,20 @@ export default function ReminderHistory() {
   }
   useEffect(() => {
     void load();
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
   }, []);
+  const upcoming = (data?.appointments ?? []).filter((item) =>
+    isUpcomingReminder(item, now)
+  );
+  const visible = upcoming.filter((item) =>
+    `${item.name} ${item.phone} ${item.service_name}`
+      .toLowerCase()
+      .includes(query.trim().toLowerCase())
+  );
   return (
     <div className="mx-auto max-w-7xl space-y-5">
-      <header className="flex flex-wrap justify-between gap-3">
+      <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-primary text-xs tracking-widest uppercase">
             Agenda · Comunicação
@@ -77,7 +93,7 @@ export default function ReminderHistory() {
             agendador local ligado.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link className="rounded-xl border px-3 py-2 text-sm" href="/agenda">
             Voltar à agenda
           </Link>
@@ -87,6 +103,30 @@ export default function ReminderHistory() {
           </Button>
         </div>
       </header>
+      {data && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            ['Sessões futuras', upcoming.length],
+            [
+              'Lembretes processados',
+              upcoming.filter((item) => item.reminder_sent_at).length,
+            ],
+            [
+              'Na janela de envio',
+              upcoming.filter(
+                (item) =>
+                  !item.reminder_sent_at &&
+                  reminderStart(item.scheduled_start) - now <= 86_400_000
+              ).length,
+            ],
+          ].map(([label, count]) => (
+            <div key={label} className="bg-card rounded-xl border p-4">
+              <p className="text-muted-foreground text-xs">{label}</p>
+              <p className="mt-1 text-2xl font-semibold">{count}</p>
+            </div>
+          ))}
+        </div>
+      )}
       <p className="bg-muted/20 rounded-xl border p-4 text-sm">
         CONFIRMAR confirma a sessão. CANCELAR cancela e liberta o horário.
         REAGENDAR inicia o pedido de outro horário; a nova data só é aplicada
@@ -109,130 +149,129 @@ export default function ReminderHistory() {
         className="bg-background h-10 w-full rounded-xl border px-3 text-sm"
       />
       <p className="text-muted-foreground text-xs">
-        Sessões dos últimos 7 dias e próximos 30 dias · até 500 registos. Aceite
-        pelo canal não equivale a leitura pelo cliente.
+        Apenas sessões futuras e ativas nos próximos 30 dias · até 500 registos.
+        Sessões passadas, concluídas e canceladas ficam excluídas. Aceite pelo
+        canal não equivale a leitura pelo cliente.
       </p>
       <div className="space-y-3">
-        {data?.appointments
-          .filter((item) =>
-            `${item.name} ${item.phone} ${item.service_name}`
-              .toLowerCase()
-              .includes(query.toLowerCase())
-          )
-          .map((item) => {
-            const attempts = data.events
-              .filter(
-                (event) =>
-                  event.entity_id === item.id && event.action === 'message_sent'
-              )
-              .filter((event) => {
+        {visible.map((item) => {
+          const attempts = (data?.events ?? [])
+            .filter(
+              (event) =>
+                event.entity_id === item.id && event.action === 'message_sent'
+            )
+            .filter((event) => {
+              try {
+                const meta =
+                  typeof event.metadata === 'string'
+                    ? JSON.parse(event.metadata)
+                    : event.metadata;
+                return ['reminder', 'pending_confirmation'].includes(
+                  meta?.message_action
+                );
+              } catch {
+                return false;
+              }
+            });
+          return (
+            <article key={item.id} className="bg-card rounded-2xl border p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold">
+                    {item.name || item.phone || 'Cliente'}
+                  </h2>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    {item.service_name} ·{' '}
+                    {formatAccountEventTime(item.scheduled_start, zone)}
+                  </p>
+                </div>
+                <Link
+                  className="rounded-lg border px-3 py-2 text-xs"
+                  href={`/agenda?appointment=${item.id}`}
+                >
+                  Abrir marcação
+                </Link>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                <span className="bg-muted rounded-lg px-2 py-1">
+                  {item.status === 'cancelled'
+                    ? 'Cancelada'
+                    : item.status === 'completed'
+                      ? 'Concluída'
+                      : item.status === 'no_show'
+                        ? 'Faltou'
+                        : item.last_schedule_change_type === 'rescheduled' &&
+                            item.confirmation_status === 'confirmed'
+                          ? 'Reagendada e confirmada'
+                          : item.confirmation_status === 'confirmed'
+                            ? 'Confirmada'
+                            : item.confirmation_status === 'declined'
+                              ? 'Alteração solicitada'
+                              : 'Aguarda confirmação'}
+                </span>
+                <span className="bg-muted rounded-lg px-2 py-1">
+                  {item.reminder_sent_at
+                    ? `Lembrete processado: ${formatAccountEventTime(item.reminder_sent_at, zone)}`
+                    : reminderStart(item.scheduled_start) - now <= 86_400_000
+                      ? 'Na janela de envio · aguarda próxima execução'
+                      : `Envio previsto: ${formatAccountEventTime(new Date(reminderStart(item.scheduled_start) - 86_400_000).toISOString(), zone)}`}
+                </span>
+                {item.confirmation_response_at && (
+                  <span className="bg-muted rounded-lg px-2 py-1">
+                    Resposta:{' '}
+                    {formatAccountEventTime(
+                      item.confirmation_response_at,
+                      zone
+                    )}
+                  </span>
+                )}
+              </div>
+              {attempts.slice(0, 3).map((event) => {
+                let meta;
                 try {
-                  const meta =
+                  meta =
                     typeof event.metadata === 'string'
                       ? JSON.parse(event.metadata)
                       : event.metadata;
-                  return ['reminder', 'pending_confirmation'].includes(
-                    meta?.message_action
-                  );
                 } catch {
-                  return false;
+                  return null;
                 }
-              });
-            return (
-              <article key={item.id} className="bg-card rounded-2xl border p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 className="font-semibold">
-                      {item.name || item.phone || 'Cliente'}
-                    </h2>
-                    <p className="text-muted-foreground mt-1 text-sm">
-                      {item.service_name} ·{' '}
-                      {formatAccountEventTime(item.scheduled_start, zone)}
+                return (
+                  <div key={event.id} className="mt-3 border-t pt-2 text-xs">
+                    <p className="text-muted-foreground">
+                      {formatAccountEventTime(event.created_at, zone)} ·{' '}
+                      {meta.message_action === 'reminder'
+                        ? 'Lembrete da sessão'
+                        : 'Pedido de confirmação'}
                     </p>
-                  </div>
-                  <Link
-                    className="rounded-lg border px-3 py-2 text-xs"
-                    href={`/agenda?appointment=${item.id}`}
-                  >
-                    Abrir marcação
-                  </Link>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                  <span className="bg-muted rounded-lg px-2 py-1">
-                    {item.status === 'cancelled'
-                      ? 'Cancelada'
-                      : item.status === 'completed'
-                        ? 'Concluída'
-                        : item.status === 'no_show'
-                          ? 'Faltou'
-                          : item.last_schedule_change_type === 'rescheduled' &&
-                              item.confirmation_status === 'confirmed'
-                            ? 'Reagendada e confirmada'
-                            : item.confirmation_status === 'confirmed'
-                              ? 'Confirmada'
-                              : item.confirmation_status === 'declined'
-                                ? 'Alteração solicitada'
-                                : 'Aguarda confirmação'}
-                  </span>
-                  <span className="bg-muted rounded-lg px-2 py-1">
-                    {item.reminder_sent_at
-                      ? `Lembrete processado: ${formatAccountEventTime(item.reminder_sent_at, zone)}`
-                      : 'Lembrete ainda não processado'}
-                  </span>
-                  {item.confirmation_response_at && (
-                    <span className="bg-muted rounded-lg px-2 py-1">
-                      Resposta:{' '}
-                      {formatAccountEventTime(
-                        item.confirmation_response_at,
-                        zone
-                      )}
-                    </span>
-                  )}
-                </div>
-                {attempts.slice(0, 3).map((event) => {
-                  let meta;
-                  try {
-                    meta =
-                      typeof event.metadata === 'string'
-                        ? JSON.parse(event.metadata)
-                        : event.metadata;
-                  } catch {
-                    return null;
-                  }
-                  return (
-                    <div key={event.id} className="mt-3 border-t pt-2 text-xs">
-                      <p className="text-muted-foreground">
-                        {formatAccountEventTime(event.created_at, zone)} ·{' '}
-                        {meta.message_action === 'reminder'
-                          ? 'Lembrete da sessão'
-                          : 'Pedido de confirmação'}
-                      </p>
-                      <div className="mt-1 flex flex-wrap gap-3">
-                        {(['whatsapp', 'email'] as const).map((channel) => {
-                          const delivery = meta.deliveries?.[channel];
-                          return (
-                            <span key={channel}>
-                              {channel === 'whatsapp' ? 'WhatsApp' : 'Email'}:{' '}
-                              {delivery?.sent
-                                ? 'aceite pelo canal'
-                                : delivery?.queued
-                                  ? 'em fila'
-                                  : delivery?.error
-                                    ? 'falhou'
-                                    : 'sem envio'}
-                            </span>
-                          );
-                        })}
-                      </div>
+                    <div className="mt-1 flex flex-wrap gap-3">
+                      {(['whatsapp', 'email'] as const).map((channel) => {
+                        const delivery = meta.deliveries?.[channel];
+                        return (
+                          <span key={channel}>
+                            {channel === 'whatsapp' ? 'WhatsApp' : 'Email'}:{' '}
+                            {delivery?.sent
+                              ? 'aceite pelo canal'
+                              : delivery?.queued
+                                ? 'em fila'
+                                : delivery?.error
+                                  ? 'falhou'
+                                  : 'sem envio'}
+                          </span>
+                        );
+                      })}
                     </div>
-                  );
-                })}
-              </article>
-            );
-          })}
-        {data && !data.appointments.length && (
+                  </div>
+                );
+              })}
+            </article>
+          );
+        })}
+        {data && !visible.length && (
           <p className="text-muted-foreground p-8 text-center text-sm">
-            Nenhuma sessão neste período.
+            {query.trim()
+              ? 'Nenhuma sessão corresponde à pesquisa.'
+              : 'Sem sessões futuras a acompanhar nos próximos 30 dias.'}
           </p>
         )}
       </div>

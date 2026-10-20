@@ -15,6 +15,21 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-20-reminders-future-only',
+    date: '2026-10-20',
+    category: 'Correção',
+    title: 'Lembretes apenas para sessões futuras e ativas',
+    areas: ['Agenda', 'Lembretes'],
+    summary: 'Sessões passadas deixam de aparecer como lembretes por processar.',
+    changes: [
+      'Lista limitada a sessões futuras agendadas ou confirmadas nos próximos 30 dias; exclui também horários já passados no próprio dia.',
+      'Sessões concluídas, canceladas ou com falta deixam de aparecer na lista de acompanhamento.',
+      'Indicação da data prevista de envio 24 horas antes, distinguindo sessões já dentro da janela de envio.',
+      'A rotina volta a validar o estado e a hora antes de reservar cada envio, evitando processar sessões que entretanto passaram ou foram canceladas.',
+    ],
+    howTo: 'Abra Agenda → Lembretes e confirmações. Consulte as sessões futuras e a previsão de envio; use Atualizar para obter os estados mais recentes. A lista remove horários passados enquanto permanece aberta.',
+  },
+  {
     id: '2026-10-20-session-reminder-tracking',
     date: '2026-10-20',
     category: 'Melhoria',

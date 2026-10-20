@@ -74,4 +74,14 @@ it('uses the intended 24 hour window and batch size without query parameters', a
   expect(
     mocks.queries.filter((q) => q.method === 'in' && q.args[0] === 'status')
   ).toHaveLength(2);
+  expect(
+    mocks.queries.filter(
+      (q) => q.method === 'gt' && q.args[0] === 'scheduled_start'
+    )
+  ).toHaveLength(2);
+  expect(
+    mocks.queries.filter(
+      (q) => q.method === 'gte' && q.args[0] === 'scheduled_start'
+    )
+  ).toHaveLength(0);
 });

@@ -18,6 +18,10 @@ it('returns only the authenticated account and disables caching', async () => {
     mocks.select.mock.calls.every(([, args]) => args[0] === 'account-a')
   ).toBe(true);
   expect(response.headers.get('cache-control')).toContain('no-store');
+  const appointmentSql = mocks.select.mock.calls[0][0];
+  expect(appointmentSql).toContain("a.status IN ('scheduled','confirmed')");
+  expect(appointmentSql).toContain('a.scheduled_start>UTC_TIMESTAMP()');
+  expect(appointmentSql).not.toContain('INTERVAL 7 DAY');
 });
 it('rejects unauthorized users before reading customer records', async () => {
   mocks.role.mockRejectedValue({ status: 403 });

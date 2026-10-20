@@ -7,7 +7,7 @@ export async function GET() {
     const appointments = await selectRows<RowDataPacket[]>(
       `SELECT a.id,a.scheduled_start,a.status,a.last_schedule_change_type,a.confirmation_status,a.confirmation_response_at,a.reminder_sent_at,a.confirmation_reminder_sent_at,c.name,c.phone,s.name AS service_name
       FROM clinic_appointments a LEFT JOIN contacts c ON c.id=a.contact_id AND c.account_id=a.account_id LEFT JOIN clinic_services s ON s.id=a.service_id
-      WHERE a.account_id=? AND a.scheduled_start>=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 7 DAY) AND a.scheduled_start<=DATE_ADD(UTC_TIMESTAMP(),INTERVAL 30 DAY)
+      WHERE a.account_id=? AND a.status IN ('scheduled','confirmed') AND a.scheduled_start>UTC_TIMESTAMP() AND a.scheduled_start<=DATE_ADD(UTC_TIMESTAMP(),INTERVAL 30 DAY)
       ORDER BY a.scheduled_start LIMIT 500`,
       [accountId]
     );

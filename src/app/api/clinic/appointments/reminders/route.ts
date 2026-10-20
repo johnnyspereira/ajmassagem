@@ -91,6 +91,8 @@ export async function GET(request: Request) {
         reminder_sent_at: claimedAt,
       })
       .eq('id', pending.id)
+      .in('status', ['scheduled', 'confirmed'])
+      .gt('scheduled_start', claimedAt)
       .is('confirmation_reminder_sent_at', null)
       .is('reminder_sent_at', null)
       .select('id')
@@ -143,7 +145,7 @@ export async function GET(request: Request) {
     )
     .in('status', ['scheduled', 'confirmed'])
     .is('reminder_sent_at', null)
-    .gte('scheduled_start', now.toISOString())
+    .gt('scheduled_start', new Date().toISOString())
     .lte('scheduled_start', until.toISOString())
     .order('scheduled_start', { ascending: true })
     .limit(limit);
@@ -163,6 +165,8 @@ export async function GET(request: Request) {
       .from('clinic_appointments')
       .update({ reminder_sent_at: claimedAt })
       .eq('id', appointment.id)
+      .in('status', ['scheduled', 'confirmed'])
+      .gt('scheduled_start', claimedAt)
       .is('reminder_sent_at', null)
       .select('id')
       .maybeSingle();
