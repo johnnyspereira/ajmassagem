@@ -89,7 +89,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "e245f4b223509ece39e992283081883111d5ff06"
+          "value": "7378a171f9469df07e5a1f95de478a38f11480e2"
         }
       ],
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
@@ -99,7 +99,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "e245f4b223509ece39e992283081883111d5ff06"
+          "value": "7378a171f9469df07e5a1f95de478a38f11480e2"
         }
       ],
       "regex": "^/_next/data(?:/(.*))(?:/)?$"
@@ -950,6 +950,12 @@
       "namedRegex": "^/api/clinic/external\\-calendars(?:/)?$"
     },
     {
+      "page": "/api/clinic/time-blocks/owner",
+      "regex": "^/api/clinic/time\\-blocks/owner(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/clinic/time\\-blocks/owner(?:/)?$"
+    },
+    {
       "page": "/api/contacts",
       "regex": "^/api/contacts(?:/)?$",
       "routeKeys": {},
@@ -1640,5 +1646,5 @@
     "pathHeader": "x-nextjs-rewritten-path",
     "queryHeader": "x-nextjs-rewritten-query"
   },
-  "deploymentId": "e245f4b223509ece39e992283081883111d5ff06"
+  "deploymentId": "7378a171f9469df07e5a1f95de478a38f11480e2"
 }
