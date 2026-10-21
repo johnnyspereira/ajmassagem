@@ -15,6 +15,16 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-21-inbox-dashboard-layout',
+    date: '2026-10-21',
+    category: 'Correção',
+    title: 'Indicadores do Inbox sem sobreposição no painel',
+    areas: ['Painel', 'Inbox'],
+    summary: 'O bloco de operação do Inbox adapta as colunas à largura do próprio cartão.',
+    changes: ['Indicadores e conversas prioritárias ficam empilhados quando o cartão não tem espaço para duas colunas.', 'Rótulos, valores e ícones mantêm espaço próprio; nomes longos preservam a contagem de mensagens.'],
+    howTo: 'Abra Painel → Indicadores. A distribuição adapta-se automaticamente ao espaço disponível, com o menu aberto ou recolhido e em dispositivos portáteis.',
+  },
+  {
     id: '2026-10-20-hidden-reminder-cron',
     date: '2026-10-20',
     category: 'Correção',

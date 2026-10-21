@@ -33,6 +33,7 @@ import type {
 } from '@/lib/dashboard/types';
 import { cn } from '@/lib/utils';
 import { Skeleton } from './skeleton';
+import inboxStyles from './inbox-operations.module.css';
 
 type Icon = ComponentType<{ className?: string }>;
 type MetricTone = 'muted' | 'blue' | 'amber' | 'green' | 'red' | 'violet';
@@ -210,122 +211,126 @@ export function InboxOperationsPanel({
       ) : !data ? (
         <PanelUnavailable />
       ) : (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(360px,1.05fr)]">
-          <div className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <InboxHeroMetric
-                label={t('open')}
-                value={data.open}
-                icon={MessageCircle}
-                tone="blue"
-              />
-              <InboxHeroMetric
-                label={t('pending')}
-                value={data.pending}
-                icon={Clock}
-                tone="amber"
-              />
-              <InboxHeroMetric
-                label={t('unread')}
-                value={data.unread}
-                icon={Inbox}
-                tone="violet"
-              />
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <InboxMetricGroup title={t('crmQueueTitle')}>
-                <InboxMetricLine
-                  label={t('unassigned')}
-                  value={data.unassigned}
-                  icon={Users}
-                  tone="amber"
-                />
-                <InboxMetricLine
-                  label={t('withoutDeal')}
-                  value={data.withoutDeal}
-                  icon={Briefcase}
-                />
-                <InboxMetricLine
-                  label={t('automationActive')}
-                  value={data.automationActive}
-                  icon={Zap}
-                  tone="violet"
-                />
-              </InboxMetricGroup>
-
-              <InboxMetricGroup title={t('replyQueueTitle')}>
-                <InboxMetricLine
-                  label={t('waitingAgent')}
-                  value={data.waitingAgent}
-                  icon={UserRound}
-                  tone="amber"
-                />
-                <InboxMetricLine
-                  label={t('waitingCustomer')}
-                  value={data.waitingCustomer}
-                  icon={Send}
+        <div className={inboxStyles.workspace}>
+          <div className={inboxStyles.layout}>
+            <div className="min-w-0 space-y-3">
+              <div className={inboxStyles.metrics}>
+                <InboxHeroMetric
+                  label={t('open')}
+                  value={data.open}
+                  icon={MessageCircle}
                   tone="blue"
                 />
-                <InboxMetricLine
-                  label={t('closed')}
-                  value={data.closed}
-                  icon={CheckCircle2}
-                  tone="green"
+                <InboxHeroMetric
+                  label={t('pending')}
+                  value={data.pending}
+                  icon={Clock}
+                  tone="amber"
                 />
-              </InboxMetricGroup>
-            </div>
-          </div>
-
-          <div className="bg-muted/35 min-w-0 rounded-lg p-4">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h3 className="text-foreground text-sm font-semibold">
-                {t('criticalTitle')}
-              </h3>
-              <Link
-                href="/inbox"
-                className="text-primary text-xs font-medium hover:underline"
-              >
-                {t('viewInbox')}
-              </Link>
-            </div>
-            {data.critical.length === 0 ? (
-              <p className="text-muted-foreground text-sm">{t('noCritical')}</p>
-            ) : (
-              <div className="space-y-2.5">
-                {data.critical.map((item) => (
-                  <Link
-                    key={item.id}
-                    href={item.href}
-                    className="hover:bg-card flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 transition-colors"
-                  >
-                    <div className="bg-card text-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
-                      {item.contactName.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-foreground truncate text-sm font-medium">
-                          {item.contactName}
-                        </p>
-                        {item.unreadCount > 0 ? (
-                          <span className="bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
-                            {item.unreadCount}
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="text-muted-foreground truncate text-xs">
-                        {item.lastMessageText ||
-                          item.contactPhone ||
-                          t('noPreview')}
-                      </p>
-                    </div>
-                    <span className="text-muted-foreground shrink-0 text-xs">
-                      {formatShortDate(item.lastMessageAt)}
-                    </span>
-                  </Link>
-                ))}
+                <InboxHeroMetric
+                  label={t('unread')}
+                  value={data.unread}
+                  icon={Inbox}
+                  tone="violet"
+                />
               </div>
-            )}
+
+              <div className={inboxStyles.groups}>
+                <InboxMetricGroup title={t('crmQueueTitle')}>
+                  <InboxMetricLine
+                    label={t('unassigned')}
+                    value={data.unassigned}
+                    icon={Users}
+                    tone="amber"
+                  />
+                  <InboxMetricLine
+                    label={t('withoutDeal')}
+                    value={data.withoutDeal}
+                    icon={Briefcase}
+                  />
+                  <InboxMetricLine
+                    label={t('automationActive')}
+                    value={data.automationActive}
+                    icon={Zap}
+                    tone="violet"
+                  />
+                </InboxMetricGroup>
+
+                <InboxMetricGroup title={t('replyQueueTitle')}>
+                  <InboxMetricLine
+                    label={t('waitingAgent')}
+                    value={data.waitingAgent}
+                    icon={UserRound}
+                    tone="amber"
+                  />
+                  <InboxMetricLine
+                    label={t('waitingCustomer')}
+                    value={data.waitingCustomer}
+                    icon={Send}
+                    tone="blue"
+                  />
+                  <InboxMetricLine
+                    label={t('closed')}
+                    value={data.closed}
+                    icon={CheckCircle2}
+                    tone="green"
+                  />
+                </InboxMetricGroup>
+              </div>
+            </div>
+
+            <div className="bg-muted/35 min-w-0 rounded-lg p-4">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h3 className="text-foreground text-sm font-semibold">
+                  {t('criticalTitle')}
+                </h3>
+                <Link
+                  href="/inbox"
+                  className="text-primary text-xs font-medium hover:underline"
+                >
+                  {t('viewInbox')}
+                </Link>
+              </div>
+              {data.critical.length === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  {t('noCritical')}
+                </p>
+              ) : (
+                <div className="space-y-2.5">
+                  {data.critical.map((item) => (
+                    <Link
+                      key={item.id}
+                      href={item.href}
+                      className="hover:bg-card flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 transition-colors"
+                    >
+                      <div className="bg-card text-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
+                        {item.contactName.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-foreground min-w-0 truncate text-sm font-medium">
+                            {item.contactName}
+                          </p>
+                          {item.unreadCount > 0 ? (
+                            <span className="bg-primary text-primary-foreground shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
+                              {item.unreadCount}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="text-muted-foreground truncate text-xs">
+                          {item.lastMessageText ||
+                            item.contactPhone ||
+                            t('noPreview')}
+                        </p>
+                      </div>
+                      <span className="text-muted-foreground shrink-0 text-xs">
+                        {formatShortDate(item.lastMessageAt)}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -618,9 +623,9 @@ function InboxHeroMetric({
   tone?: MetricTone;
 }) {
   return (
-    <div className="bg-muted/35 rounded-lg p-4">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-muted-foreground text-sm font-medium">
+    <div className="bg-muted/35 min-w-0 rounded-lg p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <span className="text-muted-foreground min-w-0 text-sm leading-snug font-medium [overflow-wrap:anywhere]">
           {label}
         </span>
         <Icon className={cn('h-4 w-4 shrink-0', metricToneClass(tone))} />
@@ -640,7 +645,7 @@ function InboxMetricGroup({
   children: ReactNode;
 }) {
   return (
-    <div className="bg-muted/25 rounded-lg p-3">
+    <div className="bg-muted/25 min-w-0 rounded-lg p-3">
       <h3 className="text-muted-foreground mb-3 text-xs font-semibold uppercase">
         {title}
       </h3>
@@ -661,10 +666,10 @@ function InboxMetricLine({
   tone?: MetricTone;
 }) {
   return (
-    <div className="bg-card/60 flex min-h-12 items-center justify-between gap-3 rounded-lg px-3 py-2">
+    <div className="bg-card/60 grid min-h-12 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-3 py-2">
       <div className="flex min-w-0 items-center gap-2">
         <Icon className={cn('h-4 w-4 shrink-0', metricToneClass(tone))} />
-        <span className="text-muted-foreground text-sm leading-snug">
+        <span className="text-muted-foreground min-w-0 text-sm leading-snug [overflow-wrap:anywhere]">
           {label}
         </span>
       </div>
