@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-21-top-navigation-finance', date: '2026-10-21', category: 'Melhoria',
+    title: 'Financeiro com acesso direto no menu superior', areas: ['Navegação'],
+    summary: 'O Financeiro fica junto aos acessos diários e os menus agrupados ganham espaço e legibilidade.',
+    changes: ['Financeiro fora do grupo Negócio, sem duplicar o acesso.', 'Menus agrupados mais largos, com descrição da área, linhas confortáveis e indicação da página ativa.', 'Contagem de mensagens por ler junto à Caixa de entrada.'],
+    howTo: 'Com o menu superior ativo, abra Financeiro diretamente na barra. Use os restantes grupos para navegar entre as ferramentas.',
+  },
+  {
     id: '2026-10-21-navigation-layout-choice', date: '2026-10-21', category: 'Melhoria',
     title: 'Escolha entre menu lateral e superior', areas: ['Navegação', 'Definições'],
     summary: 'A preferência de navegação volta a permitir menu superior para aproveitar toda a largura do conteúdo.',
