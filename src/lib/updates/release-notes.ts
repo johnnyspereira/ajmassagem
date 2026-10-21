@@ -15,6 +15,16 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-21-reminder-delivery-evidence',
+    date: '2026-10-21',
+    category: 'Correção',
+    title: 'Processamento do lembrete deixa de significar envio confirmado',
+    areas: ['Agenda', 'Lembretes'],
+    summary: 'O painel distingue envio aceite, WhatsApp em fila e processamento sem comprovativo de envio.',
+    changes: ['Contador de envios baseado nos resultados por canal, em vez de apenas na data de processamento.', 'Nova tentativa manual para sessões futuras e ativas com processamento registado sem envio ou fila confirmados.'],
+    howTo: 'Abra Lembretes e confirmações e consulte os resultados por canal. Se aparecer processamento sem comprovativo, use Tentar enviar lembrete novamente. Uma mensagem aceite pelo canal não comprova leitura pelo cliente.',
+  },
+  {
     id: '2026-10-21-benefit-refund-guidance',
     date: '2026-10-21',
     category: 'Melhoria',

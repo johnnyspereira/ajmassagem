@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { sendAppointmentCommunication } from '@/lib/clinic/appointment-communication';
 import { createClient } from '@/lib/supabase/server';
+import { reminderStart } from '@/lib/clinic/reminder-schedule';
 
 export async function POST(
   request: Request,
@@ -24,12 +25,13 @@ export async function POST(
     message?: unknown;
     approvedClientRequest?: unknown;
     retry?: unknown;
+    action?: unknown;
   };
   const messageOverride =
     typeof body.message === 'string' ? body.message.trim().slice(0, 4000) : '';
   const { data: appointment } = await db
     .from('clinic_appointments')
-    .select('id')
+    .select('id,status,scheduled_start')
     .eq('id', id)
     .eq('account_id', profile.account_id)
     .maybeSingle();
@@ -38,6 +40,17 @@ export async function POST(
       { error: 'Marcação não encontrada.' },
       { status: 404 }
     );
+  const isReminder = body.action === 'reminder';
+  if (
+    isReminder &&
+    (!['scheduled', 'confirmed'].includes(appointment.status) ||
+      !(reminderStart(appointment.scheduled_start) > Date.now()))
+  ) {
+    return Response.json(
+      { error: 'Só é possível enviar lembretes de sessões futuras e ativas.' },
+      { status: 409 }
+    );
+  }
   try {
     const result = await sendAppointmentCommunication({
       db,
@@ -46,6 +59,7 @@ export async function POST(
       messageOverride: messageOverride || null,
       confirmationApproved: body.approvedClientRequest === true,
       retry: body.retry === true,
+      ...(isReminder ? { action: 'reminder' as const } : {}),
     });
     return Response.json({
       ok: true,

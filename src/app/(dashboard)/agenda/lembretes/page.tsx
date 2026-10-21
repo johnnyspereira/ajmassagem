@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BellRing, RefreshCw } from 'lucide-react';
+import { reminderDelivery } from '@/lib/clinic/reminder-delivery';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import { formatAccountEventTime } from '@/lib/timezone';
@@ -45,6 +46,46 @@ export default function ReminderHistory() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState('');
+  const [retrying, setRetrying] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState('');
+  async function retryReminder(id: string) {
+    if (
+      !window.confirm(
+        'Tentar enviar novamente por WhatsApp e email? Se já recebeu uma mensagem fora deste histórico, poderá receber uma duplicação.'
+      )
+    )
+      return;
+    setRetrying(id);
+    setFeedback('');
+    try {
+      const response = await fetch(
+        `/api/clinic/appointments/${id}/confirmation`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'reminder', retry: true }),
+        }
+      );
+      const result = await response.json();
+      if (!response.ok)
+        throw new Error(result.error || 'Falha ao tentar enviar.');
+      const delivery = result.deliveries;
+      setFeedback(
+        delivery?.whatsapp?.sent
+          ? 'WhatsApp aceite pelo canal.'
+          : delivery?.whatsapp?.queued
+            ? 'WhatsApp em fila; ainda não confirmado como enviado.'
+            : delivery?.email?.sent
+              ? 'Email aceite; WhatsApp não enviado.'
+              : 'Nenhum canal confirmou o envio. Consulte os resultados da tentativa.'
+      );
+      await load();
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'Falha ao enviar.');
+    } finally {
+      setRetrying(null);
+    }
+  }
   const [now, setNow] = useState(() => Date.now());
   async function load() {
     setBusy(true);
@@ -108,14 +149,16 @@ export default function ReminderHistory() {
           {[
             ['Sessões futuras', upcoming.length],
             [
-              'Lembretes processados',
-              upcoming.filter((item) => item.reminder_sent_at).length,
+              'Com envio aceite por um canal',
+              upcoming.filter(
+                (item) => reminderDelivery(item.id, data.events).sent
+              ).length,
             ],
             [
-              'Na janela de envio',
+              'Na janela · sem envio aceite',
               upcoming.filter(
                 (item) =>
-                  !item.reminder_sent_at &&
+                  !reminderDelivery(item.id, data.events).sent &&
                   reminderStart(item.scheduled_start) - now <= 86_400_000
               ).length,
             ],
@@ -141,6 +184,11 @@ export default function ReminderHistory() {
           {error}
         </p>
       )}
+      {feedback && (
+        <p role="status" className="rounded-xl border p-4 text-sm">
+          {feedback}
+        </p>
+      )}
       <input
         aria-label="Pesquisar notificações da agenda"
         placeholder="Pesquisar cliente ou serviço"
@@ -155,6 +203,7 @@ export default function ReminderHistory() {
       </p>
       <div className="space-y-3">
         {visible.map((item) => {
+          const delivery = reminderDelivery(item.id, data?.events ?? []);
           const attempts = (data?.events ?? [])
             .filter(
               (event) =>
@@ -211,7 +260,11 @@ export default function ReminderHistory() {
                 </span>
                 <span className="bg-muted rounded-lg px-2 py-1">
                   {item.reminder_sent_at
-                    ? `Lembrete processado: ${formatAccountEventTime(item.reminder_sent_at, zone)}`
+                    ? delivery.sent
+                      ? 'Envio aceite por um canal · consulte os canais abaixo'
+                      : delivery.queued
+                        ? 'WhatsApp em fila · envio ainda não confirmado'
+                        : 'Processamento registado sem comprovativo de envio'
                     : reminderStart(item.scheduled_start) - now <= 86_400_000
                       ? 'Na janela de envio · aguarda próxima execução'
                       : `Envio previsto: ${formatAccountEventTime(new Date(reminderStart(item.scheduled_start) - 86_400_000).toISOString(), zone)}`}
@@ -226,6 +279,18 @@ export default function ReminderHistory() {
                   </span>
                 )}
               </div>
+              {!delivery.sent && !delivery.queued && item.reminder_sent_at && (
+                <Button
+                  className="mt-3"
+                  variant="outline"
+                  disabled={retrying !== null}
+                  onClick={() => void retryReminder(item.id)}
+                >
+                  {retrying === item.id
+                    ? 'A tentar enviar…'
+                    : 'Tentar enviar lembrete novamente'}
+                </Button>
+              )}
               {attempts.slice(0, 3).map((event) => {
                 let meta;
                 try {
@@ -257,6 +322,11 @@ export default function ReminderHistory() {
                                 : delivery?.error
                                   ? 'falhou'
                                   : 'sem envio'}
+                            {delivery?.error && (
+                              <span className="text-destructive block max-w-full break-words">
+                                {delivery.error}
+                              </span>
+                            )}
                           </span>
                         );
                       })}
