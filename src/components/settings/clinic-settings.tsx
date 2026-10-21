@@ -1,7 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import workspaceStyles from './settings-workspace.module.css';
+import { CatalogOrderDialog } from './catalog-order-dialog';
+import { sortCatalog } from '@/lib/clinic/catalog-order';
 import {
   useCallback,
   useEffect,
@@ -412,7 +415,42 @@ export function ClinicSettings() {
   const { accountId, user, defaultCurrency, canEditSettings, profileLoading } =
     useAuth();
 
-  const [tab, setTab] = useState<CatalogTab>('services');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedArea = searchParams.get('clinicArea');
+  const tab: CatalogTab =
+    requestedArea && Object.hasOwn(CATALOG_AREAS, requestedArea)
+      ? (requestedArea as CatalogTab)
+      : 'services';
+  const setTab = (next: CatalogTab) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('clinicArea', next);
+    router.replace(`/settings?${params.toString()}`, { scroll: false });
+    setCatalogQuery('');
+    setCatalogState('all');
+  };
+  const [catalogQuery, setCatalogQuery] = useState('');
+  const [catalogState, setCatalogState] = useState('all');
+  const [catalogTipOpen, setCatalogTipOpen] = useState(false);
+  const matchesCatalog = (item: {
+    name: string;
+    is_active: boolean;
+    description?: string | null;
+    sku?: string | null;
+  }) => {
+    const normalize = (text: string) =>
+      text
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+    return (
+      (catalogState === 'all' ||
+        item.is_active === (catalogState === 'active')) &&
+      normalize(
+        `${item.name} ${item.description ?? ''} ${item.sku ?? ''}`
+      ).includes(normalize(catalogQuery.trim()))
+    );
+  };
   const [loading, setLoading] = useState(true);
   const [schemaMissing, setSchemaMissing] = useState(false);
   const [services, setServices] = useState<ClinicService[]>([]);
@@ -526,9 +564,9 @@ export function ClinicSettings() {
       return;
     }
 
-    setServices((servicesRes.data ?? []) as ClinicService[]);
-    setProducts((productsRes.data ?? []) as ClinicProduct[]);
-    setRooms((roomsRes.data ?? []) as ClinicRoom[]);
+    setServices(sortCatalog((servicesRes.data ?? []) as ClinicService[]));
+    setProducts(sortCatalog((productsRes.data ?? []) as ClinicProduct[]));
+    setRooms(sortCatalog((roomsRes.data ?? []) as ClinicRoom[]));
     setProfessionals(membersRes?.members ?? []);
     setAnamnesisForms(
       (anamnesisRes.data ?? []) as unknown as AnamnesisFormRow[]
@@ -1192,21 +1230,92 @@ export function ClinicSettings() {
         </div>
 
         <div className="min-w-0 p-4 sm:p-5">
-          <div className="mb-5">
-            <h3 className="text-base font-semibold">
-              {CATALOG_AREAS[tab].title}
-            </h3>
-            <p className="text-muted-foreground mt-1 text-sm">
-              {CATALOG_AREAS[tab].description}
-            </p>
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold">
+                {CATALOG_AREAS[tab].title}
+              </h3>
+              <p className="text-muted-foreground mt-1 text-sm">
+                {CATALOG_AREAS[tab].description}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-expanded={catalogTipOpen}
+              onClick={() => setCatalogTipOpen(!catalogTipOpen)}
+            >
+              Como organizar esta área
+            </Button>
           </div>
+          {catalogTipOpen && (
+            <div className="bg-primary/5 mb-4 rounded-xl border p-4 text-sm">
+              {tab === 'services'
+                ? 'Defina o preço e a duração base, organize a ordem e use Editar para configurar operação e apresentação pública.'
+                : tab === 'products'
+                  ? 'Dê prioridade aos produtos mais utilizados, pesquise pelo nome ou SKU e reveja o stock antes de desativar um item.'
+                  : tab === 'rooms'
+                    ? 'Mantenha as salas com nomes claros e cores distintas para reconhecer rapidamente os recursos na agenda.'
+                    : tab === 'packs'
+                      ? 'Agrupe sessões por serviço e confirme a validade e o preço antes de disponibilizar um pack para venda.'
+                      : tab === 'professionals'
+                        ? 'Reveja os horários e guarde as alterações de cada profissional individualmente.'
+                        : tab === 'communication'
+                          ? 'Personalize as informações de acesso e as mensagens da agenda. Guarde no final do formulário.'
+                          : 'Organize as perguntas por tema, reveja o texto apresentado ao cliente e consulte os formulários recebidos.'}
+            </div>
+          )}
+          {(['services', 'products', 'rooms'] as string[]).includes(tab) && (
+            <div className="bg-muted/25 mb-5 flex flex-wrap gap-3 rounded-xl border p-3">
+              <Input
+                className="min-w-0 flex-1 basis-52"
+                aria-label="Pesquisar no catálogo da clínica"
+                placeholder="Pesquisar por nome, descrição ou SKU…"
+                value={catalogQuery}
+                onChange={(event) => setCatalogQuery(event.target.value)}
+              />
+              <select
+                aria-label="Estado dos itens"
+                className="bg-background h-10 rounded-lg border px-3 text-sm"
+                value={catalogState}
+                onChange={(event) => setCatalogState(event.target.value)}
+              >
+                <option value="all">Todos os estados</option>
+                <option value="active">Ativos</option>
+                <option value="inactive">Inativos</option>
+              </select>
+              {canEditSettings && (
+                <CatalogOrderDialog
+                  kind={tab as 'services' | 'products' | 'rooms'}
+                  items={
+                    tab === 'services'
+                      ? services
+                      : tab === 'products'
+                        ? products
+                        : rooms
+                  }
+                  onSaved={() => void loadCatalog()}
+                />
+              )}
+            </div>
+          )}
+          {tab === 'professionals' && (
+            <div className="bg-muted/25 mb-5 rounded-xl border p-3">
+              <Input
+                aria-label="Pesquisar profissional"
+                placeholder="Pesquisar profissional por nome ou email…"
+                value={catalogQuery}
+                onChange={(event) => setCatalogQuery(event.target.value)}
+              />
+            </div>
+          )}
           {loading ? (
             <div className="flex justify-center py-12">
               <Loader2 className="text-primary size-6 animate-spin" />
             </div>
           ) : tab === 'services' ? (
             <ServiceList
-              services={services}
+              services={services.filter(matchesCatalog)}
               currency={defaultCurrency}
               canImport={canEditSettings}
               onImport={(file) => void prepareServiceImport(file)}
@@ -1217,7 +1326,7 @@ export function ClinicSettings() {
             />
           ) : tab === 'products' ? (
             <ProductList
-              products={products}
+              products={products.filter(matchesCatalog)}
               currency={defaultCurrency}
               onEdit={openEditProduct}
               onToggle={(item) =>
@@ -1228,7 +1337,7 @@ export function ClinicSettings() {
             <PackCatalogSettings />
           ) : tab === 'rooms' ? (
             <RoomList
-              rooms={rooms}
+              rooms={rooms.filter(matchesCatalog)}
               onEdit={openEditRoom}
               onToggle={(item) =>
                 toggleActive('clinic_rooms', item.id, item.is_active)
@@ -1236,7 +1345,11 @@ export function ClinicSettings() {
             />
           ) : tab === 'professionals' ? (
             <ProfessionalsPanel
-              members={professionals}
+              members={professionals.filter((member) =>
+                `${member.full_name ?? ''} ${member.email ?? ''}`
+                  .toLowerCase()
+                  .includes(catalogQuery.toLowerCase().trim())
+              )}
               workSessionsByUser={professionalWorkSessions}
               canEdit={canEditSettings}
               saving={saving}
@@ -2005,7 +2118,10 @@ function CommunicationPanel({
           da anamnese.
         </p>
       </div>
-      <div className="flex justify-end">
+      <div className="bg-card/95 sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 backdrop-blur">
+        <p className="text-muted-foreground text-xs">
+          As alterações só são aplicadas depois de guardar.
+        </p>
         <Button onClick={onSave} disabled={disabled || saving}>
           {saving ? <Loader2 className="animate-spin" /> : <Save />}
           Guardar comunicação
@@ -2559,7 +2675,10 @@ function AnamnesisPanel({
         </div>
       </section>
 
-      <div className="flex justify-end">
+      <div className="bg-card/95 sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 backdrop-blur">
+        <p className="text-muted-foreground text-xs">
+          Guarde para atualizar a ficha apresentada ao cliente.
+        </p>
         <Button onClick={onSave} disabled={disabled || saving}>
           {saving ? <Loader2 className="animate-spin" /> : <Save />}
           Guardar anamnese
@@ -3235,7 +3354,7 @@ function ProductList({
   if (products.length === 0)
     return <EmptyCatalog label="Nenhum produto cadastrado." />;
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <div className={workspaceStyles.clinicCatalogGrid}>
       {products.map((product) => (
         <CatalogCard
           key={product.id}
@@ -3267,7 +3386,7 @@ function RoomList({
   if (rooms.length === 0)
     return <EmptyCatalog label="Nenhuma sala cadastrada." />;
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <div className={workspaceStyles.clinicCatalogGrid}>
       {rooms.map((room) => (
         <CatalogCard
           key={room.id}

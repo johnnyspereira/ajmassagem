@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-21-clinic-catalog-priority', date: '2026-10-21', category: 'Melhoria',
+    title: 'Clínica com catálogos pesquisáveis e ordem personalizada', areas: ['Definições', 'Clínica'],
+    summary: 'Procedimentos, produtos, salas e packs podem ser organizados pela ordem que a equipa pretende consultar nesta página.',
+    changes: ['Organizar ordem permite colocar primeiro, subir e descer itens e guardar a prioridade na conta, incluindo os inativos.', 'Pesquisa e filtros por estado nos catálogos; packs também permitem pesquisa por referência.', 'Cada aba tem orientação contextual e a área escolhida fica no endereço para poder recarregar ou partilhar.', 'Pesquisa de profissionais por nome ou email; Comunicação e Anamnese com barra de guardar fixa no final do formulário.', 'Atualização da base de dados para guardar a ordem com validação de permissões e isolamento entre contas.'],
+    howTo: 'Em Definições → Clínica, escolha uma aba de catálogo e abra Organizar ordem. Ajuste os itens e confirme Guardar ordem. A ordem aplica-se à lista desta área da Clínica; não altera automaticamente a ordem do site ou do POS. Reinicie a aplicação após publicar para aplicar a atualização da base de dados.',
+  },
+  {
     id: '2026-10-21-top-navigation-finance', date: '2026-10-21', category: 'Melhoria',
     title: 'Financeiro com acesso direto no menu superior', areas: ['Navegação'],
     summary: 'O Financeiro fica junto aos acessos diários e os menus agrupados ganham espaço e legibilidade.',

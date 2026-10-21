@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, PackageCheck, Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { CatalogOrderDialog } from './catalog-order-dialog';
+import { sortCatalog } from '@/lib/clinic/catalog-order';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,6 +27,16 @@ export function PackCatalogSettings() {
   const { accountId, user, defaultCurrency, canEditSettings } = useAuth();
   const supabase = useMemo(() => createClient(), []);
   const [packs, setPacks] = useState<FinancePackCatalog[]>([]);
+  const [query, setQuery] = useState('');
+  const [stateFilter, setStateFilter] = useState('all');
+  const visiblePacks = packs.filter(
+    (pack) =>
+      (stateFilter === 'all' ||
+        pack.is_active === (stateFilter === 'active')) &&
+      `${pack.name} ${pack.reference ?? ''}`
+        .toLocaleLowerCase('pt')
+        .includes(query.toLocaleLowerCase('pt').trim())
+  );
   const [services, setServices] = useState<ClinicService[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -63,7 +75,7 @@ export function PackCatalogSettings() {
           'Falha ao carregar packs.'
       );
     }
-    setPacks((packsRes.data ?? []) as FinancePackCatalog[]);
+    setPacks(sortCatalog((packsRes.data ?? []) as FinancePackCatalog[]));
     setServices((servicesRes.data ?? []) as ClinicService[]);
     setLoading(false);
   }, [accountId, supabase]);
@@ -119,7 +131,9 @@ export function PackCatalogSettings() {
       new Set(selectedItems.map((item) => item.serviceId)).size !==
       selectedItems.length
     ) {
-      toast.error('Cada serviço pode aparecer apenas uma vez no pack. Ajuste o número de sessões.');
+      toast.error(
+        'Cada serviço pode aparecer apenas uma vez no pack. Ajuste o número de sessões.'
+      );
       return;
     }
     setSaving(true);
@@ -210,14 +224,40 @@ export function PackCatalogSettings() {
           </Button>
         ) : null}
       </div>
+      <div className="bg-muted/25 flex flex-wrap gap-3 rounded-xl border p-3">
+        <Input
+          className="min-w-0 flex-1 basis-48"
+          placeholder="Pesquisar pack ou referência…"
+          aria-label="Pesquisar packs"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        <select
+          aria-label="Estado dos packs"
+          className="bg-background h-10 rounded-lg border px-3 text-sm"
+          value={stateFilter}
+          onChange={(event) => setStateFilter(event.target.value)}
+        >
+          <option value="all">Todos os estados</option>
+          <option value="active">Ativos</option>
+          <option value="inactive">Inativos</option>
+        </select>
+        {canEditSettings && (
+          <CatalogOrderDialog
+            kind="packs"
+            items={packs}
+            onSaved={() => void load()}
+          />
+        )}
+      </div>
       {loading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="text-primary size-6 animate-spin" />
         </div>
-      ) : packs.length ? (
+      ) : visiblePacks.length ? (
         <div className="grid gap-3 lg:grid-cols-2">
-          {packs.map((pack) => (
-            <div key={pack.id} className="border-border rounded-md border p-4">
+          {visiblePacks.map((pack) => (
+            <div key={pack.id} className="border-border rounded-2xl border p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -294,7 +334,11 @@ export function PackCatalogSettings() {
                 />
               </PackField>
               <PackField label="Descrição para o cliente">
-                <Input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ex.: 3 sessões para aliviar tensão" />
+                <Input
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Ex.: 3 sessões para aliviar tensão"
+                />
               </PackField>
               <PackField label="Preço">
                 <Input
