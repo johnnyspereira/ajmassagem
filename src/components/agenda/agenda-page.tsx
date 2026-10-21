@@ -3163,20 +3163,16 @@ export function AgendaPage({
       appointment.benefits?.find((item) => item.status === 'reserved') ??
       (selectedAppointment?.id === appointment.id ? appointmentBenefit : null);
 
-    const service =
-      services.find((item) => item.id === appointment.service_id) ??
-      appointment.service;
     const originalStart = new Date(appointment.scheduled_start);
     const originalEnd = new Date(appointment.scheduled_end);
     const startAt = appointmentDate(
       scheduleChangeDraft.date,
       scheduleChangeDraft.time
     );
-    const durationMinutes =
-      Math.max(
-        15,
-        Math.round((originalEnd.getTime() - originalStart.getTime()) / 60_000)
-      );
+    const durationMinutes = Math.max(
+      15,
+      Math.round((originalEnd.getTime() - originalStart.getTime()) / 60_000)
+    );
     const endAt = addMinutes(startAt, durationMinutes);
     const notificationChoice = scheduleChangeDraft.requestClientConfirmation
       ? await chooseNotification('Alterar o horário da marcação')
