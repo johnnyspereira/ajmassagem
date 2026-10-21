@@ -1,6 +1,24 @@
 .workspace {
   min-height: 0;
 }
+.expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  height: 100dvh;
+  background: var(--background);
+  padding: max(8px, env(safe-area-inset-top))
+    max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom))
+    max(8px, env(safe-area-inset-left));
+}
+.expanded .metrics,
+.expanded .heading,
+.expanded .filters details {
+  display: none;
+}
+.appointmentColumns > * {
+  min-width: 0;
+}
 .appointmentColumns {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -15,8 +33,7 @@
   align-content: start;
   min-width: 0;
   max-height: 100%;
-  overflow: auto;
-  scrollbar-width: thin;
+  overflow: hidden;
 }
 .appointmentTags > span {
   min-width: 0;
@@ -25,6 +42,87 @@
 }
 .appointmentTags svg {
   flex-shrink: 0;
+}
+.sheetBody :global(input),
+.sheetBody :global(select),
+.sheetBody :global(textarea) {
+  min-width: 0;
+  max-width: 100%;
+}
+.sheetBody > div {
+  min-width: 0;
+}
+@media (max-width: 639px) {
+  .serviceFields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .serviceFields > :first-child {
+    grid-column: 1 / -1;
+  }
+  .appointmentSheet {
+    top: 0 !important;
+    left: 0 !important;
+    translate: none !important;
+    transform: none !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+  }
+  .sheetHeader {
+    padding: max(10px, env(safe-area-inset-top)) 12px 8px;
+  }
+  .sheetHeader > div {
+    gap: 8px;
+  }
+  .sheetHeader > div > div:first-child > span:first-child {
+    display: none;
+  }
+  .sheetStatuses {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .sheetStatuses > div {
+    padding: 5px;
+    border-radius: 8px;
+    box-shadow: none;
+  }
+  .sheetStatuses > div > p:first-child {
+    font-size: 8px;
+  }
+  .sheetStatuses > div > p:last-child {
+    font-size: 10px;
+  }
+  .sheetStatuses > a {
+    grid-column: 1 / -1;
+    min-height: 30px;
+    height: 30px;
+  }
+  .sheetFooter > div,
+  .sheetFooter > div > div {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+  .sheetFooter button {
+    min-width: 0;
+    padding-inline: 8px;
+    font-size: 11px;
+    white-space: normal;
+  }
+  .sheetBody {
+    padding: 10px;
+  }
+  .sheetBody :global(input),
+  .sheetBody :global(select),
+  .sheetBody :global(textarea) {
+    font-size: 16px;
+  }
+}
+@media (max-height: 500px) {
+  .sheetStatuses {
+    display: none;
+  }
 }
 @media (max-height: 700px) {
   .metrics {

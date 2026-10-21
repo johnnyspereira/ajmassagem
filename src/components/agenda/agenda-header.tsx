@@ -10,6 +10,8 @@ import {
   CircleDollarSign,
   History,
   Lock,
+  Maximize2,
+  Minimize2,
   MoreHorizontal,
   Plus,
   RefreshCw,
@@ -28,6 +30,8 @@ import { cn } from '@/lib/utils';
 import styles from './agenda-workspace.module.css';
 
 interface AgendaHeaderProps {
+  expanded: boolean;
+  onToggleExpanded: () => void;
   dateTitle: string;
   date: string;
   onDate: (value: string) => void;
@@ -95,6 +99,19 @@ export function AgendaHeader(props: AgendaHeaderProps) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            className="h-9 rounded-xl px-2 text-xs sm:px-3 sm:text-sm"
+            onClick={props.onToggleExpanded}
+            aria-pressed={props.expanded}
+          >
+            {props.expanded ? (
+              <Minimize2 className="size-4" />
+            ) : (
+              <Maximize2 className="size-4" />
+            )}
+            {props.expanded ? 'Sair da vista expandida' : 'Expandir agenda'}
+          </Button>
           {props.canOperate && (
             <>
               <Button

@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-21-agenda-expanded-mobile-sheet', date: '2026-10-21', category: 'Melhoria',
+    title: 'Agenda expandida e ficha da marcação adaptada ao telemóvel', areas: ['Agenda'],
+    summary: 'Modo expandido para aproveitar o ecrã e ficha com cabeçalho compacto, área de edição independente e ações fixas.',
+    changes: ['Expandir agenda ocupa a área do ecrã e oculta a navegação e os indicadores secundários; permite sair pelo botão ou Escape quando não há diálogo aberto.', 'Ficha da marcação ocupa o ecrã no telemóvel, com estados compactos, Cliente 360 acessível e registos de criação e alteração recolhíveis.', 'Rodapé mais compacto com Fechar, Guardar + nova e Guardar; campos adaptados para evitar zoom automático em telemóveis.', 'Colunas semanais mais largas e etiquetas sem barras de rolagem internas.'],
+    howTo: 'Na agenda, escolha Expandir agenda para ganhar espaço. Use Sair da vista expandida para voltar. Abra uma marcação para editar; no telemóvel, percorra o corpo da ficha mantendo as ações no rodapé.',
+  },
+  {
     id: '2026-10-21-clinic-catalog-priority', date: '2026-10-21', category: 'Melhoria',
     title: 'Clínica com catálogos pesquisáveis e ordem personalizada', areas: ['Definições', 'Clínica'],
     summary: 'Procedimentos, produtos, salas e packs podem ser organizados pela ordem que a equipa pretende consultar nesta página.',

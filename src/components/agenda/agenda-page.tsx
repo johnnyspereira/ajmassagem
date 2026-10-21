@@ -949,6 +949,16 @@ export function AgendaPage({
     useState<AppointmentMessageAction>('confirmation');
   const [messageDraft, setMessageDraft] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [expandedAgenda, setExpandedAgenda] = useState(false);
+  useEffect(() => {
+    if (!expandedAgenda) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !document.querySelector('[role="dialog"]'))
+        setExpandedAgenda(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [expandedAgenda]);
   const [initialAppointmentConsumed, setInitialAppointmentConsumed] =
     useState(false);
   const [deepLinkedAppointmentConsumed, setDeepLinkedAppointmentConsumed] =
@@ -4080,10 +4090,13 @@ export function AgendaPage({
       aria-label="Área de trabalho da agenda"
       className={cn(
         styles.workspace,
+        expandedAgenda && styles.expanded,
         'flex h-full min-h-0 min-w-0 flex-col gap-2'
       )}
     >
       <AgendaHeader
+        expanded={expandedAgenda}
+        onToggleExpanded={() => setExpandedAgenda((current) => !current)}
         dateTitle={formatRangeTitle(selectedDate, view)}
         date={dateInputValue(selectedDate)}
         onDate={(value) => setSelectedDate(new Date(value + 'T12:00:00'))}
@@ -4433,10 +4446,20 @@ export function AgendaPage({
           if (!open) closeAppointmentSheet();
         }}
       >
-        <DialogContent className="flex max-h-[calc(100dvh-5rem)] w-[calc(100vw-2rem)] max-w-[1240px] flex-col gap-0 overflow-hidden rounded-2xl border-violet-200/70 p-0 shadow-2xl sm:max-w-[1240px] dark:border-violet-900/60">
+        <DialogContent
+          className={cn(
+            styles.appointmentSheet,
+            'border-border flex h-[min(900px,calc(100dvh-2rem))] max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[1240px] flex-col gap-0 overflow-hidden rounded-2xl p-0 shadow-2xl sm:max-w-[1240px]'
+          )}
+        >
           {selectedAppointment && editDraft ? (
             <>
-              <DialogHeader className="dark:via-background shrink-0 border-b border-violet-200/70 bg-gradient-to-r from-violet-50 via-white to-sky-50 px-6 py-5 dark:border-violet-900/60 dark:from-violet-950/50 dark:to-sky-950/40">
+              <DialogHeader
+                className={cn(
+                  styles.sheetHeader,
+                  'bg-card shrink-0 border-b px-4 py-3 sm:px-5'
+                )}
+              >
                 <div className="flex flex-wrap items-start justify-between gap-4 pr-10">
                   <div className="flex min-w-0 items-start gap-3">
                     <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-sm shadow-violet-500/30">
@@ -4444,14 +4467,14 @@ export function AgendaPage({
                     </span>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <DialogTitle className="text-xl">
+                        <DialogTitle className="text-base sm:text-xl">
                           Ficha da marcação
                         </DialogTitle>
                         <Badge className="border-violet-200 bg-violet-100 font-mono text-violet-700 hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-300">
                           #{selectedAppointment.id.slice(0, 8).toUpperCase()}
                         </Badge>
                       </div>
-                      <p className="mt-1 truncate text-sm font-medium text-violet-950 dark:text-violet-100">
+                      <p className="text-foreground mt-1 truncate text-sm font-medium">
                         {selectedAppointment.contact?.name ||
                           'Cliente sem nome'}{' '}
                         · {selectedAppointment.service?.name || 'Serviço'} ·{' '}
@@ -4459,29 +4482,39 @@ export function AgendaPage({
                           selectedAppointment.scheduled_start
                         )}
                       </p>
-                      <div className="text-muted-foreground mt-2 grid gap-1 text-xs sm:grid-cols-2">
-                        <span>
-                          Criada:{' '}
-                          {formatAccountDateTime(
-                            selectedAppointment.created_at,
-                            accountTimeZone
-                          )}
-                        </span>
-                        <span>
-                          Modificada:{' '}
-                          {formatAccountDateTime(
-                            selectedAppointment.updated_at,
-                            accountTimeZone
-                          )}
-                        </span>
-                      </div>
+                      <details className="text-muted-foreground mt-1 text-xs">
+                        <summary className="cursor-pointer">
+                          Registo da marcação
+                        </summary>
+                        <div className="mt-1 grid gap-1 sm:grid-cols-2">
+                          <span>
+                            Criada:{' '}
+                            {formatAccountDateTime(
+                              selectedAppointment.created_at,
+                              accountTimeZone
+                            )}
+                          </span>
+                          <span>
+                            Modificada:{' '}
+                            {formatAccountDateTime(
+                              selectedAppointment.updated_at,
+                              accountTimeZone
+                            )}
+                          </span>
+                        </div>
+                      </details>
                     </div>
                   </div>
                   {/* Keep the status cards below the appointment title on
                       tablets. A portrait tablet may have enough CSS pixels
                       for an `xl` breakpoint, but not enough real room for a
                       520px status row beside a long client/service title. */}
-                  <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:grid-cols-5">
+                  <div
+                    className={cn(
+                      styles.sheetStatuses,
+                      'grid w-full min-w-0 grid-cols-2 gap-2 sm:grid-cols-5'
+                    )}
+                  >
                     <HeaderStatus
                       label="Estado"
                       value={STATUS_LABEL[editDraft.status]}
@@ -4539,7 +4572,7 @@ export function AgendaPage({
                         href={`/contacts/${editDraft.contactId}`}
                         className={cn(
                           buttonVariants({ variant: 'outline' }),
-                          'h-full min-h-12 gap-2 rounded-xl border-violet-200 bg-white/80 text-xs dark:border-violet-800 dark:bg-slate-950'
+                          'bg-background border-border h-full min-h-12 gap-2 rounded-xl text-xs'
                         )}
                       >
                         <UserCheck className="size-4" />
@@ -4550,7 +4583,12 @@ export function AgendaPage({
                 </div>
               </DialogHeader>
 
-              <div className="via-background min-h-0 flex-1 overflow-y-auto bg-gradient-to-b from-violet-50/40 to-sky-50/30 p-5 dark:from-violet-950/10 dark:to-sky-950/10">
+              <div
+                className={cn(
+                  styles.sheetBody,
+                  'bg-background min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5'
+                )}
+              >
                 <div className="grid items-start gap-5">
                   {selectedWhatsAppReschedule ? (
                     <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-fuchsia-300 bg-fuchsia-50 p-4 dark:border-fuchsia-900 dark:bg-fuchsia-950/30">
@@ -4586,8 +4624,8 @@ export function AgendaPage({
                       ) : null}
                     </section>
                   ) : null}
-                  <section className="dark:to-background rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 to-white p-4 shadow-sm dark:border-sky-900/60 dark:from-sky-950/30">
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <details className="bg-card rounded-xl border p-3 sm:p-4">
+                    <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2">
                       <div>
                         <h3 className="text-sm font-semibold">
                           Dados operacionais
@@ -4600,8 +4638,8 @@ export function AgendaPage({
                       <Badge className="bg-sky-100 text-sky-700 hover:bg-sky-100 dark:bg-sky-950 dark:text-sky-300">
                         Visão geral
                       </Badge>
-                    </div>
-                    <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+                    </summary>
+                    <div className="mt-3 grid grid-cols-2 gap-x-5 gap-y-3 lg:grid-cols-4">
                       <AppointmentDatum
                         label="Origem"
                         value={appointmentSourceLabel(
@@ -4714,9 +4752,9 @@ export function AgendaPage({
                         </Button>
                       </div>
                     ) : null}
-                  </section>
+                  </details>
 
-                  <div className="dark:bg-background/80 grid gap-4 rounded-xl border border-violet-200/60 bg-white/80 p-4 shadow-sm dark:border-violet-900/50">
+                  <div className="bg-card grid min-w-0 gap-4 rounded-xl border p-3 sm:p-4">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Field label="Profissional">
                         <NativeSelect
@@ -4791,7 +4829,7 @@ export function AgendaPage({
                           (item) => item.id === editDraft.contactId
                         ) ?? selectedAppointment.contact;
                       return (
-                        <div className="border-border bg-muted/30 grid gap-3 rounded-md border p-3 text-xs sm:grid-cols-2 lg:grid-cols-[0.7fr_1fr_1.2fr_1fr_auto] lg:items-center">
+                        <div className="border-border bg-muted/30 grid grid-cols-2 gap-3 rounded-xl border p-3 text-xs lg:grid-cols-4 lg:items-center">
                           <div>
                             <p className="text-muted-foreground">
                               Ref. cliente
@@ -4822,7 +4860,12 @@ export function AgendaPage({
                       );
                     })()}
 
-                    <div className="grid gap-3 sm:grid-cols-[1fr_140px_120px]">
+                    <div
+                      className={cn(
+                        styles.serviceFields,
+                        'grid gap-3 sm:grid-cols-[1fr_140px_120px]'
+                      )}
+                    >
                       <Field label="Serviço">
                         <NativeSelect
                           value={editDraft.serviceId}
@@ -5431,10 +5474,15 @@ export function AgendaPage({
                 </div>
               </div>
 
-              <div className="dark:from-background shrink-0 border-t border-violet-200/70 bg-gradient-to-r from-white via-violet-50/70 to-sky-50/70 px-5 pt-3 pb-[max(.75rem,env(safe-area-inset-bottom))] dark:border-violet-900/60 dark:via-violet-950/30 dark:to-sky-950/30">
+              <div
+                className={cn(
+                  styles.sheetFooter,
+                  'bg-card shrink-0 border-t px-3 pt-2 pb-[max(.5rem,env(safe-area-inset-bottom))] sm:px-5'
+                )}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <Button variant="outline" onClick={closeAppointmentSheet}>
-                    Fechar marcação
+                    Fechar<span className="hidden sm:inline"> marcação</span>
                   </Button>
                   {canOperate ? (
                     <div className="flex flex-wrap gap-2">
@@ -5450,9 +5498,16 @@ export function AgendaPage({
                         ) : (
                           <Plus className="size-4" />
                         )}
-                        {savingEdit
-                          ? editSaveStage || 'A guardar…'
-                          : 'Guardar e criar nova'}
+                        {savingEdit ? (
+                          editSaveStage || 'A guardar…'
+                        ) : (
+                          <>
+                            <span className="sm:hidden">Guardar + nova</span>
+                            <span className="hidden sm:inline">
+                              Guardar e criar nova
+                            </span>
+                          </>
+                        )}
                       </Button>
                       <Button
                         onClick={() => saveAppointmentSheet()}
@@ -7430,7 +7485,7 @@ function CalendarTimeGrid({
   const scrollRef = useRef<HTMLDivElement>(null);
   const periodKey = days.map(dateInputValue).join(',');
   const gridHeight = (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * HOUR_HEIGHT;
-  const minDayWidth = days.length === 1 ? 'minmax(0,1fr)' : 'minmax(180px,1fr)';
+  const minDayWidth = days.length === 1 ? 'minmax(0,1fr)' : 'minmax(220px,1fr)';
 
   useEffect(() => {
     const frame = scrollRef.current;
@@ -8223,7 +8278,7 @@ function AppointmentSection({
     icon: 'bg-primary/10 text-primary',
   };
   return (
-    <Accordion className={cn('rounded-xl border shadow-sm', tone.card)}>
+    <Accordion className="bg-card rounded-xl border shadow-none">
       <AccordionItem value={value} className="border-0 px-3">
         <AccordionTrigger className="min-h-14 py-2.5 hover:no-underline">
           <span className="flex min-w-0 items-center gap-2.5">
