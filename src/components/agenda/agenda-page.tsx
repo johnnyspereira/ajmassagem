@@ -899,6 +899,23 @@ export function AgendaPage({
   const [lookingUpBenefit, setLookingUpBenefit] = useState(false);
   const [paymentChoiceOpen, setPaymentChoiceOpen] = useState(false);
   const [refundRequestOpen, setRefundRequestOpen] = useState(false);
+  const [notificationPrompt, setNotificationPrompt] = useState<string | null>(
+    null
+  );
+  const notificationResolver = useRef<
+    ((answer: boolean | null) => void) | null
+  >(null);
+  function chooseNotification(action: string) {
+    return new Promise<boolean | null>((resolve) => {
+      notificationResolver.current = resolve;
+      setNotificationPrompt(action);
+    });
+  }
+  function finishNotificationChoice(answer: boolean | null) {
+    notificationResolver.current?.(answer);
+    notificationResolver.current = null;
+    setNotificationPrompt(null);
+  }
   const [benefitRefundOpen, setBenefitRefundOpen] = useState(false);
   const [refundReason, setRefundReason] = useState('');
   const [requestingRefund, setRequestingRefund] = useState(false);
@@ -1774,6 +1791,8 @@ export function AgendaPage({
   }
 
   async function handleCreateAppointment() {
+    const notifyClient = await chooseNotification('Criar a marcação');
+    if (notifyClient === null) return;
     if (!accountId || !user?.id) return;
     if (!appointmentDraft.contactId) {
       toast.error('Selecione o cliente.');
@@ -1985,12 +2004,16 @@ export function AgendaPage({
     setAppointmentOpen(false);
     setSelectedDate(startAt);
     void loadAgenda();
-    toast.success('Agendamento guardado. A confirmação está a ser processada.');
+    toast.success(
+      notifyClient
+        ? 'Agendamento guardado. A confirmação está a ser processada.'
+        : 'Agendamento guardado sem notificação ao cliente.'
+    );
 
     let confirmationWarning: string | null = null;
     let confirmationSkipped = false;
     let confirmationChannels = '';
-    if (createdAppointment?.id) {
+    if (createdAppointment?.id && notifyClient) {
       setAppointmentSaveStage('Marcação criada. A enviar confirmação…');
       let confirmationResponse: Response | null = null;
       try {
@@ -2087,9 +2110,10 @@ export function AgendaPage({
           .single();
         if (recurringError || !recurring?.id) break;
         recurringCreated += 1;
-        await fetch(`/api/clinic/appointments/${recurring.id}/confirmation`, {
-          method: 'POST',
-        }).catch(() => undefined);
+        if (notifyClient)
+          await fetch(`/api/clinic/appointments/${recurring.id}/confirmation`, {
+            method: 'POST',
+          }).catch(() => undefined);
       }
     }
     if (confirmationWarning) {
@@ -3151,8 +3175,11 @@ export function AgendaPage({
         Math.round((originalEnd.getTime() - originalStart.getTime()) / 60_000)
       );
     const endAt = addMinutes(startAt, durationMinutes);
-    const shouldRequestConfirmation =
-      scheduleChangeDraft.requestClientConfirmation;
+    const notificationChoice = scheduleChangeDraft.requestClientConfirmation
+      ? await chooseNotification('Alterar o horário da marcação')
+      : false;
+    if (notificationChoice === null) return;
+    const shouldRequestConfirmation = notificationChoice;
     const changedAt = new Date().toISOString();
 
     if (
@@ -3379,6 +3406,10 @@ export function AgendaPage({
       )
     );
 
+    const notifyClient = await chooseNotification(
+      'Registar o reembolso e cancelar a marcação'
+    );
+    if (notifyClient === null) return;
     setRequestingRefund(true);
     try {
       for (const sale of refundableSales) {
@@ -3427,31 +3458,32 @@ export function AgendaPage({
         },
       });
 
-      try {
-        const response = await fetch(
-          `/api/clinic/appointments/${selectedAppointment.id}/refund-notification`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: refundAmount, paymentMethods }),
-          }
-        );
-        const notification = (await response.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        if (!response.ok)
-          toast.warning(
-            notification.error ||
-              'Reembolso registado, mas não foi possível avisar o cliente.'
+      if (notifyClient)
+        try {
+          const response = await fetch(
+            `/api/clinic/appointments/${selectedAppointment.id}/refund-notification`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ amount: refundAmount, paymentMethods }),
+            }
           );
-      } catch {
-        toast.warning(
-          'Reembolso registado, mas não foi possível avisar o cliente.'
-        );
-      }
+          const notification = (await response.json().catch(() => ({}))) as {
+            error?: string;
+          };
+          if (!response.ok)
+            toast.warning(
+              notification.error ||
+                'Reembolso registado, mas não foi possível avisar o cliente.'
+            );
+        } catch {
+          toast.warning(
+            'Reembolso registado, mas não foi possível avisar o cliente.'
+          );
+        }
 
       toast.success(
-        `Reembolso de ${formatCurrency(refundAmount, defaultCurrency)} iniciado e cliente notificado.`
+        `Reembolso de ${formatCurrency(refundAmount, defaultCurrency)} registado${notifyClient ? '. Consulte o resultado da comunicação.' : ' sem notificação ao cliente.'}`
       );
       setRefundRequestOpen(false);
       setRefundReason('');
@@ -3636,6 +3668,14 @@ export function AgendaPage({
       return;
     }
 
+    const notificationNeeded =
+      editDraft.status !== selectedAppointment.status ||
+      appointmentDate(editDraft.date, editDraft.time).getTime() !==
+        new Date(selectedAppointment.scheduled_start).getTime();
+    const notifyClient = notificationNeeded
+      ? await chooseNotification('Guardar as alterações da marcação')
+      : false;
+    if (notifyClient === null) return;
     setSavingEdit(true);
     setEditSaveStage('A validar disponibilidade…');
 
@@ -3789,7 +3829,11 @@ export function AgendaPage({
     setEditSaveStage('');
     closeAppointmentSheet();
     void loadAgenda();
-    toast.success('Marcação guardada. Comunicações em processamento.');
+    toast.success(
+      notifyClient
+        ? 'Marcação guardada. Comunicações em processamento.'
+        : 'Marcação guardada sem notificação ao cliente.'
+    );
 
     if (scheduleChanged) {
       void recordAgendaEvent({
@@ -3803,19 +3847,20 @@ export function AgendaPage({
         newEnd: endAt.toISOString(),
         metadata: { source: 'appointment_sheet' },
       });
-      try {
-        setEditSaveStage('Alterações guardadas. A notificar cliente…');
-        await sendUpdatedAppointmentConfirmation(selectedAppointment.id);
-        toast.success(
-          'Novo horário enviado ao cliente pelos canais disponíveis.'
-        );
-      } catch (notificationError) {
-        toast.warning(
-          notificationError instanceof Error
-            ? `Horário guardado, mas a nova confirmação falhou: ${notificationError.message}`
-            : 'Horário guardado, mas a nova confirmação não foi enviada.'
-        );
-      }
+      if (notifyClient)
+        try {
+          setEditSaveStage('Alterações guardadas. A notificar cliente…');
+          await sendUpdatedAppointmentConfirmation(selectedAppointment.id);
+          toast.success(
+            'Novo horário enviado ao cliente pelos canais disponíveis.'
+          );
+        } catch (notificationError) {
+          toast.warning(
+            notificationError instanceof Error
+              ? `Horário guardado, mas a nova confirmação falhou: ${notificationError.message}`
+              : 'Horário guardado, mas a nova confirmação não foi enviada.'
+          );
+        }
     }
 
     if (editDraft.status !== selectedAppointment.status) {
@@ -3838,41 +3883,42 @@ export function AgendaPage({
         },
       });
 
-      try {
-        setEditSaveStage('Alterações guardadas. A notificar cliente…');
-        const response = await fetch(
-          `/api/clinic/appointments/${selectedAppointment.id}/status-notification`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: editDraft.status }),
-            signal: AbortSignal.timeout(12_000),
-          }
-        );
-        const result = (await response.json().catch(() => ({}))) as {
-          error?: string;
-          deliveries?: {
-            whatsapp?: { error?: string | null };
-            email?: { error?: string | null };
-          };
-        };
-        if (!response.ok)
-          throw new Error(result.error || 'Falha na notificação.');
-        const failedChannels = [
-          result.deliveries?.whatsapp?.error ? 'WhatsApp' : null,
-          result.deliveries?.email?.error ? 'email' : null,
-        ].filter(Boolean);
-        if (failedChannels.length)
-          toast.warning(
-            `Estado guardado, mas houve falha no envio por ${failedChannels.join(' e ')}.`
+      if (notifyClient)
+        try {
+          setEditSaveStage('Alterações guardadas. A notificar cliente…');
+          const response = await fetch(
+            `/api/clinic/appointments/${selectedAppointment.id}/status-notification`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: editDraft.status }),
+              signal: AbortSignal.timeout(12_000),
+            }
           );
-      } catch (notificationError) {
-        toast.warning(
-          notificationError instanceof Error
-            ? `Estado guardado, mas a notificação falhou: ${notificationError.message}`
-            : 'Estado guardado, mas a notificação falhou.'
-        );
-      }
+          const result = (await response.json().catch(() => ({}))) as {
+            error?: string;
+            deliveries?: {
+              whatsapp?: { error?: string | null };
+              email?: { error?: string | null };
+            };
+          };
+          if (!response.ok)
+            throw new Error(result.error || 'Falha na notificação.');
+          const failedChannels = [
+            result.deliveries?.whatsapp?.error ? 'WhatsApp' : null,
+            result.deliveries?.email?.error ? 'email' : null,
+          ].filter(Boolean);
+          if (failedChannels.length)
+            toast.warning(
+              `Estado guardado, mas houve falha no envio por ${failedChannels.join(' e ')}.`
+            );
+        } catch (notificationError) {
+          toast.warning(
+            notificationError instanceof Error
+              ? `Estado guardado, mas a notificação falhou: ${notificationError.message}`
+              : 'Estado guardado, mas a notificação falhou.'
+          );
+        }
     }
 
     if (benefitType !== 'direct') {
@@ -5496,6 +5542,43 @@ export function AgendaPage({
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={notificationPrompt !== null}
+        onOpenChange={(open) => {
+          if (!open) finishNotificationChoice(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Deseja notificar o cliente?</DialogTitle>
+            <DialogDescription>
+              {notificationPrompt}. Escolha se pretende enviar a comunicação
+              pelos canais disponíveis ou apenas guardar a ação.
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-muted-foreground text-sm">
+            Esta escolha aplica-se apenas a esta ação. Os lembretes automáticos
+            programados mantêm a sua configuração.
+          </p>
+          <div className="flex flex-col gap-2">
+            <Button onClick={() => finishNotificationChoice(true)}>
+              Sim, guardar e notificar
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => finishNotificationChoice(false)}
+            >
+              Guardar sem notificar
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => finishNotificationChoice(null)}
+            >
+              Voltar sem executar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={benefitRefundOpen} onOpenChange={setBenefitRefundOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>

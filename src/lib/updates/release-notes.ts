@@ -15,6 +15,16 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-21-appointment-notification-choice',
+    date: '2026-10-21',
+    category: 'Melhoria',
+    title: 'Escolher se o cliente recebe uma notificação',
+    areas: ['Agenda', 'Comunicações'],
+    summary: 'As ações manuais da ficha pedem uma decisão antes de enviar comunicações ao cliente.',
+    changes: ['Criação de marcações, alterações de estado ou horário e registo de reembolso permitem guardar com ou sem notificação.', 'O diálogo permite voltar sem executar a ação; a escolha não altera os lembretes automáticos programados.', 'Marcações recorrentes respeitam a mesma decisão de envio da criação.'],
+    howTo: 'Efetue a ação e, ao confirmar ou guardar, escolha Sim, guardar e notificar ou Guardar sem notificar. Mensagem e Lembrete continuam a ter a revisão do texto e o botão de envio explícito.',
+  },
+  {
     id: '2026-10-21-reminder-delivery-evidence',
     date: '2026-10-21',
     category: 'Correção',
