@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-21-navigation-layout-choice', date: '2026-10-21', category: 'Melhoria',
+    title: 'Escolha entre menu lateral e superior', areas: ['Navegação', 'Definições'],
+    summary: 'A preferência de navegação volta a permitir menu superior para aproveitar toda a largura do conteúdo.',
+    changes: ['Menu superior com acessos diários e restantes áreas em menus agrupados, sem mostrar simultaneamente a lateral.', 'No telemóvel e no Inbox, a navegação continua acessível pelo menu recolhível.'],
+    howTo: 'Abra Definições → Geral → Navegação, escolha Menu lateral ou Menu superior e guarde as alterações.',
+  },
+  {
     id: '2026-10-21-settings-workspace-layout',
     date: '2026-10-21',
     category: 'Melhoria',

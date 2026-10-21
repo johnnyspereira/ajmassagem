@@ -37,6 +37,7 @@ import {
   setCrmLocaleCookie,
   writeLocalAccountPreferences,
   type CrmLocale,
+  type NavigationLayout,
 } from '@/lib/account-preferences';
 import { EmailDeliveryPanel } from './email-delivery-panel';
 
@@ -109,7 +110,9 @@ export function GeneralSettings() {
   const [timezone, setTimezone] = useState(
     account?.timezone ?? 'Europe/Lisbon'
   );
-  const navigationLayout = 'sidebar' as const;
+  const [navigationLayout, setNavigationLayout] = useState<NavigationLayout>(
+    account?.navigation_layout ?? 'sidebar'
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -119,6 +122,7 @@ export function GeneralSettings() {
     setPublicUrl(account.public_url ?? '');
     setLocale(account.crm_locale);
     setTimezone(account.timezone);
+    setNavigationLayout(account.navigation_layout);
   }, [account]);
 
   useEffect(() => {
@@ -440,17 +444,39 @@ export function GeneralSettings() {
                 {t('navigationTitle')}
               </CardTitle>
               <CardDescription>
-                Menu lateral com uma barra de ferramentas no topo.
+                Escolha onde prefere navegar no computador. Apenas o modelo
+                selecionado fica visível.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="border-primary/20 bg-primary/5 rounded-xl border p-4">
-                <p className="text-sm font-semibold">{t('sidebar')}</p>
-                <p className="text-muted-foreground mt-1 text-xs">
-                  Navegue pelo menu lateral. A barra superior reúne pesquisa,
-                  ponto, notificações, tema e perfil. No telemóvel, abra o menu
-                  pelo botão no cabeçalho.
-                </p>
+              <div
+                className="grid gap-3 sm:grid-cols-2"
+                role="radiogroup"
+                aria-label="Posição do menu principal"
+              >
+                {(['sidebar', 'topbar'] as const).map((layout) => (
+                  <button
+                    key={layout}
+                    type="button"
+                    role="radio"
+                    aria-checked={navigationLayout === layout}
+                    onClick={() => setNavigationLayout(layout)}
+                    className={`rounded-xl border p-4 text-left ${navigationLayout === layout ? 'border-primary bg-primary/10' : 'hover:bg-muted'}`}
+                  >
+                    <span className="block text-sm font-semibold">
+                      {layout === 'sidebar' ? 'Menu lateral' : 'Menu superior'}
+                    </span>
+                    <span className="text-muted-foreground mt-1 block text-xs">
+                      {layout === 'sidebar'
+                        ? 'Áreas organizadas na lateral, com opção de recolher.'
+                        : 'Navegação no topo e mais largura para o conteúdo.'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div className="text-muted-foreground mt-3 text-xs">
+                Guarde as alterações para aplicar. No telemóvel, o menu continua
+                acessível pelo botão no cabeçalho.
               </div>
             </CardContent>
           </Card>

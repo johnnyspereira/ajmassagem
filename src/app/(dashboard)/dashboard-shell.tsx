@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ShoppingCart } from 'lucide-react';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { Sidebar } from '@/components/layout/sidebar';
+import { TopNavigation } from '@/components/layout/top-navigation';
 import { Header } from '@/components/layout/header';
 import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
 import { InboxFloatingAlerts } from '@/components/inbox/inbox-floating-alerts';
@@ -23,7 +24,8 @@ import agendaStyles from '@/components/agenda/agenda-workspace.module.css';
 // client components can't export Next's metadata object.
 
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, account } = useAuth();
+  const topNavigation = account?.navigation_layout === 'topbar';
   const router = useRouter();
   const pathname = usePathname();
   // Inbox is intentionally a focused workspace, not another dashboard
@@ -73,7 +75,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           <Sidebar
             open={sidebarOpen}
             onClose={closeSidebar}
-            drawerOnly={isInboxWorkspace}
+            drawerOnly={isInboxWorkspace || topNavigation}
           />
           {!isInboxWorkspace && (
             <>
@@ -102,6 +104,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
               onOpenSidebar={() => setSidebarOpen(true)}
               drawerMenu={isInboxWorkspace}
             />
+            {topNavigation && !isInboxWorkspace && <TopNavigation />}
             <main
               data-agenda-workspace={isAgendaWorkspace || undefined}
               className={
