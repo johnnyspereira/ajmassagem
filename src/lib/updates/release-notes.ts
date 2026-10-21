@@ -15,6 +15,16 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-21-settings-workspace-layout',
+    date: '2026-10-21',
+    category: 'Melhoria',
+    title: 'Definições com navegação mais clara e apresentação uniforme',
+    areas: ['Definições', 'Clínica'],
+    summary: 'Cabeçalhos simplificados, menu pesquisável no desktop e seleção de áreas adaptada a dispositivos portáteis.',
+    changes: ['Menu agrupado com pesquisa sem distinção de acentos e indicação da área atual; lista com altura limitada para manter o conteúdo acessível.', 'Telemóveis e tablets usam um seletor de área em vez de uma longa fila horizontal de opções.', 'Clínica com indicadores adaptados à largura do painel, descrição de cada área e navegação compacta entre procedimentos, produtos, packs, salas, profissionais, comunicação e anamnese.', 'Cabeçalhos e cartões seguem a mesma hierarquia visual nas áreas de Definições.'],
+    howTo: 'Abra Definições e pesquise uma área no menu lateral. Em ecrãs menores, use Escolher área das definições. Dentro de Clínica, escolha a área nas opções do catálogo ou no seletor Área da clínica.',
+  },
+  {
     id: '2026-10-21-proportional-session-price',
     date: '2026-10-21',
     category: 'Melhoria',

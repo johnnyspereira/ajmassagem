@@ -8,6 +8,7 @@ import { Settings2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
 import { SettingsRail } from '@/components/settings/settings-rail';
+import styles from '@/components/settings/settings-workspace.module.css';
 import { SettingsOverview } from '@/components/settings/settings-overview';
 import { UpdatesPanel } from '@/components/settings/updates-panel';
 import { LinkPreviewsPanel } from '@/components/settings/link-previews-panel';
@@ -114,17 +115,20 @@ export default function SettingsPage() {
     'new-features': <NewFeaturesSettings />,
   };
   const activeMeta = SECTION_META[section];
+  const activeLabel = t.has(`sections.${activeMeta.id}`)
+    ? t(`sections.${activeMeta.id}`)
+    : activeMeta.label;
 
   return (
-    <div>
-      <section className="border-primary/15 from-primary-soft/50 via-card to-card flex flex-wrap items-center justify-between gap-4 rounded-2xl border bg-gradient-to-br p-5 shadow-sm">
+    <div className="min-w-0 space-y-6">
+      <section className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="bg-primary text-primary-foreground flex size-11 shrink-0 items-center justify-center rounded-xl shadow-sm">
+          <span className="bg-primary/10 text-primary hidden size-11 shrink-0 items-center justify-center rounded-xl sm:flex">
             <Settings2 className="size-5" />
           </span>
           <div className="min-w-0">
             <p className="text-primary text-xs font-semibold tracking-[0.1em] uppercase">
-              Área de administração
+              O seu espaço de trabalho
             </p>
             <h1 className="text-foreground mt-0.5 text-2xl font-bold tracking-tight">
               {t('pageTitle')}
@@ -134,24 +138,26 @@ export default function SettingsPage() {
             </p>
           </div>
         </div>
-        <div className="border-border bg-background/75 min-w-44 rounded-xl border px-4 py-3">
-          <p className="text-muted-foreground text-[10px] font-semibold tracking-[0.08em] uppercase">
-            A editar agora
-          </p>
-          <p className="text-foreground mt-1 text-sm font-semibold">
-            {t(`sections.${activeMeta.id}`)}
-          </p>
+        <div className="bg-card text-muted-foreground flex items-center gap-2 rounded-full border px-3 py-2 text-xs">
+          <activeMeta.icon className="text-primary size-4" />
+          {t(`groups.${activeMeta.group}`) !== activeLabel && (
+            <>
+              {t(`groups.${activeMeta.group}`)}
+              <span aria-hidden="true">/</span>
+            </>
+          )}
+          <span className="text-foreground font-medium">{activeLabel}</span>
         </div>
       </section>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[272px_minmax(0,1fr)] lg:items-start">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[244px_minmax(0,1fr)] xl:items-start">
         <SettingsRail
           active={section}
           onSelect={go}
           hints={hints}
           sections={visibleSections}
         />
-        <div className="min-w-0">{panel[section]}</div>
+        <div className={styles.panel}>{panel[section]}</div>
       </div>
     </div>
   );

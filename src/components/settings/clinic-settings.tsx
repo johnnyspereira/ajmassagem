@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import workspaceStyles from './settings-workspace.module.css';
 import {
   useCallback,
   useEffect,
@@ -82,6 +83,44 @@ type CatalogTab =
   | 'professionals'
   | 'communication'
   | 'anamnesis';
+
+const CATALOG_AREAS: Record<
+  CatalogTab,
+  { title: string; description: string }
+> = {
+  services: {
+    title: 'Procedimentos',
+    description:
+      'Modalidades, duração, preços e apresentação dos seus serviços.',
+  },
+  products: {
+    title: 'Produtos',
+    description:
+      'Organize os produtos usados nos atendimentos e disponíveis para venda.',
+  },
+  packs: {
+    title: 'Packs',
+    description:
+      'Configure conjuntos de sessões, valores e condições de utilização.',
+  },
+  rooms: {
+    title: 'Salas',
+    description: 'Defina os espaços disponíveis para organizar a agenda.',
+  },
+  professionals: {
+    title: 'Profissionais',
+    description: 'Gira os profissionais e a disponibilidade da equipa.',
+  },
+  communication: {
+    title: 'Comunicação',
+    description: 'Personalize as informações usadas nas mensagens da agenda.',
+  },
+  anamnesis: {
+    title: 'Anamnese',
+    description:
+      'Configure a ficha, as perguntas e acompanhe os formulários recebidos.',
+  },
+};
 
 type AnamnesisFormRow = {
   id: string;
@@ -578,20 +617,39 @@ export function ClinicSettings() {
 
   async function uploadServiceImage(file?: File) {
     if (!file || !accountId) return;
-    if (!file.type.startsWith('image/')) return toast.error('Selecione uma imagem válida.');
-    if (file.size > 5 * 1024 * 1024) return toast.error('A imagem deve ter no máximo 5 MB.');
+    if (!file.type.startsWith('image/'))
+      return toast.error('Selecione uma imagem válida.');
+    if (file.size > 5 * 1024 * 1024)
+      return toast.error('A imagem deve ter no máximo 5 MB.');
     setUploadingServiceImage(true);
     try {
       const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
       const path = `account-${accountId}/services/${Date.now()}-${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from('branding-assets').upload(path, file, { cacheControl: '3600', upsert: false, contentType: file.type });
+      const { error } = await supabase.storage
+        .from('branding-assets')
+        .upload(path, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type,
+        });
       if (error) throw error;
-      const { data } = supabase.storage.from('branding-assets').getPublicUrl(path);
-      setServiceDraft((previous) => ({ ...previous, publicImageUrl: data.publicUrl }));
+      const { data } = supabase.storage
+        .from('branding-assets')
+        .getPublicUrl(path);
+      setServiceDraft((previous) => ({
+        ...previous,
+        publicImageUrl: data.publicUrl,
+      }));
       toast.success('Imagem carregada. Guarde o procedimento para publicar.');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Não foi possível carregar a imagem.');
-    } finally { setUploadingServiceImage(false); }
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar a imagem.'
+      );
+    } finally {
+      setUploadingServiceImage(false);
+    }
   }
 
   async function saveService() {
@@ -609,8 +667,14 @@ export function ClinicSettings() {
       category: serviceDraft.category.trim() || null,
       description: serviceDraft.description.trim() || null,
       public_presentation: serviceDraft.publicPresentation.trim() || null,
-      public_benefits: serviceDraft.publicBenefits.split('\n').map((value) => value.trim()).filter(Boolean),
-      public_considerations: serviceDraft.publicConsiderations.split('\n').map((value) => value.trim()).filter(Boolean),
+      public_benefits: serviceDraft.publicBenefits
+        .split('\n')
+        .map((value) => value.trim())
+        .filter(Boolean),
+      public_considerations: serviceDraft.publicConsiderations
+        .split('\n')
+        .map((value) => value.trim())
+        .filter(Boolean),
       public_image_url: serviceDraft.publicImageUrl.trim() || null,
       duration_minutes: Math.max(
         5,
@@ -1002,7 +1066,7 @@ export function ClinicSettings() {
     <section className="animate-in fade-in-50 space-y-5 duration-200">
       <SettingsPanelHead
         title="Clínica"
-        description="Configure o catálogo operacional fora da agenda: procedimentos, produtos e salas usadas nos atendimentos."
+        description="Serviços, equipa e atendimento, organizados num só lugar."
         action={
           canEditSettings &&
           tab !== 'professionals' &&
@@ -1027,7 +1091,7 @@ export function ClinicSettings() {
         </Card>
       ) : null}
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className={workspaceStyles.clinicMetrics}>
         <ClinicMetric
           icon={<Scissors className="size-4" />}
           label="Procedimentos"
@@ -1054,8 +1118,28 @@ export function ClinicSettings() {
         />
       </div>
 
-      <div className="border-border bg-card rounded-lg border">
-        <div className="border-border flex flex-wrap gap-2 border-b p-3">
+      <div className="border-border bg-card min-w-0 rounded-2xl border">
+        <div className={`${workspaceStyles.clinicSelect} border-b p-3`}>
+          <label
+            htmlFor="clinic-area"
+            className="text-muted-foreground mb-2 block text-xs"
+          >
+            Área da clínica
+          </label>
+          <select
+            id="clinic-area"
+            value={tab}
+            onChange={(event) => setTab(event.target.value as CatalogTab)}
+            className="bg-background h-11 w-full rounded-xl border px-3 text-sm"
+          >
+            {Object.entries(CATALOG_AREAS).map(([value, area]) => (
+              <option key={value} value={value}>
+                {area.title}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className={`${workspaceStyles.clinicTabs} border-border border-b`}>
           <CatalogTabButton
             active={tab === 'services'}
             onClick={() => setTab('services')}
@@ -1107,7 +1191,15 @@ export function ClinicSettings() {
           </CatalogTabButton>
         </div>
 
-        <div className="p-4">
+        <div className="min-w-0 p-4 sm:p-5">
+          <div className="mb-5">
+            <h3 className="text-base font-semibold">
+              {CATALOG_AREAS[tab].title}
+            </h3>
+            <p className="text-muted-foreground mt-1 text-sm">
+              {CATALOG_AREAS[tab].description}
+            </p>
+          </div>
           {loading ? (
             <div className="flex justify-center py-12">
               <Loader2 className="text-primary size-6 animate-spin" />
@@ -1192,226 +1284,300 @@ export function ClinicSettings() {
               <TabsTrigger value="public">Site público</TabsTrigger>
             </TabsList>
             <TabsContent value="general" className="mt-4 grid gap-4">
-            <Field label="Nome">
-              <Input
-                value={serviceDraft.name}
-                onChange={(event) =>
-                  setServiceDraft((prev) => ({
-                    ...prev,
-                    name: event.target.value,
-                  }))
+              <Field label="Nome">
+                <Input
+                  value={serviceDraft.name}
+                  onChange={(event) =>
+                    setServiceDraft((prev) => ({
+                      ...prev,
+                      name: event.target.value,
+                    }))
+                  }
+                  placeholder="Ex: Massagem relaxante"
+                />
+              </Field>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Ref.">
+                  <Input
+                    value={serviceDraft.reference}
+                    onChange={(event) =>
+                      setServiceDraft((prev) => ({
+                        ...prev,
+                        reference: event.target.value,
+                      }))
+                    }
+                    placeholder="Automática se ficar em branco"
+                  />
+                </Field>
+                <Field label="Categoria">
+                  <Input
+                    value={serviceDraft.category}
+                    onChange={(event) =>
+                      setServiceDraft((prev) => ({
+                        ...prev,
+                        category: event.target.value,
+                      }))
+                    }
+                    placeholder="Ex: Massagem"
+                  />
+                </Field>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Duração em minutos">
+                  <Input
+                    type="number"
+                    min={5}
+                    value={serviceDraft.durationMinutes}
+                    onChange={(event) =>
+                      setServiceDraft((prev) => ({
+                        ...prev,
+                        durationMinutes: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field label={`Preço (${defaultCurrency})`}>
+                  <Input
+                    inputMode="decimal"
+                    value={serviceDraft.price}
+                    onChange={(event) =>
+                      setServiceDraft((prev) => ({
+                        ...prev,
+                        price: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+              </div>
+              <ColorPicker
+                value={serviceDraft.color}
+                onChange={(color) =>
+                  setServiceDraft((prev) => ({ ...prev, color }))
                 }
-                placeholder="Ex: Massagem relaxante"
               />
-            </Field>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Ref.">
-                <Input
-                  value={serviceDraft.reference}
-                  onChange={(event) =>
-                    setServiceDraft((prev) => ({
-                      ...prev,
-                      reference: event.target.value,
-                    }))
-                  }
-                  placeholder="Automática se ficar em branco"
-                />
-              </Field>
-              <Field label="Categoria">
-                <Input
-                  value={serviceDraft.category}
-                  onChange={(event) =>
-                    setServiceDraft((prev) => ({
-                      ...prev,
-                      category: event.target.value,
-                    }))
-                  }
-                  placeholder="Ex: Massagem"
-                />
-              </Field>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Duração em minutos">
-                <Input
-                  type="number"
-                  min={5}
-                  value={serviceDraft.durationMinutes}
-                  onChange={(event) =>
-                    setServiceDraft((prev) => ({
-                      ...prev,
-                      durationMinutes: event.target.value,
-                    }))
-                  }
-                />
-              </Field>
-              <Field label={`Preço (${defaultCurrency})`}>
-                <Input
-                  inputMode="decimal"
-                  value={serviceDraft.price}
-                  onChange={(event) =>
-                    setServiceDraft((prev) => ({
-                      ...prev,
-                      price: event.target.value,
-                    }))
-                  }
-                />
-              </Field>
-            </div>
-            <ColorPicker
-              value={serviceDraft.color}
-              onChange={(color) =>
-                setServiceDraft((prev) => ({ ...prev, color }))
-              }
-            />
             </TabsContent>
             <TabsContent value="operation" className="mt-4 grid gap-4">
-            <div className="grid gap-2 sm:grid-cols-3">
-              <ServiceOption
-                label="Opções online"
-                checked={serviceDraft.onlineEnabled}
-                onChange={(checked) =>
-                  setServiceDraft((prev) => ({
-                    ...prev,
-                    onlineEnabled: checked,
-                  }))
-                }
-              />
-              <ServiceOption
-                label="Exibir no site público"
-                checked={serviceDraft.showOnSite}
-                onChange={(checked) =>
-                  setServiceDraft((prev) => ({ ...prev, showOnSite: checked }))
-                }
-              />
-              <ServiceOption
-                label="Permitir agendamento CRM/Portal"
-                checked={serviceDraft.internalBookingEnabled}
-                onChange={(checked) =>
-                  setServiceDraft((prev) => ({
-                    ...prev,
-                    internalBookingEnabled: checked,
-                  }))
-                }
-              />
-              <ServiceOption
-                label="Em breve"
-                checked={serviceDraft.comingSoon}
-                onChange={(checked) =>
-                  setServiceDraft((prev) => ({ ...prev, comingSoon: checked }))
-                }
-              />
-              <ServiceOption
-                label="IVA"
-                checked={serviceDraft.ivaEnabled}
-                onChange={(checked) =>
-                  setServiceDraft((prev) => ({
-                    ...prev,
-                    ivaEnabled: checked,
-                  }))
-                }
-              />
-              <ServiceOption
-                label="Comissões"
-                checked={serviceDraft.commissionsEnabled}
-                onChange={(checked) =>
-                  setServiceDraft((prev) => ({
-                    ...prev,
-                    commissionsEnabled: checked,
-                  }))
-                }
-              />
-              <ServiceOption
-                label="Colaboradores"
-                checked={serviceDraft.collaboratorsEnabled}
-                onChange={(checked) =>
-                  setServiceDraft((prev) => ({
-                    ...prev,
-                    collaboratorsEnabled: checked,
-                  }))
-                }
-              />
-              <ServiceOption
-                label="Personalizar"
-                checked={serviceDraft.personalizeEnabled}
-                onChange={(checked) =>
-                  setServiceDraft((prev) => ({
-                    ...prev,
-                    personalizeEnabled: checked,
-                  }))
-                }
-              />
-              <ServiceOption
-                label="Detalhes"
-                checked={serviceDraft.detailsEnabled}
-                onChange={(checked) =>
-                  setServiceDraft((prev) => ({
-                    ...prev,
-                    detailsEnabled: checked,
-                  }))
-                }
-              />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Comissão executante (%)">
-                <Input
-                  inputMode="decimal"
-                  value={serviceDraft.commissionExecutantPercent}
+              <div className="grid gap-2 sm:grid-cols-3">
+                <ServiceOption
+                  label="Opções online"
+                  checked={serviceDraft.onlineEnabled}
+                  onChange={(checked) =>
+                    setServiceDraft((prev) => ({
+                      ...prev,
+                      onlineEnabled: checked,
+                    }))
+                  }
+                />
+                <ServiceOption
+                  label="Exibir no site público"
+                  checked={serviceDraft.showOnSite}
+                  onChange={(checked) =>
+                    setServiceDraft((prev) => ({
+                      ...prev,
+                      showOnSite: checked,
+                    }))
+                  }
+                />
+                <ServiceOption
+                  label="Permitir agendamento CRM/Portal"
+                  checked={serviceDraft.internalBookingEnabled}
+                  onChange={(checked) =>
+                    setServiceDraft((prev) => ({
+                      ...prev,
+                      internalBookingEnabled: checked,
+                    }))
+                  }
+                />
+                <ServiceOption
+                  label="Em breve"
+                  checked={serviceDraft.comingSoon}
+                  onChange={(checked) =>
+                    setServiceDraft((prev) => ({
+                      ...prev,
+                      comingSoon: checked,
+                    }))
+                  }
+                />
+                <ServiceOption
+                  label="IVA"
+                  checked={serviceDraft.ivaEnabled}
+                  onChange={(checked) =>
+                    setServiceDraft((prev) => ({
+                      ...prev,
+                      ivaEnabled: checked,
+                    }))
+                  }
+                />
+                <ServiceOption
+                  label="Comissões"
+                  checked={serviceDraft.commissionsEnabled}
+                  onChange={(checked) =>
+                    setServiceDraft((prev) => ({
+                      ...prev,
+                      commissionsEnabled: checked,
+                    }))
+                  }
+                />
+                <ServiceOption
+                  label="Colaboradores"
+                  checked={serviceDraft.collaboratorsEnabled}
+                  onChange={(checked) =>
+                    setServiceDraft((prev) => ({
+                      ...prev,
+                      collaboratorsEnabled: checked,
+                    }))
+                  }
+                />
+                <ServiceOption
+                  label="Personalizar"
+                  checked={serviceDraft.personalizeEnabled}
+                  onChange={(checked) =>
+                    setServiceDraft((prev) => ({
+                      ...prev,
+                      personalizeEnabled: checked,
+                    }))
+                  }
+                />
+                <ServiceOption
+                  label="Detalhes"
+                  checked={serviceDraft.detailsEnabled}
+                  onChange={(checked) =>
+                    setServiceDraft((prev) => ({
+                      ...prev,
+                      detailsEnabled: checked,
+                    }))
+                  }
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Comissão executante (%)">
+                  <Input
+                    inputMode="decimal"
+                    value={serviceDraft.commissionExecutantPercent}
+                    onChange={(event) =>
+                      setServiceDraft((prev) => ({
+                        ...prev,
+                        commissionExecutantPercent: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field label="Comissão responsável (%)">
+                  <Input
+                    inputMode="decimal"
+                    value={serviceDraft.commissionResponsiblePercent}
+                    onChange={(event) =>
+                      setServiceDraft((prev) => ({
+                        ...prev,
+                        commissionResponsiblePercent: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+              </div>
+              <Field label="Descrição">
+                <Textarea
+                  value={serviceDraft.description}
                   onChange={(event) =>
                     setServiceDraft((prev) => ({
                       ...prev,
-                      commissionExecutantPercent: event.target.value,
+                      description: event.target.value,
                     }))
                   }
                 />
               </Field>
-              <Field label="Comissão responsável (%)">
-                <Input
-                  inputMode="decimal"
-                  value={serviceDraft.commissionResponsiblePercent}
-                  onChange={(event) =>
-                    setServiceDraft((prev) => ({
-                      ...prev,
-                      commissionResponsiblePercent: event.target.value,
-                    }))
-                  }
-                />
-              </Field>
-            </div>
-            <Field label="Descrição">
-              <Textarea
-                value={serviceDraft.description}
-                onChange={(event) =>
-                  setServiceDraft((prev) => ({
-                    ...prev,
-                    description: event.target.value,
-                  }))
-                }
-              />
-            </Field>
             </TabsContent>
             <TabsContent value="public" className="mt-4">
-            <div className="rounded-xl border border-violet-200 bg-violet-50/50 p-4">
-              <div className="mb-4">
-                <p className="font-semibold">Apresentação no site público</p>
-                <p className="text-muted-foreground text-xs">Aparece quando o visitante clicar na modalidade. Nos campos abaixo, use uma informação por linha.</p>
-              </div>
-              <div className="grid gap-3">
-                <Field label="Imagem (URL)">
-                  <div className="flex gap-2"><Input value={serviceDraft.publicImageUrl} onChange={(event) => setServiceDraft((prev) => ({ ...prev, publicImageUrl: event.target.value }))} placeholder="Cole uma URL ou carregue um ficheiro" /><input ref={serviceImageInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => { void uploadServiceImage(event.target.files?.[0]); event.currentTarget.value = ''; }} /><Button type="button" variant="outline" onClick={() => serviceImageInputRef.current?.click()} disabled={uploadingServiceImage}>{uploadingServiceImage ? <Loader2 className="animate-spin" /> : <Upload />} Carregar</Button></div>
-                </Field>
-                <Field label="Apresentação completa">
-                  <Textarea value={serviceDraft.publicPresentation} onChange={(event) => setServiceDraft((prev) => ({ ...prev, publicPresentation: event.target.value }))} placeholder="Explique a experiência, para quem é indicada e como funciona a sessão." />
-                </Field>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Benefícios (um por linha)">
-                    <Textarea value={serviceDraft.publicBenefits} onChange={(event) => setServiceDraft((prev) => ({ ...prev, publicBenefits: event.target.value }))} placeholder={'Relaxamento profundo\nAlívio da tensão muscular\nMelhoria do bem-estar'} />
+              <div className="rounded-xl border border-violet-200 bg-violet-50/50 p-4">
+                <div className="mb-4">
+                  <p className="font-semibold">Apresentação no site público</p>
+                  <p className="text-muted-foreground text-xs">
+                    Aparece quando o visitante clicar na modalidade. Nos campos
+                    abaixo, use uma informação por linha.
+                  </p>
+                </div>
+                <div className="grid gap-3">
+                  <Field label="Imagem (URL)">
+                    <div className="flex gap-2">
+                      <Input
+                        value={serviceDraft.publicImageUrl}
+                        onChange={(event) =>
+                          setServiceDraft((prev) => ({
+                            ...prev,
+                            publicImageUrl: event.target.value,
+                          }))
+                        }
+                        placeholder="Cole uma URL ou carregue um ficheiro"
+                      />
+                      <input
+                        ref={serviceImageInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        onChange={(event) => {
+                          void uploadServiceImage(event.target.files?.[0]);
+                          event.currentTarget.value = '';
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => serviceImageInputRef.current?.click()}
+                        disabled={uploadingServiceImage}
+                      >
+                        {uploadingServiceImage ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          <Upload />
+                        )}{' '}
+                        Carregar
+                      </Button>
+                    </div>
                   </Field>
-                  <Field label="Cuidados / contraindicações (um por linha)">
-                    <Textarea value={serviceDraft.publicConsiderations} onChange={(event) => setServiceDraft((prev) => ({ ...prev, publicConsiderations: event.target.value }))} placeholder={'Informe-nos sobre gravidez\nEvitar em caso de febre\nAvise sobre lesões recentes'} />
+                  <Field label="Apresentação completa">
+                    <Textarea
+                      value={serviceDraft.publicPresentation}
+                      onChange={(event) =>
+                        setServiceDraft((prev) => ({
+                          ...prev,
+                          publicPresentation: event.target.value,
+                        }))
+                      }
+                      placeholder="Explique a experiência, para quem é indicada e como funciona a sessão."
+                    />
                   </Field>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Benefícios (um por linha)">
+                      <Textarea
+                        value={serviceDraft.publicBenefits}
+                        onChange={(event) =>
+                          setServiceDraft((prev) => ({
+                            ...prev,
+                            publicBenefits: event.target.value,
+                          }))
+                        }
+                        placeholder={
+                          'Relaxamento profundo\nAlívio da tensão muscular\nMelhoria do bem-estar'
+                        }
+                      />
+                    </Field>
+                    <Field label="Cuidados / contraindicações (um por linha)">
+                      <Textarea
+                        value={serviceDraft.publicConsiderations}
+                        onChange={(event) =>
+                          setServiceDraft((prev) => ({
+                            ...prev,
+                            publicConsiderations: event.target.value,
+                          }))
+                        }
+                        placeholder={
+                          'Informe-nos sobre gravidez\nEvitar em caso de febre\nAvise sobre lesões recentes'
+                        }
+                      />
+                    </Field>
+                  </div>
                 </div>
               </div>
-            </div>
             </TabsContent>
           </Tabs>
           <DialogFooter>
@@ -1702,16 +1868,20 @@ function ClinicMetric({
   detail: string;
 }) {
   return (
-    <Card className="rounded-lg" size="sm">
-      <CardContent className="flex items-center gap-3">
-        <span className="bg-primary-soft text-primary flex size-9 items-center justify-center rounded-md">
-          {icon}
-        </span>
-        <div>
-          <p className="text-muted-foreground text-xs">{label}</p>
-          <p className="text-foreground text-xl font-semibold">{value}</p>
-          <p className="text-muted-foreground text-xs">{detail}</p>
+    <Card className="min-w-0 rounded-xl" size="sm">
+      <CardContent className="min-w-0 space-y-2">
+        <div className="flex min-w-0 items-start justify-between gap-2">
+          <p className="text-muted-foreground min-w-0 text-xs leading-5">
+            {label}
+          </p>
+          <span className="bg-primary/10 text-primary flex size-6 shrink-0 items-center justify-center rounded-lg">
+            {icon}
+          </span>
         </div>
+        <p className="text-foreground text-2xl font-semibold tabular-nums">
+          {value}
+        </p>
+        <p className="text-muted-foreground text-xs">{detail}</p>
       </CardContent>
     </Card>
   );
@@ -2368,13 +2538,16 @@ function AnamnesisPanel({
                           <p className="mt-1 text-xs font-medium">
                             {form.signature_name}
                           </p>
-                          {typeof form.answers?.signature_data === 'string' && form.answers.signature_data.startsWith('data:image/') && (
-                            <img
-                              src={form.answers.signature_data}
-                              alt={`Assinatura de ${form.signature_name}`}
-                              className="mt-2 h-20 max-w-full rounded border bg-white object-contain"
-                            />
-                          )}
+                          {typeof form.answers?.signature_data === 'string' &&
+                            form.answers.signature_data.startsWith(
+                              'data:image/'
+                            ) && (
+                              <img
+                                src={form.answers.signature_data}
+                                alt={`Assinatura de ${form.signature_name}`}
+                                className="mt-2 h-20 max-w-full rounded border bg-white object-contain"
+                              />
+                            )}
                         </div>
                       )}
                     </div>
@@ -2433,11 +2606,12 @@ function CatalogTabButton({
   return (
     <button
       type="button"
+      aria-pressed={active}
       onClick={onClick}
       className={cn(
-        'inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors',
+        'focus-visible:outline-primary inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-medium transition-colors focus-visible:outline-2',
         active
-          ? 'bg-primary text-primary-foreground'
+          ? 'bg-primary/10 text-primary'
           : 'text-muted-foreground hover:bg-muted hover:text-foreground'
       )}
     >

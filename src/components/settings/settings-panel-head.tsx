@@ -21,12 +21,12 @@ export function SettingsPanelHead({
   return (
     <div
       className={cn(
-        'mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between',
+        'border-border mb-5 flex flex-col gap-3 border-b pb-5 sm:flex-row sm:items-start sm:justify-between',
         className
       )}
     >
       <div className="min-w-0">
-        <h2 className="text-foreground text-lg font-semibold tracking-tight">
+        <h2 className="text-foreground text-xl font-semibold tracking-tight">
           {title}
         </h2>
         {description ? (
@@ -35,7 +35,11 @@ export function SettingsPanelHead({
           </p>
         ) : null}
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {action ? (
+        <div className="flex shrink-0 flex-wrap gap-2 [&>button]:min-h-10">
+          {action}
+        </div>
+      ) : null}
     </div>
   );
 }

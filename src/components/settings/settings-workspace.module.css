@@ -1,0 +1,46 @@
+.panel {
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.clinicMetrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.clinicTabs {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding: 0.75rem;
+}
+
+.clinicTabs > button {
+  flex-shrink: 0;
+}
+
+.panel :global([data-slot='card']) {
+  min-width: 0;
+  border-radius: 1rem;
+  box-shadow: none;
+}
+
+@container (min-width: 740px) {
+  .clinicMetrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 479px) {
+  .clinicTabs {
+    display: none;
+  }
+}
+
+@container (min-width: 480px) {
+  .clinicSelect {
+    display: none;
+  }
+}
