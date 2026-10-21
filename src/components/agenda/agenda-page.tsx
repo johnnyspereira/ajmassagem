@@ -74,6 +74,7 @@ import { ContactSearchSelect } from '@/components/contacts/contact-search-select
 import { AppointmentHistoryImportModal } from '@/components/agenda/appointment-history-import-modal';
 import { AgendaHeader } from './agenda-header';
 import styles from './agenda-workspace.module.css';
+import { proportionalSessionPrice } from '@/lib/clinic/duration-price';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import {
@@ -1090,13 +1091,16 @@ export function AgendaPage({
         0
       )
   );
-  // A different duration can have an agreed extra amount. The catalogue
-  // price always remains the base and the extra is retained by the
-  // appointment and POS before any discount is applied.
+  // Recalculate from the catalogue duration; agreed extras and discounts
+  // remain separate from the proportional session price.
+  const proportionalPrimaryPrice = proportionalSessionPrice(
+    Number(selectedService?.price ?? 0),
+    Number(selectedService?.duration_minutes ?? 0),
+    primaryAppointmentDuration
+  );
   const primaryServicePrice = Math.max(
     0,
-    Number(selectedService?.price ?? 0) +
-      Number(appointmentAdditionalAmount || 0)
+    proportionalPrimaryPrice + Number(appointmentAdditionalAmount || 0)
   );
   const additionalServicesOriginalPrice = additionalServices.reduce(
     (total, line) => total + Math.max(0, Number(line.service.price ?? 0)),
@@ -3169,7 +3173,6 @@ export function AgendaPage({
       scheduleChangeDraft.time
     );
     const durationMinutes =
-      service?.duration_minutes ??
       Math.max(
         15,
         Math.round((originalEnd.getTime() - originalStart.getTime()) / 60_000)
@@ -3680,7 +3683,19 @@ export function AgendaPage({
     setEditSaveStage('A validar disponibilidade…');
 
     const startAt = appointmentDate(editDraft.date, editDraft.time);
-    const endAt = addMinutes(startAt, service.duration_minutes);
+    const sameService = editDraft.serviceId === selectedAppointment.service_id;
+    const savedDuration = Math.max(
+      5,
+      Math.round(
+        (new Date(selectedAppointment.scheduled_end).getTime() -
+          new Date(selectedAppointment.scheduled_start).getTime()) /
+          60_000
+      )
+    );
+    const endAt = addMinutes(
+      startAt,
+      sameService ? savedDuration : service.duration_minutes
+    );
     const scheduleChanged =
       startAt.toISOString() !== selectedAppointment.scheduled_start ||
       endAt.toISOString() !== selectedAppointment.scheduled_end;
@@ -3738,14 +3753,18 @@ export function AgendaPage({
           ? 'Alteração manual na ficha da marcação'
           : selectedAppointment.last_reschedule_reason,
         status: editDraft.status,
-        original_price: selectedAppointment.referral_id
-          ? Number(service.price ?? selectedAppointment.original_price ?? 0)
-          : selectedAppointment.original_price,
-        price: Math.max(
-          0,
-          Number(service.price ?? selectedAppointment.price ?? 0) -
-            Number(selectedAppointment.referral_discount_amount ?? 0)
-        ),
+        original_price: sameService
+          ? selectedAppointment.original_price
+          : selectedAppointment.referral_id
+            ? Number(service.price ?? selectedAppointment.original_price ?? 0)
+            : selectedAppointment.original_price,
+        price: sameService
+          ? selectedAppointment.price
+          : Math.max(
+              0,
+              Number(service.price ?? selectedAppointment.price ?? 0) -
+                Number(selectedAppointment.referral_discount_amount ?? 0)
+            ),
         currency: service.currency || defaultCurrency,
         notes: editDraft.notes.trim() || null,
         coupon_code: editDraft.couponCode.trim() || null,
@@ -4831,7 +4850,7 @@ export function AgendaPage({
                           readOnly
                           value={
                             selectedEditService
-                              ? `${selectedEditService.duration_minutes} min`
+                              ? `${editDraft.serviceId === selectedAppointment.service_id ? Math.round((new Date(selectedAppointment.scheduled_end).getTime() - new Date(selectedAppointment.scheduled_start).getTime()) / 60_000) : selectedEditService.duration_minutes} min`
                               : ''
                           }
                         />
@@ -4842,7 +4861,12 @@ export function AgendaPage({
                           value={
                             selectedEditService
                               ? formatCurrency(
-                                  Number(selectedEditService.price),
+                                  Number(
+                                    editDraft.serviceId ===
+                                      selectedAppointment.service_id
+                                      ? selectedAppointment.price
+                                      : selectedEditService.price
+                                  ),
                                   selectedEditService.currency ||
                                     defaultCurrency
                                 )
@@ -6743,10 +6767,25 @@ export function AgendaPage({
                         placeholder="0,00"
                       />
                       <p className="text-muted-foreground text-xs">
-                        Soma-se ao preço do procedimento antes do desconto.
+                        Opcional: soma-se ao valor proporcional antes do
+                        desconto.
                       </p>
                     </Field>
                   </div>
+                  <p className="text-muted-foreground text-xs">
+                    Preço proporcional automático:{' '}
+                    {formatCurrency(
+                      Number(selectedService.price),
+                      selectedService.currency || defaultCurrency
+                    )}{' '}
+                    por {selectedService.duration_minutes} min →{' '}
+                    {formatCurrency(
+                      proportionalPrimaryPrice,
+                      selectedService.currency || defaultCurrency
+                    )}{' '}
+                    por {primaryAppointmentDuration} min. Acréscimos e descontos
+                    são aplicados depois.
+                  </p>
                   <div className="border-border bg-muted/30 grid gap-2 rounded-md border p-3 text-sm sm:grid-cols-3">
                     <div>
                       <p className="text-muted-foreground text-xs">Duração</p>

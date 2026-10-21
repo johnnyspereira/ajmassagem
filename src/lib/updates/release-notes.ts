@@ -15,6 +15,16 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-21-proportional-session-price',
+    date: '2026-10-21',
+    category: 'Melhoria',
+    title: 'Preço proporcional à duração ao criar uma marcação',
+    areas: ['Agenda', 'Preços'],
+    summary: 'Alterar os minutos da sessão recalcula automaticamente o preço com base no valor e duração do procedimento cadastrado.',
+    changes: ['Cálculo proporcional arredondado a cêntimos, sem acumular arredondamentos ao mudar a duração várias vezes.', 'Acréscimos acordados e descontos continuam separados e são aplicados depois do preço proporcional.', 'Explicação do cálculo junto à duração; o catálogo do procedimento mantém o preço original.'],
+    howTo: 'Em Nova marcação, selecione o procedimento e altere Duração da sessão. Por exemplo, 45 € por 50 minutos corresponde a 72 € por 80 minutos, antes de acréscimos e descontos.',
+  },
+  {
     id: '2026-10-21-appointment-notification-choice',
     date: '2026-10-21',
     category: 'Melhoria',
