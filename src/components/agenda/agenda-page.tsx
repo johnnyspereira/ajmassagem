@@ -899,6 +899,7 @@ export function AgendaPage({
   const [lookingUpBenefit, setLookingUpBenefit] = useState(false);
   const [paymentChoiceOpen, setPaymentChoiceOpen] = useState(false);
   const [refundRequestOpen, setRefundRequestOpen] = useState(false);
+  const [benefitRefundOpen, setBenefitRefundOpen] = useState(false);
   const [refundReason, setRefundReason] = useState('');
   const [requestingRefund, setRequestingRefund] = useState(false);
   const [benefitDecisionOpen, setBenefitDecisionOpen] = useState(false);
@@ -5288,7 +5289,7 @@ export function AgendaPage({
                             <ActionButton
                               tone="amber"
                               disabled={
-                                editDraft.status === 'cancelled' ||
+                                !appointmentBenefit &&
                                 !(selectedAppointment.sales ?? []).some(
                                   (sale) =>
                                     Number(sale.paid_amount ?? 0) > 0 &&
@@ -5298,6 +5299,10 @@ export function AgendaPage({
                                 )
                               }
                               onClick={() => {
+                                if (appointmentBenefit) {
+                                  setBenefitRefundOpen(true);
+                                  return;
+                                }
                                 setRefundReason('');
                                 setRefundRequestOpen(true);
                               }}
@@ -5491,6 +5496,87 @@ export function AgendaPage({
         </DialogContent>
       </Dialog>
 
+      <Dialog open={benefitRefundOpen} onOpenChange={setBenefitRefundOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Devolver sessão ou reembolsar a compra?</DialogTitle>
+            <DialogDescription>
+              Esta sessão utiliza um{' '}
+              {appointmentBenefit?.benefit_type === 'pack' ? 'pack' : 'voucher'}
+              . O pagamento pertence à compra original, não a esta marcação.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <div className="space-y-2 rounded-xl border p-4">
+              <h3 className="font-semibold">Devolver a sessão ao saldo</h3>
+              <p className="text-muted-foreground">
+                Cancele a marcação e escolha Devolver ao saldo. Depois, guarde a
+                marcação. Esta opção liberta a reserva e não devolve dinheiro.
+              </p>
+              {appointmentBenefit?.status === 'reserved' &&
+              editDraft?.status !== 'cancelled' ? (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setBenefitRefundOpen(false);
+                    updateEditAction('cancelled');
+                  }}
+                >
+                  Cancelar e escolher devolução ao saldo
+                </Button>
+              ) : (
+                <p className="text-muted-foreground">
+                  O benefício já foi consumido ou a marcação está cancelada.
+                  Cancelar novamente não repõe uma sessão consumida.
+                </p>
+              )}
+            </div>
+            <div className="space-y-2 rounded-xl border p-4">
+              <h3 className="font-semibold">Reembolsar dinheiro da compra</h3>
+              <p className="text-muted-foreground">
+                Abra a venda original no Financeiro para rever o valor e
+                registar o reembolso. A ação incide sobre a venda inteira e
+                cancela os vouchers ou packs emitidos nessa venda. Não executa
+                uma transferência bancária nem avisa automaticamente o cliente.
+              </p>
+              {(
+                appointmentBenefit?.benefit_type === 'voucher'
+                  ? appointmentBenefit.voucher?.issued_sale_id
+                  : appointmentBenefit?.client_pack?.sale_id
+              ) ? (
+                <Button
+                  onClick={() => {
+                    const saleId =
+                      appointmentBenefit?.benefit_type === 'voucher'
+                        ? appointmentBenefit.voucher?.issued_sale_id
+                        : appointmentBenefit?.client_pack?.sale_id;
+                    setBenefitRefundOpen(false);
+                    router.push(
+                      `/finance?tab=sales#sale-${encodeURIComponent(saleId!)}`
+                    );
+                  }}
+                >
+                  Abrir venda original no Financeiro
+                </Button>
+              ) : (
+                <p className="text-amber-700">
+                  Este benefício não tem uma venda original associada. Consulte
+                  o comprovativo da compra antes de registar qualquer devolução
+                  no Financeiro.
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBenefitRefundOpen(false)}
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={benefitDecisionOpen}
         onOpenChange={(open) => {

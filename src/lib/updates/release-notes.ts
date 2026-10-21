@@ -15,6 +15,16 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-21-benefit-refund-guidance',
+    date: '2026-10-21',
+    category: 'Melhoria',
+    title: 'Reembolso acessível nas marcações com voucher ou pack',
+    areas: ['Agenda', 'Financeiro'],
+    summary: 'O botão Reembolso distingue a devolução da sessão ao saldo do reembolso da compra original.',
+    changes: ['Marcações com benefício associado permitem abrir as opções de devolução, mesmo sem pagamento direto na sessão.', 'Acesso à venda original quando existe associação; benefícios sem venda mostram uma explicação.', 'Explicação dos efeitos do reembolso integral e do registo financeiro, sem prometer transferências ou notificações automáticas.'],
+    howTo: 'Na ficha da marcação, abra Reembolso. Para libertar uma reserva, escolha cancelar e devolver ao saldo e guarde a marcação. Para devolver dinheiro, abra a venda original no Financeiro e reveja a compra antes de confirmar.',
+  },
+  {
     id: '2026-10-21-inbox-dashboard-layout',
     date: '2026-10-21',
     category: 'Correção',
