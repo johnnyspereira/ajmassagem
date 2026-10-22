@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-22-privacy-reminder-schema-install', date: '2026-10-22', category: 'Correção',
+    title: 'Instalação da estrutura do painel de revisão de privacidade', areas: ['Definições', 'Privacidade'],
+    summary: 'O painel verifica a própria estrutura ao abrir, sem depender da opção de migrações no arranque.',
+    changes: ['Instalação aditiva da tabela de registos e da opção de automatismo, mantendo-o desativado por defeito.', 'Erros de permissões e de atualizações anteriores em falta passam a ter mensagens específicas.', 'Removida a indicação genérica de reiniciar em qualquer falha.'],
+    howTo: 'Após publicar, abra Revisão de privacidade e use Atualizar. Se a base de dados negar CREATE ou ALTER, ajuste essas permissões no cPanel; o painel indicará esse motivo.',
+  },
+  {
     id: '2026-10-22-client-edit-privacy-review', date: '2026-10-22', category: 'Correção',
     title: 'Editar dados sem alterar autorizações e acompanhar revisões do Portal', areas: ['Clientes', 'Portal', 'Definições'],
     summary: 'Guardar os dados do cliente deixa de depender de uma nova autorização de WhatsApp ou marketing.',

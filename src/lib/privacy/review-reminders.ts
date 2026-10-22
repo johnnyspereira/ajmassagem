@@ -3,6 +3,7 @@ import type { RowDataPacket } from 'mysql2';
 import { selectRows, mutate, transaction } from '@/lib/mysql/db';
 import { engineSendText } from '@/lib/automations/meta-send';
 import { getPublicUrl } from '@/lib/public-url';
+import { ensurePrivacyReminderSchema } from './review-reminder-schema';
 
 export function privacyReviewMessage(
   name: string | null,
@@ -83,6 +84,7 @@ export async function sendPrivacyReviewReminder(
   }
 }
 export async function runPrivacyReviewReminders() {
+  await ensurePrivacyReminderSchema();
   const rows = await selectRows<RowDataPacket[]>(
     `SELECT c.account_id,c.id,a.owner_user_id FROM contacts c JOIN accounts a ON a.id=c.account_id JOIN client_portal_access p ON p.account_id=c.account_id AND p.contact_id=c.id AND p.enabled=TRUE JOIN client_portal_settings s ON s.account_id=c.account_id AND s.enabled=TRUE AND s.privacy_review_auto_enabled=TRUE LEFT JOIN privacy_review_reminders r ON r.account_id=c.account_id AND r.contact_id=c.id WHERE (c.privacy_review_status='legacy_unverified' OR (c.privacy_review_status='current' AND c.consent_reviewed_at IS NULL)) AND c.whatsapp_consent=TRUE AND c.anonymized_at IS NULL AND (r.last_sent_at IS NULL OR r.last_sent_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 7 DAY)) ORDER BY r.last_sent_at LIMIT 10`
   );

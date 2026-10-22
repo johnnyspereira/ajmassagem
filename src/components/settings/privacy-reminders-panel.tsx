@@ -29,10 +29,16 @@ export function PrivacyRemindersPanel() {
         cache: 'no-store',
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Falha ao carregar');
+      if (!response.ok)
+        throw new Error(
+          result.error === 'Internal server error'
+            ? 'Não foi possível consultar o painel. Verifique os registos da aplicação no cPanel para identificar a falha.'
+            : result.error || 'Falha ao carregar'
+        );
       setData(result);
       setError('');
     } catch (error) {
+      setData(null);
       setError(error instanceof Error ? error.message : 'Falha ao carregar');
     }
   }
@@ -84,7 +90,13 @@ export function PrivacyRemindersPanel() {
       />
       <div className="bg-card space-y-3 rounded-2xl border p-4">
         <h3 className="font-semibold">
-          Lembretes automáticos {data?.enabled ? 'ativos' : 'desativados'}
+          {!data
+            ? error
+              ? 'Configuração indisponível'
+              : 'A carregar configuração…'
+            : data.enabled
+              ? 'Lembretes automáticos ativos'
+              : 'Lembretes automáticos desativados'}
         </h3>
         <p className="text-muted-foreground text-sm">
           Desativados por defeito. Quando ativos, o cron local verifica clientes
@@ -114,8 +126,7 @@ export function PrivacyRemindersPanel() {
       </details>
       {error && (
         <p role="alert" className="text-destructive rounded-xl border p-4">
-          {error} Reinicie a aplicação após atualizar para instalar a base deste
-          painel.
+          {error}
         </p>
       )}
       <Input

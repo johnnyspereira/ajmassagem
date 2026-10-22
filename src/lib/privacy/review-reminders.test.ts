@@ -1,4 +1,7 @@
 import { beforeEach, expect, it, vi } from 'vitest';
+vi.mock('./review-reminder-schema', () => ({
+  ensurePrivacyReminderSchema: vi.fn().mockResolvedValue(undefined),
+}));
 const mocks = vi.hoisted(() => ({
   select: vi.fn(),
   mutate: vi.fn(),

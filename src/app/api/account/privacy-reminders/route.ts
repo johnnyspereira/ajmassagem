@@ -2,9 +2,14 @@ import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { selectRows, mutate } from '@/lib/mysql/db';
 import { sendPrivacyReviewReminder } from '@/lib/privacy/review-reminders';
 import type { RowDataPacket } from 'mysql2';
+import {
+  ensurePrivacyReminderSchema,
+  privacyReminderError,
+} from '@/lib/privacy/review-reminder-schema';
 export async function GET() {
   try {
     const { accountId } = await requireRole('admin');
+    await ensurePrivacyReminderSchema();
     const [settings, clients] = await Promise.all([
       selectRows<RowDataPacket[]>(
         'SELECT privacy_review_auto_enabled FROM client_portal_settings WHERE account_id=?',
@@ -29,12 +34,13 @@ export async function GET() {
       { headers: { 'Cache-Control': 'private, no-store' } }
     );
   } catch (error) {
-    return toErrorResponse(error);
+    return privacyReminderError(error) || toErrorResponse(error);
   }
 }
 export async function POST(request: Request) {
   try {
     const { accountId, userId } = await requireRole('admin');
+    await ensurePrivacyReminderSchema();
     const body = await request.json();
     if (typeof body.enabled === 'boolean') {
       await mutate(
@@ -56,6 +62,6 @@ export async function POST(request: Request) {
       );
     }
   } catch (error) {
-    return toErrorResponse(error);
+    return privacyReminderError(error) || toErrorResponse(error);
   }
 }
