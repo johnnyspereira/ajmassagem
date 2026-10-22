@@ -89,7 +89,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "0e1e536c124ee3f448910a1b4569b9bd4fc009c9"
+          "value": "17f45be1438e8edcb03ac1d3bd1bc0da36f76f7c"
         }
       ],
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
@@ -99,7 +99,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "0e1e536c124ee3f448910a1b4569b9bd4fc009c9"
+          "value": "17f45be1438e8edcb03ac1d3bd1bc0da36f76f7c"
         }
       ],
       "regex": "^/_next/data(?:/(.*))(?:/)?$"
@@ -816,6 +816,12 @@
       "regex": "^/api/account/privacy/retention(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/account/privacy/retention(?:/)?$"
+    },
+    {
+      "page": "/api/account/privacy-reminders",
+      "regex": "^/api/account/privacy\\-reminders(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/account/privacy\\-reminders(?:/)?$"
     },
     {
       "page": "/api/account/transfer-ownership",
@@ -1664,5 +1670,5 @@
     "pathHeader": "x-nextjs-rewritten-path",
     "queryHeader": "x-nextjs-rewritten-query"
   },
-  "deploymentId": "0e1e536c124ee3f448910a1b4569b9bd4fc009c9"
+  "deploymentId": "17f45be1438e8edcb03ac1d3bd1bc0da36f76f7c"
 }
