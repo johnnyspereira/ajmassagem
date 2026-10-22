@@ -2345,6 +2345,7 @@
       "metaDocs": "Documentação da API WhatsApp do Meta"
     },
     "sections": {
+      "privacy-reminders": "Revisão de privacidade",
       "overview": "Visão geral",
       "general": "Geral",
       "profile": "Seu perfil",

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { sendAppointmentCommunication } from '@/lib/clinic/appointment-communication';
 import { sendBenefitExpiryReminders } from '@/lib/finance/expiry-reminders';
+import { runPrivacyReviewReminders } from '@/lib/privacy/review-reminders';
 
 const DEFAULT_WINDOW_MINUTES = 24 * 60;
 const MAX_WINDOW_MINUTES = 24 * 60;
@@ -222,7 +223,14 @@ export async function GET(request: Request) {
     });
   }
 
+  let privacyReview = { checked: 0, sent: 0, failed: 0 };
+  try {
+    privacyReview = await runPrivacyReviewReminders();
+  } catch {
+    privacyReview.failed = 1;
+  }
   return NextResponse.json({
+    privacy_review_reminders: privacyReview,
     checked: due.length,
     sent,
     skipped,

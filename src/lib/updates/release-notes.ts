@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-22-client-edit-privacy-review', date: '2026-10-22', category: 'Correção',
+    title: 'Editar dados sem alterar autorizações e acompanhar revisões do Portal', areas: ['Clientes', 'Portal', 'Definições'],
+    summary: 'Guardar os dados do cliente deixa de depender de uma nova autorização de WhatsApp ou marketing.',
+    changes: ['As autorizações são apresentadas para consulta e não são alteradas ao guardar nome, contacto ou morada.', 'Painel Revisão de privacidade mostra clientes com Portal ativo, estado de revisão, último lembrete e falhas.', 'Envio manual com confirmação e automatismo opcional, desativado por defeito, para revisão antiga por confirmar e WhatsApp autorizado.', 'Intervalo mínimo de sete dias entre lembretes; recusas e retiradas de autorização não são sobrepostas.'],
+    howTo: 'Guarde os dados no Cliente 360 normalmente. Em Definições → Revisão de privacidade, consulte o estado e escolha Enviar lembrete ou ative o automatismo. O cliente permite ou recusa no Perfil do Portal. Publique e reinicie a aplicação para instalar a base do painel.',
+  },
+  {
     id: '2026-10-22-portal-session-interval', date: '2026-10-22', category: 'Melhoria',
     title: 'Intervalo automático de uma hora na marcação online', areas: ['Portal', 'Agenda online'],
     summary: 'A disponibilidade online reserva uma hora antes do início e uma hora depois do fim de cada sessão do profissional.',

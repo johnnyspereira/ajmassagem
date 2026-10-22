@@ -8,6 +8,7 @@ import { Settings2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
 import { SettingsRail } from '@/components/settings/settings-rail';
+import { PrivacyRemindersPanel } from '@/components/settings/privacy-reminders-panel';
 import styles from '@/components/settings/settings-workspace.module.css';
 import { SettingsOverview } from '@/components/settings/settings-overview';
 import { UpdatesPanel } from '@/components/settings/updates-panel';
@@ -90,6 +91,7 @@ export default function SettingsPage() {
   );
 
   const panel: Record<SettingsSection, ReactNode> = {
+    'privacy-reminders': <PrivacyRemindersPanel />,
     'link-previews': <LinkPreviewsPanel />,
     updates: <UpdatesPanel />,
     overview: <SettingsOverview onSelect={go} />,

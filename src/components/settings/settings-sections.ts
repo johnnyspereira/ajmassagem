@@ -42,6 +42,7 @@ export const SETTINGS_SECTIONS = [
   'portal',
   'security',
   'privacy',
+  'privacy-reminders',
   'appearance',
   'whatsapp',
   'templates',
@@ -80,6 +81,13 @@ export interface SectionMeta {
 }
 
 export const SECTION_META: Record<SettingsSection, SectionMeta> = {
+  'privacy-reminders': {
+    id: 'privacy-reminders',
+    label: 'Revisão de privacidade',
+    icon: ShieldCheck,
+    group: 'messaging',
+    minRole: 'admin',
+  },
   'link-previews': {
     id: 'link-previews',
     label: 'Partilha de links',

@@ -1,4 +1,9 @@
 import { beforeEach, expect, it, vi } from 'vitest';
+vi.mock('@/lib/privacy/review-reminders', () => ({
+  runPrivacyReviewReminders: vi
+    .fn()
+    .mockResolvedValue({ checked: 0, sent: 0, failed: 0 }),
+}));
 const mocks = vi.hoisted(() => ({
   queries: [] as { method: string; args: unknown[] }[],
   send: vi.fn(),

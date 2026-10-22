@@ -10,7 +10,7 @@ async function main(){
   const response=await fetch(url,{headers:{'x-cron-secret':secret},signal:AbortSignal.timeout(110000)});
   if(!response.ok)throw Error(`Rotina de lembretes devolveu HTTP ${response.status}.`);
   const result=await response.json();
-  const summary={at:new Date().toISOString(),checked:result.checked,sent:result.sent,pendingChecked:result.pending_confirmations_checked,confirmationReminders:result.confirmation_reminders_sent,failures:(result.failed?.length||0)+(result.confirmation_reminder_failures?.length||0)};
+  const summary={at:new Date().toISOString(),checked:result.checked,sent:result.sent,pendingChecked:result.pending_confirmations_checked,confirmationReminders:result.confirmation_reminders_sent,privacyChecked:result.privacy_review_reminders?.checked||0,privacySent:result.privacy_review_reminders?.sent||0,failures:(result.failed?.length||0)+(result.confirmation_reminder_failures?.length||0)+(result.privacy_review_reminders?.failed||0)};
   const folder=path.join(__dirname,'..','logs','appointment-reminders');fs.mkdirSync(folder,{recursive:true});
   fs.appendFileSync(path.join(folder,'runs.log'),JSON.stringify(summary)+'\n');
   console.log(JSON.stringify(summary));

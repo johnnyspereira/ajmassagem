@@ -1,6 +1,14 @@
 'use client';
+import Link from 'next/link';
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -400,7 +408,9 @@ export function Client360Page({
     BroadcastRecipientEvent[]
   >([]);
   const [portalAccess, setPortalAccess] = useState<PortalAccess | null>(null);
-  const [portalSettings, setPortalSettings] = useState<PortalSettings | null>(null);
+  const [portalSettings, setPortalSettings] = useState<PortalSettings | null>(
+    null
+  );
   const [sendingPortalInvite, setSendingPortalInvite] = useState<
     'email' | 'whatsapp' | null
   >(null);
@@ -423,8 +433,12 @@ export function Client360Page({
   const [createConversationOpen, setCreateConversationOpen] = useState(false);
   const [creatingConversation, setCreatingConversation] = useState(false);
   const [activeTab, setActiveTab] = useState<ClientTab>(initialTab);
-  const [packBenefitTab, setPackBenefitTab] = useState<'active' | 'used'>('active');
-  const [voucherBenefitTab, setVoucherBenefitTab] = useState<'active' | 'used'>('active');
+  const [packBenefitTab, setPackBenefitTab] = useState<'active' | 'used'>(
+    'active'
+  );
+  const [voucherBenefitTab, setVoucherBenefitTab] = useState<'active' | 'used'>(
+    'active'
+  );
   const [draft, setDraft] = useState<ClientDraft>({
     name: '',
     phone: '',
@@ -441,7 +455,7 @@ export function Client360Page({
     source: '',
     preferredContact: 'whatsapp',
     marketingConsent: false,
-    whatsappConsent: true,
+    whatsappConsent: false,
   });
 
   const loadClient = useCallback(async () => {
@@ -648,7 +662,7 @@ export function Client360Page({
       source: nextContact?.source ?? '',
       preferredContact: nextContact?.preferred_contact ?? 'whatsapp',
       marketingConsent: Boolean(nextContact?.marketing_consent),
-      whatsappConsent: nextContact?.whatsapp_consent !== false,
+      whatsappConsent: nextContact?.whatsapp_consent === true,
     });
     setTags(
       ((tagsRes.data ?? [])
@@ -683,7 +697,8 @@ export function Client360Page({
         )
         .select('code')
         .maybeSingle();
-      if (!createdCodeRes.error) nextReferralCode = createdCodeRes.data?.code ?? generatedCode;
+      if (!createdCodeRes.error)
+        nextReferralCode = createdCodeRes.data?.code ?? generatedCode;
     }
     setReferralCode(nextReferralCode);
     setClientReferrals(
@@ -779,7 +794,7 @@ export function Client360Page({
         .update({
           enabled: nextEnabled,
           disabled_at: nextEnabled ? null : new Date().toISOString(),
-          disabled_by: nextEnabled ? null : user?.id ?? null,
+          disabled_by: nextEnabled ? null : (user?.id ?? null),
         })
         .eq('id', portalAccess.id)
         .eq('account_id', accountId);
@@ -812,7 +827,9 @@ export function Client360Page({
       return;
     }
     if (delivery === 'email' && !contact.email) {
-      toast.error('Adicione primeiro o email do cliente para criar o acesso seguro.');
+      toast.error(
+        'Adicione primeiro o email do cliente para criar o acesso seguro.'
+      );
       return;
     }
     if (delivery === 'whatsapp' && !contact.phone) {
@@ -840,13 +857,15 @@ export function Client360Page({
         delivery === 'email' && purpose === 'reset'
           ? 'Novo link para definir a palavra-passe enviado por email.'
           : delivery === 'email'
-          ? 'Convite do Portal 360 enviado por email.'
-          : 'Convite do Portal 360 enviado por WhatsApp.'
+            ? 'Convite do Portal 360 enviado por email.'
+            : 'Convite do Portal 360 enviado por WhatsApp.'
       );
       await loadClient();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : 'Não foi possível enviar o convite.'
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível enviar o convite.'
       );
     } finally {
       setSendingPortalInvite(null);
@@ -875,15 +894,6 @@ export function Client360Page({
     }
     if (!draft.phone.trim()) {
       toast.error('O telefone do cliente é obrigatório.');
-      return;
-    }
-    if (
-      (!contact?.marketing_consent && draft.marketingConsent) ||
-      (!contact?.whatsapp_consent && draft.whatsappConsent)
-    ) {
-      toast.error(
-        'Uma nova autorização deve ser confirmada pelo próprio cliente no Portal 360 para ficar acompanhada de prova.'
-      );
       return;
     }
 
@@ -919,8 +929,6 @@ export function Client360Page({
         country: draft.country.trim() || null,
         source: draft.source.trim() || null,
         preferred_contact: draft.preferredContact || null,
-        marketing_consent: draft.marketingConsent,
-        whatsapp_consent: draft.whatsappConsent,
         updated_at: new Date().toISOString(),
       })
       .eq('id', contactId)
@@ -953,14 +961,26 @@ export function Client360Page({
 
   async function uploadAvatar(file?: File) {
     if (!file || !contact || !canOperate) return;
-    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+    if (
+      !['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(
+        file.type
+      ) ||
+      file.size > 2 * 1024 * 1024
+    ) {
       toast.error('Use uma imagem JPG, PNG, WebP ou GIF com ate 2 MB.');
       return;
     }
 
     setUploadingAvatar(true);
     try {
-      const extension = file.type === 'image/png' ? 'png' : file.type === 'image/gif' ? 'gif' : file.type === 'image/webp' ? 'webp' : 'jpg';
+      const extension =
+        file.type === 'image/png'
+          ? 'png'
+          : file.type === 'image/gif'
+            ? 'gif'
+            : file.type === 'image/webp'
+              ? 'webp'
+              : 'jpg';
       const path = `contacts/${contact.id}/avatar-${Date.now()}.${extension}`;
       const payload = new FormData();
       payload.set('file', file);
@@ -970,9 +990,13 @@ export function Client360Page({
         method: 'POST',
         body: payload,
       });
-      const upload = await uploadResponse.json().catch(() => null) as { error?: { message?: string } | null } | null;
+      const upload = (await uploadResponse.json().catch(() => null)) as {
+        error?: { message?: string } | null;
+      } | null;
       if (!uploadResponse.ok || upload?.error) {
-        throw new Error(upload?.error?.message || 'Nao foi possivel guardar a fotografia.');
+        throw new Error(
+          upload?.error?.message || 'Nao foi possivel guardar a fotografia.'
+        );
       }
       const avatarUrl = `/uploads/avatars/${path.split('/').map(encodeURIComponent).join('/')}`;
       const { data, error } = await supabase
@@ -981,11 +1005,18 @@ export function Client360Page({
         .eq('id', contact.id)
         .select('*')
         .single();
-      if (error || !data) throw new Error(error?.message || 'Nao foi possivel associar a fotografia ao cliente.');
+      if (error || !data)
+        throw new Error(
+          error?.message || 'Nao foi possivel associar a fotografia ao cliente.'
+        );
       setContact(data as Contact);
       toast.success('Fotografia do cliente atualizada.');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Falha ao atualizar a fotografia.');
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Falha ao atualizar a fotografia.'
+      );
     } finally {
       setUploadingAvatar(false);
       if (avatarInputRef.current) avatarInputRef.current.value = '';
@@ -1200,19 +1231,28 @@ export function Client360Page({
       )
   );
   const usedClientPacks = clientPacks.filter(
-    (clientPack) => !activeClientPacks.some((activePack) => activePack.id === clientPack.id)
+    (clientPack) =>
+      !activeClientPacks.some((activePack) => activePack.id === clientPack.id)
   );
-  const visibleClientPacks = packBenefitTab === 'active' ? activeClientPacks : usedClientPacks;
-  const activeRegularVouchers = regularVouchers.filter((voucher) =>
-    voucher.status === 'active' &&
-    (voucher.voucher_type === 'service'
-      ? Number(voucher.remaining_uses ?? 0) > 0
-      : Number(voucher.current_balance ?? 0) > 0)
+  const visibleClientPacks =
+    packBenefitTab === 'active' ? activeClientPacks : usedClientPacks;
+  const activeRegularVouchers = regularVouchers.filter(
+    (voucher) =>
+      voucher.status === 'active' &&
+      (voucher.voucher_type === 'service'
+        ? Number(voucher.remaining_uses ?? 0) > 0
+        : Number(voucher.current_balance ?? 0) > 0)
   );
   const usedRegularVouchers = regularVouchers.filter(
-    (voucher) => !activeRegularVouchers.some((activeVoucher) => activeVoucher.id === voucher.id)
+    (voucher) =>
+      !activeRegularVouchers.some(
+        (activeVoucher) => activeVoucher.id === voucher.id
+      )
   );
-  const visibleRegularVouchers = voucherBenefitTab === 'active' ? activeRegularVouchers : usedRegularVouchers;
+  const visibleRegularVouchers =
+    voucherBenefitTab === 'active'
+      ? activeRegularVouchers
+      : usedRegularVouchers;
   const headerTags = showAllHeaderTags ? tags : tags.slice(0, 4);
   const hiddenHeaderTags = Math.max(0, tags.length - headerTags.length);
   const referralUrl = referralCode
@@ -1447,10 +1487,14 @@ export function Client360Page({
               if (!referralUrl) {
                 if (referralProgramEnabled) {
                   void loadClient();
-                  toast.info('Estamos a gerar o link individual deste cliente. Atualize em instantes.');
+                  toast.info(
+                    'Estamos a gerar o link individual deste cliente. Atualize em instantes.'
+                  );
                 } else {
                   router.push('/settings?tab=referrals');
-                  toast.info('Ative e guarde o programa de indicações para gerar os links dos clientes.');
+                  toast.info(
+                    'Ative e guarde o programa de indicações para gerar os links dos clientes.'
+                  );
                 }
                 return;
               }
@@ -1487,9 +1531,9 @@ export function Client360Page({
                   src={contact.avatar_url || undefined}
                   alt={contact.name || contact.phone || 'Cliente'}
                 />
-              <AvatarFallback className="bg-primary/10 text-primary text-base font-semibold">
-                {initials(contact.name || contact.phone)}
-              </AvatarFallback>
+                <AvatarFallback className="bg-primary/10 text-primary text-base font-semibold">
+                  {initials(contact.name || contact.phone)}
+                </AvatarFallback>
               </Avatar>
               <input
                 ref={avatarInputRef}
@@ -1507,7 +1551,11 @@ export function Client360Page({
                 title="Alterar fotografia"
                 onClick={() => avatarInputRef.current?.click()}
               >
-                {uploadingAvatar ? <RefreshCw className="size-3.5 animate-spin" /> : <Camera className="size-3.5" />}
+                {uploadingAvatar ? (
+                  <RefreshCw className="size-3.5 animate-spin" />
+                ) : (
+                  <Camera className="size-3.5" />
+                )}
               </Button>
             </div>
             <div className="min-w-0">
@@ -1536,37 +1584,37 @@ export function Client360Page({
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {tags.length ? (
                   <>
-                  {headerTags.map((tag) => (
-                    <span
-                      key={tag.id}
-                      className="rounded-full px-2 py-0.5 text-xs font-medium"
-                      style={{
-                        backgroundColor: `${tag.color}22`,
-                        color: tag.color,
-                      }}
-                    >
-                      {tag.name === 'Clientes Perdidos'
-                        ? 'Em risco de inatividade'
-                        : tag.name}
-                    </span>
-                  ))}
-                  {hiddenHeaderTags > 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowAllHeaderTags(true)}
-                      className="bg-muted text-muted-foreground hover:bg-muted/70 rounded-full px-2 py-0.5 text-xs font-medium transition-colors"
-                    >
-                      +{hiddenHeaderTags} etiquetas
-                    </button>
-                  ) : tags.length > 4 ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowAllHeaderTags(false)}
-                      className="text-muted-foreground hover:text-foreground rounded-full px-1 py-0.5 text-xs"
-                    >
-                      Mostrar menos
-                    </button>
-                  ) : null}
+                    {headerTags.map((tag) => (
+                      <span
+                        key={tag.id}
+                        className="rounded-full px-2 py-0.5 text-xs font-medium"
+                        style={{
+                          backgroundColor: `${tag.color}22`,
+                          color: tag.color,
+                        }}
+                      >
+                        {tag.name === 'Clientes Perdidos'
+                          ? 'Em risco de inatividade'
+                          : tag.name}
+                      </span>
+                    ))}
+                    {hiddenHeaderTags > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllHeaderTags(true)}
+                        className="bg-muted text-muted-foreground hover:bg-muted/70 rounded-full px-2 py-0.5 text-xs font-medium transition-colors"
+                      >
+                        +{hiddenHeaderTags} etiquetas
+                      </button>
+                    ) : tags.length > 4 ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllHeaderTags(false)}
+                        className="text-muted-foreground hover:text-foreground rounded-full px-1 py-0.5 text-xs"
+                      >
+                        Mostrar menos
+                      </button>
+                    ) : null}
                   </>
                 ) : (
                   <span className="text-muted-foreground text-xs">
@@ -1678,13 +1726,16 @@ export function Client360Page({
                     </div>
                     <p className="font-semibold">Sem próximo atendimento</p>
                     <p className="text-muted-foreground mt-1 max-w-sm text-sm">
-                      Mantenha o acompanhamento ativo: este cliente ainda não tem uma marcação futura.
+                      Mantenha o acompanhamento ativo: este cliente ainda não
+                      tem uma marcação futura.
                     </p>
                     {canOperate ? (
                       <Button
                         size="sm"
                         className="mt-3"
-                        onClick={() => router.push(`/agenda?contact=${contact.id}`)}
+                        onClick={() =>
+                          router.push(`/agenda?contact=${contact.id}`)
+                        }
                       >
                         <CalendarClock /> Criar marcação
                       </Button>
@@ -1760,12 +1811,16 @@ export function Client360Page({
                         : 'O cliente ainda não entrou no Portal 360.'}
                     </p>
                     {portalAccess.requires_password_change ? (
-                      <p className="text-amber-700">Aguarda a definição da palavra-passe pelo cliente.</p>
+                      <p className="text-amber-700">
+                        Aguarda a definição da palavra-passe pelo cliente.
+                      </p>
                     ) : null}
                     <div className="flex flex-wrap gap-2 pt-1">
                       <Button
                         size="sm"
-                        variant={portalAccess.enabled === false ? 'default' : 'outline'}
+                        variant={
+                          portalAccess.enabled === false ? 'default' : 'outline'
+                        }
                         disabled={!canOperate || updatingPortalAccess}
                         onClick={togglePortalAccess}
                       >
@@ -1812,7 +1867,8 @@ export function Client360Page({
                     </div>
                     {!contact?.email && !contact?.phone ? (
                       <p className="text-destructive text-xs">
-                        Adicione um email ou WhatsApp ao cliente para reenviar o acesso.
+                        Adicione um email ou WhatsApp ao cliente para reenviar o
+                        acesso.
                       </p>
                     ) : null}
                   </>
@@ -1820,14 +1876,38 @@ export function Client360Page({
                   <>
                     <Badge variant="secondary">Sem acesso criado</Badge>
                     <p className="text-muted-foreground">
-                      Envie uma breve apresentação com um link pessoal para o cliente criar o acesso.
+                      Envie uma breve apresentação com um link pessoal para o
+                      cliente criar o acesso.
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      <Button size="sm" variant="outline" disabled={!canOperate || sendingPortalInvite !== null || !contact?.email} onClick={() => sendPortalInvite('email')}>
-                        <Mail /> {sendingPortalInvite === 'email' ? 'A enviar…' : 'Enviar por email'}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={
+                          !canOperate ||
+                          sendingPortalInvite !== null ||
+                          !contact?.email
+                        }
+                        onClick={() => sendPortalInvite('email')}
+                      >
+                        <Mail />{' '}
+                        {sendingPortalInvite === 'email'
+                          ? 'A enviar…'
+                          : 'Enviar por email'}
                       </Button>
-                      <Button size="sm" disabled={!canOperate || sendingPortalInvite !== null || !contact?.phone} onClick={() => sendPortalInvite('whatsapp')}>
-                        <MessageCircle /> {sendingPortalInvite === 'whatsapp' ? 'A enviar…' : 'Enviar por WhatsApp'}
+                      <Button
+                        size="sm"
+                        disabled={
+                          !canOperate ||
+                          sendingPortalInvite !== null ||
+                          !contact?.phone
+                        }
+                        onClick={() => sendPortalInvite('whatsapp')}
+                      >
+                        <MessageCircle />{' '}
+                        {sendingPortalInvite === 'whatsapp'
+                          ? 'A enviar…'
+                          : 'Enviar por WhatsApp'}
                       </Button>
                     </div>
                   </>
@@ -2057,7 +2137,7 @@ export function Client360Page({
                       type="checkbox"
                       className="mt-1"
                       checked={draft.whatsappConsent}
-                      disabled={!canOperate}
+                      disabled
                       onChange={(event) =>
                         setDraft((current) => ({
                           ...current,
@@ -2077,7 +2157,7 @@ export function Client360Page({
                       type="checkbox"
                       className="mt-1"
                       checked={draft.marketingConsent}
-                      disabled={!canOperate}
+                      disabled
                       onChange={(event) =>
                         setDraft((current) => ({
                           ...current,
@@ -2093,6 +2173,16 @@ export function Client360Page({
                     </span>
                   </label>
                 </div>
+                <p className="text-muted-foreground text-xs sm:col-span-2">
+                  As autorizações são revistas pelo cliente no Portal. Pode
+                  guardar os restantes dados independentemente destas escolhas.{' '}
+                  <Link
+                    className="text-primary underline"
+                    href="/settings?tab=privacy-reminders"
+                  >
+                    Gerir lembretes de revisão
+                  </Link>
+                </p>
                 <div className="flex justify-end sm:col-span-2">
                   <Button
                     onClick={saveClient}
@@ -2401,40 +2491,154 @@ export function Client360Page({
           <div className="grid gap-4 xl:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><PackageCheck /> Packs do cliente</CardTitle>
-                <CardDescription>Sessoes disponiveis, utilizadas e validade de cada pack.</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <PackageCheck /> Packs do cliente
+                </CardTitle>
+                <CardDescription>
+                  Sessoes disponiveis, utilizadas e validade de cada pack.
+                </CardDescription>
               </CardHeader>
-              <Tabs value={packBenefitTab} onValueChange={(value) => setPackBenefitTab(value as 'active' | 'used')}>
+              <Tabs
+                value={packBenefitTab}
+                onValueChange={(value) =>
+                  setPackBenefitTab(value as 'active' | 'used')
+                }
+              >
                 <TabsList className="mx-6 grid w-auto grid-cols-2">
-                  <TabsTrigger value="active">Ativos ({activeClientPacks.length})</TabsTrigger>
-                  <TabsTrigger value="used">Já utilizados ({usedClientPacks.length})</TabsTrigger>
+                  <TabsTrigger value="active">
+                    Ativos ({activeClientPacks.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="used">
+                    Já utilizados ({usedClientPacks.length})
+                  </TabsTrigger>
                 </TabsList>
-              <CardContent className="space-y-3 pt-3">
-                {visibleClientPacks.length ? visibleClientPacks.map((clientPack) => (
-                  <div key={clientPack.id} className="border-border rounded-xl border p-4">
-                    <div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{clientPack.pack?.name ?? 'Pack de servicos'}</p><p className="text-muted-foreground mt-1 text-xs">Codigo: {clientPack.code || '—'} {clientPack.expires_at ? `· Valido ate ${safeDate(clientPack.expires_at, 'dd/MM/yyyy')}` : ''}</p></div><Badge variant="outline">{labelFor(clientPack.status)}</Badge></div>
-                    <div className="mt-3 grid gap-2">{(clientPack.balances ?? []).map((balance) => <div key={balance.id} className="bg-muted/50 flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm"><span className="truncate">{balance.service?.name ?? 'Procedimento'}</span><strong className="shrink-0">{balance.remaining_sessions}/{balance.total_sessions} sessoes</strong></div>)}</div>
-                  </div>
-                )) : <Empty icon={PackageCheck} text={packBenefitTab === 'active' ? 'Não existem packs ativos com sessões disponíveis.' : 'Ainda não existem packs já utilizados ou encerrados.'} />}
-              </CardContent>
+                <CardContent className="space-y-3 pt-3">
+                  {visibleClientPacks.length ? (
+                    visibleClientPacks.map((clientPack) => (
+                      <div
+                        key={clientPack.id}
+                        className="border-border rounded-xl border p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold">
+                              {clientPack.pack?.name ?? 'Pack de servicos'}
+                            </p>
+                            <p className="text-muted-foreground mt-1 text-xs">
+                              Codigo: {clientPack.code || '—'}{' '}
+                              {clientPack.expires_at
+                                ? `· Valido ate ${safeDate(clientPack.expires_at, 'dd/MM/yyyy')}`
+                                : ''}
+                            </p>
+                          </div>
+                          <Badge variant="outline">
+                            {labelFor(clientPack.status)}
+                          </Badge>
+                        </div>
+                        <div className="mt-3 grid gap-2">
+                          {(clientPack.balances ?? []).map((balance) => (
+                            <div
+                              key={balance.id}
+                              className="bg-muted/50 flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm"
+                            >
+                              <span className="truncate">
+                                {balance.service?.name ?? 'Procedimento'}
+                              </span>
+                              <strong className="shrink-0">
+                                {balance.remaining_sessions}/
+                                {balance.total_sessions} sessoes
+                              </strong>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <Empty
+                      icon={PackageCheck}
+                      text={
+                        packBenefitTab === 'active'
+                          ? 'Não existem packs ativos com sessões disponíveis.'
+                          : 'Ainda não existem packs já utilizados ou encerrados.'
+                      }
+                    />
+                  )}
+                </CardContent>
               </Tabs>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Gift /> Vouchers do cliente</CardTitle>
-                  <CardDescription>Procedimento, saldo ou sessões e respetiva validade.</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <Gift /> Vouchers do cliente
+                </CardTitle>
+                <CardDescription>
+                  Procedimento, saldo ou sessões e respetiva validade.
+                </CardDescription>
               </CardHeader>
-              <Tabs value={voucherBenefitTab} onValueChange={(value) => setVoucherBenefitTab(value as 'active' | 'used')}>
+              <Tabs
+                value={voucherBenefitTab}
+                onValueChange={(value) =>
+                  setVoucherBenefitTab(value as 'active' | 'used')
+                }
+              >
                 <TabsList className="mx-6 grid w-auto grid-cols-2">
-                  <TabsTrigger value="active">Ativos ({activeRegularVouchers.length})</TabsTrigger>
-                  <TabsTrigger value="used">Já utilizados ({usedRegularVouchers.length})</TabsTrigger>
+                  <TabsTrigger value="active">
+                    Ativos ({activeRegularVouchers.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="used">
+                    Já utilizados ({usedRegularVouchers.length})
+                  </TabsTrigger>
                 </TabsList>
-              <CardContent className="space-y-3 pt-3">
-                {visibleRegularVouchers.length ? visibleRegularVouchers.map((voucher) => (<Fragment key={voucher.id}>
-                  <div key={voucher.id} className="border-border rounded-xl border p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{voucher.voucher_type === 'service' ? voucher.service?.name ?? 'Voucher de procedimento' : 'Voucher de saldo'}</p><p className="text-muted-foreground mt-0.5 text-xs font-mono">Código: {voucher.code}</p><p className="text-muted-foreground mt-1 text-xs">{voucher.voucher_type === 'service' ? `${Number(voucher.remaining_uses ?? 0)} sessão(ões) disponível(eis)` : `Saldo ${formatCurrency(Number(voucher.current_balance), voucher.currency)}`}{voucher.expires_at ? ` · Válido até ${safeDate(voucher.expires_at, 'dd/MM/yyyy')}` : ''}</p></div><Badge variant="outline">{labelFor(voucher.status)}</Badge></div></div>
-                  <VoucherValueSummary voucher={voucher} paidAmount={voucher.paid_amount} />
-                </Fragment>)) : <Empty icon={Gift} text={voucherBenefitTab === 'active' ? 'Não existem vouchers ativos com saldo ou sessões disponíveis.' : 'Ainda não existem vouchers já utilizados ou encerrados.'} />}
-              </CardContent>
+                <CardContent className="space-y-3 pt-3">
+                  {visibleRegularVouchers.length ? (
+                    visibleRegularVouchers.map((voucher) => (
+                      <Fragment key={voucher.id}>
+                        <div
+                          key={voucher.id}
+                          className="border-border rounded-xl border p-4"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-semibold">
+                                {voucher.voucher_type === 'service'
+                                  ? (voucher.service?.name ??
+                                    'Voucher de procedimento')
+                                  : 'Voucher de saldo'}
+                              </p>
+                              <p className="text-muted-foreground mt-0.5 font-mono text-xs">
+                                Código: {voucher.code}
+                              </p>
+                              <p className="text-muted-foreground mt-1 text-xs">
+                                {voucher.voucher_type === 'service'
+                                  ? `${Number(voucher.remaining_uses ?? 0)} sessão(ões) disponível(eis)`
+                                  : `Saldo ${formatCurrency(Number(voucher.current_balance), voucher.currency)}`}
+                                {voucher.expires_at
+                                  ? ` · Válido até ${safeDate(voucher.expires_at, 'dd/MM/yyyy')}`
+                                  : ''}
+                              </p>
+                            </div>
+                            <Badge variant="outline">
+                              {labelFor(voucher.status)}
+                            </Badge>
+                          </div>
+                        </div>
+                        <VoucherValueSummary
+                          voucher={voucher}
+                          paidAmount={voucher.paid_amount}
+                        />
+                      </Fragment>
+                    ))
+                  ) : (
+                    <Empty
+                      icon={Gift}
+                      text={
+                        voucherBenefitTab === 'active'
+                          ? 'Não existem vouchers ativos com saldo ou sessões disponíveis.'
+                          : 'Ainda não existem vouchers já utilizados ou encerrados.'
+                      }
+                    />
+                  )}
+                </CardContent>
               </Tabs>
             </Card>
           </div>
@@ -2679,7 +2883,11 @@ export function Client360Page({
                             {labelFor(voucher.status)}
                           </Badge>
                         </div>
-                        <VoucherValueSummary voucher={voucher} paidAmount={voucher.paid_amount} compact />
+                        <VoucherValueSummary
+                          voucher={voucher}
+                          paidAmount={voucher.paid_amount}
+                          compact
+                        />
                       </div>
                     ))
                   ) : (
@@ -2749,13 +2957,24 @@ export function Client360Page({
                   </>
                 ) : (
                   <div className="bg-muted/40 rounded-md p-4 text-sm">
-                    <p>{referralProgramEnabled ? 'O programa está ativo, mas este cliente ainda não tem código individual. Atualize para gerar o link.' : 'Ative e guarde o programa de indicações para gerar o código individual deste cliente.'}</p>
+                    <p>
+                      {referralProgramEnabled
+                        ? 'O programa está ativo, mas este cliente ainda não tem código individual. Atualize para gerar o link.'
+                        : 'Ative e guarde o programa de indicações para gerar o código individual deste cliente.'}
+                    </p>
                     <Button
                       size="sm"
                       className="mt-3"
-                      onClick={() => referralProgramEnabled ? void loadClient() : router.push('/settings?tab=referrals')}
+                      onClick={() =>
+                        referralProgramEnabled
+                          ? void loadClient()
+                          : router.push('/settings?tab=referrals')
+                      }
                     >
-                      <HeartHandshake /> {referralProgramEnabled ? 'Gerar e atualizar link' : 'Configurar programa'}
+                      <HeartHandshake />{' '}
+                      {referralProgramEnabled
+                        ? 'Gerar e atualizar link'
+                        : 'Configurar programa'}
                     </Button>
                   </div>
                 )}
@@ -3326,19 +3545,43 @@ function VoucherValueSummary({
   const paidValue = Number(paidAmount ?? 0);
 
   return (
-    <div className={cn('mt-3 grid gap-2 rounded-lg bg-muted/50 p-3 text-sm', compact ? 'grid-cols-2' : 'sm:grid-cols-3')}>
+    <div
+      className={cn(
+        'bg-muted/50 mt-3 grid gap-2 rounded-lg p-3 text-sm',
+        compact ? 'grid-cols-2' : 'sm:grid-cols-3'
+      )}
+    >
       <div>
         <p className="text-muted-foreground text-xs">Valor original</p>
-        <p className="font-medium">{formatCurrency(originalValue, voucher.currency)}</p>
+        <p className="font-medium">
+          {formatCurrency(originalValue, voucher.currency)}
+        </p>
       </div>
       <div>
         <p className="text-muted-foreground text-xs">Pago na venda</p>
-        <p className="font-semibold text-emerald-700">{hasSalePayment ? formatCurrency(paidValue, voucher.currency) : 'A apurar da venda'}</p>
+        <p className="font-semibold text-emerald-700">
+          {hasSalePayment
+            ? formatCurrency(paidValue, voucher.currency)
+            : 'A apurar da venda'}
+        </p>
       </div>
-      {!compact && <div>
-        <p className="text-muted-foreground text-xs">{voucher.voucher_type === 'service' ? 'Sessões disponíveis' : 'Saldo atual'}</p>
-        <p className="font-medium">{voucher.voucher_type === 'service' ? `${Number(voucher.remaining_uses ?? 0)} sessão(ões)` : formatCurrency(Number(voucher.current_balance), voucher.currency)}</p>
-      </div>}
+      {!compact && (
+        <div>
+          <p className="text-muted-foreground text-xs">
+            {voucher.voucher_type === 'service'
+              ? 'Sessões disponíveis'
+              : 'Saldo atual'}
+          </p>
+          <p className="font-medium">
+            {voucher.voucher_type === 'service'
+              ? `${Number(voucher.remaining_uses ?? 0)} sessão(ões)`
+              : formatCurrency(
+                  Number(voucher.current_balance),
+                  voucher.currency
+                )}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
