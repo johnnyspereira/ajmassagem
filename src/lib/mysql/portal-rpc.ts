@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import type { RowDataPacket } from 'mysql2';
 
 import { mutate, selectRows, transaction } from '@/lib/mysql/db';
+import { onlineBookingWindow } from '@/lib/clinic/online-booking-buffer';
 
 type PortalUser = { id: string; email: string } | null;
 
@@ -92,6 +93,7 @@ export async function executePortalRpc(name: string, args: Record<string, unknow
         const service = services[0]; if (!service) throw new Error('Service unavailable.');
         const start = new Date(String(args.p_scheduled_start)); if (Number.isNaN(start.getTime())) throw new Error('Invalid appointment time.');
         const end = new Date(start.getTime() + service.duration_minutes * 60_000);
+        const buffered = onlineBookingWindow(start, end);
         if (start <= new Date()) throw new Error('Selected time must be in the future.');
 
         const [professionals] = await connection.execute<
@@ -131,9 +133,9 @@ export async function executePortalRpc(name: string, args: Record<string, unknow
           throw new Error('Selected time overlaps the professional break.');
         }
         const [conflicts] = await connection.execute<RowDataPacket[]>(
-          `SELECT id FROM clinic_appointments WHERE account_id=? AND professional_profile_id=? AND status IN ('scheduled','confirmed','in_progress')
+          `SELECT id FROM clinic_appointments WHERE account_id=? AND (professional_profile_id=? OR professional_profile_id IS NULL) AND status NOT IN ('cancelled','canceled','no_show')
             AND scheduled_start < ? AND scheduled_end > ? LIMIT 1`,
-          [access.account_id, String(args.p_professional_profile_id), end, start]
+          [access.account_id, String(args.p_professional_profile_id), buffered.end, buffered.start]
         );
         if (conflicts.length) throw new Error('The selected time is no longer available.');
         const [blocks] = await connection.execute<RowDataPacket[]>(

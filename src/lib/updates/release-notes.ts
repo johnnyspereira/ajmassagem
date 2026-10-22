@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-22-portal-session-interval', date: '2026-10-22', category: 'Melhoria',
+    title: 'Intervalo automático de uma hora na marcação online', areas: ['Portal', 'Agenda online'],
+    summary: 'A disponibilidade online reserva uma hora antes do início e uma hora depois do fim de cada sessão do profissional.',
+    changes: ['Horários apresentados no Portal e validação da reserva respeitam o intervalo, incluindo reservas pelo link público.', 'O intervalo acompanha remarcações e desaparece quando a sessão é cancelada ou marcada como falta, sem criar bloqueios permanentes.', 'Marcações manuais continuam a seguir as regras internas da agenda.'],
+    howTo: 'A regra é automática. Uma sessão das 12:00 às 12:50 torna o intervalo das 11:00 às 13:50 indisponível online para o profissional. Marcações sem profissional bloqueiam a disponibilidade online de todos.',
+  },
+  {
     id: '2026-10-21-agenda-expanded-mobile-sheet', date: '2026-10-21', category: 'Melhoria',
     title: 'Agenda expandida e ficha da marcação adaptada ao telemóvel', areas: ['Agenda'],
     summary: 'Modo expandido para aproveitar o ecrã e ficha com cabeçalho compacto, área de edição independente e ações fixas.',

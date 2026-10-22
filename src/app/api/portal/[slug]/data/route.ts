@@ -1,5 +1,10 @@
 ﻿import { portalErrorResponse, requirePortalAccess } from '@/lib/portal/server';
 
+import {
+  ONLINE_BOOKING_BUFFER_MS,
+  onlineBusyAppointments,
+} from '@/lib/clinic/online-booking-buffer';
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ slug: string }> }
@@ -85,8 +90,14 @@ export async function GET(
         .from('clinic_appointments')
         .select('professional_profile_id,scheduled_start,scheduled_end,status')
         .eq('account_id', access.account_id)
-        .gte('scheduled_start', now)
-        .lte('scheduled_start', busyEnd.toISOString())
+        .gte(
+          'scheduled_end',
+          new Date(Date.parse(now) - ONLINE_BOOKING_BUFFER_MS).toISOString()
+        )
+        .lte(
+          'scheduled_start',
+          new Date(busyEnd.getTime() + ONLINE_BOOKING_BUFFER_MS).toISOString()
+        )
         .limit(5000),
       admin
         .from('clinic_time_blocks')
@@ -134,7 +145,9 @@ export async function GET(
       settings.financial_enabled
         ? admin
             .from('finance_payment_links')
-            .select('id,sale_id,status,amount,currency,description,payment_url,provider,paid_at,created_at')
+            .select(
+              'id,sale_id,status,amount,currency,description,payment_url,provider,paid_at,created_at'
+            )
             .eq('account_id', access.account_id)
             .eq('contact_id', access.contact_id)
             .order('created_at', { ascending: false })
@@ -182,7 +195,9 @@ export async function GET(
         .maybeSingle(),
       admin
         .from('privacy_settings')
-        .select('privacy_notice_version,privacy_policy_url,controller_name,controller_email')
+        .select(
+          'privacy_notice_version,privacy_policy_url,controller_name,controller_email'
+        )
         .eq('account_id', access.account_id)
         .maybeSingle(),
       admin
@@ -363,9 +378,8 @@ export async function GET(
         professionals: professionals.data ?? [],
       },
       availability: {
-        busy: (busy.data ?? []).filter(
-          (item) => !['cancelled', 'canceled', 'no_show'].includes(item.status)
-        ),
+        busy: onlineBusyAppointments(busy.data ?? []),
+        buffer_minutes: 60,
         blocks: blocks.data ?? [],
       },
       benefits: {

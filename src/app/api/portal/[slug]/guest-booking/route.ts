@@ -8,6 +8,9 @@ import {
 import { sendAppointmentCommunication } from '@/lib/clinic/appointment-communication';
 import { supabaseAdmin } from '@/lib/flows/admin-client';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { onlineBookingWindow } from '@/lib/clinic/online-booking-buffer';
+import { transaction } from '@/lib/mysql/db';
+import type { RowDataPacket } from 'mysql2';
 
 function clientIp(request: Request) {
   return (
@@ -140,14 +143,20 @@ export async function POST(
       start.getTime() + Number(service.duration_minutes || 60) * 60_000
     );
 
+    const buffered = onlineBookingWindow(start, end);
     const [appointments, blocks] = await Promise.all([
       admin
         .from('clinic_appointments')
         .select('id,status')
         .eq('account_id', settings.account_id)
-        .eq('professional_profile_id', professional.id)
-        .lt('scheduled_start', end.toISOString())
-        .gt('scheduled_end', start.toISOString())
+        .or(
+          `professional_profile_id.eq.${professional.id},professional_profile_id.is.null`
+        )
+        .neq('status', 'cancelled')
+        .neq('status', 'canceled')
+        .neq('status', 'no_show')
+        .lt('scheduled_start', buffered.end.toISOString())
+        .gt('scheduled_end', buffered.start.toISOString())
         .limit(25),
       admin
         .from('clinic_time_blocks')
@@ -189,23 +198,43 @@ export async function POST(
         .eq('account_id', settings.account_id);
     }
     const appointmentId = randomUUID();
-    const { error } = await admin.from('clinic_appointments').insert({
-      id: appointmentId,
-      account_id: settings.account_id,
-      user_id: auditUserId,
-      contact_id: contact.id,
-      service_id: service.id,
-      professional_profile_id: professional.id,
-      scheduled_start: start.toISOString(),
-      scheduled_end: end.toISOString(),
-      status: 'scheduled',
-      source: 'public_link',
-      price: Number(service.price ?? 0),
-      currency: service.currency || 'EUR',
-      notes: body?.notes?.trim().slice(0, 2000) || null,
-      confirmation_status: 'pending',
+    const reserved = await transaction(async (connection) => {
+      await connection.execute(
+        'SELECT id FROM profiles WHERE id=? AND account_id=? FOR UPDATE',
+        [professional.id, settings.account_id]
+      );
+      const [conflicts] = await connection.execute<RowDataPacket[]>(
+        `SELECT id FROM clinic_appointments WHERE account_id=? AND (professional_profile_id=? OR professional_profile_id IS NULL) AND status NOT IN ('cancelled','canceled','no_show') AND scheduled_start < ? AND scheduled_end > ? LIMIT 1`,
+        [settings.account_id, professional.id, buffered.end, buffered.start]
+      );
+      const [timeBlocks] = await connection.execute<RowDataPacket[]>(
+        `SELECT id FROM clinic_time_blocks WHERE account_id=? AND (professional_profile_id=? OR professional_profile_id IS NULL) AND starts_at < ? AND ends_at > ? LIMIT 1`,
+        [settings.account_id, professional.id, end, start]
+      );
+      if (conflicts.length || timeBlocks.length) return false;
+      await connection.execute(
+        `INSERT INTO clinic_appointments(id,account_id,user_id,contact_id,service_id,professional_profile_id,scheduled_start,scheduled_end,status,source,price,currency,notes,confirmation_status) VALUES(?,?,?,?,?,?,?,?,'scheduled','public_link',?,?,?,'pending')`,
+        [
+          appointmentId,
+          settings.account_id,
+          auditUserId,
+          contact.id,
+          service.id,
+          professional.id,
+          start,
+          end,
+          Number(service.price ?? 0),
+          service.currency || 'EUR',
+          body?.notes?.trim().slice(0, 2000) || null,
+        ]
+      );
+      return true;
     });
-    if (error) throw new Error(error.message);
+    if (!reserved)
+      return Response.json(
+        { error: 'Esse horário já não está disponível. Escolha outro.' },
+        { status: 409 }
+      );
     try {
       await sendAppointmentCommunication({
         db: admin,

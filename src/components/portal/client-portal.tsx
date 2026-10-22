@@ -4891,7 +4891,7 @@ function buildSlots(
     const collision =
       availability.busy.some(
         (item) =>
-          item.professional_profile_id === professionalId &&
+          (!item.professional_profile_id || item.professional_profile_id === professionalId) &&
           new Date(item.scheduled_start) < end &&
           new Date(item.scheduled_end) > start
       ) ||
