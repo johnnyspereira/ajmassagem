@@ -89,7 +89,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "eb0e65b0adab842844be91453a3427efd308164d"
+          "value": "ad8ff3f5afd30bf684ec17697a25e20b8f36f63e"
         }
       ],
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
@@ -99,7 +99,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "eb0e65b0adab842844be91453a3427efd308164d"
+          "value": "ad8ff3f5afd30bf684ec17697a25e20b8f36f63e"
         }
       ],
       "regex": "^/_next/data(?:/(.*))(?:/)?$"
@@ -238,6 +238,14 @@
         "nxtPid": "nxtPid"
       },
       "namedRegex": "^/api/clinic/appointments/(?<nxtPid>[^/]+?)/refund\\-notification(?:/)?$"
+    },
+    {
+      "page": "/api/clinic/appointments/[id]/renewal",
+      "regex": "^/api/clinic/appointments/([^/]+?)/renewal(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/clinic/appointments/(?<nxtPid>[^/]+?)/renewal(?:/)?$"
     },
     {
       "page": "/api/clinic/appointments/[id]/restore-status",
@@ -551,6 +559,14 @@
         "nxtPid": "nxtPid"
       },
       "namedRegex": "^/api/v1/webhooks/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/voucher-renewals/[token]",
+      "regex": "^/api/voucher\\-renewals/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPtoken": "nxtPtoken"
+      },
+      "namedRegex": "^/api/voucher\\-renewals/(?<nxtPtoken>[^/]+?)(?:/)?$"
     },
     {
       "page": "/api/vouchers/[id]/transfer",
@@ -1670,5 +1686,5 @@
     "pathHeader": "x-nextjs-rewritten-path",
     "queryHeader": "x-nextjs-rewritten-query"
   },
-  "deploymentId": "eb0e65b0adab842844be91453a3427efd308164d"
+  "deploymentId": "ad8ff3f5afd30bf684ec17697a25e20b8f36f63e"
 }
