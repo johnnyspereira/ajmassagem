@@ -183,12 +183,13 @@ export async function POST(
           'O prestador devolveu um endereço de pagamento inválido.'
         );
       await connection.execute(
-        `INSERT INTO finance_payment_links(id,account_id,sale_id,contact_id,provider,status,amount,currency,description,external_reference,payment_url,external_session_id) VALUES(?,?,?,?,'sumup','pending',?,?,'Renovação de experiência',?,?,?)`,
+        `INSERT INTO finance_payment_links(id,account_id,sale_id,contact_id,created_by_user_id,provider,status,amount,currency,description,external_reference,payment_url,external_session_id) VALUES(?,?,?,?,?,'sumup','pending',?,?,'Renovação de experiência',?,?,?)`,
         [
           linkId,
           row.account_id,
           row.sale_id,
           row.contact_id,
+          row.created_by_user_id,
           row.amount,
           row.currency,
           row.id,

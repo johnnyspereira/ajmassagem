@@ -69,7 +69,7 @@ export async function ensureRenewalSchema() {
       if (tables.length) return;
       return mutate(`CREATE TABLE IF NOT EXISTS clinic_voucher_renewals (
     id CHAR(36) PRIMARY KEY, account_id CHAR(36) NOT NULL, appointment_id CHAR(36) NOT NULL,
-    contact_id CHAR(36) NOT NULL, voucher_id CHAR(36) NOT NULL, service_id CHAR(36) NOT NULL,
+    contact_id CHAR(36) NOT NULL, voucher_id CHAR(36) NOT NULL, service_id CHAR(36) NOT NULL, created_by_user_id CHAR(36) NOT NULL,
     token CHAR(64) NOT NULL, amount DECIMAL(12,2) NOT NULL, currency CHAR(3) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'prepared', message TEXT NOT NULL, mbway_phone VARCHAR(20) NOT NULL,
     sale_id CHAR(36) NULL, payment_link_id CHAR(36) NULL, sent_at DATETIME(3) NULL,
@@ -156,7 +156,7 @@ export async function sendVoucherRenewal(
   const id = randomUUID(),
     token = randomBytes(32).toString('hex');
   const claim = await mutate(
-    `INSERT IGNORE INTO clinic_voucher_renewals(id,account_id,appointment_id,contact_id,voucher_id,service_id,token,amount,currency,message,mbway_phone,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 24 HOUR))`,
+    `INSERT IGNORE INTO clinic_voucher_renewals(id,account_id,appointment_id,contact_id,voucher_id,service_id,created_by_user_id,token,amount,currency,message,mbway_phone,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 24 HOUR))`,
     [
       id,
       accountId,
@@ -164,6 +164,7 @@ export async function sendVoucherRenewal(
       row.contact_id,
       row.voucher_id,
       row.service_id,
+      userId,
       token,
       preview.amount,
       preview.currency,
@@ -245,11 +246,12 @@ export async function prepareRenewalSale(token: string) {
     const saleId = randomUUID(),
       itemId = randomUUID();
     await connection.execute(
-      `INSERT INTO finance_sales(id,account_id,contact_id,status,currency,subtotal,discount_amount,tax_amount,total_amount,paid_amount,balance_due,notes) VALUES(?,?,?,'open',?,?,0,0,?,0,?,?)`,
+      `INSERT INTO finance_sales(id,account_id,contact_id,created_by_user_id,status,currency,subtotal,discount_amount,tax_amount,total_amount,paid_amount,balance_due,notes) VALUES(?,?,?,?,'open',?,?,0,0,?,0,?,?)`,
       [
         saleId,
         row.account_id,
         row.contact_id,
+        row.created_by_user_id,
         row.currency,
         row.amount,
         row.amount,

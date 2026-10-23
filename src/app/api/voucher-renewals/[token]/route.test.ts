@@ -29,6 +29,7 @@ const offer = {
   currency: 'EUR',
   mbway_phone: '912345678',
   service: 'Relaxamento',
+  created_by_user_id: 'sender',
 };
 beforeEach(() => {
   vi.clearAllMocks();
@@ -115,4 +116,40 @@ it('reuses an existing card checkout under the offer lock without issuing a seco
   );
   expect(mocks.sumup).not.toHaveBeenCalled();
   expect(execute.mock.calls[0][0]).toContain('FOR UPDATE');
+});
+it('creates a card payment link with the offer amount and operator for automatic payment confirmation', async () => {
+  const execute = vi
+    .fn()
+    .mockImplementation(async (sql: string, values: unknown[]) => {
+      expect((sql.match(/\?/g) || []).length).toBe(values.length);
+      if (sql.includes('SELECT payment_link_id'))
+        return [[{ payment_link_id: null }]];
+      if (sql.includes('SELECT status,balance_due'))
+        return [[{ status: 'open', balance_due: 30 }]];
+      return [{ affectedRows: 1 }];
+    });
+  mocks.transaction.mockImplementation(async (work) => work({ execute }));
+  mocks.sumup.mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        id: 'checkout',
+        hosted_checkout_url: 'https://checkout.sumup.com/pay/test',
+      }),
+      { status: 200 }
+    )
+  );
+  const response = await POST(
+    new Request('https://example.test/offer', {
+      method: 'POST',
+      body: new URLSearchParams({ method: 'card' }),
+    }),
+    params
+  );
+  expect(response.status).toBe(303);
+  const link = execute.mock.calls.find((call) =>
+    call[0].includes('INSERT INTO finance_payment_links')
+  );
+  expect(link?.[1]).toContain('sender');
+  expect(link?.[1]).toContain(30);
+  expect(JSON.parse(mocks.sumup.mock.calls[0][1].body).amount).toBe(30);
 });
