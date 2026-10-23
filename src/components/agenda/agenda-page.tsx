@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { VoucherRenewalDialog } from './voucher-renewal-dialog';
+import { AppointmentBenefitSummary } from './appointment-benefit-summary';
 import { useRouter } from 'next/navigation';
 import {
   useCallback,
@@ -5174,21 +5175,7 @@ export function AgendaPage({
                       ) : null}
 
                       {appointmentBenefit ? (
-                        <div className="mt-3 flex items-center justify-between rounded-md bg-emerald-500/10 px-2.5 py-2 text-xs text-emerald-700 dark:text-emerald-300">
-                          <span>
-                            {appointmentBenefit.status === 'consumed'
-                              ? 'Benefício consumido'
-                              : 'Benefício reservado'}
-                          </span>
-                          <span className="font-semibold">
-                            {appointmentBenefit.benefit_type === 'voucher'
-                              ? formatCurrency(
-                                  Number(appointmentBenefit.reserved_amount),
-                                  defaultCurrency
-                                )
-                              : '1 sessão'}
-                          </span>
-                        </div>
+                        <AppointmentBenefitSummary benefit={appointmentBenefit} currency={selectedAppointment.currency || defaultCurrency} />
                       ) : null}
                       {selectedAppointment.sales?.map((sale) => (
                         <button

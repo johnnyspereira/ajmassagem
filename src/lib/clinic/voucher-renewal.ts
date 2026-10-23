@@ -10,7 +10,8 @@ export class RenewalError extends Error {}
 
 export function renewalBlock(
   row: Record<string, unknown> | undefined,
-  remaining: number
+  remaining: number,
+  options: { overrideConsent?: boolean } = {}
 ) {
   if (!row) return 'Marcação ou voucher de modalidade não encontrado.';
   if (
@@ -34,16 +35,25 @@ export function renewalBlock(
     return 'O valor efetivamente pago neste voucher não está apurado. Confirme a compra original no Financeiro.';
   if (!row.service_active)
     return 'Esta modalidade já não está disponível para venda.';
+  if (!row.phone || row.anonymized_at)
+    return 'O envio exige um cliente com telefone e uma ficha não anonimizada.';
   if (
-    !row.phone ||
-    !row.whatsapp_consent ||
-    !row.marketing_consent ||
-    row.privacy_review_status !== 'current' ||
-    !row.consent_reviewed_at ||
-    row.anonymized_at
+    !options.overrideConsent &&
+    (!row.whatsapp_consent ||
+      !row.marketing_consent ||
+      row.privacy_review_status !== 'current' ||
+      !row.consent_reviewed_at)
   )
     return 'O envio desta oferta exige telefone e autorizações confirmadas de WhatsApp e marketing no Portal.';
   return null;
+}
+
+export function renewalPrivacyNotice(slug?: string | null) {
+  const url = getPublicUrl(
+    slug ? `/portal/${encodeURIComponent(slug)}` : '/portal',
+    'https://jpmassagem.pt'
+  );
+  return `Pedimos também que atualize as suas permissões no nosso site. No Portal do Cliente, abra Perfil → Privacidade e comunicações para rever e permitir ou recusar cada opção de WhatsApp e marketing, conforme a sua preferência:\n${url}`;
 }
 
 export function renewalMessage(
@@ -92,7 +102,8 @@ export async function renewalPreview(accountId: string, appointmentId: string) {
     b.status benefit_status,v.id voucher_id,v.status voucher_status,v.remaining_uses voucher_remaining,v.paid_amount,v.currency,s.name service,s.is_active service_active,
     (SELECT COUNT(*) FROM finance_appointment_benefits used WHERE used.account_id=v.account_id AND used.voucher_id=v.id AND used.status='consumed') consumed_sessions,
     c.name,c.phone,c.whatsapp_consent,c.marketing_consent,c.privacy_review_status,c.consent_reviewed_at,c.anonymized_at,
-    ac.name business
+    ac.name business,
+    (SELECT s.slug FROM client_portal_settings s WHERE s.account_id=a.account_id AND s.enabled=TRUE LIMIT 1) portal_slug
     FROM clinic_appointments a JOIN finance_appointment_benefits b ON b.appointment_id=a.id AND b.account_id=a.account_id
     JOIN finance_vouchers v ON v.id=b.voucher_id AND v.account_id=a.account_id AND v.owner_contact_id=a.contact_id AND v.service_id=a.service_id AND v.voucher_type='service'
     JOIN clinic_services s ON s.id=a.service_id AND s.account_id=a.account_id
@@ -118,6 +129,9 @@ export async function renewalPreview(accountId: string, appointmentId: string) {
   const reason = renewalBlock(row, remaining);
   return {
     eligible: !reason,
+    canOverrideConsent:
+      !!reason && !renewalBlock(row, remaining, { overrideConsent: true }),
+    privacyNotice: renewalPrivacyNotice(row?.portal_slug),
     reason,
     remaining,
     row,
@@ -141,7 +155,8 @@ export async function sendVoucherRenewal(
   userId: string,
   appointmentId: string,
   message: string,
-  mbwayPhone: string
+  mbwayPhone: string,
+  options: { overrideConsent?: boolean } = {}
 ) {
   getSumUpCredentials();
   const phone = mbwayPhone.replace(/\s/g, '');
@@ -151,9 +166,14 @@ export async function sendVoucherRenewal(
     throw new RenewalError('Reveja a mensagem (máximo de 4000 caracteres).');
   await ensureRenewalSchema();
   const preview = await renewalPreview(accountId, appointmentId);
-  if (!preview.eligible || !preview.row)
+  const overridden =
+    !preview.eligible &&
+    preview.canOverrideConsent &&
+    options.overrideConsent === true;
+  if ((!preview.eligible && !overridden) || !preview.row)
     throw new RenewalError(preview.reason || 'Oferta indisponível.');
   const row = preview.row;
+  const finalMessage = `${message.trim()}\n\n${preview.privacyNotice}`;
   const id = randomUUID(),
     token = randomBytes(32).toString('hex');
   const claim = await mutate(
@@ -169,7 +189,7 @@ export async function sendVoucherRenewal(
       token,
       preview.amount,
       preview.currency,
-      message.trim(),
+      finalMessage,
       phone,
       renewalDeadline(),
     ]
@@ -178,6 +198,37 @@ export async function sendVoucherRenewal(
     throw new RenewalError(
       'Já existe uma oferta para este voucher. Consulte o estado antes de voltar a contactar o cliente.'
     );
+  if (overridden) {
+    try {
+      await mutate(
+        `INSERT INTO clinic_agenda_events(id,account_id,user_id,entity_type,entity_id,action,reason,metadata) VALUES(?,?,?,'appointment',?,'updated',?,?)`,
+        [
+          randomUUID(),
+          accountId,
+          userId,
+          appointmentId,
+          'Envio excecional da oferta autorizado manualmente, sem alterar permissões do cliente.',
+          JSON.stringify({
+            message_action: 'voucher_renewal',
+            renewal_id: id,
+            consent_override: true,
+            stage: 'send_requested',
+            whatsapp_consent: row.whatsapp_consent ?? null,
+            marketing_consent: row.marketing_consent ?? null,
+            privacy_review_status: row.privacy_review_status ?? null,
+          }),
+        ]
+      );
+    } catch {
+      await mutate(
+        "DELETE FROM clinic_voucher_renewals WHERE id=? AND account_id=? AND status='prepared'",
+        [id, accountId]
+      );
+      throw new RenewalError(
+        'Não foi possível registar a confirmação do envio excecional. Nenhuma mensagem foi enviada. Tente novamente.'
+      );
+    }
+  }
   const link = getPublicUrl(
     `/api/voucher-renewals/${token}`,
     'https://jpmassagem.pt'
@@ -203,7 +254,7 @@ export async function sendVoucherRenewal(
       userId,
       conversationId,
       contactId: row.contact_id,
-      text: `${message.trim()}\n\nAdquirir novo voucher:\n${link}`,
+      text: `${finalMessage}\n\nAdquirir novo voucher:\n${link}`,
     });
     if (!result.whatsapp_message_id)
       throw new Error('Sem confirmação do canal');

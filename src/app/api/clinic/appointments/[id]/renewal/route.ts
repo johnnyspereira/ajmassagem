@@ -46,7 +46,8 @@ export async function POST(
         userId,
         id,
         body.message,
-        typeof body.mbwayPhone === 'string' ? body.mbwayPhone : ''
+        typeof body.mbwayPhone === 'string' ? body.mbwayPhone : '',
+        { overrideConsent: body.overrideConsent === true }
       )
     );
   } catch (error) {

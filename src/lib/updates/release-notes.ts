@@ -15,6 +15,20 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-23-agenda-voucher-paid-value', date: '2026-10-23', category: 'Correção',
+    title: 'Valor pago pelo voucher separado da cobertura da sessão', areas: ['Agenda', 'Vouchers'],
+    summary: 'O painel de pagamento apresenta o montante pago pelo voucher associado e distingue-o do valor aplicado à sessão.',
+    changes: ['O valor pago usa o registo da compra do voucher, sem substituir pelo preço da modalidade ou pelo valor reservado.', 'Quando não existe montante apurado, mostra Por apurar em vez de assumir o preço de catálogo.', 'Ligação direta para consultar a compra original no Financeiro, quando disponível.'],
+    howTo: 'Abra uma marcação com voucher e expanda Pagamento e benefícios. Consulte Valor pago pelo voucher e Valor aplicado à sessão; use Consultar compra original para verificar o pagamento.',
+  },
+  {
+    id: '2026-10-23-renewal-permission-exception', date: '2026-10-23', category: 'Melhoria',
+    title: 'Envio manual da renovação com exceção de permissões', areas: ['Agenda', 'WhatsApp', 'Privacidade'],
+    summary: 'A renovação permite confirmar um envio excecional quando apenas as permissões impedem a oferta.',
+    changes: ['Opção Enviar mesmo assim, desativada por defeito, seguida de confirmação explícita.', 'A decisão fica no histórico da marcação com o utilizador responsável e as permissões existentes, sem as alterar.', 'A mensagem inclui automaticamente o pedido para rever as permissões no Perfil do Portal, com ligação ao site.', 'As verificações de telefone, ficha anonimizada, vouchers restantes, modalidade e valor pago continuam obrigatórias.'],
+    howTo: 'Abra Renovar experiência, reveja o aviso e assinale Enviar mesmo assim se pretender autorizar a exceção. Reveja o texto e confirme o envio. O cliente atualiza as próprias permissões no site.',
+  },
+  {
     id: '2026-10-23-catalog-order-schema', date: '2026-10-23', category: 'Correção',
     title: 'Guardar a ordem do catálogo com preparação automática da estrutura', areas: ['Definições', 'Clínica', 'Catálogo'],
     summary: 'Guardar ordem verifica e instala a coluna necessária quando a atualização de arranque ainda não foi aplicada.',

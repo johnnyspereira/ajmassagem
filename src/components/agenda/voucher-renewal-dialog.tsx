@@ -15,6 +15,8 @@ import { Input } from '@/components/ui/input';
 
 type Preview = {
   eligible: boolean;
+  canOverrideConsent: boolean;
+  privacyNotice: string;
   reason: string | null;
   service: string;
   amount: number;
@@ -40,6 +42,7 @@ export function VoucherRenewalDialog({
     [mbwayPhone, setMbwayPhone] = useState(''),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
+    [overrideConsent, setOverrideConsent] = useState(false),
     [confirm, setConfirm] = useState(false);
   useEffect(() => {
     if (!appointmentId) return;
@@ -47,6 +50,7 @@ export function VoucherRenewalDialog({
     setData(null);
     setError('');
     setConfirm(false);
+    setOverrideConsent(false);
     fetch(`/api/clinic/appointments/${appointmentId}/renewal`, {
       signal: controller.signal,
       cache: 'no-store',
@@ -75,7 +79,12 @@ export function VoucherRenewalDialog({
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ confirm: true, message, mbwayPhone }),
+          body: JSON.stringify({
+            confirm: true,
+            message,
+            mbwayPhone,
+            overrideConsent,
+          }),
         }
       );
       const body = await response.json();
@@ -171,14 +180,39 @@ export function VoucherRenewalDialog({
                   </a>
                 ) : null}
               </div>
-            ) : data.eligible ? (
+            ) : data.eligible || data.canOverrideConsent ? (
               <>
+                {data.canOverrideConsent ? (
+                  <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm">
+                    <p className="font-medium">
+                      Permissões por confirmar ou não autorizadas
+                    </p>
+                    <p className="text-muted-foreground mt-1">{data.reason}</p>
+                    <label className="mt-3 flex cursor-pointer items-start gap-2">
+                      <input
+                        type="checkbox"
+                        className="accent-primary mt-1 size-4 shrink-0"
+                        checked={overrideConsent}
+                        disabled={busy}
+                        onChange={(event) => {
+                          setOverrideConsent(event.target.checked);
+                          setConfirm(false);
+                        }}
+                      />
+                      <span>
+                        Enviar mesmo assim, por decisão manual. Esta exceção
+                        fica registada e não altera as permissões do cliente.
+                      </span>
+                    </label>
+                  </div>
+                ) : null}
                 <label htmlFor="renewal-mbway" className="text-sm font-medium">
                   Número MB WAY para receber a transferência
                 </label>
                 <Input
                   id="renewal-mbway"
                   type="tel"
+                  disabled={busy}
                   value={mbwayPhone}
                   onChange={(event) => {
                     setMbwayPhone(event.target.value);
@@ -199,12 +233,19 @@ export function VoucherRenewalDialog({
                   id="renewal-message"
                   className="min-h-64 text-base sm:text-sm"
                   maxLength={4000}
+                  disabled={busy}
                   value={message}
                   onChange={(event) => {
                     setMessage(event.target.value);
                     setConfirm(false);
                   }}
                 />
+                <p className="text-muted-foreground text-xs">
+                  Será acrescentado automaticamente à mensagem:
+                </p>
+                <p className="bg-muted/40 rounded-xl border p-3 text-sm break-words whitespace-pre-wrap">
+                  {data.privacyNotice}
+                </p>
                 <p className="text-muted-foreground text-xs">
                   O link individual é acrescentado ao enviar e a oferta é válida
                   apenas hoje, até às 23:59 de Lisboa. Cartão ou transferência
@@ -217,8 +258,9 @@ export function VoucherRenewalDialog({
                       Enviar esta oferta ao cliente por WhatsApp?
                     </p>
                     <p className="text-muted-foreground mt-1">
-                      As autorizações e os vouchers serão novamente verificados
-                      antes do envio.
+                      {overrideConsent
+                        ? 'Confirma o envio mesmo sem as autorizações confirmadas? O cliente receberá também o pedido para rever as permissões no site. A exceção será registada com o seu utilizador.'
+                        : 'As autorizações e os vouchers serão novamente verificados antes do envio.'}
                     </p>
                   </div>
                 ) : null}
@@ -231,7 +273,11 @@ export function VoucherRenewalDialog({
                     {confirm ? 'Voltar à revisão' : 'Fechar'}
                   </Button>
                   <Button
-                    disabled={busy || !message.trim()}
+                    disabled={
+                      busy ||
+                      !message.trim() ||
+                      (data.canOverrideConsent && !overrideConsent)
+                    }
                     onClick={confirm ? send : () => setConfirm(true)}
                   >
                     {busy ? (
