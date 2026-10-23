@@ -113,7 +113,9 @@ it('sends the actual discounted price and a unique offer link, without charging 
     'Clínica'
   );
   expect(text).toContain('30,00');
-  expect(text).toContain('24 horas');
+  expect(text).toContain('apenas hoje');
+  expect(text).toContain('MB WAY ou cartão');
+  expect(text).not.toContain('SumUp');
   await sendVoucherRenewal('account', 'user', 'appointment', text, '912345678');
   expect(mocks.send).toHaveBeenCalledOnce();
   expect(mocks.send.mock.calls[0][0].text).toMatch(
@@ -194,6 +196,8 @@ it('creates one unpaid sale and one pending service voucher atomically, with no 
               amount: 30,
               currency: 'EUR',
               sale_id: null,
+              sent_at: new Date(),
+              expires_at: new Date(Date.now() + 3600000),
             },
           ],
         ];
@@ -216,7 +220,16 @@ it('creates one unpaid sale and one pending service voucher atomically, with no 
 it('reuses the original sale for repeated payment attempts', async () => {
   const execute = vi
     .fn()
-    .mockResolvedValue([[{ id: 'offer', sale_id: 'existing-sale' }]]);
+    .mockResolvedValue([
+      [
+        {
+          id: 'offer',
+          sale_id: 'existing-sale',
+          sent_at: new Date(),
+          expires_at: new Date(Date.now() + 3600000),
+        },
+      ],
+    ]);
   mocks.transaction.mockImplementation(async (work) => work({ execute }));
   expect((await prepareRenewalSale('token')).sale_id).toBe('existing-sale');
   expect(execute).toHaveBeenCalledOnce();

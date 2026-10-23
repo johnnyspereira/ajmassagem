@@ -30,6 +30,8 @@ const offer = {
   mbway_phone: '912345678',
   service: 'Relaxamento',
   created_by_user_id: 'sender',
+  sent_at: new Date(),
+  expires_at: new Date(Date.now() + 3600000),
 };
 beforeEach(() => {
   vi.clearAllMocks();

@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-23-renewal-same-day', date: '2026-10-23', category: 'Melhoria',
+    title: 'Oferta de renovação válida apenas no dia do envio', areas: ['Agenda', 'WhatsApp', 'Pagamentos'],
+    summary: 'A mensagem informa que o pagamento pode ser feito por MB WAY ou cartão e que a oferta termina hoje.',
+    changes: ['Validade limitada às 23:59 do dia do envio, no fuso de Lisboa, incluindo mudanças de hora.', 'O link da oferta e os novos checkouts respeitam esse prazo.', 'Removida a referência ao prestador na mensagem e no botão de pagamento apresentado ao cliente.'],
+    howTo: 'Na marcação concluída, abra Renovar experiência e reveja o texto. O cliente poderá adquirir a oferta até ao fim desse dia; a validade do voucher adquirido é apresentada separadamente.',
+  },
+  {
     id: '2026-10-23-voucher-renewal', date: '2026-10-23', category: 'Novidade',
     title: 'Renovar uma experiência após o último voucher', areas: ['Agenda', 'Vouchers', 'WhatsApp', 'Financeiro'],
     summary: 'Uma marcação concluída permite preparar uma oferta individual pelo valor efetivamente pago no voucher utilizado, com registo do operador na oferta e na cobrança.',

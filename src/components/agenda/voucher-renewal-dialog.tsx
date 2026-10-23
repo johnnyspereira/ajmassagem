@@ -206,9 +206,10 @@ export function VoucherRenewalDialog({
                   }}
                 />
                 <p className="text-muted-foreground text-xs">
-                  O link individual é acrescentado ao enviar e a oferta dura 24
-                  horas. Cartão pela SumUp ou transferência MB WAY para o número
-                  indicado. Enviar não cobra nem ativa o novo voucher.
+                  O link individual é acrescentado ao enviar e a oferta é válida
+                  apenas hoje, até às 23:59 de Lisboa. Cartão ou transferência
+                  MB WAY para o número indicado. Enviar não cobra nem ativa o
+                  novo voucher.
                 </p>
                 {confirm ? (
                   <div className="border-primary/30 bg-primary/5 rounded-xl border p-4 text-sm">

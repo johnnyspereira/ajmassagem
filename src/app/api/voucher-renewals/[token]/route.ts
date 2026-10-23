@@ -8,6 +8,7 @@ import {
 } from '@/lib/clinic/voucher-renewal';
 import { getSumUpCredentials, sumUpRequest } from '@/lib/finance/sumup';
 import { getPublicUrl } from '@/lib/public-url';
+import { effectiveRenewalDeadline } from '@/lib/clinic/renewal-deadline';
 
 const headers = {
   'Content-Type': 'text/html; charset=utf-8',
@@ -41,11 +42,15 @@ export async function GET(
       return page('<h1>Oferta indisponível</h1>', 404);
     await ensureRenewalSchema();
     const rows = await selectRows<RowDataPacket[]>(
-      `SELECT r.amount,r.currency,r.sale_id,s.name FROM clinic_voucher_renewals r JOIN clinic_services s ON s.id=r.service_id AND s.account_id=r.account_id WHERE r.token=? AND r.status='sent' AND r.expires_at>UTC_TIMESTAMP(3) AND s.is_active=TRUE`,
+      `SELECT r.amount,r.currency,r.sale_id,r.sent_at,r.expires_at,s.name FROM clinic_voucher_renewals r JOIN clinic_services s ON s.id=r.service_id AND s.account_id=r.account_id WHERE r.token=? AND r.status='sent' AND r.expires_at>UTC_TIMESTAMP(3) AND s.is_active=TRUE`,
       [token]
     );
     const row = rows[0];
-    if (!row)
+    if (
+      !row ||
+      effectiveRenewalDeadline(row.sent_at, row.expires_at).getTime() <=
+        Date.now()
+    )
       return page(
         '<h1>Esta oferta terminou</h1><p>Contacte a equipa para conhecer as opções disponíveis.</p>',
         410
@@ -55,7 +60,7 @@ export async function GET(
       currency: row.currency,
     }).format(Number(row.amount));
     return page(
-      `<h1>O bem-estar merece continuar.</h1><p>Um novo voucher para uma sessão de <strong>${escape(row.name)}</strong>, pelo mesmo valor anterior: <strong>${escape(price)}</strong>.</p><p>Voucher válido durante 365 dias a partir da compra. Marcação sujeita à disponibilidade. O voucher é ativado após confirmação do pagamento.</p><form method="post"><button name="method" value="card" type="submit">Pagar com cartão · SumUp</button><p></p><button name="method" value="mbway" type="submit">Transferir por MB WAY</button></form><p>Cartão: confirmação pelo prestador. MB WAY: a equipa confirma a receção da transferência antes de ativar o voucher.</p>`
+      `<h1>O bem-estar merece continuar.</h1><p>Um novo voucher para uma sessão de <strong>${escape(row.name)}</strong>, pelo mesmo valor anterior: <strong>${escape(price)}</strong>.</p><p>Voucher válido durante 365 dias a partir da compra. Marcação sujeita à disponibilidade. O voucher é ativado após confirmação do pagamento.</p><p><strong>Oferta válida apenas hoje, até às 23:59 (hora de Lisboa).</strong></p><form method="post"><button name="method" value="card" type="submit">Pagar com cartão</button><p></p><button name="method" value="mbway" type="submit">Transferir por MB WAY</button></form><p>Cartão: confirmação pelo prestador. MB WAY: a equipa confirma a receção da transferência antes de ativar o voucher.</p>`
     );
   } catch {
     return page(
@@ -156,6 +161,7 @@ export async function POST(
           checkout_reference: `${row.id}-${linkId.slice(0, 8)}`,
           merchant_code: merchantCode,
           description: 'Prestação de serviços',
+          valid_until: new Date(row.expires_at).toISOString(),
           return_url: getPublicUrl(
             '/api/finance/webhooks/sumup',
             new URL(request.url).origin

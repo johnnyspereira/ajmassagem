@@ -4,6 +4,7 @@ import { selectRows, mutate, transaction } from '@/lib/mysql/db';
 import { engineSendText } from '@/lib/automations/meta-send';
 import { getPublicUrl } from '@/lib/public-url';
 import { getSumUpCredentials } from '@/lib/finance/sumup';
+import { renewalDeadline, effectiveRenewalDeadline } from './renewal-deadline';
 
 export class RenewalError extends Error {}
 
@@ -56,7 +57,7 @@ export function renewalMessage(
     style: 'currency',
     currency,
   }).format(amount);
-  return `Olá, ${name.split(' ')[0]}! ✨\n\nEsperamos que tenha desfrutado da sua sessão de ${service}. Acabou de utilizar o último voucher disponível desta modalidade — e gostaríamos de voltar a recebê-lo.\n\nPreparámos uma oportunidade especial: renove esta experiência por ${price}, o mesmo valor que pagou pelo voucher utilizado, mantendo a sua oferta anterior.\n\nEsta proposta permite adquirir um novo voucher para uma sessão e está disponível durante 24 horas após o envio. O pagamento é feito em segurança pelo link abaixo; os métodos disponíveis são apresentados no checkout. A próxima sessão será marcada de acordo com a disponibilidade da agenda.\n\nGaranta o seu próximo momento de bem-estar. 💜\n\n${business}\n\nSe não desejar receber ofertas, pode alterar as suas preferências de marketing no Portal.`;
+  return `Olá, ${name.split(' ')[0]}! ✨\n\nEsperamos que tenha desfrutado da sua sessão de ${service}. Acabou de utilizar o último voucher disponível desta modalidade — e gostaríamos de voltar a recebê-lo.\n\nPreparámos uma oportunidade especial: renove esta experiência por ${price}, o mesmo valor que pagou pelo voucher utilizado, mantendo a sua oferta anterior.\n\nEsta proposta permite adquirir um novo voucher para uma sessão e é válida apenas hoje, até às 23:59 (hora de Lisboa). O pagamento do seu voucher poderá ser feito via MB WAY ou cartão, através do link abaixo. A próxima sessão será marcada de acordo com a disponibilidade da agenda.\n\nGaranta o seu próximo momento de bem-estar. 💜\n\n${business}\n\nSe não desejar receber ofertas, pode alterar as suas preferências de marketing no Portal.`;
 }
 
 let schema: Promise<unknown> | undefined;
@@ -156,7 +157,7 @@ export async function sendVoucherRenewal(
   const id = randomUUID(),
     token = randomBytes(32).toString('hex');
   const claim = await mutate(
-    `INSERT IGNORE INTO clinic_voucher_renewals(id,account_id,appointment_id,contact_id,voucher_id,service_id,created_by_user_id,token,amount,currency,message,mbway_phone,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 24 HOUR))`,
+    `INSERT IGNORE INTO clinic_voucher_renewals(id,account_id,appointment_id,contact_id,voucher_id,service_id,created_by_user_id,token,amount,currency,message,mbway_phone,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       id,
       accountId,
@@ -170,6 +171,7 @@ export async function sendVoucherRenewal(
       preview.currency,
       message.trim(),
       phone,
+      renewalDeadline(),
     ]
   );
   if (!claim.affectedRows)
@@ -206,7 +208,7 @@ export async function sendVoucherRenewal(
     if (!result.whatsapp_message_id)
       throw new Error('Sem confirmação do canal');
     await mutate(
-      "UPDATE clinic_voucher_renewals SET status='sent',sent_at=UTC_TIMESTAMP(3),expires_at=DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 24 HOUR) WHERE id=?",
+      "UPDATE clinic_voucher_renewals SET status='sent',sent_at=UTC_TIMESTAMP(3) WHERE id=?",
       [id]
     );
     return { sent: true };
@@ -241,6 +243,11 @@ export async function prepareRenewalSale(token: string) {
     if (!row || row.anonymized_at)
       throw new RenewalError(
         'Esta oferta terminou ou já não está disponível. Contacte a equipa.'
+      );
+    row.expires_at = effectiveRenewalDeadline(row.sent_at, row.expires_at);
+    if (row.expires_at.getTime() <= Date.now())
+      throw new RenewalError(
+        'Esta oferta terminou. A oferta é válida apenas no dia do envio, até às 23:59 de Lisboa.'
       );
     if (row.sale_id) return row;
     const saleId = randomUUID(),
