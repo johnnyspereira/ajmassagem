@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-23-voucher-renewal', date: '2026-10-23', category: 'Novidade',
+    title: 'Renovar uma experiência após o último voucher', areas: ['Agenda', 'Vouchers', 'WhatsApp', 'Financeiro'],
+    summary: 'Uma marcação concluída permite preparar uma oferta individual pelo valor efetivamente pago no voucher utilizado.',
+    changes: ['Verificação dos vouchers da mesma modalidade, incluindo sessões reservadas noutras marcações; envio apenas com autorizações confirmadas de WhatsApp e marketing.', 'Revisão da mensagem, número MB WAY e confirmação antes do envio, com registo para evitar ofertas duplicadas.', 'Link individual válido por 24 horas: cartão pela SumUp ou transferência MB WAY para telemóvel. A compra fica no Financeiro e o novo voucher só é ativado após pagamento confirmado; MB WAY exige registo manual da receção.', 'Vouchers com várias sessões consumidas exigem uma proposta no Financeiro para não renovar apenas uma sessão pelo preço total.'],
+    howTo: 'Abra uma marcação concluída e escolha Renovar experiência nas ações. Consulte a elegibilidade, reveja o texto e confirme o envio. O cliente abre o link e continua para o pagamento seguro. Esta ação não envia mensagens automaticamente ao concluir a sessão.',
+  },
+  {
     id: '2026-10-22-privacy-reminder-schema-install', date: '2026-10-22', category: 'Correção',
     title: 'Instalação da estrutura do painel de revisão de privacidade', areas: ['Definições', 'Privacidade'],
     summary: 'O painel verifica a própria estrutura ao abrir, sem depender da opção de migrações no arranque.',

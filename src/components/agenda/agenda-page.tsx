@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { VoucherRenewalDialog } from './voucher-renewal-dialog';
 import { useRouter } from 'next/navigation';
 import {
   useCallback,
@@ -795,6 +796,7 @@ export function AgendaPage({
     isOwner,
   } = useAuth();
   const canOperate = useCan('send-messages');
+  const canManageRenewals = useCan('edit-settings');
 
   const [view, setView] = useState<CalendarView>('day');
   const [filtersExpanded, setFiltersExpanded] = useState(false);
@@ -918,6 +920,7 @@ export function AgendaPage({
     setNotificationPrompt(null);
   }
   const [benefitRefundOpen, setBenefitRefundOpen] = useState(false);
+  const [renewalAppointmentId, setRenewalAppointmentId] = useState<string | null>(null);
   const [refundReason, setRefundReason] = useState('');
   const [requestingRefund, setRequestingRefund] = useState(false);
   const [benefitDecisionOpen, setBenefitDecisionOpen] = useState(false);
@@ -5418,6 +5421,11 @@ export function AgendaPage({
                             >
                               <CircleDollarSign className="size-4" /> Reembolso
                             </ActionButton>
+                            {canManageRenewals && selectedAppointment.status === 'completed' ? (
+                              <ActionButton tone="amber" onClick={() => setRenewalAppointmentId(selectedAppointment.id)}>
+                                <Gift className="size-4" /> Renovar experiência
+                              </ActionButton>
+                            ) : null}
                           </>
                         ) : null}
                       </div>
@@ -5654,6 +5662,7 @@ export function AgendaPage({
           </div>
         </DialogContent>
       </Dialog>
+      <VoucherRenewalDialog appointmentId={renewalAppointmentId} onClose={() => setRenewalAppointmentId(null)} />
       <Dialog open={benefitRefundOpen} onOpenChange={setBenefitRefundOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
