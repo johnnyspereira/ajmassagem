@@ -3,12 +3,17 @@ const mocks = vi.hoisted(() => ({
   role: vi.fn(),
   execute: vi.fn(),
   transaction: vi.fn(),
+  schema: vi.fn(),
 }));
 vi.mock('@/lib/auth/account', () => ({
   requireRole: mocks.role,
   toErrorResponse: () => Response.json({ error: 'Denied' }, { status: 403 }),
 }));
 vi.mock('@/lib/mysql/db', () => ({ transaction: mocks.transaction }));
+vi.mock('@/lib/clinic/catalog-order-schema', () => ({
+  ensureCatalogOrderSchema: mocks.schema,
+  catalogOrderSchemaError: () => null,
+}));
 import { POST } from './route';
 const request = (body: unknown) =>
   new Request('https://crm.test/api/clinic/catalog-order', {
@@ -16,6 +21,8 @@ const request = (body: unknown) =>
     body: JSON.stringify(body),
   });
 beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.schema.mockResolvedValue(undefined);
   mocks.role.mockResolvedValue({ accountId: 'account-a' });
   mocks.execute.mockImplementation(async (sql: string) =>
     sql.startsWith('SELECT id FROM clinic_products')
@@ -34,6 +41,7 @@ it('rejects duplicate IDs, unknown tables and malformed input before a write', a
   ])
     expect((await POST(request(body))).status).toBe(400);
   expect(mocks.transaction).not.toHaveBeenCalled();
+  expect(mocks.schema).not.toHaveBeenCalled();
 });
 it('requires admin authorization', async () => {
   mocks.role.mockRejectedValue(new Error('Denied'));
@@ -55,6 +63,10 @@ it('updates the complete order transactionally with account-scoped statements', 
     (await POST(request({ kind: 'products', ids: ['b', 'a'] }))).status
   ).toBe(200);
   expect(mocks.role).toHaveBeenCalledWith('admin');
+  expect(mocks.schema).toHaveBeenCalledWith('products');
+  expect(mocks.schema.mock.invocationCallOrder[0]).toBeLessThan(
+    mocks.transaction.mock.invocationCallOrder[0]
+  );
   const updates = mocks.execute.mock.calls.filter(([sql]) =>
     sql.startsWith('UPDATE')
   );

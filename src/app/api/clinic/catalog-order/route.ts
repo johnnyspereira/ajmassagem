@@ -2,6 +2,10 @@ import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { transaction } from '@/lib/mysql/db';
 import { catalogTables, type CatalogKind } from '@/lib/clinic/catalog-order';
 import type { RowDataPacket } from 'mysql2';
+import {
+  ensureCatalogOrderSchema,
+  catalogOrderSchemaError,
+} from '@/lib/clinic/catalog-order-schema';
 
 export async function POST(request: Request) {
   try {
@@ -24,6 +28,7 @@ export async function POST(request: Request) {
       );
     }
     const table = catalogTables[body.kind as CatalogKind];
+    await ensureCatalogOrderSchema(body.kind as CatalogKind);
     const updated = await transaction(async (connection) => {
       await connection.execute(
         'SELECT id FROM accounts WHERE id=? FOR UPDATE',
@@ -53,14 +58,6 @@ export async function POST(request: Request) {
           { status: 409 }
         );
   } catch (error) {
-    if ((error as { code?: string })?.code === 'ER_BAD_FIELD_ERROR')
-      return Response.json(
-        {
-          error:
-            'Reinicie a aplicação no cPanel para aplicar a atualização da ordem do catálogo.',
-        },
-        { status: 503 }
-      );
-    return toErrorResponse(error);
+    return catalogOrderSchemaError(error) || toErrorResponse(error);
   }
 }

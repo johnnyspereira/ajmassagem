@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-23-catalog-order-schema', date: '2026-10-23', category: 'Correção',
+    title: 'Guardar a ordem do catálogo com preparação automática da estrutura', areas: ['Definições', 'Clínica', 'Catálogo'],
+    summary: 'Guardar ordem verifica e instala a coluna necessária quando a atualização de arranque ainda não foi aplicada.',
+    changes: ['Verificação independente para serviços, produtos, salas e packs, preservando os dados e a ordem existente.', 'A preparação ocorre antes da transação que guarda a lista, mantendo as verificações de conta e catálogo atualizado.', 'Falhas de permissões passam a indicar o acesso MySQL necessário, sem recomendar reiniciar para qualquer erro.'],
+    howTo: 'Em Clínica, escolha a área, ordene os itens e clique em Guardar ordem. Se surgir um erro de permissões, ajuste SELECT, UPDATE e ALTER do utilizador MySQL no cPanel e tente novamente.',
+  },
+  {
     id: '2026-10-23-renewal-same-day', date: '2026-10-23', category: 'Melhoria',
     title: 'Oferta de renovação válida apenas no dia do envio', areas: ['Agenda', 'WhatsApp', 'Pagamentos'],
     summary: 'A mensagem informa que o pagamento pode ser feito por MB WAY ou cartão e que a oferta termina hoje.',
