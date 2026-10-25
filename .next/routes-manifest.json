@@ -89,7 +89,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "7b1969f54293d9756af75e4c0b806e5691ce95cd"
+          "value": "719f56a7a1c053c92e7030bc0907d9cabc577dc1"
         }
       ],
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
@@ -99,7 +99,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "7b1969f54293d9756af75e4c0b806e5691ce95cd"
+          "value": "719f56a7a1c053c92e7030bc0907d9cabc577dc1"
         }
       ],
       "regex": "^/_next/data(?:/(.*))(?:/)?$"
@@ -1002,6 +1002,12 @@
       "namedRegex": "^/api/contacts(?:/)?$"
     },
     {
+      "page": "/api/finance/month-sales",
+      "regex": "^/api/finance/month\\-sales(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/finance/month\\-sales(?:/)?$"
+    },
+    {
       "page": "/api/finance/packs/deliver",
       "regex": "^/api/finance/packs/deliver(?:/)?$",
       "routeKeys": {},
@@ -1066,6 +1072,12 @@
       "regex": "^/api/finance/webhooks/sumup(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/finance/webhooks/sumup(?:/)?$"
+    },
+    {
+      "page": "/api/finance/workspace",
+      "regex": "^/api/finance/workspace(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/finance/workspace(?:/)?$"
     },
     {
       "page": "/api/flows",
@@ -1686,5 +1698,5 @@
     "pathHeader": "x-nextjs-rewritten-path",
     "queryHeader": "x-nextjs-rewritten-query"
   },
-  "deploymentId": "7b1969f54293d9756af75e4c0b806e5691ce95cd"
+  "deploymentId": "719f56a7a1c053c92e7030bc0907d9cabc577dc1"
 }
