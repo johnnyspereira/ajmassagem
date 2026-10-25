@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-25-pos-return-to-appointment', date: '2026-10-25', category: 'Melhoria',
+    title: 'Regressar à marcação depois de pagar no POS', areas: ['Agenda', 'Financeiro', 'POS'],
+    summary: 'Ao abrir o POS a partir de uma marcação, concluir o pagamento integral volta automaticamente à respetiva ficha na Agenda.',
+    changes: ['O regresso ocorre após a confirmação de venda paga ou da liquidação do saldo pendente dessa marcação.', 'Pagamentos parciais, erros e criação de um link de pagamento ainda por pagar mantêm o utilizador no Financeiro.'],
+    howTo: 'Na ficha da marcação, escolha Receber, conclua o pagamento no POS e aguarde o regresso automático à mesma ficha, já atualizada.',
+  },
+  {
     id: '2026-10-25-finance-month-and-daily-tasks', date: '2026-10-25', category: 'Melhoria',
     title: 'Financeiro por mês e tarefas para começar e fechar o dia', areas: ['Financeiro', 'Agenda', 'Notificações'],
     summary: 'A entrada do Financeiro passa a privilegiar o mês escolhido, as vendas por receber e as tarefas de hoje.',

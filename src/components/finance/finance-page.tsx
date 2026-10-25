@@ -935,6 +935,10 @@ export function FinancePage({
       }
     }
     resetSale();
+    if (initialAppointmentId && saleWasPaid) {
+      window.location.assign(`/agenda?appointment=${encodeURIComponent(initialAppointmentId)}`);
+      return;
+    }
     await loadFinance();
     setActiveTab('sales');
   }
@@ -1315,6 +1319,10 @@ export function FinancePage({
       }
     }
     setPaymentOpen(false);
+    if (initialAppointmentId && paymentSale.appointment_id === initialAppointmentId && laterPaymentAmount >= Number(paymentSale.balance_due)) {
+      window.location.assign(`/agenda?appointment=${encodeURIComponent(initialAppointmentId)}`);
+      return;
+    }
     await loadFinance();
   }
 
@@ -3234,7 +3242,7 @@ function PosView(props: {
           <Button
             className="w-full shadow-sm"
             size="lg"
-            onClick={finishSale}
+            onClick={() => finishSale()}
             disabled={!canOperate || saving || cart.length === 0}
           >
             {saving ? <Loader2 className="animate-spin" /> : <Check />}{' '}
