@@ -1,8 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
-import { BadgeCheck, ChevronRight, CircleDollarSign, Download, Mail, ReceiptText, RotateCcw, Search, Wrench } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { accountDateInput } from '@/lib/timezone';
+import {
+  BadgeCheck,
+  ChevronRight,
+  CircleDollarSign,
+  Download,
+  Mail,
+  ReceiptText,
+  RotateCcw,
+  Search,
+  Wrench,
+} from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,7 +28,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Empty, NativeSelect } from '@/components/finance/finance-ui';
 import { downloadReceiptPdf } from '@/lib/finance/receipt-pdf';
-import { money, PAYMENT_METHODS, SALE_STATUS } from '@/components/finance/finance-utils';
+import {
+  money,
+  PAYMENT_METHODS,
+  SALE_STATUS,
+} from '@/components/finance/finance-utils';
 import type { FinanceSale } from '@/types';
 import styles from './finance.module.css';
 
@@ -45,17 +60,55 @@ export function SalesView({
   brand: { name: string; logoUrl?: string | null; publicUrl?: string | null };
 }) {
   const [query, setQuery] = useState('');
+  const [month, setMonth] = useState(() =>
+    accountDateInput(new Date(), 'Europe/Lisbon').slice(0, 7)
+  );
+  const [focusedSale, setFocusedSale] = useState('');
+  const [monthSales, setMonthSales] = useState<FinanceSale[]>([]);
+  const [monthError, setMonthError] = useState('');
+  const [monthLoading, setMonthLoading] = useState(true);
+  useEffect(() => {
+    const controller = new AbortController();
+    setMonthLoading(true);
+    setMonthError('');
+    setMonthSales([]);
+    fetch(
+      `/api/finance/month-sales?month=${month}${focusedSale ? `&sale=${encodeURIComponent(focusedSale)}` : ''}`,
+      { signal: controller.signal, cache: 'no-store' }
+    )
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok)
+          throw new Error(
+            data.error || 'Não foi possível consultar as vendas do mês.'
+          );
+        setMonthSales(data.sales || []);
+      })
+      .catch((error) => {
+        if (error.name !== 'AbortError') setMonthError(error.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setMonthLoading(false);
+      });
+    return () => controller.abort();
+  }, [month, sales, focusedSale]);
   const [status, setStatus] = useState('active');
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.startsWith('#sale-'))
+      queueMicrotask(() => {
+        setFocusedSale(hash.slice(6));
+        setStatus('all');
+      });
+  }, []);
   const [saleToRepair, setSaleToRepair] = useState<FinanceSale | null>(null);
   const [repairing, setRepairing] = useState(false);
   const filtered = useMemo(() => {
     const term = query.trim().toLocaleLowerCase();
-    return sales.filter((sale) => {
+    return monthSales.filter((sale) => {
       const matchesStatus =
         status === 'all' ||
-        (status === 'historical'
-          ? Boolean(sale.is_historical)
-          : false) ||
+        (status === 'historical' ? Boolean(sale.is_historical) : false) ||
         (status === 'active'
           ? !sale.is_historical && !['voided', 'refunded'].includes(sale.status)
           : sale.status === status);
@@ -63,10 +116,43 @@ export function SalesView({
         `${sale.sale_number} ${sale.contact?.name ?? ''} ${sale.contact?.phone ?? ''} ${(sale.items ?? []).map((item) => item.name_snapshot).join(' ')}`.toLocaleLowerCase();
       return matchesStatus && (!term || haystack.includes(term));
     });
-  }, [query, sales, status]);
+  }, [query, monthSales, status]);
 
   return (
     <section className="border-border bg-card overflow-hidden rounded-lg border">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b p-4">
+        <label htmlFor="finance-sales-month" className="text-sm font-medium">
+          {focusedSale
+            ? 'Venda selecionada — escolha um mês para sair'
+            : 'Vendas do mês'}
+          <Input
+            id="finance-sales-month"
+            type="month"
+            className="mt-1 w-44"
+            value={month}
+            onChange={(event) => {
+              if (event.target.value) {
+                setMonth(event.target.value);
+                setFocusedSale('');
+              }
+            }}
+          />
+        </label>
+        <p className="text-muted-foreground text-xs">
+          O histórico acumulado está nos Relatórios. Consulte outro mês para
+          encontrar uma venda anterior.
+        </p>
+      </div>
+      {monthError ? (
+        <p role="alert" className="text-destructive p-4 text-sm">
+          {monthError}
+        </p>
+      ) : null}
+      {monthLoading ? (
+        <p role="status" className="text-muted-foreground p-4 text-sm">
+          A carregar vendas do mês…
+        </p>
+      ) : null}
       <div className="border-border grid gap-3 border-b p-4 lg:grid-cols-[1fr_220px]">
         <div className="relative">
           <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
@@ -140,7 +226,10 @@ export function SalesView({
                     {SALE_STATUS[sale.status] ?? sale.status}
                   </Badge>
                   {sale.is_historical ? (
-                    <Badge variant="outline" className="mt-1 border-amber-400 text-amber-700">
+                    <Badge
+                      variant="outline"
+                      className="mt-1 border-amber-400 text-amber-700"
+                    >
                       Já faturada
                     </Badge>
                   ) : null}
@@ -232,28 +321,28 @@ export function SalesView({
                     {sale.status === 'paid' &&
                     sale.items?.some((item) => item.item_type === 'voucher') ? (
                       <div className="flex flex-col gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={!canOperate || !sale.contact?.email}
-                        title={
-                          sale.contact?.email
-                            ? 'Reenvia o voucher e o PDF para o email do cliente'
-                            : 'O cliente não possui email na ficha'
-                        }
-                        onClick={() => onResendVoucher(sale)}
-                      >
-                        <Mail /> Reenviar voucher
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={!canOperate}
-                        title="Cria apenas os vouchers em falta nesta venda"
-                        onClick={() => setSaleToRepair(sale)}
-                      >
-                        <Wrench /> Corrigir quantidade
-                      </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!canOperate || !sale.contact?.email}
+                          title={
+                            sale.contact?.email
+                              ? 'Reenvia o voucher e o PDF para o email do cliente'
+                              : 'O cliente não possui email na ficha'
+                          }
+                          onClick={() => onResendVoucher(sale)}
+                        >
+                          <Mail /> Reenviar voucher
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!canOperate}
+                          title="Cria apenas os vouchers em falta nesta venda"
+                          onClick={() => setSaleToRepair(sale)}
+                        >
+                          <Wrench /> Corrigir quantidade
+                        </Button>
                       </div>
                     ) : null}
                     {sale.status !== 'paid' &&

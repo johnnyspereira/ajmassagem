@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-25-finance-month-and-daily-tasks', date: '2026-10-25', category: 'Melhoria',
+    title: 'Financeiro por mês e tarefas para começar e fechar o dia', areas: ['Financeiro', 'Agenda', 'Notificações'],
+    summary: 'A entrada do Financeiro passa a privilegiar o mês escolhido, as vendas por receber e as tarefas de hoje.',
+    changes: ['Três indicadores mensais com seleção do mês: vendas, pagamentos recebidos de vendas e saldo pendente dessas vendas; os totais do negócio ficam nos Relatórios.', 'Lista Quem falta pagar com ação Receber e dívidas anteriores separadas; Vendas também abre no mês atual, preservando ligações diretas para vendas antigas.', 'Abrir ou conferir e fechar caixa diretamente no resumo; atendimentos terminados de hoje ainda por concluir têm ligação para a marcação.', 'Fecho de caixa destaca o dinheiro físico e recolhe a conferência de cartão, MB WAY e outros métodos numa secção expansível.', 'O agendador verifica pendências de manhã, às 21:30 e às 23:15 de Lisboa, com notificações internas, push quando disponível e WhatsApp para o proprietário configurado. Tentativas WhatsApp falhadas podem voltar a ser verificadas após dez minutos, sem duplicar envios aceites.', 'O resumo apresenta o último aviso registado e o resultado do WhatsApp. Não fecha caixas, altera atendimentos ou regista pagamentos automaticamente.'],
+    howTo: 'Abra Financeiro e escolha o mês. Resolva Hoje pela ordem apresentada e use Receber ao lado de cada venda. Mantenha o computador, o agendador local e a ligação WhatsApp disponíveis para os avisos. O primeiro envio ocorre na próxima verificação dentro da janela, apenas se houver pendências.',
+  },
+  {
     id: '2026-10-23-agenda-voucher-paid-value', date: '2026-10-23', category: 'Correção',
     title: 'Valor pago pelo voucher separado da cobertura da sessão', areas: ['Agenda', 'Vouchers'],
     summary: 'O painel de pagamento apresenta o montante pago pelo voucher associado e distingue-o do valor aplicado à sessão.',

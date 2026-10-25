@@ -36,6 +36,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { FinanceHeader as PageHeader } from './finance-header';
+import { FinanceMonthWorkspace } from './finance-month-workspace';
+import { accountDateInput } from '@/lib/timezone';
 import styles from './finance.module.css';
 
 import { Badge } from '@/components/ui/badge';
@@ -82,7 +84,6 @@ import {
 import {
   Empty,
   Field,
-  FinanceMetric,
   NativeSelect,
   Summary,
 } from '@/components/finance/finance-ui';
@@ -620,34 +621,6 @@ export function FinancePage({
     0
   );
   const remaining = Math.max(total - paidNow, 0);
-  const financeMetrics = useMemo(() => {
-    const validSales = sales.filter(
-      (sale) => !['voided', 'refunded'].includes(sale.status)
-    );
-    // Sales imported as already paid are evidence of a past transaction, not
-    // money that entered this CRM's cash flow. Keep them visible separately.
-    const operational = validSales.filter((sale) => !sale.is_historical);
-    const historical = validSales.filter((sale) => sale.is_historical);
-    return {
-      billed: operational.reduce(
-        (sum, sale) => sum + Number(sale.total_amount),
-        0
-      ),
-      received: operational.reduce(
-        (sum, sale) => sum + Number(sale.paid_amount),
-        0
-      ),
-      due: operational.reduce((sum, sale) => sum + Number(sale.balance_due), 0),
-      openSales: operational.filter((sale) => Number(sale.balance_due) > 0)
-        .length,
-      historicalTotal: historical.reduce(
-        (sum, sale) => sum + Number(sale.total_amount),
-        0
-      ),
-      historicalCount: historical.length,
-    };
-  }, [sales]);
-
   const catalog = useMemo<CatalogItem[]>(() => {
     const term = search.trim().toLocaleLowerCase();
     if (catalogMode === 'products') {
@@ -1412,7 +1385,7 @@ export function FinancePage({
 
   if (schemaMissing) {
     return (
-      <div className={cn(styles.root, "space-y-5")}>
+      <div className={cn(styles.root, 'space-y-5')}>
         <PageHeader
           cashSession={cashSession}
           onRefresh={loadFinance}
@@ -1434,7 +1407,7 @@ export function FinancePage({
   }
 
   return (
-    <div className={cn(styles.root, "space-y-5")}>
+    <div className={cn(styles.root, 'space-y-5')}>
       <PageHeader
         cashSession={cashSession}
         onRefresh={loadFinance}
@@ -1442,50 +1415,44 @@ export function FinancePage({
         isOwner={isOwner}
       />
       {activeTab === 'overview' && (
-        <div className={styles.metrics}>
-          <FinanceMetric
-            label="Faturado"
-            value={money(financeMetrics.billed, defaultCurrency)}
-            detail={`${sales.length} vendas recentes`}
-            icon={ReceiptText}
-          />
-          <FinanceMetric
-            label="Recebido"
-            value={money(financeMetrics.received, defaultCurrency)}
-            detail="pagamentos confirmados"
-            icon={CircleDollarSign}
-          />
-          <FinanceMetric
-            label="A receber"
-            value={money(financeMetrics.due, defaultCurrency)}
-            detail={`${financeMetrics.openSales} contas pendentes`}
-            icon={History}
-          />
-          <FinanceMetric
-            label="Histórico externo"
-            value={money(financeMetrics.historicalTotal, defaultCurrency)}
-            detail={`${financeMetrics.historicalCount} venda(s) já faturada(s)`}
-            icon={ReceiptText}
-          />
-          <FinanceMetric
-            label="Caixa esperado"
-            value={money(
-              Number(cashSnapshot?.expected_amount ?? 0),
-              defaultCurrency
-            )}
-            detail={cashSession ? 'sessão atual' : 'caixa fechado'}
-            icon={Banknote}
-          />
-          <FinanceMetric
-            label="Benefícios ativos"
-            value={String(
-              vouchers.filter((item) => item.status === 'active').length +
-                clientPacks.filter((item) => item.status === 'active').length
-            )}
-            detail="vouchers e packs"
-            icon={WalletCards}
-          />
-        </div>
+        <FinanceMonthWorkspace
+          refreshKey={loading}
+          canOperate={canOperate}
+          onCash={() => {
+            if (!cashSession) {
+              startOpenCashRegister();
+              return;
+            }
+            setClosingAmount(Number(cashSnapshot?.expected_amount ?? 0));
+            const totals = Object.fromEntries(
+              PAYMENT_METHODS.map(({ value }) => [
+                value,
+                Number(cashSnapshot?.payments_by_method?.[value] ?? 0) +
+                  Number(cashSnapshot?.tips_by_method?.[value] ?? 0),
+              ])
+            ) as Record<FinancePaymentMethod, number>;
+            totals.cash = Number(cashSnapshot?.expected_amount ?? 0);
+            setClosingBreakdown(totals);
+            setCashCloseOpen(true);
+          }}
+          onPayment={async (id) => {
+            const { data, error } = await supabase
+              .from('finance_sales')
+              .select(
+                '*, contact:contacts(*), items:finance_sale_items(*), payments:finance_payments(*)'
+              )
+              .eq('account_id', accountId)
+              .eq('id', id)
+              .single();
+            if (error || !data) {
+              toast.error(
+                'Não foi possível abrir esta venda. Atualize e tente novamente.'
+              );
+              return;
+            }
+            startLaterPayment(data as FinanceSale);
+          }}
+        />
       )}
       {initialAppointmentId ? (
         <div className="border-primary/30 bg-primary/5 flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3">
@@ -1505,28 +1472,40 @@ export function FinancePage({
           <TabsList className={styles.tabsList}>
             <TabsTrigger
               value="overview"
-              className={cn(styles.tab, "data-active:bg-primary/10 data-active:text-primary justify-center gap-2 border-0 font-medium whitespace-nowrap hover:bg-muted/70")}
+              className={cn(
+                styles.tab,
+                'data-active:bg-primary/10 data-active:text-primary hover:bg-muted/70 justify-center gap-2 border-0 font-medium whitespace-nowrap'
+              )}
             >
               <LayoutDashboard />
               Visão geral
             </TabsTrigger>
             <TabsTrigger
               value="pos"
-              className={cn(styles.tab, "data-active:bg-primary/10 data-active:text-primary justify-center gap-2 border-0 font-medium whitespace-nowrap hover:bg-muted/70")}
+              className={cn(
+                styles.tab,
+                'data-active:bg-primary/10 data-active:text-primary hover:bg-muted/70 justify-center gap-2 border-0 font-medium whitespace-nowrap'
+              )}
             >
               <ShoppingCart />
               Ponto de venda
             </TabsTrigger>
             <TabsTrigger
               value="sales"
-              className={cn(styles.tab, "data-active:bg-primary/10 data-active:text-primary justify-center gap-2 border-0 font-medium whitespace-nowrap hover:bg-muted/70")}
+              className={cn(
+                styles.tab,
+                'data-active:bg-primary/10 data-active:text-primary hover:bg-muted/70 justify-center gap-2 border-0 font-medium whitespace-nowrap'
+              )}
             >
               <ReceiptText />
               Vendas
             </TabsTrigger>
             <TabsTrigger
               value="invoices"
-              className={cn(styles.tab, "data-active:bg-primary/10 data-active:text-primary justify-center gap-2 border-0 font-medium whitespace-nowrap hover:bg-muted/70")}
+              className={cn(
+                styles.tab,
+                'data-active:bg-primary/10 data-active:text-primary hover:bg-muted/70 justify-center gap-2 border-0 font-medium whitespace-nowrap'
+              )}
             >
               <FileClock />
               Faturas
@@ -1542,21 +1521,30 @@ export function FinancePage({
             </TabsTrigger>
             <TabsTrigger
               value="cash"
-              className={cn(styles.tab, "data-active:bg-primary/10 data-active:text-primary justify-center gap-2 border-0 font-medium whitespace-nowrap hover:bg-muted/70")}
+              className={cn(
+                styles.tab,
+                'data-active:bg-primary/10 data-active:text-primary hover:bg-muted/70 justify-center gap-2 border-0 font-medium whitespace-nowrap'
+              )}
             >
               <Banknote />
               Caixa
             </TabsTrigger>
             <TabsTrigger
               value="vouchers"
-              className={cn(styles.tab, "data-active:bg-primary/10 data-active:text-primary justify-center gap-2 border-0 font-medium whitespace-nowrap hover:bg-muted/70")}
+              className={cn(
+                styles.tab,
+                'data-active:bg-primary/10 data-active:text-primary hover:bg-muted/70 justify-center gap-2 border-0 font-medium whitespace-nowrap'
+              )}
             >
               <Gift />
               Vouchers
             </TabsTrigger>
             <TabsTrigger
               value="packs"
-              className={cn(styles.tab, "data-active:bg-primary/10 data-active:text-primary justify-center gap-2 border-0 font-medium whitespace-nowrap hover:bg-muted/70")}
+              className={cn(
+                styles.tab,
+                'data-active:bg-primary/10 data-active:text-primary hover:bg-muted/70 justify-center gap-2 border-0 font-medium whitespace-nowrap'
+              )}
             >
               <PackageCheck />
               Packs
@@ -1565,16 +1553,30 @@ export function FinancePage({
         </nav>
 
         <TabsContent value="overview">
-          <FinanceOverview
-            sales={sales}
-            cashSession={cashSession}
-            vouchers={vouchers}
-            clientPacks={clientPacks}
-            invoiceRequests={invoiceRequests}
-            currency={defaultCurrency}
-            isOwner={isOwner}
-            onNavigate={navigateFinance}
-          />
+          <details className="rounded-xl border p-4">
+            <summary className="cursor-pointer text-sm font-medium">
+              Outras ferramentas financeiras
+            </summary>
+            <div className="mt-4">
+              <FinanceOverview
+                sales={sales.filter(
+                  (sale) =>
+                    accountDateInput(
+                      new Date(sale.created_at),
+                      'Europe/Lisbon'
+                    ).slice(0, 7) ===
+                    accountDateInput(new Date(), 'Europe/Lisbon').slice(0, 7)
+                )}
+                cashSession={cashSession}
+                vouchers={vouchers}
+                clientPacks={clientPacks}
+                invoiceRequests={invoiceRequests}
+                currency={defaultCurrency}
+                isOwner={isOwner}
+                onNavigate={navigateFinance}
+              />
+            </div>
+          </details>
         </TabsContent>
 
         <TabsContent value="pos">
@@ -1913,7 +1915,7 @@ export function FinancePage({
               Conte todo o dinheiro físico antes de fechar.
             </DialogDescription>
           </DialogHeader>
-          <Field label="Valor contado">
+          <Field label="Dinheiro contado (só notas e moedas)">
             <Input
               type="number"
               min="0"
@@ -1922,7 +1924,10 @@ export function FinancePage({
               onChange={(event) => setClosingAmount(Number(event.target.value))}
             />
           </Field>
-          <div className="space-y-3">
+          <details className="space-y-3 rounded-lg border p-3">
+            <summary className="cursor-pointer text-sm font-medium">
+              Conferir cartão, MB WAY e outros métodos
+            </summary>
             <div>
               <p className="text-sm font-medium">Conferência por canal</p>
               <p className="text-muted-foreground text-xs">
@@ -1965,14 +1970,14 @@ export function FinancePage({
                         Sistema: {money(expected, defaultCurrency)}
                         {Math.abs(counted - expected) > 0.009
                           ? ` · diferença ${money(counted - expected, defaultCurrency)}`
-                          : ' · conferido'}
+                          : ' · igual ao sistema'}
                       </p>
                     </Field>
                   );
                 }
               )}
             </div>
-          </div>
+          </details>
           <div className="bg-muted grid grid-cols-2 gap-3 rounded-md p-3 text-sm">
             <span className="text-muted-foreground">Esperado</span>
             <strong className="text-right">
@@ -2718,7 +2723,7 @@ function PosView(props: {
 
   return (
     <div className={styles.posGrid}>
-      <section className={cn(styles.catalog, "border-border bg-card border")}>
+      <section className={cn(styles.catalog, 'border-border bg-card border')}>
         <div className="border-border bg-card/95 sticky top-0 z-10 space-y-3 border-b p-4 backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="bg-muted flex rounded-md p-1">
@@ -2778,8 +2783,24 @@ function PosView(props: {
             ) : null}
           </div>
         </div>
-        <Button variant="secondary" className={styles.jump} onClick={() => document.getElementById('finance-checkout')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><ShoppingCart className="size-4" />Ver venda atual ({cart.length} itens)</Button>
-        <div className={cn(styles.catalogList, "grid gap-3 p-3 sm:grid-cols-2 2xl:grid-cols-3")}>
+        <Button
+          variant="secondary"
+          className={styles.jump}
+          onClick={() =>
+            document
+              .getElementById('finance-checkout')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
+        >
+          <ShoppingCart className="size-4" />
+          Ver venda atual ({cart.length} itens)
+        </Button>
+        <div
+          className={cn(
+            styles.catalogList,
+            'grid gap-3 p-3 sm:grid-cols-2 2xl:grid-cols-3'
+          )}
+        >
           {catalog.map((item) => (
             <button
               key={`${item.type}-${item.id}`}
@@ -2834,7 +2855,13 @@ function PosView(props: {
           ) : null}
         </div>
       </section>
-      <section id="finance-checkout" className={cn(styles.checkout, "border-border bg-card flex flex-col border")}>
+      <section
+        id="finance-checkout"
+        className={cn(
+          styles.checkout,
+          'border-border bg-card flex flex-col border'
+        )}
+      >
         <div className="border-border flex items-center justify-between border-b p-4">
           <div>
             <h2 className="flex items-center gap-2 font-semibold">

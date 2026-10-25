@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { sendAppointmentCommunication } from '@/lib/clinic/appointment-communication';
 import { sendBenefitExpiryReminders } from '@/lib/finance/expiry-reminders';
 import { runPrivacyReviewReminders } from '@/lib/privacy/review-reminders';
+import { runDailyOperationsAlerts } from '@/lib/finance/daily-operations-alerts';
 
 const DEFAULT_WINDOW_MINUTES = 24 * 60;
 const MAX_WINDOW_MINUTES = 24 * 60;
@@ -38,6 +39,13 @@ export async function GET(request: Request) {
   const now = new Date();
   const until = new Date(now.getTime() + windowMinutes * 60_000);
   const db = supabaseAdmin();
+  let operations = { checked: 0, notified: 0, failed: 0 };
+  try {
+    operations = await runDailyOperationsAlerts(now);
+  } catch (error) {
+    operations.failed = 1;
+    console.error('[daily-operations] scheduler failed', error);
+  }
   const pendingBefore = new Date(now.getTime() - 60 * 60_000);
 
   const { data: pendingConfirmations, error: pendingError } = await db
@@ -230,6 +238,7 @@ export async function GET(request: Request) {
     privacyReview.failed = 1;
   }
   return NextResponse.json({
+    daily_operations: operations,
     privacy_review_reminders: privacyReview,
     checked: due.length,
     sent,

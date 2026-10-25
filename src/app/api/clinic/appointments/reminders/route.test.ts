@@ -1,4 +1,9 @@
 import { beforeEach, expect, it, vi } from 'vitest';
+vi.mock('@/lib/finance/daily-operations-alerts', () => ({
+  runDailyOperationsAlerts: vi
+    .fn()
+    .mockResolvedValue({ checked: 0, notified: 0, failed: 0 }),
+}));
 vi.mock('@/lib/privacy/review-reminders', () => ({
   runPrivacyReviewReminders: vi
     .fn()

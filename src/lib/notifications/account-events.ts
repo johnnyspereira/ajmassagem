@@ -97,6 +97,7 @@ export async function notifyAccountEvent(input: {
   dedupeKey: string;
   metadata?: Record<string, unknown>;
   whatsappText?: string;
+  retryWhatsApp?: boolean;
 }) {
   const recipients = await selectRows<Recipient[]>(
     `SELECT user_id,full_name,account_role,professional_phone
@@ -161,12 +162,35 @@ export async function notifyAccountEvent(input: {
   const configuredPhone =
     process.env.ADMIN_WHATSAPP_PHONE || owner?.professional_phone || '';
   const phone = normalizedPhone(configuredPhone);
-  if (!ownerInserted || !owner || !phone || !input.whatsappText) {
+  if (
+    (!ownerInserted && !input.retryWhatsApp) ||
+    !owner ||
+    !phone ||
+    !input.whatsappText
+  ) {
+    if (input.retryWhatsApp && owner && !phone)
+      await mutate(
+        "UPDATE notifications SET metadata=JSON_SET(metadata,'$.whatsapp_alert_status','not_configured') WHERE account_id=? AND user_id=? AND dedupe_key=?",
+        [input.accountId, owner.user_id, input.dedupeKey]
+      );
     return {
       internal: insertedUsers.length,
       push: pushCount,
       whatsapp: !phone ? ('not_configured' as const) : ('skipped' as const),
     };
+  }
+
+  if (input.retryWhatsApp) {
+    const claim = await mutate(
+      `UPDATE notifications SET metadata=JSON_SET(COALESCE(metadata,JSON_OBJECT()),'$.whatsapp_alert_status','sending','$.whatsapp_alert_attempt_at',DATE_FORMAT(UTC_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')) WHERE account_id=? AND user_id=? AND dedupe_key=? AND (JSON_EXTRACT(metadata,'$.whatsapp_alert_status') IS NULL OR JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.whatsapp_alert_status'))='not_configured' OR (JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.whatsapp_alert_status')) IN ('failed','sending') AND STR_TO_DATE(JSON_UNQUOTE(JSON_EXTRACT(metadata,'$.whatsapp_alert_attempt_at')),'%Y-%m-%d %H:%i:%s')<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 10 MINUTE)))`,
+      [input.accountId, owner.user_id, input.dedupeKey]
+    );
+    if (!claim.affectedRows)
+      return {
+        internal: insertedUsers.length,
+        push: pushCount,
+        whatsapp: 'skipped' as const,
+      };
   }
 
   try {
@@ -181,20 +205,38 @@ export async function notifyAccountEvent(input: {
     // Send them directly, exactly like Inbox messages; retain the outbox for
     // installations that intentionally operate without a public Worker.
     if (!remoteWhatsAppWorker.enabled()) {
-      throw new Error('WHATSAPP_MODE deve ser remote_worker para enviar alertas.');
+      throw new Error(
+        'WHATSAPP_MODE deve ser remote_worker para enviar alertas.'
+      );
     }
-    await remoteWhatsAppWorker.send({
+    const delivery = await remoteWhatsAppWorker.send({
       accountId: input.accountId,
       userId: owner.user_id,
       conversationId,
-      message: { text: input.whatsappText, contentType: 'text', senderType: 'bot' },
+      message: {
+        text: input.whatsappText,
+        contentType: 'text',
+        senderType: 'bot',
+      },
     });
+    if (input.retryWhatsApp && !delivery.whatsappMessageId)
+      throw new Error('O canal não confirmou a mensagem do alerta.');
+    if (input.retryWhatsApp)
+      await mutate(
+        "UPDATE notifications SET metadata=JSON_SET(metadata,'$.whatsapp_alert_status','sent') WHERE account_id=? AND user_id=? AND dedupe_key=?",
+        [input.accountId, owner.user_id, input.dedupeKey]
+      );
     return {
       internal: insertedUsers.length,
       push: pushCount,
       whatsapp: 'sent' as const,
     };
   } catch (error) {
+    if (input.retryWhatsApp)
+      await mutate(
+        "UPDATE notifications SET metadata=JSON_SET(metadata,'$.whatsapp_alert_status','failed') WHERE account_id=? AND user_id=? AND dedupe_key=?",
+        [input.accountId, owner.user_id, input.dedupeKey]
+      );
     console.error('[account-event] WhatsApp alert failed:', error);
     return {
       internal: insertedUsers.length,
