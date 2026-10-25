@@ -6,6 +6,7 @@ import { db } from '@/lib/mysql/db';
 import { compileQuery } from '@/lib/mysql/query-compiler';
 import { getTablePolicy, roleAllows } from '@/lib/mysql/table-policy';
 import { hydrateRelationships } from '@/lib/mysql/relations';
+import { revokeCompletedAnamnesis } from '@/lib/clinic/completed-anamnesis';
 import type {
   MysqlQueryRequest,
   MysqlQueryResponse,
@@ -61,6 +62,11 @@ export async function POST(request: Request) {
     });
 
     if (compiled.operation === 'select') {
+      if (
+        query.table === 'clinic_appointments' ||
+        query.table === 'clinic_anamnesis_forms'
+      )
+        await revokeCompletedAnamnesis(auth.account.id);
       const readCount = async () => {
         const countQuery = compileQuery(
           {
@@ -116,6 +122,8 @@ export async function POST(request: Request) {
       compiled.sql,
       compiled.values
     );
+    if (query.table === 'clinic_appointments')
+      await revokeCompletedAnamnesis(auth.account.id);
     let data: unknown = null;
     if (query.columns && compiled.insertedIds?.length) {
       const followup = compileQuery(

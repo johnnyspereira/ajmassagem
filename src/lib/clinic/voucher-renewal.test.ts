@@ -239,7 +239,8 @@ it('records the explicit exception with its operator before sending and never ch
   expect(mocks.send.mock.calls[0][0].text).toContain(
     'atualize as suas permissões'
   );
-  expect(mocks.send.mock.calls[0][0].text).toContain('/portal/clinica');
+  expect(mocks.send.mock.calls[0][0].text).toContain('/portal');
+  expect(mocks.send.mock.calls[0][0].text).not.toContain('/portal/clinica');
   expect(
     mocks.mutate.mock.calls.some((call) => /UPDATE contacts/i.test(call[0]))
   ).toBe(false);

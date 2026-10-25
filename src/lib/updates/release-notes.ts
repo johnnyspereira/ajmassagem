@@ -15,6 +15,20 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-25-customer-portal-short-link', date: '2026-10-25', category: 'Correção',
+    title: 'Mensagens ao cliente com o endereço simples do Portal', areas: ['Portal', 'Indicações', 'WhatsApp', 'Privacidade'],
+    summary: 'Mensagens de crédito por indicação e pedidos de revisão de permissões passam a usar o endereço /portal.',
+    changes: ['Removido o identificador interno da clínica dos links enviados nestas mensagens.', 'O encaminhamento e a autenticação continuam a ser tratados pela entrada do Portal.'],
+    howTo: 'Nas novas mensagens, o cliente acede a jpmassagem.pt/portal. Mensagens já enviadas permanecem no histórico.',
+  },
+  {
+    id: '2026-10-25-finance-links-expenses-and-anamnesis', date: '2026-10-25', category: 'Correção',
+    title: 'Saídas ligadas à Tesouraria e correções nas ações da Agenda', areas: ['Financeiro', 'Tesouraria', 'Agenda', 'Anamnese'],
+    summary: 'Lançar saída fica acessível no Financeiro e regista a despesa paga na Tesouraria, juntamente com o movimento correto.',
+    changes: ['Dinheiro físico usa o caixa aberto; despesas bancárias e despesas com caixa fechado usam a respetiva conta financeira, sem duplicar o movimento de caixa.', 'Lembrete de cobranças passa a incluir cliente, referência, venda, montante pendente, data e ligação direta. O agendador passa também a executar os lembretes próprios da Tesouraria.', 'Receber fica desativado em marcações pagas ou liquidadas por benefício, com proteção adicional no POS contra uma nova cobrança.', 'Links de anamnese pendentes de atendimentos concluídos são desativados; fichas já preenchidas ou revistas são preservadas.'],
+    howTo: 'Use Lançar saída para despesas já pagas; para uma obrigação futura, use Nova conta na Tesouraria. Na Agenda, conclua a marcação para encerrar os links pendentes. Consulte os detalhes do cliente e da venda nos avisos de cobrança.',
+  },
+  {
     id: '2026-10-25-pos-return-to-appointment', date: '2026-10-25', category: 'Melhoria',
     title: 'Regressar à marcação depois de pagar no POS', areas: ['Agenda', 'Financeiro', 'POS'],
     summary: 'Ao abrir o POS a partir de uma marcação, concluir o pagamento integral volta automaticamente à respetiva ficha na Agenda.',

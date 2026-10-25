@@ -4554,7 +4554,7 @@ export function AgendaPage({
                           selectedAppointment.anamnesis.status
                         )
                           ? 'Preenchida'
-                          : 'Pendente'
+                          : selectedAppointment.status==='completed' ? 'Não preenchida · link desativado' : 'Pendente'
                       }
                       active={Boolean(
                         selectedAppointment.anamnesis &&
@@ -4724,7 +4724,7 @@ export function AgendaPage({
                       <AppointmentDatum
                         label="Anamnese"
                         value={
-                          selectedAppointment.anamnesis
+                          selectedAppointment.status==='completed' && !['submitted','reviewed'].includes(selectedAppointment.anamnesis?.status || '') ? 'Não preenchida — link desativado' : selectedAppointment.anamnesis
                             ? selectedAppointment.anamnesis.status === 'pending'
                               ? 'Aguardando preenchimento'
                               : selectedAppointment.anamnesis.status ===
@@ -4735,7 +4735,7 @@ export function AgendaPage({
                         }
                       />
                     </div>
-                    {selectedAppointment.anamnesis ? (
+                    {selectedAppointment.anamnesis && !['expired','revoked'].includes(selectedAppointment.anamnesis.status) && !(selectedAppointment.status==='completed' && selectedAppointment.anamnesis.status==='pending') ? (
                       <div className="mt-3 flex justify-end">
                         <Button
                           variant="outline"
@@ -5363,9 +5363,9 @@ export function AgendaPage({
                             </ActionButton>
                             <ActionButton
                               tone="emerald"
-                              disabled={editDraft.status === 'cancelled'}
+                              disabled={editDraft.status === 'cancelled' || Boolean(editDraft.paidAt) || appointmentOutstandingAmount(selectedAppointment) <= 0}
                               active={Boolean(editDraft.paidAt)}
-                              onClick={() => setPaymentChoiceOpen(true)}
+                              onClick={() => {if(!editDraft.paidAt && appointmentOutstandingAmount(selectedAppointment)>0)setPaymentChoiceOpen(true);}}
                             >
                               <CreditCard className="size-4" /> Receber
                             </ActionButton>
@@ -7875,14 +7875,14 @@ function AppointmentBlock({
               appointment.anamnesis &&
               ['submitted', 'reviewed'].includes(appointment.anamnesis.status)
                 ? 'Ficha de anamnese preenchida'
-                : 'Ficha de anamnese ainda não preenchida'
+                : appointment.status==='completed' ? 'Atendimento concluído sem preenchimento; link desativado' : 'Ficha de anamnese ainda não preenchida'
             }
           >
             <ClipboardList className="size-2.5" />
             {appointment.anamnesis &&
             ['submitted', 'reviewed'].includes(appointment.anamnesis.status)
               ? 'Anamnese OK'
-              : 'Anamnese pendente'}
+              : appointment.status==='completed' ? 'Anamnese não preenchida · link desativado' : 'Anamnese pendente'}
           </span>
           {pendingReschedule ? (
             <span

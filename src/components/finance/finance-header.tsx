@@ -9,6 +9,8 @@ import {
   ShoppingCart,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useState } from 'react';
+import { FinanceExpenseDialog } from './finance-expense-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +35,7 @@ export function FinanceHeader({
   canOperate?: boolean;
   isOwner: boolean;
 }) {
+  const [expenseOpen, setExpenseOpen] = useState(false);
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
@@ -45,6 +48,18 @@ export function FinanceHeader({
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="outline"
+          disabled={!canOperate}
+          onClick={() => setExpenseOpen(true)}
+        >
+          Lançar saída
+        </Button>
+        <FinanceExpenseDialog
+          open={expenseOpen}
+          onClose={() => setExpenseOpen(false)}
+          onSaved={onRefresh}
+        />
         <Button
           variant="outline"
           className="h-10 rounded-xl"

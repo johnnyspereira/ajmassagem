@@ -72,7 +72,7 @@ export async function sendAppointmentCommunication({
     return { text: null, anamnesisUrl: null, skipped: true };
 
   let anamnesisUrl: string | null = null;
-  if (action === 'confirmation') {
+  if (action === 'confirmation' && appointment.status !== 'completed') {
     const { data: existing } = await db
       .from('clinic_anamnesis_forms')
       .select('id,public_token')

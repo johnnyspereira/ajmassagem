@@ -15,7 +15,7 @@ vi.mock('@/lib/privacy/consent-evidence', () => ({
   privacyNoticeVersion: vi.fn(),
   requestConsentEvidence: vi.fn(),
 }));
-import { GET } from './route';
+import { GET,POST } from './route';
 const params = {
   params: Promise.resolve({ token: '12345678-1234-4234-8234-123456789abc' }),
 };
@@ -50,6 +50,28 @@ beforeEach(() => {
   });
 });
 describe('Anamnesis birth date', () => {
+  it('also refuses submission of a form opened before the appointment completed',async()=>{
+    mocks.form.appointment={status:'completed'};
+    const response=await POST(new Request('https://crm.test/api/anamnese/token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientName:'Cliente',signatureName:'Cliente',healthConsent:true,privacyConsent:true})}),params);
+    expect(response.status).toBe(410);
+  });
+  it('blocks a pending link when its appointment has already completed', async () => {
+    mocks.form.appointment = { status: 'completed' };
+    const response = await GET(
+      new Request('https://crm.test/api/anamnese/token'),
+      params
+    );
+    expect(response.status).toBe(410);
+    expect((await response.json()).error).toContain('concluído');
+  });
+  it('keeps a submitted record accessible after completing the appointment', async () => {
+    mocks.form.appointment = { status: 'completed' };
+    mocks.form.status = 'submitted';
+    expect(
+      (await GET(new Request('https://crm.test/api/anamnese/token'), params))
+        .status
+    ).toBe(200);
+  });
   it('serializes a real MySQL Date from the linked contact as an HTML date value', async () => {
     mocks.contactBirth = new Date('1990-05-03T00:00:00.000Z');
     const response = await GET(

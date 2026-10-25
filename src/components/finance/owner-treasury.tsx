@@ -45,6 +45,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { ContactSearchSelect } from '@/components/contacts/contact-search-select';
 import { FinanceReminderSettings } from '@/components/finance/finance-reminder-settings';
+import {FinanceExpenseDialog} from '@/components/finance/finance-expense-dialog';
+import {accountDateInput} from '@/lib/timezone';
 import { TreasuryImportDialog } from '@/components/finance/treasury-import-dialog';
 import type { TreasuryImportRow } from '@/lib/finance/import-types';
 import { useAuth } from '@/hooks/use-auth';
@@ -154,7 +156,7 @@ const PAYABLE_CATEGORIES = [
   'Outros',
 ] as const;
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => accountDateInput(new Date(),'Europe/Lisbon');
 const emptyDraft = (): Draft => ({
   kind: 'payable',
   description: '',
@@ -201,6 +203,7 @@ function csvCell(value: unknown) {
 }
 
 export function OwnerTreasury() {
+  const [expenseOpen,setExpenseOpen]=useState(false);
   const supabase = useMemo(() => createClient(), []);
   const { accountId, user, isOwner, defaultCurrency } = useAuth();
   const [payables, setPayables] = useState<Payable[]>([]);
@@ -768,6 +771,7 @@ export function OwnerTreasury() {
 
   return (
     <div className="space-y-5">
+      <FinanceExpenseDialog open={expenseOpen} onClose={()=>setExpenseOpen(false)} onSaved={()=>void load()}/>
       <div className="relative overflow-hidden rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-cyan-50 p-5 sm:p-6 dark:border-emerald-950 dark:from-emerald-950/40 dark:via-slate-950 dark:to-cyan-950/30">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -795,6 +799,7 @@ export function OwnerTreasury() {
             <Button variant="outline" onClick={downloadReport}>
               <Download /> Relatório CSV
             </Button>
+            <Button variant="outline" onClick={()=>setExpenseOpen(true)}>Lançar saída</Button>
             <Button onClick={() => openCreate('payable')}>
               <Plus /> Nova conta
             </Button>

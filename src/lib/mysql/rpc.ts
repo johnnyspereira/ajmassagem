@@ -8,6 +8,8 @@ import type {
 } from 'mysql2/promise';
 
 import { mutate, selectRows, transaction } from '@/lib/mysql/db';
+import {assertAppointmentCollectible} from '@/lib/finance/appointment-payment-guard';
+import {accountDateInput} from '@/lib/timezone';
 
 type RpcContext = { accountId: string; userId: string; bypassTenant?: boolean };
 const ok = (data: unknown = null) => ({ data, error: null });
@@ -447,9 +449,8 @@ async function queueReferralRewardCommunication(
       process.env.APP_URL ||
       'https://jpmassagem.pt'
     ).replace(/\/$/, '');
-    const portalUrl = portalRows[0]?.slug
-      ? `${baseUrl}/portal/${portalRows[0].slug}`
-      : `${baseUrl}/portal`;
+    void portalRows;
+    const portalUrl = `${baseUrl}/portal`;
     const firstName = contact.name?.trim().split(/\s+/)[0] || 'cliente';
     const amountText = `${Number(input.amount).toFixed(2).replace('.', ',')} €`;
     const text = [
@@ -691,9 +692,7 @@ export async function executeMysqlRpc(
       }
       case 'process_finance_operational_reminders': {
         const now = new Date(String(args.p_now ?? new Date().toISOString()));
-        const day = new Date(
-          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-        );
+        const day = new Date(`${accountDateInput(now,'Europe/Lisbon')}T00:00:00Z`);
         const payables = await selectRows<
           (RowDataPacket & {
             id: string;
@@ -1130,6 +1129,7 @@ export async function executeMysqlRpc(
           throw new Error('Imported benefits cannot register a local payment.');
         const saleId = randomUUID();
         await transaction(async (connection) => {
+          if(args.p_appointment_id)await assertAppointmentCollectible(connection,context.accountId,String(args.p_appointment_id));
           const supportsVoucherPaidAmount = await hasVoucherPaidAmountColumns(connection);
           await connection.execute(
             `INSERT INTO finance_sales(id,account_id,contact_id,appointment_id,cash_session_id,created_by_user_id,status,currency,subtotal,discount_amount,tax_amount,total_amount,paid_amount,balance_due,is_historical,notes,created_at,updated_at)

@@ -16,7 +16,19 @@ import {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.select.mockImplementation(async (sql: string) =>
-    sql.includes('SELECT DISTINCT') ? [{ id: 'account' }] : [{ count: 2 }]
+    sql.includes('SELECT DISTINCT')
+      ? [{ id: 'account' }]
+      : [
+          {
+            id: 'sale',
+            sale_number: 42,
+            name: 'Cliente de teste',
+            client_reference: '123',
+            balance_due: 35,
+            currency: 'EUR',
+            created_at: '2026-10-24T12:00:00Z',
+          },
+        ]
   );
   mocks.today.mockResolvedValue({
     day: '2026-10-25',
@@ -75,7 +87,9 @@ it('reminds about unpaid sales and opening only when the day has activity', asyn
     hasActivity: true,
   });
   await runDailyOperationsAlerts(new Date('2026-10-25T09:15:00Z'));
-  expect(mocks.notify.mock.calls[0][0].body).toContain('2 venda');
+  expect(mocks.notify.mock.calls[0][0].body).toContain('Cliente de teste');
+  expect(mocks.notify.mock.calls[0][0].body).toContain('Venda #42');
+  expect(mocks.notify.mock.calls[0][0].body).toContain('35,00');
   expect(mocks.notify.mock.calls[0][0].body).toContain('Abra o caixa');
 });
 it('reports WhatsApp failure without claiming delivery and skips database access outside the windows', async () => {

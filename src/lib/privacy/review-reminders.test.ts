@@ -105,6 +105,7 @@ it('does not alter client consent when sending a manual reminder', async () => {
 it('uses a neutral message that allows refusal and contains the portal link', () => {
   const message = privacyReviewMessage('Cliente Demo', 'JP Massagem', 'jp');
   expect(message).toContain('permitir ou recusar');
-  expect(message).toContain('/portal/jp');
+  expect(message).toContain('/portal');
+  expect(message).not.toContain('/portal/jp');
   expect(message).not.toContain('senha');
 });

@@ -10,7 +10,8 @@ export function privacyReviewMessage(
   business: string,
   slug: string
 ) {
-  return `Olá${name ? `, ${name.split(' ')[0]}` : ''}.\n\nAqui é da ${business}. Pedimos que reveja os seus dados e preferências de privacidade no Portal 360. Pode permitir ou recusar cada opção, conforme a sua vontade.\n\nAceda ao Portal e abra Perfil → Privacidade e comunicações:\n${getPublicUrl(`/portal/${encodeURIComponent(slug)}`, 'https://jpmassagem.pt')}\n\nObrigado.`;
+  void slug;
+  return `Olá${name ? `, ${name.split(' ')[0]}` : ''}.\n\nAqui é da ${business}. Pedimos que reveja os seus dados e preferências de privacidade no Portal 360. Pode permitir ou recusar cada opção, conforme a sua vontade.\n\nAceda ao Portal e abra Perfil → Privacidade e comunicações:\n${getPublicUrl('/portal', 'https://jpmassagem.pt')}\n\nObrigado.`;
 }
 export async function sendPrivacyReviewReminder(
   accountId: string,

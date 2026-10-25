@@ -49,10 +49,8 @@ export function renewalBlock(
 }
 
 export function renewalPrivacyNotice(slug?: string | null) {
-  const url = getPublicUrl(
-    slug ? `/portal/${encodeURIComponent(slug)}` : '/portal',
-    'https://jpmassagem.pt'
-  );
+  void slug;
+  const url = getPublicUrl('/portal', 'https://jpmassagem.pt');
   return `Pedimos também que atualize as suas permissões no nosso site. No Portal do Cliente, abra Perfil → Privacidade e comunicações para rever e permitir ou recusar cada opção de WhatsApp e marketing, conforme a sua preferência:\n${url}`;
 }
 

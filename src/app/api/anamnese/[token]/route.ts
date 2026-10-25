@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { normalizeBirthDate } from '@/lib/clinic/birth-date';
+import { isCompletedPendingAnamnesis } from '@/lib/clinic/completed-anamnesis';
 import {
   findMissingRequiredQuestion,
   mergeAnamnesisConfig,
@@ -28,12 +29,20 @@ export async function GET(
   const { data: form } = await db
     .from('clinic_anamnesis_forms')
     .select(
-      'id,account_id,contact_id,appointment_id,service_id,status,client_name,client_email,client_phone,birth_date,selected_modalities,answers,health_consent,privacy_consent,signature_name,submitted_at,expires_at,service:clinic_services(name,category),appointment:clinic_appointments!clinic_anamnesis_forms_appointment_id_fkey(scheduled_start),account:accounts(name,logo_url)'
+      'id,account_id,contact_id,appointment_id,service_id,status,client_name,client_email,client_phone,birth_date,selected_modalities,answers,health_consent,privacy_consent,signature_name,submitted_at,expires_at,service:clinic_services(name,category),appointment:clinic_appointments!clinic_anamnesis_forms_appointment_id_fkey(scheduled_start,status),account:accounts(name,logo_url)'
     )
     .eq('public_token', token)
     .maybeSingle();
   if (!form || ['expired', 'revoked'].includes(form.status))
     return Response.json({ error: 'Ficha indisponível.' }, { status: 404 });
+  if (isCompletedPendingAnamnesis(form))
+    return Response.json(
+      {
+        error:
+          'Este atendimento já foi concluído. O link de preenchimento foi desativado.',
+      },
+      { status: 410 }
+    );
   if (new Date(form.expires_at) < new Date() && form.status === 'pending')
     return Response.json({ error: 'Este link expirou.' }, { status: 410 });
   // Pending forms created before the contact's birthday was recorded may
@@ -59,25 +68,28 @@ export async function GET(
     .select('privacy_notice_version,privacy_policy_url')
     .eq('account_id', form.account_id)
     .maybeSingle();
-  return Response.json({
-    form: {
-      ...publicForm,
-      birth_date: birthDate,
-      modality_locked: Boolean(
-        form.appointment_id &&
-        (form.service_id || form.selected_modalities?.length)
-      ),
-      form_title: settings?.anamnesis_title,
-      form_intro: settings?.anamnesis_intro,
-      config: mergeAnamnesisConfig(settings?.anamnesis_form_config),
-      privacy: privacy
-        ? {
-            version: privacy.privacy_notice_version,
-            policy_url: privacy.privacy_policy_url,
-          }
-        : null,
+  return Response.json(
+    {
+      form: {
+        ...publicForm,
+        birth_date: birthDate,
+        modality_locked: Boolean(
+          form.appointment_id &&
+          (form.service_id || form.selected_modalities?.length)
+        ),
+        form_title: settings?.anamnesis_title,
+        form_intro: settings?.anamnesis_intro,
+        config: mergeAnamnesisConfig(settings?.anamnesis_form_config),
+        privacy: privacy
+          ? {
+              version: privacy.privacy_notice_version,
+              policy_url: privacy.privacy_policy_url,
+            }
+          : null,
+      },
     },
-  }, { headers: { 'Cache-Control': 'private, no-store' } });
+    { headers: { 'Cache-Control': 'private, no-store' } }
+  );
 }
 
 export async function POST(
@@ -124,12 +136,20 @@ export async function POST(
   const { data: existing } = await db
     .from('clinic_anamnesis_forms')
     .select(
-      'id,account_id,contact_id,appointment_id,service_id,status,expires_at,selected_modalities,service:clinic_services(name,category)'
+      'id,account_id,contact_id,appointment_id,service_id,status,expires_at,selected_modalities,appointment:clinic_appointments!clinic_anamnesis_forms_appointment_id_fkey(status),service:clinic_services(name,category)'
     )
     .eq('public_token', token)
     .maybeSingle();
   if (!existing || ['reviewed', 'expired', 'revoked'].includes(existing.status))
     return Response.json({ error: 'Ficha indisponível.' }, { status: 409 });
+  if (isCompletedPendingAnamnesis(existing))
+    return Response.json(
+      {
+        error:
+          'Este atendimento já foi concluído. O link de preenchimento foi desativado.',
+      },
+      { status: 410 }
+    );
   if (new Date(existing.expires_at) < new Date())
     return Response.json({ error: 'Este link expirou.' }, { status: 410 });
 
@@ -170,7 +190,7 @@ export async function POST(
     );
   }
 
-  const { error } = await db
+  const { data: savedForm, error } = await db
     .from('clinic_anamnesis_forms')
     .update({
       status: 'submitted',
@@ -188,8 +208,20 @@ export async function POST(
       signature_name: body.signatureName.trim().slice(0, 160),
       submitted_at: new Date().toISOString(),
     })
-    .eq('id', existing.id);
+    .eq('id', existing.id)
+    .eq('account_id', existing.account_id)
+    .eq('status', existing.status)
+    .select('id')
+    .maybeSingle();
   if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (!savedForm)
+    return Response.json(
+      {
+        error:
+          'O estado desta ficha mudou. O link já não permite este preenchimento.',
+      },
+      { status: 409 }
+    );
 
   await db.from('privacy_consent_events').insert([
     {
@@ -233,7 +265,13 @@ export async function POST(
       .eq('account_id', existing.account_id);
     if (contactError) {
       console.error('[anamnesis] contact sync failed:', contactError.message);
-      return Response.json({ error: 'A ficha foi guardada, mas não foi possível atualizar os dados do cliente.' }, { status: 500 });
+      return Response.json(
+        {
+          error:
+            'A ficha foi guardada, mas não foi possível atualizar os dados do cliente.',
+        },
+        { status: 500 }
+      );
     }
   }
 

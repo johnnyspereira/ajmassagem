@@ -27,12 +27,12 @@ export async function runDailyOperationsAlerts(now = new Date()) {
       const tasks: string[] = [];
       if (phase === 'opening') {
         const due = await selectRows<RowDataPacket[]>(
-          "SELECT COUNT(*) count FROM finance_sales WHERE account_id=? AND status IN ('open','partially_paid') AND balance_due>0 AND COALESCE(is_historical,0)=0",
+          "SELECT s.id,s.sale_number,s.created_at,s.currency,s.balance_due,c.name,c.client_reference FROM finance_sales s LEFT JOIN contacts c ON c.id=s.contact_id AND c.account_id=s.account_id WHERE s.account_id=? AND s.status IN ('open','partially_paid') AND s.balance_due>0 AND COALESCE(s.is_historical,0)=0 ORDER BY s.created_at LIMIT 10",
           [account.id]
         );
-        if (Number(due[0]?.count) > 0)
+        if (due.length > 0)
           tasks.push(
-            `${Number(due[0].count)} venda(s) aguardam pagamento. Abra Quem falta pagar no Financeiro para consultar os clientes.`
+            `Vendas por receber${due.length === 10 ? ' (até 10 mais antigas)' : ''}:\n${due.map((sale) => `${sale.name || 'Consumidor final'}${sale.client_reference ? ` · Ref. ${sale.client_reference}` : ''} · Venda #${sale.sale_number} · ${new Intl.NumberFormat('pt-PT', { style: 'currency', currency: sale.currency || 'EUR' }).format(Number(sale.balance_due))} em falta · ${new Date(sale.created_at).toLocaleDateString('pt-PT', { timeZone: 'Europe/Lisbon' })}\nhttps://jpmassagem.pt/finance?tab=sales#sale-${sale.id}`).join('\n\n')}`
           );
         if (!today.cash && today.hasActivity)
           tasks.push(
