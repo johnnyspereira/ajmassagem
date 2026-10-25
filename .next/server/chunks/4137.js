@@ -8,7 +8,7 @@
     UNIQUE KEY renewal_source(account_id,voucher_id), UNIQUE KEY renewal_token(token),
     CONSTRAINT renewal_account_fk FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE,
     CONSTRAINT renewal_contact_fk FOREIGN KEY(contact_id) REFERENCES contacts(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`)})().catch(a=>{throw d=void 0,a})),await d}async function n(a,b){var c,d,e,g,i,j;let k,m,n=(await (0,f.A5)(`SELECT a.status appointment_status,a.contact_id,a.service_id,
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`)})().catch(a=>{throw d=void 0,a})),await d}async function n(a,b){var c,d,e,g,i;let j,k,m=(await (0,f.A5)(`SELECT a.status appointment_status,a.contact_id,a.service_id,
     b.status benefit_status,v.id voucher_id,v.status voucher_status,v.remaining_uses voucher_remaining,v.paid_amount,v.currency,s.name service,s.is_active service_active,
     (SELECT COUNT(*) FROM finance_appointment_benefits used WHERE used.account_id=v.account_id AND used.voucher_id=v.id AND used.status='consumed') consumed_sessions,
     c.name,c.phone,c.whatsapp_consent,c.marketing_consent,c.privacy_review_status,c.consent_reviewed_at,c.anonymized_at,
@@ -18,18 +18,18 @@
     JOIN finance_vouchers v ON v.id=b.voucher_id AND v.account_id=a.account_id AND v.owner_contact_id=a.contact_id AND v.service_id=a.service_id AND v.voucher_type='service'
     JOIN clinic_services s ON s.id=a.service_id AND s.account_id=a.account_id
     JOIN contacts c ON c.id=a.contact_id AND c.account_id=a.account_id JOIN accounts ac ON ac.id=a.account_id
-    WHERE a.account_id=? AND a.id=? AND b.status='consumed' LIMIT 1`,[a,b]))[0],o=0;if(n){let b=await (0,f.A5)("SELECT COALESCE(SUM(remaining_uses),0) remaining FROM finance_vouchers WHERE account_id=? AND owner_contact_id=? AND service_id=? AND voucher_type='service' AND status='active' AND remaining_uses>0 AND (expires_at IS NULL OR expires_at>UTC_TIMESTAMP(3))",[a,n.contact_id,n.service_id]);o=Number(b[0]?.remaining||0);let c=await (0,f.A5)("SELECT COUNT(*) remaining FROM finance_appointment_benefits b JOIN finance_vouchers v ON v.id=b.voucher_id AND v.account_id=b.account_id WHERE b.account_id=? AND b.contact_id=? AND b.service_id=? AND b.status='reserved' AND v.voucher_type='service'",[a,n.contact_id,n.service_id]);o=Math.max(o,Number(c[0]?.remaining||0))}let p=l(n,o);return{eligible:!p,canOverrideConsent:!!p&&!l(n,o,{overrideConsent:!0}),privacyNotice:(c=n?.portal_slug,k=(0,h.b)(c?`/portal/${encodeURIComponent(c)}`:"/portal","https://jpmassagem.pt"),`Pedimos tamb\xe9m que atualize as suas permiss\xf5es no nosso site. No Portal do Cliente, abra Perfil → Privacidade e comunica\xe7\xf5es para rever e permitir ou recusar cada op\xe7\xe3o de WhatsApp e marketing, conforme a sua prefer\xeancia:
-${k}`),reason:p,remaining:o,row:n,amount:Number(n?.paid_amount||0),currency:n?.currency||"EUR",service:n?.service||"",message:n?(d=n.name||"Cliente",e=n.service,g=Number(n.paid_amount),i=n.currency,j=n.business,m=new Intl.NumberFormat("pt-PT",{style:"currency",currency:i}).format(g),`Ol\xe1, ${d.split(" ")[0]}! ✨
+    WHERE a.account_id=? AND a.id=? AND b.status='consumed' LIMIT 1`,[a,b]))[0],n=0;if(m){let b=await (0,f.A5)("SELECT COALESCE(SUM(remaining_uses),0) remaining FROM finance_vouchers WHERE account_id=? AND owner_contact_id=? AND service_id=? AND voucher_type='service' AND status='active' AND remaining_uses>0 AND (expires_at IS NULL OR expires_at>UTC_TIMESTAMP(3))",[a,m.contact_id,m.service_id]);n=Number(b[0]?.remaining||0);let c=await (0,f.A5)("SELECT COUNT(*) remaining FROM finance_appointment_benefits b JOIN finance_vouchers v ON v.id=b.voucher_id AND v.account_id=b.account_id WHERE b.account_id=? AND b.contact_id=? AND b.service_id=? AND b.status='reserved' AND v.voucher_type='service'",[a,m.contact_id,m.service_id]);n=Math.max(n,Number(c[0]?.remaining||0))}let o=l(m,n);return{eligible:!o,canOverrideConsent:!!o&&!l(m,n,{overrideConsent:!0}),privacyNotice:(m?.portal_slug,j=(0,h.b)("/portal","https://jpmassagem.pt"),`Pedimos tamb\xe9m que atualize as suas permiss\xf5es no nosso site. No Portal do Cliente, abra Perfil → Privacidade e comunica\xe7\xf5es para rever e permitir ou recusar cada op\xe7\xe3o de WhatsApp e marketing, conforme a sua prefer\xeancia:
+${j}`),reason:o,remaining:n,row:m,amount:Number(m?.paid_amount||0),currency:m?.currency||"EUR",service:m?.service||"",message:m?(c=m.name||"Cliente",d=m.service,e=Number(m.paid_amount),g=m.currency,i=m.business,k=new Intl.NumberFormat("pt-PT",{style:"currency",currency:g}).format(e),`Ol\xe1, ${c.split(" ")[0]}! ✨
 
-Esperamos que tenha desfrutado da sua sess\xe3o de ${e}. Acabou de utilizar o \xfaltimo voucher dispon\xedvel desta modalidade — e gostar\xedamos de voltar a receb\xea-lo.
+Esperamos que tenha desfrutado da sua sess\xe3o de ${d}. Acabou de utilizar o \xfaltimo voucher dispon\xedvel desta modalidade — e gostar\xedamos de voltar a receb\xea-lo.
 
-Prepar\xe1mos uma oportunidade especial: renove esta experi\xeancia por ${m}, o mesmo valor que pagou pelo voucher utilizado, mantendo a sua oferta anterior.
+Prepar\xe1mos uma oportunidade especial: renove esta experi\xeancia por ${k}, o mesmo valor que pagou pelo voucher utilizado, mantendo a sua oferta anterior.
 
 Esta proposta permite adquirir um novo voucher para uma sess\xe3o e \xe9 v\xe1lida apenas hoje, at\xe9 \xe0s 23:59 (hora de Lisboa). O pagamento do seu voucher poder\xe1 ser feito via MB WAY ou cart\xe3o, atrav\xe9s do link abaixo. A pr\xf3xima sess\xe3o ser\xe1 marcada de acordo com a disponibilidade da agenda.
 
 Garanta o seu pr\xf3ximo momento de bem-estar. 💜
 
-${j}
+${i}
 
 Se n\xe3o desejar receber ofertas, pode alterar as suas prefer\xeancias de marketing no Portal.`):""}}async function o(a,b,c,d,l,p={}){(0,i.l)();let q=l.replace(/\s/g,"");if(!/^(?:\+351)?9\d{8}$/.test(q))throw new k("Indique um n\xfamero MB WAY portugu\xeas v\xe1lido.");if(!d.trim()||d.length>4e3)throw new k("Reveja a mensagem (m\xe1ximo de 4000 caracteres).");await m();let r=await n(a,c),s=!r.eligible&&r.canOverrideConsent&&!0===p.overrideConsent;if(!r.eligible&&!s||!r.row)throw new k(r.reason||"Oferta indispon\xedvel.");let t=r.row,u=`${d.trim()}
 

@@ -89,7 +89,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "4e421c6dc0e285ae7491e26678cd2f459ea70f62"
+          "value": "fc181a9974c5c55993b8f3cec1c9c60d4e121c50"
         }
       ],
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
@@ -99,7 +99,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "4e421c6dc0e285ae7491e26678cd2f459ea70f62"
+          "value": "fc181a9974c5c55993b8f3cec1c9c60d4e121c50"
         }
       ],
       "regex": "^/_next/data(?:/(.*))(?:/)?$"
@@ -1002,6 +1002,12 @@
       "namedRegex": "^/api/contacts(?:/)?$"
     },
     {
+      "page": "/api/finance/expenses",
+      "regex": "^/api/finance/expenses(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/finance/expenses(?:/)?$"
+    },
+    {
       "page": "/api/finance/month-sales",
       "regex": "^/api/finance/month\\-sales(?:/)?$",
       "routeKeys": {},
@@ -1698,5 +1704,5 @@
     "pathHeader": "x-nextjs-rewritten-path",
     "queryHeader": "x-nextjs-rewritten-query"
   },
-  "deploymentId": "4e421c6dc0e285ae7491e26678cd2f459ea70f62"
+  "deploymentId": "fc181a9974c5c55993b8f3cec1c9c60d4e121c50"
 }
