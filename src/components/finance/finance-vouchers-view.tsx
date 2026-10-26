@@ -1,12 +1,12 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { BenefitValidityButton, useBenefitClock } from './benefit-validity-button';
 import { Check, Download, Gift, Loader2, Phone, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -53,6 +53,7 @@ export function VouchersView({
   onRefresh: () => Promise<void>;
   onSell: () => void;
 }) {
+  const now = useBenefitClock();
   const db = useMemo(() => createClient(), []);
   const [generatingCode, setGeneratingCode] = useState<string | null>(null);
   const [decision, setDecision] = useState<{
@@ -367,7 +368,7 @@ export function VouchersView({
                     voucher.status === 'active' ? 'default' : 'secondary'
                   }
                 >
-                  {voucher.status}
+                  {voucher.status === 'active' && voucher.expires_at && new Date(voucher.expires_at).getTime() <= now ? 'Expirado' : voucher.status}
                 </Badge>
                 <Button
                   variant="outline"
@@ -383,6 +384,7 @@ export function VouchersView({
                   )}
                   Baixar PDF
                 </Button>
+                <BenefitValidityButton kind="voucher" id={voucher.id} code={voucher.code} expiresAt={voucher.expires_at} status={voucher.status} />
               </div>
               <BenefitLogList
                 logs={logs.filter((log) => log.voucher_id === voucher.id)}

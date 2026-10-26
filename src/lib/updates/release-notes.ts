@@ -15,6 +15,20 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-26-owner-benefit-validity', date: '2026-10-26', category: 'Melhoria',
+    title: 'Proprietário pode gerir a validade e autorizar benefícios expirados', areas: ['Agenda', 'Vouchers', 'Packs'],
+    summary: 'Alterar a validade ou autorizar o uso excecional numa marcação são decisões distintas, exclusivas do proprietário e registadas no histórico.',
+    changes: ['Botão Alterar validade nos vouchers e packs do Financeiro e de Benefícios, com motivo obrigatório e término no fim do dia de Lisboa.', 'Na Agenda, o proprietário pode pesquisar códigos expirados e autorizar a utilização apenas naquela marcação, sem mudar a validade geral.', 'A autorização continua a validar PIN, modalidade e saldo; não reativa benefícios cancelados ou esgotados.', 'Benefícios fora da validade deixam de ser apresentados como ativos nos cartões e contagens principais de Benefícios.'],
+    howTo: 'Para prolongar, abra o voucher ou pack e escolha Alterar validade. Para uma exceção, pesquise o código na marcação, indique o PIN e marque Autorizar benefício expirado, justificando a decisão antes de guardar. A alteração não envia mensagens nem substitui PDFs já emitidos.',
+  },
+  {
+    id: '2026-10-25-paid-action-and-communication-filters', date: '2026-10-25', category: 'Correção',
+    title: 'Pagamento registado sem nova cobrança e comunicações com filtros', areas: ['Agenda', 'Relatórios'],
+    summary: 'A ação de cobrança identifica claramente uma sessão paga e o histórico de comunicações permite acompanhar resultados por cor e canal.',
+    changes: ['Em marcações liquidadas, Receber passa a mostrar Pago · sem saldo a receber, desativado e sem o destaque de ação disponível.', 'Histórico de comunicações com linhas verdes para envios, vermelhas para falhas, cinzentas para ignoradas e amarelas quando não existe resultado registado.', 'Filtros por canal, tipo de mensagem e resultado, com contagens e opção de limpar; a pesquisa mantém a cor correta de cada linha.'],
+    howTo: 'Na Agenda, abra uma sessão paga para consultar o estado bloqueado. Em Relatório 360 → Comunicações, escolha o canal, o tipo e o resultado que pretende acompanhar. A exportação da aba mantém todo o período selecionado.',
+  },
+  {
     id: '2026-10-25-customer-portal-short-link', date: '2026-10-25', category: 'Correção',
     title: 'Mensagens ao cliente com o endereço simples do Portal', areas: ['Portal', 'Indicações', 'WhatsApp', 'Privacidade'],
     summary: 'Mensagens de crédito por indicação e pedidos de revisão de permissões passam a usar o endereço /portal.',

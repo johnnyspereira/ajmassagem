@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { BenefitsHeader } from './benefits-header';
+import { BenefitValidityButton, useBenefitClock } from './benefit-validity-button';
 import styles from './benefits.module.css';
 
 import { Badge } from '@/components/ui/badge';
@@ -61,6 +62,8 @@ const date = (value?: string | null) =>
     : 'Sem validade';
 
 export function BenefitsReportPage() {
+  const now = useBenefitClock();
+  const isAvailableByDate = (item: { status: string; expires_at?: string | null }) => item.status === 'active' && (!item.expires_at || new Date(item.expires_at).getTime() > now);
   const db = useMemo(() => createClient(), []);
   const { accountId, user } = useAuth();
   const [packs, setPacks] = useState<FinanceClientPack[]>([]);
@@ -279,7 +282,7 @@ export function BenefitsReportPage() {
   const archivedVouchers = serviceVouchers.filter(
     (voucher) => voucher.status !== 'active'
   );
-  const activePacks = packs.filter((item) => item.status === 'active');
+  const activePacks = packs.filter(isAvailableByDate);
   const sessions = activePacks.reduce(
     (sum, item) =>
       sum +
@@ -290,10 +293,10 @@ export function BenefitsReportPage() {
     0
   );
   const activeServices = vouchers.filter(
-    (item) => item.voucher_type === 'service' && item.status === 'active'
+    (item) => item.voucher_type === 'service' && isAvailableByDate(item)
   );
   const activeValueVouchers = vouchers.filter(
-    (item) => item.voucher_type !== 'service' && item.status === 'active'
+    (item) => item.voucher_type !== 'service' && isAvailableByDate(item)
   );
   const valueBalance = activeValueVouchers.reduce(
     (sum, item) => sum + Number(item.current_balance || 0),
@@ -426,7 +429,7 @@ export function BenefitsReportPage() {
                     {items.length} {items.length === 1 ? 'voucher' : 'vouchers'}{' '}
                     ·{' '}
                     {
-                      items.filter((voucher) => voucher.status === 'active')
+                      items.filter(isAvailableByDate)
                         .length
                     }{' '}
                     ativo(s)
@@ -842,6 +845,7 @@ function ConversionRow({
   );
 }
 function ConversionReasonCard({ voucher }: { voucher: FinanceVoucher }) {
+  const now = useBenefitClock();
   return (
     <Card className="gap-0">
       <CardContent className="space-y-2 p-4">
@@ -849,7 +853,7 @@ function ConversionReasonCard({ voucher }: { voucher: FinanceVoucher }) {
           <p className="font-semibold">
             {voucher.service?.name || 'Modalidade não definida'}
           </p>
-          <Status value={voucher.status} />
+          <Status value={voucher.status === 'active' && voucher.expires_at && new Date(voucher.expires_at).getTime() <= now ? 'expired' : voucher.status} />
         </div>
         <p className="text-sm">
           {voucher.owner?.name ||
@@ -938,6 +942,7 @@ function VoucherCard({
   const service = voucher.voucher_type === 'service';
   const email = voucher.owner?.email;
   const canConvert = canConvertVoucher(voucher);
+  const now = useBenefitClock();
   return (
     <Card className="gap-0 overflow-hidden">
       <div className={styles.voucherAccent} />
@@ -959,7 +964,7 @@ function VoucherCard({
               </p>
             </div>
           </div>
-          <Status value={voucher.status} />
+          <Status value={voucher.status === 'active' && voucher.expires_at && new Date(voucher.expires_at).getTime() <= now ? 'expired' : voucher.status} />
         </div>
         <div className="bg-muted/60 grid grid-cols-2 gap-3 rounded-xl p-3">
           <div>
@@ -982,6 +987,7 @@ function VoucherCard({
             {voucher.code} · PIN {voucher.pin_code || '—'}
           </code>
           <div className="flex flex-wrap gap-2">
+            <BenefitValidityButton kind="voucher" id={voucher.id} code={voucher.code} expiresAt={voucher.expires_at} status={voucher.status} />
             <Link
               className={buttonVariants({ variant: 'outline', size: 'sm' })}
               href={
@@ -1042,6 +1048,7 @@ function PackCard({
   pack: FinanceClientPack;
   onConvert: () => void;
 }) {
+  const now = useBenefitClock();
   const total = (pack.balances ?? []).reduce(
     (sum, item) => sum + Number(item.total_sessions),
     0
@@ -1066,7 +1073,7 @@ function PackCard({
               </p>
             </div>
           </div>
-          <Status value={pack.status} />
+          <Status value={pack.status === 'active' && pack.expires_at && new Date(pack.expires_at).getTime() <= now ? 'expired' : pack.status} />
         </div>
         <div>
           <div className="mb-2 flex justify-between text-sm">
@@ -1086,7 +1093,8 @@ function PackCard({
           <code className="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-800">
             {pack.code || 'Sem código'} · PIN {pack.pin_code || '—'}
           </code>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <BenefitValidityButton kind="pack" id={pack.id} code={pack.code} expiresAt={pack.expires_at} status={pack.status} />
             <Link
               className={buttonVariants({ variant: 'outline', size: 'sm' })}
               href={

@@ -10,6 +10,7 @@ import type {
 import { mutate, selectRows, transaction } from '@/lib/mysql/db';
 import {assertAppointmentCollectible} from '@/lib/finance/appointment-payment-guard';
 import {accountDateInput} from '@/lib/timezone';
+import {validateBenefitExpiry} from '@/lib/finance/benefit-administration';
 
 type RpcContext = { accountId: string; userId: string; bypassTenant?: boolean };
 const ok = (data: unknown = null) => ({ data, error: null });
@@ -2312,6 +2313,11 @@ export async function executeMysqlRpc(
       }
       case 'lookup_finance_benefit_code': {
         const code = String(args.p_code ?? '').trim();
+        const includeExpired = args.p_include_expired === true;
+        if (includeExpired) {
+          const owners = await selectRows<RowDataPacket[]>("SELECT user_id FROM profiles WHERE account_id=? AND user_id=? AND account_role='owner'",[context.accountId,context.userId]);
+          if (!owners.length) throw new Error('Só o proprietário pode consultar benefícios expirados para autorizar uma exceção.');
+        }
         const vouchers = await selectRows<
           (RowDataPacket & {
             id: string;
@@ -2324,7 +2330,7 @@ export async function executeMysqlRpc(
             expires_at: Date | null;
           })[]
         >(
-          `SELECT id,voucher_type,code,current_balance,currency,remaining_uses,service_id,expires_at FROM finance_vouchers WHERE account_id=? AND UPPER(code)=UPPER(?) AND status='active' AND(expires_at IS NULL OR expires_at>UTC_TIMESTAMP()) AND(current_balance>0 OR COALESCE(remaining_uses,0)>0) LIMIT 1`,
+          `SELECT id,voucher_type,code,current_balance,currency,remaining_uses,service_id,expires_at FROM finance_vouchers WHERE account_id=? AND UPPER(code)=UPPER(?) AND ${includeExpired ? "status IN ('active','expired')" : "status='active' AND(expires_at IS NULL OR expires_at>UTC_TIMESTAMP())"} AND(current_balance>0 OR COALESCE(remaining_uses,0)>0) LIMIT 1`,
           [context.accountId, code]
         );
         if (vouchers[0]) {
@@ -2350,7 +2356,7 @@ export async function executeMysqlRpc(
             remaining_sessions: number;
           })[]
         >(
-          `SELECT p.id,p.code,p.expires_at,c.name label,SUM(b.total_sessions) total_sessions,SUM(b.remaining_sessions) remaining_sessions FROM finance_client_packs p JOIN finance_pack_catalog c ON c.id=p.pack_id JOIN finance_client_pack_balances b ON b.client_pack_id=p.id WHERE p.account_id=? AND UPPER(p.code)=UPPER(?) AND p.status='active' AND(p.expires_at IS NULL OR p.expires_at>UTC_TIMESTAMP()) GROUP BY p.id,p.code,p.expires_at,c.name LIMIT 1`,
+          `SELECT p.id,p.code,p.expires_at,c.name label,SUM(b.total_sessions) total_sessions,SUM(b.remaining_sessions) remaining_sessions FROM finance_client_packs p JOIN finance_pack_catalog c ON c.id=p.pack_id JOIN finance_client_pack_balances b ON b.client_pack_id=p.id WHERE p.account_id=? AND UPPER(p.code)=UPPER(?) AND ${includeExpired ? "p.status IN ('active','expired')" : "p.status='active' AND(p.expires_at IS NULL OR p.expires_at>UTC_TIMESTAMP())"} GROUP BY p.id,p.code,p.expires_at,c.name LIMIT 1`,
           [context.accountId, code]
         );
         return ok(
@@ -2361,6 +2367,8 @@ export async function executeMysqlRpc(
       case 'reserve_appointment_voucher':
       case 'set_appointment_benefit': {
         const appointmentId = String(args.p_appointment_id);
+        const allowExpired = args.p_allow_expired === true;
+        const expiryReason = String(args.p_expiry_reason ?? '').trim();
         let output: unknown = null;
         await transaction(async (connection) => {
           const [appointments] = await connection.execute<
@@ -2370,9 +2378,10 @@ export async function executeMysqlRpc(
               contact_id: string;
               service_id: string;
               price: number;
+              scheduled_start: Date;
             })[]
           >(
-            'SELECT id,account_id,contact_id,service_id,price FROM clinic_appointments WHERE id=? AND account_id=? FOR UPDATE',
+            'SELECT id,account_id,contact_id,service_id,price,scheduled_start FROM clinic_appointments WHERE id=? AND account_id=? FOR UPDATE',
             [appointmentId, context.accountId]
           );
           const appointment = appointments[0];
@@ -2388,7 +2397,7 @@ export async function executeMysqlRpc(
             const [vouchers] = await connection.execute<
               (RowDataPacket & { id: string })[]
             >(
-              `SELECT id FROM finance_vouchers WHERE account_id=? AND UPPER(code)=UPPER(?) AND pin_code=? AND status='active' AND(expires_at IS NULL OR expires_at>UTC_TIMESTAMP()) ${name === 'reserve_appointment_voucher' ? 'AND owner_contact_id=?' : ''} LIMIT 1 FOR UPDATE`,
+              `SELECT id FROM finance_vouchers WHERE account_id=? AND UPPER(code)=UPPER(?) AND pin_code=? AND ${allowExpired ? "status IN ('active','expired')" : "status='active' AND(expires_at IS NULL OR expires_at>UTC_TIMESTAMP())"} ${name === 'reserve_appointment_voucher' ? 'AND owner_contact_id=?' : ''} LIMIT 1 FOR UPDATE`,
               name === 'reserve_appointment_voucher'
                 ? [
                     context.accountId,
@@ -2409,7 +2418,7 @@ export async function executeMysqlRpc(
               const [packs] = await connection.execute<
                 (RowDataPacket & { id: string })[]
               >(
-                `SELECT id FROM finance_client_packs WHERE account_id=? AND UPPER(code)=UPPER(?) AND pin_code=? AND status='active' AND(expires_at IS NULL OR expires_at>UTC_TIMESTAMP()) LIMIT 1 FOR UPDATE`,
+                `SELECT id FROM finance_client_packs WHERE account_id=? AND UPPER(code)=UPPER(?) AND pin_code=? AND ${allowExpired ? "status IN ('active','expired')" : "status='active' AND(expires_at IS NULL OR expires_at>UTC_TIMESTAMP())"} LIMIT 1 FOR UPDATE`,
                 [
                   context.accountId,
                   String(args.p_code).trim(),
@@ -2425,6 +2434,7 @@ export async function executeMysqlRpc(
             output = null;
             return;
           }
+          await validateBenefitExpiry(connection,{accountId:context.accountId,userId:context.userId,sourceId:source,kind:type === 'voucher'?'voucher':'pack',appointmentId,scheduledStart:appointment.scheduled_start,allowExpired,reason:expiryReason});
           const id = randomUUID();
           if (type === 'voucher') {
             const [vouchers] = await connection.execute<
@@ -2436,7 +2446,7 @@ export async function executeMysqlRpc(
                 current_balance: number;
               })[]
             >(
-              "SELECT id,voucher_type,service_id,remaining_uses,current_balance FROM finance_vouchers WHERE id=? AND account_id=? AND status='active' FOR UPDATE",
+              "SELECT id,voucher_type,service_id,remaining_uses,current_balance FROM finance_vouchers WHERE id=? AND account_id=? AND status IN ('active','expired') FOR UPDATE",
               [source, context.accountId]
             );
             const voucher = vouchers[0];
@@ -2479,7 +2489,7 @@ export async function executeMysqlRpc(
             const [balances] = await connection.execute<
               (RowDataPacket & { id: string; remaining_sessions: number })[]
             >(
-              `SELECT b.id,b.remaining_sessions FROM finance_client_packs p JOIN finance_client_pack_balances b ON b.client_pack_id=p.id WHERE p.id=? AND p.account_id=? AND p.contact_id=? AND p.status='active' AND b.service_id=? FOR UPDATE`,
+              `SELECT b.id,b.remaining_sessions FROM finance_client_packs p JOIN finance_client_pack_balances b ON b.client_pack_id=p.id WHERE p.id=? AND p.account_id=? AND p.contact_id=? AND p.status IN ('active','expired') AND b.service_id=? FOR UPDATE`,
               [
                 source,
                 context.accountId,

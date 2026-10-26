@@ -389,6 +389,7 @@ function communicationActionLabel(action?: string) {
     schedule_change_confirmation: 'Confirmação de mudança',
     appointment_completed: 'Marcação concluída',
     feedback_request: 'Pedido de feedback',
+    status_changed: 'Alteração de estado',
   };
   return labels[action ?? ''] ?? action ?? '—';
 }
@@ -399,6 +400,65 @@ function DeliveryBadge({ delivery }: { delivery?: DeliveryState }) {
   if (delivery.skipped) return 'Ignorada';
   if (delivery.sent) return 'Enviada';
   return '—';
+}
+
+type CommunicationRow = CommunicationEventRow & { whatsapp?: DeliveryState; email?: DeliveryState };
+type CommunicationStatus = 'failed' | 'sent' | 'skipped' | 'unknown';
+function communicationStatus(deliveries: Array<DeliveryState | undefined>): CommunicationStatus {
+  if (deliveries.some((delivery) => delivery?.error)) return 'failed';
+  if (deliveries.some((delivery) => delivery?.sent)) return 'sent';
+  if (deliveries.some((delivery) => delivery?.skipped)) return 'skipped';
+  return 'unknown';
+}
+
+function CommunicationsHistory({ rows }: { rows: CommunicationRow[] }) {
+  const [channel, setChannel] = useState('all');
+  const [status, setStatus] = useState('all');
+  const [action, setAction] = useState('all');
+  const actions = [...new Set(rows.map((row) => row.metadata?.message_action).filter(Boolean))];
+  const deliveries = (row: CommunicationRow) => channel === 'whatsapp' ? [row.whatsapp] : channel === 'email' ? [row.email] : [row.whatsapp, row.email];
+  const available = rows.filter((row) => (action === 'all' || row.metadata?.message_action === action) && (channel === 'all' || Boolean(channel === 'whatsapp' ? row.whatsapp : row.email)));
+  const filtered = available.filter((row) => status === 'all' || communicationStatus(deliveries(row)) === status);
+  const statuses = [
+    { value: 'all', label: 'Todas', color: 'border-border bg-background' },
+    { value: 'failed', label: 'Com falha', color: 'border-rose-500/30 bg-rose-500/10' },
+    { value: 'sent', label: 'Enviadas', color: 'border-emerald-500/30 bg-emerald-500/10' },
+    { value: 'skipped', label: 'Ignoradas', color: 'border-slate-500/30 bg-slate-500/10' },
+    { value: 'unknown', label: 'Sem resultado', color: 'border-amber-500/30 bg-amber-500/10' },
+  ];
+  const colors: Record<CommunicationStatus, string> = {
+    failed: 'bg-rose-500/10 hover:bg-rose-500/15',
+    sent: 'bg-emerald-500/10 hover:bg-emerald-500/15',
+    skipped: 'bg-slate-500/10 hover:bg-slate-500/15',
+    unknown: 'bg-amber-500/10 hover:bg-amber-500/15',
+  };
+  return <div className="space-y-3">
+    <section aria-label="Filtros de comunicações" className="bg-card space-y-3 rounded-lg border p-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="grid min-w-40 flex-1 gap-1 text-xs">Canal
+          <select className="bg-background h-9 rounded-md border px-3 text-sm" value={channel} onChange={(event) => setChannel(event.target.value)}>
+            <option value="all">Todos os canais</option><option value="whatsapp">WhatsApp</option><option value="email">Email</option>
+          </select>
+        </label>
+        <label className="grid min-w-40 flex-1 gap-1 text-xs">Tipo de mensagem
+          <select className="bg-background h-9 rounded-md border px-3 text-sm" value={action} onChange={(event) => setAction(event.target.value)}>
+            <option value="all">Todos os tipos</option>{actions.map((value) => <option key={value} value={value}>{communicationActionLabel(value)}</option>)}
+          </select>
+        </label>
+        <Button variant="outline" size="sm" onClick={() => {setChannel('all'); setStatus('all'); setAction('all');}}>Limpar filtros</Button>
+      </div>
+      <div className="flex flex-wrap gap-2" aria-label="Resultado do envio">
+        {statuses.map((item) => <button key={item.value} type="button" aria-pressed={status === item.value} onClick={() => setStatus(item.value)} className={`rounded-md border px-3 py-2 text-xs ${item.color} ${status === item.value ? 'ring-primary ring-2 ring-offset-2' : ''}`}>
+          {item.label} · {item.value === 'all' ? available.length : available.filter((row) => communicationStatus(deliveries(row)) === item.value).length}
+        </button>)}
+      </div>
+      <p className="text-muted-foreground text-xs">{filtered.length} de {rows.length} comunicações do período. A cor acompanha o canal escolhido; em Todos os canais, uma falha tem prioridade. Enviada não significa lida. A exportação da aba inclui todo o período.</p>
+    </section>
+    <ReportTable title="Histórico de comunicações" description="Pesquise o cliente e acompanhe o resultado pelos filtros acima." headers={['Data', 'Cliente', 'Destino', 'Tipo', 'WhatsApp', 'Email', 'Detalhes']}
+      rowClasses={filtered.map((row) => colors[communicationStatus(deliveries(row))])}
+      rows={filtered.map((row) => [formatDateTime(row.created_at), row.metadata?.recipient?.name || 'Cliente', [row.metadata?.recipient?.phone, row.metadata?.recipient?.email].filter(Boolean).join(' · ') || 'Sem contacto', communicationActionLabel(row.metadata?.message_action), <DeliveryBadge key="whatsapp" delivery={row.whatsapp} />, <DeliveryBadge key="email" delivery={row.email} />, row.whatsapp?.error || row.email?.error || row.reason || '—'])}
+    />
+  </div>;
 }
 
 function formatMinutes(value: number) {
@@ -1935,33 +1995,7 @@ export function ReportsPage() {
                 tone="violet"
               />
             </div>
-            <ReportTable
-              title="Histórico de comunicações"
-              description="Quem recebeu, por qual canal e o motivo das falhas."
-              headers={[
-                'Data',
-                'Cliente',
-                'Destino',
-                'Tipo',
-                'WhatsApp',
-                'Email',
-                'Detalhes',
-              ]}
-              rows={communicationRows.map((row) => {
-                const recipient = row.metadata?.recipient;
-                return [
-                  formatDateTime(row.created_at),
-                  recipient?.name || 'Cliente',
-                  [recipient?.phone, recipient?.email]
-                    .filter(Boolean)
-                    .join(' · ') || 'Sem contacto',
-                  communicationActionLabel(row.metadata?.message_action),
-                  <DeliveryBadge key="whatsapp" delivery={row.whatsapp} />,
-                  <DeliveryBadge key="email" delivery={row.email} />,
-                  row.whatsapp?.error || row.email?.error || row.reason || '—',
-                ];
-              })}
-            />
+            <CommunicationsHistory rows={communicationRows} />
           </TabsContent>
 
           <TabsContent value="clients" className="space-y-4">
@@ -2932,22 +2966,25 @@ function ReportTable({
   description,
   headers,
   rows,
+  rowClasses,
 }: {
   title: string;
   description?: string;
   headers: string[];
   rows: Array<Array<React.ReactNode>>;
+  rowClasses?: string[];
 }) {
   const [search, setSearch] = useState('');
+  const indexedRows = rows.map((cells, index) => ({ cells, index }));
   const filtered = search.trim()
-    ? rows.filter((row) =>
-        row
+    ? indexedRows.filter(({ cells }) =>
+        cells
           .map(readNodeText)
           .join(' ')
           .toLowerCase()
           .includes(search.trim().toLowerCase())
       )
-    : rows;
+    : indexedRows;
   const displayed = filtered.slice(0, 100);
   return (
     <section className="border-border bg-card min-w-0 overflow-hidden rounded-lg border">
@@ -2986,8 +3023,8 @@ function ReportTable({
           </thead>
           <tbody className="divide-border divide-y">
             {displayed.length ? (
-              displayed.map((row, rowIndex) => (
-                <tr key={rowIndex} className="hover:bg-muted/20">
+              displayed.map(({ cells: row, index }) => (
+                <tr key={index} className={rowClasses?.[index] || 'hover:bg-muted/20'}>
                   {row.map((cell, cellIndex) => (
                     <td
                       key={cellIndex}

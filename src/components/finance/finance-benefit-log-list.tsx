@@ -71,6 +71,7 @@ export function BenefitLogList({
                     <span>Sessões: {log.sessions}</span>
                   ) : null}
                 </div>
+                {log.notes ? <p className="text-muted-foreground mt-2 whitespace-pre-wrap">{log.notes}</p> : null}
                 {href ? (
                   <p className="text-primary mt-2 text-[11px] font-medium">
                     Abrir registo original

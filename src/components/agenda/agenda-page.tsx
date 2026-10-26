@@ -898,6 +898,8 @@ export function AgendaPage({
   const [benefitSourceId, setBenefitSourceId] = useState('');
   const [benefitVoucherCode, setBenefitVoucherCode] = useState('');
   const [benefitVoucherPin, setBenefitVoucherPin] = useState('');
+  const [allowExpiredBenefit, setAllowExpiredBenefit] = useState(false);
+  const [expiryReason, setExpiryReason] = useState('');
   const [benefitCodeLookup, setBenefitCodeLookup] =
     useState<BenefitCodeLookup | null>(null);
   const [lookingUpBenefit, setLookingUpBenefit] = useState(false);
@@ -1267,6 +1269,8 @@ export function AgendaPage({
         roomId: firstRoom?.id ?? '',
       });
       setNewBenefitType('direct');
+      setAllowExpiredBenefit(false);
+      setExpiryReason('');
       setNewBenefitSourceId('');
       setNewBenefitVoucherCode('');
       setNewBenefitVoucherPin('');
@@ -1995,11 +1999,15 @@ export function AgendaPage({
     if (createdAppointment?.id && newBenefitType !== 'direct') {
       setAppointmentSaveStage('A reservar benefício…');
       const { error: benefitError } = await supabase.rpc(
-        'set_appointment_benefit',
+        newBenefitCodeLookup ? 'reserve_appointment_benefit_code' : 'set_appointment_benefit',
         {
           p_appointment_id: createdAppointment.id,
           p_benefit_type: newBenefitType,
           p_source_id: newBenefitSourceId,
+          p_code: newBenefitCodeLookup?.code,
+          p_pin: newBenefitVoucherPin.trim(),
+          p_allow_expired: isOwner && allowExpiredBenefit,
+          p_expiry_reason: expiryReason,
         }
       );
       if (benefitError) {
@@ -2427,11 +2435,15 @@ export function AgendaPage({
       setBenefitVoucherPin('');
       setBenefitCodeLookup(null);
       setLoadingBenefits(false);
+      setAllowExpiredBenefit(false);
+      setExpiryReason('');
     },
     [accountId, supabase]
   );
 
   async function lookupBenefitCode(rawCode?: string) {
+    setAllowExpiredBenefit(false);
+    setExpiryReason('');
     const code = (rawCode ?? editDraft?.couponCode ?? '').trim().toUpperCase();
     if (!code) {
       setBenefitCodeLookup(null);
@@ -2484,6 +2496,8 @@ export function AgendaPage({
   }
 
   async function lookupNewBenefitCode() {
+    setAllowExpiredBenefit(false);
+    setExpiryReason('');
     const code = newBenefitVoucherCode.trim().toUpperCase();
     if (!code) return;
     setLookingUpBenefit(true);
@@ -2523,12 +2537,14 @@ export function AgendaPage({
   }> {
     const rpcResult = await supabase.rpc('lookup_finance_benefit_code', {
       p_code: code,
+      p_include_expired: isOwner,
     });
     if (!rpcResult.error) {
       return {
         result: rpcResult.data
           ? {
               ...(rpcResult.data as BenefitCodeLookup),
+              label: `${(rpcResult.data as BenefitCodeLookup).label}${(rpcResult.data as BenefitCodeLookup).expires_at && new Date((rpcResult.data as BenefitCodeLookup).expires_at!).getTime() <= Date.now() ? ' · Expirado: exige autorização' : ''}`,
               lookup_mode: 'rpc',
             }
           : null,
@@ -3554,17 +3570,23 @@ export function AgendaPage({
             p_appointment_id: selectedAppointment.id,
             p_code: benefitCodeLookup?.code ?? benefitVoucherCode.trim(),
             p_pin: benefitVoucherPin.trim(),
+            p_allow_expired: isOwner && allowExpiredBenefit,
+            p_expiry_reason: expiryReason,
           })
         : benefitType === 'voucher' && !existingVoucherWithoutPin
           ? await supabase.rpc('reserve_appointment_voucher', {
               p_appointment_id: selectedAppointment.id,
               p_code: benefitVoucherCode.trim(),
               p_pin: benefitVoucherPin.trim(),
+              p_allow_expired: isOwner && allowExpiredBenefit,
+              p_expiry_reason: expiryReason,
             })
           : await supabase.rpc('set_appointment_benefit', {
               p_appointment_id: selectedAppointment.id,
               p_benefit_type: benefitType,
               p_source_id: benefitSourceId,
+              p_allow_expired: isOwner && allowExpiredBenefit,
+              p_expiry_reason: expiryReason,
             });
       if (reserveResult.error) {
         setSavingEdit(false);
@@ -3804,17 +3826,23 @@ export function AgendaPage({
             p_appointment_id: selectedAppointment.id,
             p_code: benefitCodeLookup?.code ?? benefitVoucherCode.trim(),
             p_pin: benefitVoucherPin.trim(),
+            p_allow_expired: isOwner && allowExpiredBenefit,
+            p_expiry_reason: expiryReason,
           })
         : benefitType === 'voucher'
           ? await supabase.rpc('reserve_appointment_voucher', {
               p_appointment_id: selectedAppointment.id,
               p_code: benefitVoucherCode.trim(),
               p_pin: benefitVoucherPin.trim(),
+              p_allow_expired: isOwner && allowExpiredBenefit,
+              p_expiry_reason: expiryReason,
             })
           : await supabase.rpc('set_appointment_benefit', {
               p_appointment_id: selectedAppointment.id,
               p_benefit_type: benefitType,
               p_source_id: benefitSourceId || null,
+              p_allow_expired: isOwner && allowExpiredBenefit,
+              p_expiry_reason: expiryReason,
             });
       if (benefitError) {
         setSavingEdit(false);
@@ -5043,6 +5071,7 @@ export function AgendaPage({
                           </span>
                         </div>
                       ) : null}
+                      {isOwner && benefitType !== 'direct' && <ExpiryAuthorization checked={allowExpiredBenefit} reason={expiryReason} onChecked={setAllowExpiredBenefit} onReason={setExpiryReason} />}
                       <div className="bg-muted grid grid-cols-3 gap-1 rounded-md p-1">
                         {(
                           [
@@ -5364,10 +5393,12 @@ export function AgendaPage({
                             <ActionButton
                               tone="emerald"
                               disabled={editDraft.status === 'cancelled' || Boolean(editDraft.paidAt) || appointmentOutstandingAmount(selectedAppointment) <= 0}
-                              active={Boolean(editDraft.paidAt)}
                               onClick={() => {if(!editDraft.paidAt && appointmentOutstandingAmount(selectedAppointment)>0)setPaymentChoiceOpen(true);}}
                             >
-                              <CreditCard className="size-4" /> Receber
+                              <CreditCard className="size-4" />
+                              {editDraft.paidAt || appointmentOutstandingAmount(selectedAppointment) <= 0
+                                ? 'Pago · sem saldo a receber'
+                                : 'Receber'}
                             </ActionButton>
                             <ActionButton
                               tone="amber"
@@ -6921,6 +6952,7 @@ export function AgendaPage({
                   )}
                 </Button>
               </div>
+              {isOwner && newBenefitType !== 'direct' && <ExpiryAuthorization checked={allowExpiredBenefit} reason={expiryReason} onChecked={setAllowExpiredBenefit} onReason={setExpiryReason} />}
               <div className="grid gap-3 sm:grid-cols-[260px_1fr]">
                 <div className="bg-muted grid grid-cols-3 gap-1 rounded-md p-1">
                   {(
@@ -8350,6 +8382,13 @@ function HeaderStatus({
   );
 }
 
+function ExpiryAuthorization({checked,reason,onChecked,onReason}: {checked:boolean;reason:string;onChecked:(checked:boolean)=>void;onReason:(reason:string)=>void}) {
+  return <div className="my-3 space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
+    <label className="flex items-start gap-2"><input type="checkbox" checked={checked} onChange={(event)=>onChecked(event.target.checked)} /><span>Autorizar benefício expirado apenas nesta marcação (proprietário)</span></label>
+    {checked && <><Input aria-label="Motivo da autorização de validade" placeholder="Motivo obrigatório (mínimo 5 caracteres)" maxLength={500} value={reason} onChange={(event)=>onReason(event.target.value)} /><p>A validade original mantém-se. O motivo e a autorização ficam registados. Saldo, PIN e modalidade continuam a ser validados.</p></>}
+  </div>;
+}
+
 function ActionButton({
   active,
   danger,
@@ -8382,7 +8421,9 @@ function ActionButton({
       disabled={disabled}
       className={cn(
         'inline-flex min-h-9 items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45',
-        active
+        disabled
+          ? 'border-border bg-muted text-muted-foreground'
+          : active
           ? danger
             ? 'border-red-500 bg-red-500 text-white'
             : tone === 'emerald'

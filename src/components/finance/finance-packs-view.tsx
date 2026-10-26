@@ -1,4 +1,5 @@
 import { Plus, PackageCheck } from 'lucide-react';
+import { BenefitValidityButton, useBenefitClock } from './benefit-validity-button';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ export function PacksView({
   canConfigure: boolean;
   onCreate: () => void;
 }) {
+  const now = useBenefitClock();
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
@@ -108,7 +110,7 @@ export function PacksView({
                           {item.pin_code ?? 'pendente'}
                         </p>
                       </div>
-                      <Badge variant="secondary">{item.status}</Badge>
+                      <Badge variant="secondary">{item.status === 'active' && item.expires_at && new Date(item.expires_at).getTime() <= now ? 'Expirado' : item.status}</Badge>
                     </div>
                     <div className="mt-3 grid grid-cols-3 overflow-hidden rounded-md border text-center">
                       <PackQuantity label="Compradas" value={purchased} />
@@ -133,6 +135,7 @@ export function PacksView({
                         ))}
                       </div>
                     ) : null}
+                    <BenefitValidityButton kind="pack" id={item.id} code={item.code} expiresAt={item.expires_at} status={item.status} />
                     <BenefitLogList
                       logs={logs.filter(
                         (log) => log.client_pack_id === item.id
