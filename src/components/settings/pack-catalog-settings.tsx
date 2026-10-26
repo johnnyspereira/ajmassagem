@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, PackageCheck, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Loader2, PackageCheck, Pencil, Plus, Trash2, Power } from 'lucide-react';
 import { toast } from 'sonner';
 import { CatalogOrderDialog } from './catalog-order-dialog';
 import { sortCatalog } from '@/lib/clinic/catalog-order';
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -42,6 +43,9 @@ export function PackCatalogSettings() {
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deletingPack, setDeletingPack] = useState<FinancePackCatalog | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [name, setName] = useState('');
   const [reference, setReference] = useState('');
   const [description, setDescription] = useState('');
@@ -209,6 +213,25 @@ export function PackCatalogSettings() {
     void load();
   }
 
+  async function deletePack() {
+    if (!deletingPack || deleting || !canEditSettings) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      const response = await fetch('/api/clinic/packs/delete', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: deletingPack.id }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Não foi possível excluir o pack.');
+      setDeletingPack(null);
+      toast.success('Pack excluído do catálogo.');
+      void load();
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Não foi possível excluir o pack.');
+    } finally { setDeleting(false); }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -287,7 +310,7 @@ export function PackCatalogSettings() {
                 ))}
               </div>
               {canEditSettings ? (
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -300,8 +323,11 @@ export function PackCatalogSettings() {
                     size="sm"
                     onClick={() => void toggle(pack)}
                   >
-                    {pack.is_active ? <Trash2 /> : <PackageCheck />}
+                    {pack.is_active ? <Power /> : <PackageCheck />}
                     {pack.is_active ? 'Desativar' : 'Ativar'}
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => {setDeleteError(''); setDeletingPack(pack);}}>
+                    <Trash2 /> Excluir
                   </Button>
                 </div>
               ) : null}
@@ -314,6 +340,19 @@ export function PackCatalogSettings() {
         </div>
       )}
 
+      <Dialog open={Boolean(deletingPack)} onOpenChange={(value) => {if (!value && !deleting) setDeletingPack(null);}}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Excluir pack?</DialogTitle>
+            <DialogDescription>O pack «{deletingPack?.name}» será removido definitivamente do catálogo. Esta ação não pode ser desfeita. Packs associados a vendas ou clientes devem ser desativados para preservar o histórico.</DialogDescription>
+          </DialogHeader>
+          {deleteError && <p role="alert" className="text-destructive rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">{deleteError}</p>}
+          <DialogFooter>
+            <Button variant="outline" disabled={deleting} onClick={() => setDeletingPack(null)}>Cancelar</Button>
+            <Button variant="destructive" disabled={deleting} onClick={() => void deletePack()}>{deleting ? <Loader2 className="animate-spin" /> : <Trash2 />} {deleting ? 'A excluir…' : 'Excluir pack'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>

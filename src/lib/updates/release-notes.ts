@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-26-delete-pack-catalog', date: '2026-10-26', category: 'Melhoria',
+    title: 'Excluir packs do catálogo da Clínica', areas: ['Definições', 'Clínica', 'Packs'],
+    summary: 'Packs sem utilização podem ser excluídos diretamente, com confirmação do nome antes de remover.',
+    changes: ['Nova ação Excluir ao lado de Editar e Ativar ou Desativar, disponível para administradores e proprietário.', 'Packs ligados a clientes ou vendas permanecem protegidos; Desativar continua a retirá-los de novas vendas sem apagar o histórico.'],
+    howTo: 'Em Definições → Clínica → Packs, escolha Excluir e confirme. Se existir utilização, use Desativar.',
+  },
+  {
     id: '2026-10-26-owner-benefit-validity', date: '2026-10-26', category: 'Melhoria',
     title: 'Proprietário pode gerir a validade e autorizar benefícios expirados', areas: ['Agenda', 'Vouchers', 'Packs'],
     summary: 'Alterar a validade ou autorizar o uso excecional numa marcação são decisões distintas, exclusivas do proprietário e registadas no histórico.',
