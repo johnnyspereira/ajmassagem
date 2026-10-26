@@ -89,7 +89,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "8f91112942d08f72157c525be600bc031f9e2e7a"
+          "value": "468b6b28b73e62fab36bba772d4a0beadf8a6740"
         }
       ],
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
@@ -99,7 +99,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "8f91112942d08f72157c525be600bc031f9e2e7a"
+          "value": "468b6b28b73e62fab36bba772d4a0beadf8a6740"
         }
       ],
       "regex": "^/_next/data(?:/(.*))(?:/)?$"
@@ -984,6 +984,12 @@
       "namedRegex": "^/api/clinic/external\\-calendars(?:/)?$"
     },
     {
+      "page": "/api/clinic/packs/delete",
+      "regex": "^/api/clinic/packs/delete(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/clinic/packs/delete(?:/)?$"
+    },
+    {
       "page": "/api/clinic/reminder-history",
       "regex": "^/api/clinic/reminder\\-history(?:/)?$",
       "routeKeys": {},
@@ -1710,5 +1716,5 @@
     "pathHeader": "x-nextjs-rewritten-path",
     "queryHeader": "x-nextjs-rewritten-query"
   },
-  "deploymentId": "8f91112942d08f72157c525be600bc031f9e2e7a"
+  "deploymentId": "468b6b28b73e62fab36bba772d4a0beadf8a6740"
 }
