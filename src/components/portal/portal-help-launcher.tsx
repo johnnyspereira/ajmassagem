@@ -17,16 +17,13 @@ export function PortalHelpLauncher({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="fixed right-4 bottom-20 z-50 lg:right-6 lg:bottom-6">
+    <div className="fixed right-4 bottom-[calc(80px+env(safe-area-inset-bottom))] z-40 min-[900px]:right-6 min-[900px]:bottom-6">
       {open && (
         <div className="bg-background mb-3 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-2xl border shadow-2xl">
           <div className="bg-primary text-primary-foreground p-5">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-medium opacity-80">
-                  CENTRAL DE AJUDA
-                </p>
-                <h2 className="mt-1 text-lg font-semibold">
+                <h2 className="text-lg font-semibold">
                   Olá! Como podemos ajudar?
                 </h2>
               </div>
@@ -35,6 +32,7 @@ export function PortalHelpLauncher({
                 size="icon"
                 className="text-primary-foreground hover:bg-white/10"
                 onClick={() => setOpen(false)}
+                aria-label="Fechar ajuda"
               >
                 <X />
               </Button>
@@ -84,9 +82,13 @@ export function PortalHelpLauncher({
         size="lg"
         className="rounded-full shadow-xl"
         onClick={() => setOpen((v) => !v)}
+        aria-label={open ? 'Fechar ajuda' : 'Precisa de ajuda?'}
+        aria-expanded={open}
       >
         {open ? <X /> : <MessageCircle />}
-        {open ? 'Fechar' : 'Precisa de ajuda?'}
+        <span className="hidden min-[900px]:inline">
+          {open ? 'Fechar' : 'Precisa de ajuda?'}
+        </span>
       </Button>
     </div>
   );

@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-27-portal-workspace-and-cancelled-forms', date: '2026-10-27', category: 'Melhoria',
+    title: 'Portal mais claro em todos os ecrãs e anamneses canceladas identificadas', areas: ['Portal', 'Anamnese'],
+    summary: 'O Portal passa a dar prioridade à próxima sessão e às tarefas do cliente, com navegação compacta e uma base visual comum nas várias áreas.',
+    changes: ['Menu superior no computador e cinco atalhos fixos no telemóvel; Menu reúne todas as áreas, perfil, ajuda e saída.', 'Entrada reorganizada em próxima sessão, fichas pendentes, pagamentos e dados do cliente; acesso a vouchers, packs, saldo e campanhas preservado.', 'Anamneses com pesquisa e filtros Todas, A preencher, Enviadas e Canceladas e expiradas. Fichas pendentes de sessões concluídas aparecem como Cancelada e deixam de oferecer preenchimento; respostas enviadas são preservadas.', 'Temas claro e escuro, formulários e diálogos ajustados a ecrãs pequenos, ajuda menos intrusiva e atualização manual do Portal.', 'Nas áreas de consulta, os dados são atualizados ao regressar à janela e a cada minuto enquanto visível, sem interromper formulários abertos.'],
+    howTo: 'Entre no Portal para consultar a próxima sessão e as tarefas. No telemóvel, use os atalhos inferiores e Menu para as restantes áreas. Em Fichas, filtre os estados para encontrar as pendentes, enviadas ou canceladas.',
+  },
+  {
     id: '2026-10-26-delete-pack-catalog', date: '2026-10-26', category: 'Melhoria',
     title: 'Excluir packs do catálogo da Clínica', areas: ['Definições', 'Clínica', 'Packs'],
     summary: 'Packs sem utilização podem ser excluídos diretamente, com confirmação do nome antes de remover.',

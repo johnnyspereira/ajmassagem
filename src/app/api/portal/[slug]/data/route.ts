@@ -1,5 +1,6 @@
 ﻿import { portalErrorResponse, requirePortalAccess } from '@/lib/portal/server';
 
+import { portalAnamnesisStatus } from '@/lib/portal/anamnesis-status';
 import {
   ONLINE_BOOKING_BUFFER_MS,
   onlineBusyAppointments,
@@ -63,7 +64,7 @@ export async function GET(
       admin
         .from('clinic_anamnesis_forms')
         .select(
-          'id,status,public_token,selected_modalities,answers,signature_name,submitted_at,reviewed_at,created_at,service:clinic_services(name,category),appointment:clinic_appointments!clinic_anamnesis_forms_appointment_id_fkey(scheduled_start)'
+          'id,status,public_token,selected_modalities,answers,signature_name,submitted_at,reviewed_at,created_at,service:clinic_services(name,category),appointment:clinic_appointments!clinic_anamnesis_forms_appointment_id_fkey(scheduled_start,status)'
         )
         .eq('account_id', access.account_id)
         .eq('contact_id', access.contact_id)
@@ -372,7 +373,10 @@ export async function GET(
       business: account.data,
       client: contact.data,
       appointments: appointments.data ?? [],
-      anamnesis: anamnesisForms.data ?? [],
+      anamnesis: (anamnesisForms.data ?? []).map((form) => ({
+        ...form,
+        status: portalAnamnesisStatus(form),
+      })),
       catalog: {
         services: services.data ?? [],
         professionals: professionals.data ?? [],

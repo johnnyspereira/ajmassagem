@@ -3,6 +3,11 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import styles from './portal-workspace.module.css';
+import {
+  portalAnamnesisLabel,
+  portalAnamnesisStatus,
+} from '@/lib/portal/anamnesis-status';
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -43,6 +48,10 @@ import {
   Megaphone,
   Moon,
   Sun,
+  Menu,
+  X,
+  Search,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -180,7 +189,10 @@ type PortalData = {
     reviewed_at: string | null;
     created_at: string;
     service?: { name?: string | null; category?: string | null } | null;
-    appointment?: { scheduled_start?: string | null } | null;
+    appointment?: {
+      scheduled_start?: string | null;
+      status?: string | null;
+    } | null;
   }>;
   catalog: {
     services: Array<{
@@ -420,7 +432,11 @@ type PortalData = {
     ends_at: string | null;
     capacity: number | null;
     enrollmentCount: number;
-    enrollment: null | { status: string; joined_at: string; sale_id?: string | null };
+    enrollment: null | {
+      status: string;
+      joined_at: string;
+      sale_id?: string | null;
+    };
   }>;
   privacy: {
     policyVersion: string;
@@ -446,17 +462,18 @@ function packIsAvailable(pack: PortalData['benefits']['packs'][number]) {
   );
 }
 
-function voucherIsAvailable(voucher: PortalData['benefits']['vouchers'][number]) {
+function voucherIsAvailable(
+  voucher: PortalData['benefits']['vouchers'][number]
+) {
   if (voucher.status !== 'active') return false;
-  if (voucher.expires_at && new Date(voucher.expires_at).getTime() <= Date.now())
+  if (
+    voucher.expires_at &&
+    new Date(voucher.expires_at).getTime() <= Date.now()
+  )
     return false;
   return voucher.voucher_type === 'service'
     ? Number(voucher.remaining_uses ?? 0) > 0
     : Number(voucher.current_balance ?? 0) > 0;
-}
-
-function activeVouchersCount(data: PortalData) {
-  return data.benefits.vouchers.filter(voucherIsAvailable).length;
 }
 
 const STATUS: Record<string, string> = {
@@ -492,8 +509,15 @@ export function ClientPortal({ slug }: { slug: string }) {
   const [password, setPassword] = useState('');
   const [passwordSent, setPasswordSent] = useState(false);
   const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
-  const [portalPermissionsRequired, setPortalPermissionsRequired] = useState(false);
+  const [portalPermissionsRequired, setPortalPermissionsRequired] =
+    useState(false);
   const [tab, setTab] = useState<PortalTab>('home');
+  const [menuOpen, setMenuOpen] = useState(false);
+  function navigatePortal(next: PortalTab) {
+    setTab(next);
+    setMenuOpen(false);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [supportRequestKey, setSupportRequestKey] = useState(0);
   const [bookingOpen, setBookingOpen] = useState(false);
@@ -503,9 +527,11 @@ export function ClientPortal({ slug }: { slug: string }) {
   const [bookingProfessionalId, setBookingProfessionalId] = useState('');
   const [guestBookingOpen, setGuestBookingOpen] = useState(false);
   const [guestBookingServiceId, setGuestBookingServiceId] = useState('');
-  const [guestBookingProfessionalId, setGuestBookingProfessionalId] = useState('');
+  const [guestBookingProfessionalId, setGuestBookingProfessionalId] =
+    useState('');
   const [privacyUnderstood, setPrivacyUnderstood] = useState(false);
   const [savingPrivacyNotice, setSavingPrivacyNotice] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [portalTheme, setPortalTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
@@ -583,6 +609,44 @@ export function ClientPortal({ slug }: { slug: string }) {
   }, [data, slug]);
 
   useEffect(() => {
+    if (
+      !data?.client.id ||
+      !['home', 'appointments', 'anamnesis', 'benefits'].includes(tab)
+    )
+      return;
+    const controller = new AbortController();
+    let running = false;
+    const refreshVisible = async () => {
+      if (
+        running ||
+        document.visibilityState !== 'visible' ||
+        document.querySelector('[role="dialog"]')
+      )
+        return;
+      running = true;
+      try {
+        const response = await fetch(
+          `/api/portal/${encodeURIComponent(slug)}/data`,
+          { cache: 'no-store', signal: controller.signal }
+        );
+        if (response.ok) setData((await response.json()) as PortalData);
+        else if ([401, 403].includes(response.status)) setData(null);
+      } catch {
+        /* Keep the last successful view during a temporary connection failure. */
+      } finally {
+        running = false;
+      }
+    };
+    const timer = window.setInterval(() => void refreshVisible(), 60000);
+    window.addEventListener('focus', refreshVisible);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshVisible);
+    };
+  }, [data?.client.id, slug, tab]);
+
+  useEffect(() => {
     async function bootstrapPortal() {
       if (!slug.trim()) return;
       const params = new URLSearchParams(window.location.search);
@@ -627,7 +691,11 @@ export function ClientPortal({ slug }: { slug: string }) {
         setGuestBookingOpen(true);
         params.delete('book');
         const search = params.toString();
-        window.history.replaceState({}, '', `${window.location.pathname}${search ? `?${search}` : ''}`);
+        window.history.replaceState(
+          {},
+          '',
+          `${window.location.pathname}${search ? `?${search}` : ''}`
+        );
       }
     }
 
@@ -684,7 +752,8 @@ export function ClientPortal({ slug }: { slug: string }) {
   }
 
   async function requestPassword(delivery: 'email' | 'whatsapp' = 'email') {
-    if (!email.trim()) return toast.error('Informe primeiro o seu email ou WhatsApp.');
+    if (!email.trim())
+      return toast.error('Informe primeiro o seu email ou WhatsApp.');
     setClaiming(true);
     const response = await fetch(
       `/api/portal/${encodeURIComponent(slug)}/password`,
@@ -717,13 +786,18 @@ export function ClientPortal({ slug }: { slug: string }) {
   }
 
   async function refreshData() {
-    const response = await fetch(
-      `/api/portal/${encodeURIComponent(slug)}/data`,
-      { cache: 'no-store' }
-    );
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error);
-    setData(payload as PortalData);
+    setRefreshing(true);
+    try {
+      const response = await fetch(
+        `/api/portal/${encodeURIComponent(slug)}/data`,
+        { cache: 'no-store' }
+      );
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error);
+      setData(payload as PortalData);
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   if (loading) return <PortalLoading />;
@@ -782,7 +856,8 @@ export function ClientPortal({ slug }: { slug: string }) {
     .filter((item) => item.voucher_type !== 'service')
     .reduce<Record<string, number>>((balances, item) => {
       const currency = item.currency || data.business.default_currency;
-      balances[currency] = (balances[currency] ?? 0) + Number(item.current_balance ?? 0);
+      balances[currency] =
+        (balances[currency] ?? 0) + Number(item.current_balance ?? 0);
       return balances;
     }, {});
   const packSessions = data.benefits.packs
@@ -807,9 +882,7 @@ export function ClientPortal({ slug }: { slug: string }) {
     const payload = await response.json().catch(() => ({}));
     setSavingPrivacyNotice(false);
     if (!response.ok) {
-      toast.error(
-        payload.error || 'Não foi possível registar a confirmação.'
-      );
+      toast.error(payload.error || 'Não foi possível registar a confirmação.');
       return;
     }
     setData((current) =>
@@ -824,13 +897,13 @@ export function ClientPortal({ slug }: { slug: string }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#f6f7f9] pb-20 text-[#17191c] [--background:#ffffff] [--border:#dde1e7] [--card:#ffffff] [--foreground:#17191c] [--input:#d0d5dd] [--muted-foreground:#667085] [--muted:#f1f3f5] [--popover-foreground:#17191c] [--popover:#ffffff] lg:pb-0">
+    <div className={styles.portal} data-jp-portal data-theme={portalTheme}>
       <Dialog open={!data.privacy.noticeAccepted}>
         <DialogContent
           className="overflow-hidden border-0 p-0 sm:max-w-xl"
           showCloseButton={false}
         >
-          <div className="bg-gradient-to-br from-violet-700 via-purple-700 to-indigo-800 px-6 py-7 text-white">
+          <div className="bg-[#153d30] px-6 py-7 text-white">
             <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/25">
               <ShieldCheck className="size-6" />
             </div>
@@ -846,13 +919,21 @@ export function ClientPortal({ slug }: { slug: string }) {
           <div className="space-y-4 px-6 py-5">
             <div className="grid gap-3 sm:grid-cols-3">
               {[
-                ['Só o necessário', 'Usamos os dados para gerir os seus serviços.'],
-                ['Sob o seu controlo', 'Pode consultar, corrigir ou pedir a eliminação.'],
+                [
+                  'Só o necessário',
+                  'Usamos os dados para gerir os seus serviços.',
+                ],
+                [
+                  'Sob o seu controlo',
+                  'Pode consultar, corrigir ou pedir a eliminação.',
+                ],
                 ['Marketing opcional', 'As campanhas dependem da sua escolha.'],
               ].map(([title, detail]) => (
                 <div key={title} className="rounded-xl border bg-slate-50 p-3">
                   <p className="text-sm font-semibold">{title}</p>
-                  <p className="text-muted-foreground mt-1 text-xs leading-5">{detail}</p>
+                  <p className="text-muted-foreground mt-1 text-xs leading-5">
+                    {detail}
+                  </p>
                 </div>
               ))}
             </div>
@@ -868,149 +949,173 @@ export function ClientPortal({ slug }: { slug: string }) {
                 checked={privacyUnderstood}
                 onChange={(event) => setPrivacyUnderstood(event.target.checked)}
               />
-              <span>Li e compreendi a informação sobre o tratamento dos meus dados.</span>
+              <span>
+                Li e compreendi a informação sobre o tratamento dos meus dados.
+              </span>
             </label>
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
-              <Button variant="ghost" render={<a href={data.privacy.policyUrl} target="_blank" rel="noreferrer" />}>
+              <Button
+                variant="ghost"
+                render={
+                  <a
+                    href={data.privacy.policyUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  />
+                }
+              >
                 <BookOpen /> Ler política completa
               </Button>
               <Button
                 disabled={!privacyUnderstood || savingPrivacyNotice}
                 onClick={() => void acknowledgePrivacyNotice()}
               >
-                {savingPrivacyNotice ? <Loader2 className="animate-spin" /> : <ShieldCheck />}
+                {savingPrivacyNotice ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <ShieldCheck />
+                )}
                 Confirmar e entrar
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
-      <aside className="border-border bg-background fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r lg:flex">
-        <div className="border-border flex h-20 items-center border-b px-5">
-          <Brand business={data.business} />
-        </div>
-        <div className="px-4 py-5">
-          <div className="flex items-center gap-3">
-            {data.client.avatar_url ? (
-              <img
-                src={data.client.avatar_url}
-                alt=""
-                className="size-11 rounded-full object-cover"
-              />
-            ) : (
-              <span className="bg-primary/10 text-primary flex size-11 items-center justify-center rounded-full font-semibold">
-                {(data.client.name || 'C').slice(0, 1).toUpperCase()}
-              </span>
-            )}
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">
-                {data.client.name || 'Cliente'}
-              </p>
-              <p className="text-muted-foreground truncate text-xs">
-                {data.client.client_reference
-                  ? `Cliente ${data.client.client_reference}`
-                  : data.client.email}
-              </p>
-            </div>
-          </div>
-        </div>
-        <nav className="flex-1 px-3">
-          <PortalNav tab={tab} setTab={setTab} features={data.settings} />
-        </nav>
-        <div className="border-border space-y-3 border-t p-4">
-          <div className="bg-muted/60 flex items-start gap-2.5 rounded-md p-3">
-            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" />
-            <p className="text-muted-foreground text-[11px] leading-4">
-              Área privada e protegida. Os seus dados permanecem ligados à sua
-              ficha de cliente.
-            </p>
-          </div>
-          <Button
-            variant="ghost"
-            className="w-full justify-start"
-            onClick={() => void signOut()}
+      <a
+        href="#portal-content"
+        className="focus:bg-background sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:p-3"
+      >
+        Saltar para o conteúdo
+      </a>
+      <header className={styles.header}>
+        <div className={styles.topbar}>
+          <button
+            type="button"
+            className={styles.brand}
+            onClick={() => navigatePortal('home')}
+            aria-label="Ir para o início do Portal"
           >
-            <LogOut /> Terminar sessão
-          </Button>
-        </div>
-      </aside>
-
-      <div className="lg:pl-64">
-        <header className="border-border bg-background/95 sticky top-0 z-30 border-b backdrop-blur">
-          <div className="flex h-16 items-center gap-3 px-4 md:px-7">
-            <div className="lg:hidden">
-              <Brand business={data.business} />
-            </div>
-            <div className="hidden lg:block">
-              <p className="text-muted-foreground text-xs">Portal 360</p>
-              <p className="text-sm font-semibold">{portalTabLabel(tab)}</p>
-            </div>
-            <div className="ml-auto hidden items-center gap-2 sm:flex">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() =>
-                  setPortalTheme((current) =>
-                    current === 'dark' ? 'light' : 'dark'
-                  )
-                }
-                title={
-                  portalTheme === 'dark'
-                    ? 'Usar tema claro'
-                    : 'Usar tema escuro'
-                }
-              >
-                {portalTheme === 'dark' ? <Sun /> : <Moon />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative"
-                onClick={() => setTab('notifications')}
-                title="Notificações"
-              >
-                <Bell />
-                {unreadNotifications > 0 && (
-                  <span className="bg-destructive text-destructive-foreground absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full text-[10px] font-bold">
-                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                  </span>
-                )}
-              </Button>
-              <span className="border-border bg-background flex items-center gap-2 rounded-md border px-3 py-2 text-xs">
-                <LockKeyhole className="size-3.5 text-emerald-600" /> Sessão
-                segura
-              </span>
-            </div>
+            <Brand business={data.business} />
+          </button>
+          <div className={styles.identity}>
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Atualizar Portal"
+              disabled={refreshing}
+              onClick={() =>
+                void refreshData().catch(() =>
+                  toast.error('Não foi possível atualizar. Tente novamente.')
+                )
+              }
+            >
+              <RefreshCw className={refreshing ? 'animate-spin' : ''} />
+            </Button>
+            {data.settings.bookingEnabled &&
+              !['home', 'appointments'].includes(tab) && (
+                <Button
+                  className="hidden min-[900px]:inline-flex"
+                  onClick={() => openBooking()}
+                >
+                  <CalendarCheck /> Nova marcação
+                </Button>
+              )}
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={
+                portalTheme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'
+              }
               onClick={() =>
                 setPortalTheme((current) =>
                   current === 'dark' ? 'light' : 'dark'
                 )
               }
-              title={
-                portalTheme === 'dark'
-                  ? 'Usar tema claro'
-                  : 'Usar tema escuro'
-              }
-              className="sm:hidden"
             >
               {portalTheme === 'dark' ? <Sun /> : <Moon />}
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => void signOut()}
-              title="Sair"
-              className="lg:hidden"
+              className="relative"
+              onClick={() => navigatePortal('notifications')}
+              aria-label={
+                'Notificações' +
+                (unreadNotifications
+                  ? ': ' + unreadNotifications + ' por ler'
+                  : '')
+              }
             >
-              <LogOut />
+              <Bell />
+              {unreadNotifications > 0 && (
+                <span className="bg-destructive absolute top-0 right-0 grid size-4 place-items-center rounded-full text-[9px] text-white">
+                  {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                </span>
+              )}
             </Button>
+            <button
+              type="button"
+              className={styles.account}
+              onClick={() => navigatePortal('profile')}
+              aria-label="Abrir perfil e privacidade"
+            >
+              {data.client.avatar_url ? (
+                <img src={data.client.avatar_url} alt="" />
+              ) : (
+                <span className={styles.avatar}>
+                  {(data.client.name || 'C').slice(0, 1).toUpperCase()}
+                </span>
+              )}
+              <span className={styles.accountText}>
+                <strong>{data.client.name || 'Cliente'}</strong>
+                <span>O meu Portal 360</span>
+              </span>
+            </button>
           </div>
-        </header>
-
-        <main className="mx-auto max-w-[1440px] px-4 py-6 md:px-7 md:py-8">
+        </div>
+        <nav
+          className={styles.desktopNav}
+          aria-label="Navegação principal do Portal"
+        >
+          {(
+            [
+              { id: 'home', label: 'Início', icon: Home },
+              { id: 'appointments', label: 'Marcações', icon: CalendarDays },
+              { id: 'anamnesis', label: 'Anamneses', icon: ClipboardList },
+              ...(data.settings.benefitsEnabled
+                ? [{ id: 'benefits', label: 'Benefícios e saldo', icon: Gift }]
+                : []),
+              ...(data.settings.financialEnabled
+                ? [{ id: 'finance', label: 'Pagamentos', icon: ReceiptText }]
+                : []),
+            ] as Array<{ id: PortalTab; label: string; icon: typeof Home }>
+          ).map(({ id, label, icon: Icon }) => (
+            <Button
+              key={id}
+              variant="ghost"
+              aria-current={tab === id ? 'page' : undefined}
+              onClick={() => navigatePortal(id)}
+            >
+              <Icon />
+              {label}
+            </Button>
+          ))}
+          <Button
+            variant="ghost"
+            onClick={() => setMenuOpen(true)}
+            aria-haspopup="dialog"
+          >
+            <Menu /> Mais
+          </Button>
+        </nav>
+      </header>
+      <div>
+        <main
+          id="portal-content"
+          aria-label={portalTabLabel(tab)}
+          tabIndex={-1}
+          className={styles.content}
+        >
           {tab === 'home' && (
             <HomeView
               data={data}
@@ -1020,7 +1125,7 @@ export function ClientPortal({ slug }: { slug: string }) {
               monetaryVoucherBalances={monetaryVoucherBalances}
               packSessions={packSessions}
               onBook={() => openBooking()}
-              onNavigate={setTab}
+              onNavigate={navigatePortal}
             />
           )}
           {tab === 'appointments' && (
@@ -1063,7 +1168,7 @@ export function ClientPortal({ slug }: { slug: string }) {
           {tab === 'notifications' && (
             <PortalNotifications
               slug={slug}
-              onNavigate={(next) => setTab(next as PortalTab)}
+              onNavigate={(next) => navigatePortal(next as PortalTab)}
               onUnreadChange={setUnreadNotifications}
             />
           )}
@@ -1071,82 +1176,70 @@ export function ClientPortal({ slug }: { slug: string }) {
         </main>
       </div>
 
-      <nav className="border-border bg-background fixed right-0 bottom-0 left-0 z-30 flex overflow-x-auto border-t lg:hidden">
+      <nav className={styles.mobileNav} aria-label="Navegação móvel do Portal">
         <MobileNav
           icon={Home}
           label="Início"
           active={tab === 'home'}
-          onClick={() => setTab('home')}
+          onClick={() => navigatePortal('home')}
         />
         <MobileNav
           icon={CalendarDays}
-          label="Agenda"
+          label="Marcações"
           active={tab === 'appointments'}
-          onClick={() => setTab('appointments')}
+          onClick={() => navigatePortal('appointments')}
         />
         <MobileNav
           icon={ClipboardList}
-          label="Anamnese"
+          label="Fichas"
           active={tab === 'anamnesis'}
-          onClick={() => setTab('anamnesis')}
+          onClick={() => navigatePortal('anamnesis')}
         />
-        {data.settings.benefitsEnabled && (
+        {data.settings.benefitsEnabled ? (
           <MobileNav
             icon={Gift}
             label="Benefícios"
             active={tab === 'benefits'}
-            onClick={() => setTab('benefits')}
+            onClick={() => navigatePortal('benefits')}
           />
-        )}
-        {data.settings.referralsEnabled && (
+        ) : (
           <MobileNav
-            icon={Share2}
-            label="Indicar"
-            active={tab === 'referrals'}
-            onClick={() => setTab('referrals')}
+            icon={UserRound}
+            label="Perfil"
+            active={tab === 'profile'}
+            onClick={() => navigatePortal('profile')}
           />
         )}
         <MobileNav
-          icon={Megaphone}
-          label="Campanhas"
-          active={tab === 'campaigns'}
-          onClick={() => setTab('campaigns')}
-        />
-        {data.settings.financialEnabled && (
-          <MobileNav
-            icon={ReceiptText}
-            label="Financeiro"
-            active={tab === 'finance'}
-            onClick={() => setTab('finance')}
-          />
-        )}
-        <MobileNav
-          icon={Bell}
-          label={
-            unreadNotifications ? `Avisos (${unreadNotifications})` : 'Avisos'
-          }
-          active={tab === 'notifications'}
-          onClick={() => setTab('notifications')}
-        />
-        <MobileNav
-          icon={BookOpen}
-          label="Ajuda"
-          active={tab === 'help'}
-          onClick={() => setTab('help')}
-        />
-        <MobileNav
-          icon={LifeBuoy}
-          label="Suporte"
-          active={tab === 'support'}
-          onClick={() => setTab('support')}
-        />
-        <MobileNav
-          icon={UserRound}
-          label="Perfil"
-          active={tab === 'profile'}
-          onClick={() => setTab('profile')}
+          icon={Menu}
+          label="Menu"
+          active={menuOpen}
+          onClick={() => setMenuOpen(true)}
         />
       </nav>
+      <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>O seu Portal</DialogTitle>
+            <DialogDescription>
+              Escolha o que precisa de consultar ou gerir.
+            </DialogDescription>
+          </DialogHeader>
+          <PortalNav
+            tab={tab}
+            setTab={navigatePortal}
+            features={data.settings}
+          />
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+            <span className="text-muted-foreground flex items-center gap-2 text-xs">
+              <LockKeyhole className="size-4" /> Sessão privada
+            </span>
+            <Button variant="outline" onClick={() => void signOut()}>
+              <LogOut /> Terminar sessão
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <BookingDialog
         key={bookingBenefitCode || 'standard-booking'}
@@ -1222,8 +1315,20 @@ function PortalLogin({
   onGuestBooking: () => void;
 }) {
   return (
-    <main className="grid min-h-screen bg-[#f6f7f9] text-[#17191c] [--background:#ffffff] [--border:#dde1e7] [--card:#ffffff] [--foreground:#17191c] [--input:#d0d5dd] [--muted-foreground:#667085] [--muted:#f1f3f5] [--popover-foreground:#17191c] [--popover:#ffffff] lg:grid-cols-[minmax(340px,0.82fr)_minmax(520px,1.18fr)]">
-      <section className="hidden min-h-screen flex-col justify-between bg-[#16251c] p-10 text-white lg:flex xl:p-14">
+    <main
+      data-jp-portal
+      className={cn(
+        styles.portal,
+        styles.login,
+        'grid lg:grid-cols-[minmax(340px,.9fr)_minmax(520px,1.1fr)]'
+      )}
+    >
+      <section
+        className={cn(
+          styles.loginPanel,
+          'hidden min-h-screen flex-col justify-between p-10 text-white lg:flex xl:p-14'
+        )}
+      >
         <Brand business={portal.business} inverse />
         <div className="max-w-md">
           <span className="bg-background/10 flex size-12 items-center justify-center rounded-md">
@@ -1256,7 +1361,12 @@ function PortalLogin({
         </p>
       </section>
 
-      <section className="flex min-h-screen items-center justify-center p-5 sm:p-8">
+      <section
+        className={cn(
+          styles.loginForm,
+          'flex min-h-screen items-center justify-center px-5 sm:px-8'
+        )}
+      >
         <div className="w-full max-w-md">
           <div className="mb-10 lg:hidden">
             <Brand business={portal.business} />
@@ -1268,7 +1378,8 @@ function PortalLogin({
             Bem-vindo ao Portal 360
           </h2>
           <p className="text-muted-foreground mt-2 text-sm leading-6">
-            Entre com o email da sua ficha de cliente e a sua palavra-passe.
+            Entre com o email ou WhatsApp da sua ficha de cliente e a sua
+            palavra-passe.
           </p>
 
           <form onSubmit={onSubmit} className="mt-8 space-y-4">
@@ -1416,8 +1527,21 @@ function GuestBookingDialog({
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error);
         setCatalog(payload as GuestCatalog);
-        setServiceId(payload.services?.some((service: { id: string }) => service.id === preferredServiceId) ? preferredServiceId : payload.services?.[0]?.id || '');
-        setProfessionalId(payload.professionals?.some((professional: { id: string }) => professional.id === preferredProfessionalId) ? preferredProfessionalId : payload.professionals?.[0]?.id || '');
+        setServiceId(
+          payload.services?.some(
+            (service: { id: string }) => service.id === preferredServiceId
+          )
+            ? preferredServiceId
+            : payload.services?.[0]?.id || ''
+        );
+        setProfessionalId(
+          payload.professionals?.some(
+            (professional: { id: string }) =>
+              professional.id === preferredProfessionalId
+          )
+            ? preferredProfessionalId
+            : payload.professionals?.[0]?.id || ''
+        );
       })
       .catch((error) =>
         toast.error(
@@ -1783,7 +1907,7 @@ function PortalPermissionsDialog({
     <Dialog open={open} onOpenChange={() => undefined}>
       <DialogContent className="sm:max-w-lg" showCloseButton={false}>
         <DialogHeader>
-          <span className="mb-2 flex size-11 items-center justify-center rounded-md bg-primary/10 text-primary">
+          <span className="bg-primary/10 text-primary mb-2 flex size-11 items-center justify-center rounded-md">
             <ShieldCheck className="size-5" />
           </span>
           <DialogTitle>Escolha como podemos contactar</DialogTitle>
@@ -1816,7 +1940,11 @@ function PortalPermissionsDialog({
           />
         </div>
         <DialogFooter>
-          <Button className="w-full" onClick={() => void save()} disabled={saving}>
+          <Button
+            className="w-full"
+            onClick={() => void save()}
+            disabled={saving}
+          >
             {saving ? <Loader2 className="animate-spin" /> : <Check />}
             Guardar preferências e continuar
           </Button>
@@ -1876,7 +2004,7 @@ function PortalNav({
     { id: 'profile', label: 'Perfil e privacidade', icon: UserRound },
   ];
   return (
-    <div className="space-y-1">
+    <div className={styles.menuGrid}>
       {items
         .filter(
           ({ id }) =>
@@ -1893,6 +2021,7 @@ function PortalNav({
               tab === id &&
                 'bg-primary/10 text-primary hover:bg-primary/15 font-medium'
             )}
+            aria-current={tab === id ? 'page' : undefined}
             onClick={() => setTab(id)}
           >
             <Icon />
@@ -1939,215 +2068,192 @@ function HomeView({
   onNavigate: (tab: PortalTab) => void;
 }) {
   const next = upcoming[0];
-  const completedProfileFields = [
-    data.client.name,
-    data.client.email,
-    data.client.phone,
-    data.client.birth_date,
-    data.client.tax_id,
-    data.client.city,
-  ].filter(Boolean).length;
-  const profileProgress = Math.round((completedProfileFields / 6) * 100);
+  const pendingForms = data.anamnesis.filter(
+    (form) => portalAnamnesisStatus(form) === 'pending'
+  ).length;
+  const pendingPayments = data.finance.sales.filter(
+    (sale) =>
+      ['open', 'partially_paid'].includes(sale.status) &&
+      Number(sale.balance_due) > 0
+  ).length;
   return (
-    <div className="space-y-7">
-      <section className="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <section className={styles.welcome}>
         <div>
-          <p className="text-muted-foreground text-sm">
-            Olá, {data.client.name?.split(' ')[0] || 'cliente'}
-          </p>
-          <h1 className="mt-1 text-3xl font-semibold">
-            O seu espaço de bem-estar
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Tudo o que precisa para acompanhar a sua relação com{' '}
-            {data.business.name}.
+          <h1>Olá, {data.client.name?.split(' ')[0] || 'cliente'}.</h1>
+          <p>
+            O seu bem-estar, com tudo em ordem. Acompanhe as sessões, prepare a
+            sua visita e encontre o que precisa.
           </p>
         </div>
         {data.settings.bookingEnabled && (
-          <Button onClick={onBook}>
-            <CalendarCheck /> Nova marcação
+          <Button size="lg" onClick={onBook}>
+            <CalendarCheck /> Marcar uma sessão
           </Button>
         )}
       </section>
-      {data.settings.referralsEnabled && data.referrals.program && (
-        <section className="relative overflow-hidden rounded-xl bg-gradient-to-r from-amber-50 via-orange-50 to-emerald-50 p-6 ring-1 ring-amber-200/80 dark:from-amber-950/30 dark:via-orange-950/20 dark:to-emerald-950/20 dark:ring-amber-800/50">
-          <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex max-w-3xl items-start gap-4">
-              <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-sm">
-                <UserPlus className="size-6" />
-              </span>
+      <div className={styles.priority}>
+        <section className={styles.nextSession} aria-label="Próxima sessão">
+          {next ? (
+            <>
+              <div className={styles.sessionDate}>
+                <CalendarDays />
+                <span>{formatPortalDate(next.scheduled_start)}</span>
+              </div>
               <div>
-                <span className="text-xs font-semibold tracking-wide text-amber-700 uppercase dark:text-amber-300">
-                  Campanha promocional
-                </span>
-                <h2 className="mt-1 text-xl font-semibold">
-                  {data.referrals.program.headline}
-                </h2>
-                <p className="text-muted-foreground mt-1 text-sm leading-6">
-                  {data.referrals.program.description}
+                <h2>{one(next.service)?.name || 'A sua próxima sessão'}</h2>
+                <p className="mt-2">
+                  Com{' '}
+                  {one(next.professional)?.full_name ||
+                    'profissional a confirmar'}
                 </p>
-                <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium">
-                  <span className="rounded-full bg-white/80 px-3 py-1.5 text-amber-800 ring-1 ring-amber-200 dark:bg-black/20 dark:text-amber-200 dark:ring-amber-800">
-                    Ganha{' '}
-                    {referralRewardLabel(
-                      data.referrals.program.referrer_reward_type,
-                      Number(data.referrals.program.referrer_reward_value),
-                      data.business.default_currency
-                    )}
-                  </span>
-                  <span className="rounded-full bg-white/80 px-3 py-1.5 text-emerald-800 ring-1 ring-emerald-200 dark:bg-black/20 dark:text-emerald-200 dark:ring-emerald-800">
-                    O amigo recebe{' '}
-                    {referralRewardLabel(
-                      data.referrals.program.friend_reward_type,
-                      Number(data.referrals.program.friend_reward_value),
-                      data.business.default_currency
-                    )}
-                  </span>
-                </div>
               </div>
-            </div>
-            <Button
-              size="lg"
-              className="shrink-0 bg-amber-600 text-white hover:bg-amber-700"
-              onClick={() => onNavigate('referrals')}
-            >
-              <Share2 /> Começar a indicar
-            </Button>
-          </div>
-          <Gift className="absolute -right-8 -bottom-10 size-40 rotate-12 text-amber-500/10" />
+              <div>
+                <Status status={next.status} />
+              </div>
+              <div className={styles.sessionActions}>
+                <Button onClick={() => onNavigate('appointments')}>
+                  Consultar marcação <ChevronRight />
+                </Button>
+                {pendingForms > 0 && (
+                  <Button onClick={() => onNavigate('anamnesis')}>
+                    <ClipboardList /> Preparar a visita
+                  </Button>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <CalendarDays className="size-7 text-[#e4d4a6]" />
+              <div>
+                <h2>A sua próxima pausa começa aqui.</h2>
+                <p className="mt-3">
+                  Ainda não tem sessões futuras marcadas. Consulte as suas
+                  marcações ou escolha um horário disponível.
+                </p>
+              </div>
+              <div className={styles.sessionActions}>
+                {data.settings.bookingEnabled ? (
+                  <Button onClick={onBook}>
+                    Escolher um horário <ChevronRight />
+                  </Button>
+                ) : (
+                  <Button onClick={() => onNavigate('appointments')}>
+                    Ver as minhas marcações <ChevronRight />
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
         </section>
-      )}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <PortalMetric
-          icon={CalendarDays}
-          label="Próximas sessões"
-          value={String(upcoming.length)}
-          detail={
-            next
-              ? formatPortalDate(next.scheduled_start)
-              : 'Sem marcações futuras'
-          }
-        />
-        <PortalMetric
-          icon={WalletCards}
-          label="Cartão-saldo"
-          value={formatCurrency(walletBalance, data.business.default_currency)}
-          detail="Saldo disponível"
-        />
-        <PortalMetric
-          icon={Gift}
-          label="Vouchers de serviço ativos"
-          value={`${serviceVoucherUses} sessões`}
-          detail={`${activeVouchersCount(data)} vouchers · ${Object.keys(monetaryVoucherBalances).length} moedas em cartões de valor`}
-        />
-        <PortalMetric
-          icon={PackageCheck}
-          label="Packs"
-          value={`${packSessions} sessões`}
-          detail="Sessões disponíveis"
-        />
-      </div>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
-        {next ? (
-          <section className="overflow-hidden rounded-lg bg-[#16251c] text-white">
-            <div className="grid min-h-64 gap-6 p-6 sm:grid-cols-[1fr_auto] sm:p-7">
-              <div className="flex flex-col justify-between">
-                <div>
-                  <span className="text-xs font-semibold text-emerald-300 uppercase">
-                    Próxima sessão
-                  </span>
-                  <h2 className="mt-3 text-2xl font-semibold">
-                    {one(next.service)?.name || 'Sessão'}
-                  </h2>
-                  <p className="mt-2 text-sm text-white/65">
-                    {one(next.professional)?.full_name ||
-                      'Profissional a confirmar'}
-                  </p>
-                </div>
-                <div className="mt-8 flex flex-wrap items-center gap-3">
-                  <div className="rounded-md bg-white/10 px-4 py-3">
-                    <p className="text-xs text-white/55">Data e hora</p>
-                    <p className="mt-1 font-medium">
-                      {formatPortalDate(next.scheduled_start)}
-                    </p>
-                  </div>
-                  <Status status={next.status} />
-                </div>
-              </div>
-              <span className="flex size-14 items-center justify-center rounded-md bg-emerald-300 text-[#16251c]">
-                <CalendarCheck className="size-6" />
-              </span>
-            </div>
-          </section>
-        ) : (
-          <EmptyState
-            icon={CalendarDays}
-            title="Ainda não há sessões futuras"
-            detail="Escolha o serviço, profissional e horário que melhor se adaptam a si."
-            action="Agendar sessão"
-            onAction={onBook}
-          />
-        )}
-
-        <section className="border-border bg-background rounded-lg border p-5">
-          <div className="flex items-center justify-between">
-            <span className="flex size-10 items-center justify-center rounded-md bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300">
-              <CircleUserRound className="size-5" />
-            </span>
-            <strong className="text-sm">{profileProgress}%</strong>
-          </div>
-          <h2 className="mt-5 font-semibold">A sua ficha de cliente</h2>
-          <p className="text-muted-foreground mt-1 text-sm leading-6">
-            Mantenha os dados pessoais e fiscais atualizados para agilizar
-            marcações e faturas.
-          </p>
-          <div className="bg-muted mt-4 h-2 overflow-hidden rounded-full">
-            <div
-              className="h-full rounded-full bg-violet-500"
-              style={{ width: `${profileProgress}%` }}
-            />
-          </div>
-          <Button
-            variant="outline"
-            className="mt-5 w-full"
-            onClick={() => onNavigate('profile')}
+        <section className={styles.tasks} aria-label="O que precisa de atenção">
+          <h2>Antes da sua visita</h2>
+          <button
+            className={styles.task}
+            onClick={() => onNavigate('anamnesis')}
           >
-            Atualizar perfil <ChevronRight />
-          </Button>
+            <ClipboardList />
+            <span>
+              <strong>
+                {pendingForms
+                  ? `${pendingForms} ficha${pendingForms === 1 ? '' : 's'} por preencher`
+                  : 'As suas fichas de anamnese'}
+              </strong>
+              <small>
+                {pendingForms
+                  ? 'Complete os dados antes da sessão.'
+                  : 'Consulte as respostas e o estado de cada ficha.'}
+              </small>
+            </span>
+            <ChevronRight />
+          </button>
+          {data.settings.financialEnabled && (
+            <button
+              className={styles.task}
+              onClick={() => onNavigate('finance')}
+            >
+              <ReceiptText />
+              <span>
+                <strong>
+                  {pendingPayments
+                    ? `${pendingPayments} pagamento${pendingPayments === 1 ? '' : 's'} por regularizar`
+                    : 'Pagamentos e documentos'}
+                </strong>
+                <small>
+                  {pendingPayments
+                    ? 'Consulte os valores e as opções disponíveis.'
+                    : 'Encontre as compras, recibos e pedidos de fatura.'}
+                </small>
+              </span>
+              <ChevronRight />
+            </button>
+          )}
+          <button className={styles.task} onClick={() => onNavigate('profile')}>
+            <UserRound />
+            <span>
+              <strong>Os seus dados e privacidade</strong>
+              <small>Reveja os contactos e escolha as suas permissões.</small>
+            </span>
+            <ChevronRight />
+          </button>
         </section>
       </div>
-
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-semibold">Acesso rápido</h2>
+      <div className={styles.summary} aria-label="Resumo do seu Portal">
+        <button onClick={() => onNavigate('appointments')}>
+          <span>Próximas marcações</span>
+          <strong>{upcoming.length}</strong>
+        </button>
+        {data.settings.benefitsEnabled && (
+          <>
+            <button onClick={() => onNavigate('benefits')}>
+              <span>Sessões em vouchers e packs</span>
+              <strong>{serviceVoucherUses + packSessions}</strong>
+            </button>
+            <button onClick={() => onNavigate('benefits')}>
+              <span>
+                Cartão-saldo
+                {Object.keys(monetaryVoucherBalances).length > 0
+                  ? ' · e cartões de valor disponíveis'
+                  : ''}
+              </span>
+              <strong>
+                {formatCurrency(walletBalance, data.business.default_currency)}
+              </strong>
+            </button>
+          </>
+        )}
+      </div>
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">Mais no seu Portal</h2>
+          <Button variant="ghost" onClick={() => onNavigate('help')}>
+            <BookOpen /> Precisa de ajuda?
+          </Button>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <QuickLink
-            icon={CalendarDays}
-            label="As minhas marcações"
-            detail="Próximas e anteriores"
-            onClick={() => onNavigate('appointments')}
-          />
-          <QuickLink
-            icon={Gift}
-            label="Benefícios"
-            detail="Vouchers, packs e saldo"
-            onClick={() => onNavigate('benefits')}
-          />
-          <QuickLink
-            icon={ReceiptText}
-            label="Financeiro"
-            detail="Compras e pagamentos"
-            onClick={() => onNavigate('finance')}
+            icon={Megaphone}
+            label="Campanhas exclusivas"
+            detail="Consulte as ofertas disponíveis para si"
+            onClick={() => onNavigate('campaigns')}
           />
           {data.settings.referralsEnabled && (
             <QuickLink
               icon={Share2}
-              label="Indique e ganhe"
-              detail="Partilhe o seu código e acompanhe"
+              label="Indique um amigo"
+              detail={
+                data.referrals.program?.headline ||
+                'Partilhe e acompanhe as suas indicações'
+              }
               onClick={() => onNavigate('referrals')}
             />
           )}
+          <QuickLink
+            icon={LifeBuoy}
+            label="Falar com a equipa"
+            detail="Envie um pedido e acompanhe a resposta"
+            onClick={() => onNavigate('support')}
+          />
         </div>
       </section>
     </div>
@@ -2163,7 +2269,9 @@ function AppointmentsView({
   onBook: () => void;
   onRefresh: () => Promise<void>;
 }) {
-  const [rescheduleTarget, setRescheduleTarget] = useState<PortalData['appointments'][number] | null>(null);
+  const [rescheduleTarget, setRescheduleTarget] = useState<
+    PortalData['appointments'][number] | null
+  >(null);
   const [requestedStart, setRequestedStart] = useState('');
   const [requestReason, setRequestReason] = useState('');
   const [requesting, setRequesting] = useState(false);
@@ -2187,7 +2295,11 @@ function AppointmentsView({
     cursor.setHours(12, 0, 0, 0);
     const maxDays = Math.min(Math.max(data.settings.bookingAdvanceDays, 1), 30);
 
-    for (let offset = 1; offset <= maxDays && suggestions.length < 6; offset += 1) {
+    for (
+      let offset = 1;
+      offset <= maxDays && suggestions.length < 6;
+      offset += 1
+    ) {
       const candidate = new Date(cursor);
       candidate.setDate(cursor.getDate() + offset);
       const date = portalDateInput(candidate);
@@ -2200,7 +2312,12 @@ function AppointmentsView({
       suggestions.push({ date, time });
     }
     return suggestions;
-  }, [data.availability, data.catalog.professionals, data.settings.bookingAdvanceDays, rescheduleTarget]);
+  }, [
+    data.availability,
+    data.catalog.professionals,
+    data.settings.bookingAdvanceDays,
+    rescheduleTarget,
+  ]);
   const future = data.appointments
     .filter(
       (item) =>
@@ -2249,18 +2366,36 @@ function AppointmentsView({
     }
     setRequesting(true);
     try {
-      const response = await fetch(`/api/portal/${data.settings.slug || ''}/appointments`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ appointmentId: rescheduleTarget.id, action: 'reschedule', requestedStart: new Date(requestedStart).toISOString(), reason: requestReason }),
-      });
+      const response = await fetch(
+        `/api/portal/${data.settings.slug || ''}/appointments`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            appointmentId: rescheduleTarget.id,
+            action: 'reschedule',
+            requestedStart: new Date(requestedStart).toISOString(),
+            reason: requestReason,
+          }),
+        }
+      );
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || 'Não foi possível enviar o pedido.');
-      toast.success('Pedido enviado. A alteração aguarda aprovação do profissional.');
+      if (!response.ok)
+        throw new Error(payload.error || 'Não foi possível enviar o pedido.');
+      toast.success(
+        'Pedido enviado. A alteração aguarda aprovação do profissional.'
+      );
       setRescheduleTarget(null);
       await onRefresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Não foi possível enviar o pedido.');
-    } finally { setRequesting(false); }
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível enviar o pedido.'
+      );
+    } finally {
+      setRequesting(false);
+    }
   }
   return (
     <div className="space-y-6">
@@ -2282,21 +2417,38 @@ function AppointmentsView({
         onReschedule={openReschedule}
       />
       <AppointmentList title="Histórico" appointments={past} />
-      <Dialog open={Boolean(rescheduleTarget)} onOpenChange={(open) => !open && setRescheduleTarget(null)}>
+      <Dialog
+        open={Boolean(rescheduleTarget)}
+        onOpenChange={(open) => !open && setRescheduleTarget(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Pedir alteração de horário</DialogTitle>
-            <DialogDescription>A marcação mantém-se como está até o profissional aprovar o pedido.</DialogDescription>
+            <DialogDescription>
+              A marcação mantém-se como está até o profissional aprovar o
+              pedido.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="rounded-lg bg-muted p-3 text-sm">
-              <strong>{one(rescheduleTarget?.service)?.name || 'Sessão'}</strong>
-              <p className="text-muted-foreground mt-1">Atual: {rescheduleTarget ? formatPortalDate(rescheduleTarget.scheduled_start) : ''}</p>
+            <div className="bg-muted rounded-lg p-3 text-sm">
+              <strong>
+                {one(rescheduleTarget?.service)?.name || 'Sessão'}
+              </strong>
+              <p className="text-muted-foreground mt-1">
+                Atual:{' '}
+                {rescheduleTarget
+                  ? formatPortalDate(rescheduleTarget.scheduled_start)
+                  : ''}
+              </p>
             </div>
             <div className="space-y-2">
               <div>
-                <p className="text-sm font-medium">Sugestões com disponibilidade</p>
-                <p className="text-muted-foreground text-xs">Escolha uma opção livre ou indique abaixo outra data e hora.</p>
+                <p className="text-sm font-medium">
+                  Sugestões com disponibilidade
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  Escolha uma opção livre ou indique abaixo outra data e hora.
+                </p>
               </div>
               {rescheduleSuggestions.length ? (
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -2308,30 +2460,69 @@ function AppointmentsView({
                         key={value}
                         type="button"
                         variant={selected ? 'default' : 'outline'}
-                        className="h-auto justify-start whitespace-normal px-3 py-2 text-left text-sm"
+                        className="h-auto justify-start px-3 py-2 text-left text-sm whitespace-normal"
                         onClick={() => setRequestedStart(value)}
                       >
                         <CalendarDays className="size-4 shrink-0" />
-                        {new Date(`${value}:00`).toLocaleString('pt-PT', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        {new Date(`${value}:00`).toLocaleString('pt-PT', {
+                          weekday: 'short',
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
                       </Button>
                     );
                   })}
                 </div>
               ) : (
-                <p className="text-muted-foreground rounded-md bg-muted/50 p-3 text-xs">Não encontrámos sugestões livres nos próximos dias. Pode indicar a data e hora que prefere.</p>
+                <p className="text-muted-foreground bg-muted/50 rounded-md p-3 text-xs">
+                  Não encontrámos sugestões livres nos próximos dias. Pode
+                  indicar a data e hora que prefere.
+                </p>
               )}
             </div>
-            <label className="grid gap-1.5 text-sm font-medium">Data e hora pretendidas
-              <Input type="datetime-local" value={requestedStart} min={portalDateTimeInput(new Date())} max={`${maxBookingDate(data.settings.bookingAdvanceDays)}T23:59`} onChange={(event) => setRequestedStart(event.target.value)} />
-              <span className="text-muted-foreground text-xs font-normal">Também pode propor outro horário; a alteração só será aplicada após aprovação.</span>
+            <label className="grid gap-1.5 text-sm font-medium">
+              Data e hora pretendidas
+              <Input
+                type="datetime-local"
+                value={requestedStart}
+                min={portalDateTimeInput(new Date())}
+                max={`${maxBookingDate(data.settings.bookingAdvanceDays)}T23:59`}
+                onChange={(event) => setRequestedStart(event.target.value)}
+              />
+              <span className="text-muted-foreground text-xs font-normal">
+                Também pode propor outro horário; a alteração só será aplicada
+                após aprovação.
+              </span>
             </label>
-            <label className="grid gap-1.5 text-sm font-medium">Motivo <span className="font-normal text-muted-foreground">(opcional)</span>
-              <Input value={requestReason} maxLength={500} onChange={(event) => setRequestReason(event.target.value)} placeholder="Ex.: indisponibilidade no horário atual" />
+            <label className="grid gap-1.5 text-sm font-medium">
+              Motivo{' '}
+              <span className="text-muted-foreground font-normal">
+                (opcional)
+              </span>
+              <Input
+                value={requestReason}
+                maxLength={500}
+                onChange={(event) => setRequestReason(event.target.value)}
+                placeholder="Ex.: indisponibilidade no horário atual"
+              />
             </label>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRescheduleTarget(null)} disabled={requesting}>Voltar</Button>
-            <Button onClick={() => void requestReschedule()} disabled={requesting}>{requesting && <Loader2 className="animate-spin" />} Enviar pedido</Button>
+            <Button
+              variant="outline"
+              onClick={() => setRescheduleTarget(null)}
+              disabled={requesting}
+            >
+              Voltar
+            </Button>
+            <Button
+              onClick={() => void requestReschedule()}
+              disabled={requesting}
+            >
+              {requesting && <Loader2 className="animate-spin" />} Enviar pedido
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2378,14 +2569,22 @@ function AppointmentList({
                   {onCancel &&
                     ['scheduled', 'confirmed'].includes(item.status) && (
                       <>
-                      {onReschedule && <Button variant="secondary" size="sm" onClick={() => onReschedule(item)}><Pencil /> Alterar horário</Button>}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onCancel(item.id)}
-                      >
-                        Cancelar
-                      </Button>
+                        {onReschedule && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => onReschedule(item)}
+                          >
+                            <Pencil /> Alterar horário
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onCancel(item.id)}
+                        >
+                          Cancelar
+                        </Button>
                       </>
                     )}
                 </div>
@@ -2411,18 +2610,34 @@ function AppointmentList({
 }
 
 function AnamnesisView({ data }: { data: PortalData }) {
-  const statusLabel = {
-    pending: 'A preencher',
-    submitted: 'Enviada',
-    reviewed: 'Revista pela equipa',
-    expired: 'Expirada',
-    revoked: 'Revogada',
-  };
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const group = (status: string) =>
+    status === 'pending'
+      ? 'pending'
+      : ['submitted', 'reviewed'].includes(status)
+        ? 'submitted'
+        : 'closed';
+  const forms = data.anamnesis.map((form) => ({
+    ...form,
+    status: portalAnamnesisStatus(form),
+  }));
+  const visible = forms
+    .filter(
+      (form) =>
+        (filter === 'all' || group(form.status) === filter) &&
+        `${one(form.service)?.name || ''} ${form.selected_modalities?.join(' ') || ''}`
+          .toLocaleLowerCase('pt')
+          .includes(search.trim().toLocaleLowerCase('pt'))
+    )
+    .sort(
+      (a, b) => Number(b.status === 'pending') - Number(a.status === 'pending')
+    );
   return (
-    <div className="space-y-6">
+    <div>
       <PageHeading
-        title="Fichas de anamnese"
-        detail="Consulte as fichas clínicas associadas às suas sessões e complete as que estão pendentes."
+        title="As suas fichas de anamnese"
+        detail="Prepare a sua sessão e consulte o histórico. As fichas canceladas ficam identificadas e já não podem ser preenchidas."
         action={
           data.settings.anamnesisPublicSlug ? (
             <Button
@@ -2431,85 +2646,127 @@ function AnamnesisView({ data }: { data: PortalData }) {
                 window.open('/anamnese', '_blank', 'noopener,noreferrer')
               }
             >
-              <ClipboardList /> Preencher ficha geral
+              <ClipboardList /> Ficha geral
             </Button>
           ) : undefined
         }
       />
-      {data.anamnesis.length ? (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {data.anamnesis.map((form) => {
-            const service = Array.isArray(form.service)
-              ? form.service[0]
-              : form.service;
-            const appointment = Array.isArray(form.appointment)
-              ? form.appointment[0]
-              : form.appointment;
+      <div className={styles.filterBar} aria-label="Filtrar fichas de anamnese">
+        {[
+          ['all', 'Todas'],
+          ['pending', 'A preencher'],
+          ['submitted', 'Enviadas'],
+          ['closed', 'Canceladas e expiradas'],
+        ].map(([value, label]) => (
+          <button
+            type="button"
+            key={value}
+            aria-pressed={filter === value}
+            onClick={() => setFilter(value)}
+          >
+            {label} ·{' '}
+            {
+              forms.filter(
+                (form) => value === 'all' || group(form.status) === value
+              ).length
+            }
+          </button>
+        ))}
+        <label className="relative ml-auto min-w-0 flex-1 basis-48">
+          <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+          <Input
+            aria-label="Pesquisar fichas de anamnese"
+            placeholder="Pesquisar modalidade…"
+            className="pl-9"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>
+      </div>
+      {visible.length ? (
+        <div className={styles.formList}>
+          {visible.map((form) => {
+            const appointment = one(form.appointment),
+              service = one(form.service);
             const answers = Object.entries(form.answers || {}).filter(
               ([, value]) => value !== '' && value !== false
             );
+            const closed = ['revoked', 'expired'].includes(form.status);
             return (
               <article
                 key={form.id}
-                className="border-border bg-background overflow-hidden rounded-lg border"
+                className={styles.formItem}
+                data-status={form.status}
               >
-                <div className="border-border flex items-start gap-3 border-b p-5">
-                  <span className="flex size-10 items-center justify-center rounded-md bg-emerald-50 text-emerald-700">
-                    <ClipboardList className="size-5" />
+                <div className={styles.formHeader}>
+                  <span className={styles.formIcon}>
+                    {closed ? (
+                      <X className="size-5" />
+                    ) : form.status === 'pending' ? (
+                      <ClipboardList className="size-5" />
+                    ) : (
+                      <FileCheck2 className="size-5" />
+                    )}
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <h2 className="font-semibold">
-                      {service?.name || 'Ficha clínica'}
-                    </h2>
-                    <p className="text-muted-foreground mt-1 text-xs">
+                  <div>
+                    <h2>{service?.name || 'Ficha clínica'}</h2>
+                    <p>
                       {appointment?.scheduled_start
                         ? formatPortalDate(appointment.scheduled_start)
                         : new Date(form.created_at).toLocaleDateString('pt-PT')}
                     </p>
                   </div>
                   <Badge
-                    variant={
-                      form.status === 'pending' ? 'secondary' : 'default'
+                    variant="outline"
+                    className={
+                      closed
+                        ? 'border-border bg-muted text-muted-foreground'
+                        : form.status === 'pending'
+                          ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200'
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200'
                     }
                   >
-                    {statusLabel[form.status]}
+                    {portalAnamnesisLabel(form.status)}
                   </Badge>
                 </div>
-                <div className="space-y-4 p-5">
+                <div className={styles.formBody}>
                   {form.selected_modalities?.length > 0 && (
-                    <div>
-                      <p className="text-muted-foreground text-xs">
-                        Modalidades
-                      </p>
-                      <p className="mt-1 text-sm">
-                        {form.selected_modalities.join(' · ')}
-                      </p>
-                    </div>
+                    <p>{form.selected_modalities.join(' · ')}</p>
                   )}
-                  {answers.length > 0 && form.status !== 'pending' && (
-                    <details className="border-border rounded-md border">
-                      <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
-                        Ver cópia das respostas ({answers.length})
-                      </summary>
-                      <div className="border-border space-y-2 border-t p-3">
-                        {answers.map(([key, value]) => (
-                          <div key={key} className="text-xs">
-                            <span className="text-muted-foreground">
-                              {anamnesisAnswerLabel(key)}
-                            </span>
-                            <p className="mt-0.5">
-                              {Array.isArray(value)
-                                ? value.join(', ')
-                                : String(value)}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
+                  {closed && (
+                    <p>
+                      {form.status === 'expired'
+                        ? 'O prazo desta ficha terminou. O link já não está disponível para preenchimento.'
+                        : appointment?.status === 'completed'
+                          ? 'O atendimento foi concluído. O link desta ficha foi desativado automaticamente.'
+                          : 'Esta ficha foi cancelada e o link já não está disponível para preenchimento.'}
+                    </p>
                   )}
+                  {['submitted', 'reviewed'].includes(form.status) &&
+                    answers.length > 0 && (
+                      <details className="rounded-lg border">
+                        <summary className="px-4 text-sm font-medium">
+                          Consultar respostas ({answers.length})
+                        </summary>
+                        <dl className="grid gap-4 border-t p-4 sm:grid-cols-2">
+                          {answers.map(([key, value]) => (
+                            <div key={key}>
+                              <dt className="text-muted-foreground text-xs">
+                                {anamnesisAnswerLabel(key)}
+                              </dt>
+                              <dd className="mt-1 text-sm">
+                                {Array.isArray(value)
+                                  ? value.join(', ')
+                                  : String(value)}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </details>
+                    )}
                   {form.status === 'pending' && (
                     <Button
-                      className="w-full"
+                      className="w-full sm:w-fit"
                       onClick={() =>
                         window.open(
                           `/anamnese/${form.public_token}`,
@@ -2518,13 +2775,16 @@ function AnamnesisView({ data }: { data: PortalData }) {
                         )
                       }
                     >
-                      <Pencil /> Preencher agora
+                      <Pencil /> Preencher ficha
                     </Button>
                   )}
                   {form.submitted_at && (
-                    <p className="text-muted-foreground text-xs">
-                      Assinada por {form.signature_name || 'cliente'} em{' '}
+                    <p>
+                      Enviada em{' '}
                       {new Date(form.submitted_at).toLocaleString('pt-PT')}
+                      {form.signature_name
+                        ? ` · Assinada por ${form.signature_name}`
+                        : ''}
                     </p>
                   )}
                 </div>
@@ -2535,8 +2795,16 @@ function AnamnesisView({ data }: { data: PortalData }) {
       ) : (
         <EmptyState
           icon={ClipboardList}
-          title="Ainda não existem fichas clínicas"
-          detail="Quando uma sessão exigir anamnese, a ficha ficará disponível aqui e no link enviado pelo WhatsApp."
+          title={
+            forms.length
+              ? 'Nenhuma ficha neste filtro'
+              : 'Ainda não existem fichas de anamnese'
+          }
+          detail={
+            forms.length
+              ? 'Escolha outro estado ou ajuste a pesquisa.'
+              : 'As fichas associadas às suas sessões ficam disponíveis aqui.'
+          }
         />
       )}
     </div>
@@ -2575,7 +2843,11 @@ function BenefitsView({
   serviceVoucherUses: number;
   monetaryVoucherBalances: Record<string, number>;
   packSessions: number;
-  onUse: (benefitCode?: string, serviceId?: string, benefitPin?: string) => void;
+  onUse: (
+    benefitCode?: string,
+    serviceId?: string,
+    benefitPin?: string
+  ) => void;
 }) {
   const [showArchived, setShowArchived] = useState(false);
   const activeVouchers = data.benefits.vouchers.filter(voucherIsAvailable);
@@ -2620,7 +2892,9 @@ function BenefitsView({
           <PortalMetric
             icon={BadgeEuro}
             label="Cartões-presente"
-            value={Object.entries(monetaryVoucherBalances).map(([currency, amount]) => formatCurrency(amount, currency)).join(' · ')}
+            value={Object.entries(monetaryVoucherBalances)
+              .map(([currency, amount]) => formatCurrency(amount, currency))
+              .join(' · ')}
             detail="Saldo monetário disponível"
           />
         )}
@@ -2638,61 +2912,64 @@ function BenefitsView({
           </strong>
         </div>
         <div className="divide-border divide-y">
-        {data.benefits.walletTransactions.some((item) => !item.voucher_id) ? (
-          data.benefits.walletTransactions.filter((item) => !item.voucher_id).slice(0, 20).map((item) => {
-              const incoming = ['credit', 'refund'].includes(
-                item.transaction_type
-              );
-              return (
-                <div
-                  key={item.id}
-                  className="flex items-center gap-3 px-4 py-3"
-                >
-                  <span
-                    className={cn(
-                      'flex size-9 items-center justify-center rounded-md',
-                      incoming
-                        ? 'bg-emerald-500/10 text-emerald-700'
-                        : 'bg-amber-500/10 text-amber-700'
-                    )}
+          {data.benefits.walletTransactions.some((item) => !item.voucher_id) ? (
+            data.benefits.walletTransactions
+              .filter((item) => !item.voucher_id)
+              .slice(0, 20)
+              .map((item) => {
+                const incoming = ['credit', 'refund'].includes(
+                  item.transaction_type
+                );
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-3 px-4 py-3"
                   >
-                    {incoming ? (
-                      <ArrowDownLeft className="size-4" />
-                    ) : (
-                      <ArrowUpRight className="size-4" />
-                    )}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
-                      {item.description ||
-                        walletTransactionLabel(item.transaction_type)}
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      {formatPortalDate(item.created_at)} · saldo após o
-                      movimento{' '}
+                    <span
+                      className={cn(
+                        'flex size-9 items-center justify-center rounded-md',
+                        incoming
+                          ? 'bg-emerald-500/10 text-emerald-700'
+                          : 'bg-amber-500/10 text-amber-700'
+                      )}
+                    >
+                      {incoming ? (
+                        <ArrowDownLeft className="size-4" />
+                      ) : (
+                        <ArrowUpRight className="size-4" />
+                      )}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {item.description ||
+                          walletTransactionLabel(item.transaction_type)}
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        {formatPortalDate(item.created_at)} · saldo após o
+                        movimento{' '}
+                        {formatCurrency(
+                          Number(item.balance_after),
+                          data.benefits.wallet?.currency ||
+                            data.business.default_currency
+                        )}
+                      </p>
+                    </div>
+                    <strong
+                      className={cn(
+                        'text-sm',
+                        incoming ? 'text-emerald-700' : 'text-amber-700'
+                      )}
+                    >
+                      {incoming ? '+' : '-'}
                       {formatCurrency(
-                        Number(item.balance_after),
+                        Math.abs(Number(item.amount)),
                         data.benefits.wallet?.currency ||
                           data.business.default_currency
                       )}
-                    </p>
+                    </strong>
                   </div>
-                  <strong
-                    className={cn(
-                      'text-sm',
-                      incoming ? 'text-emerald-700' : 'text-amber-700'
-                    )}
-                  >
-                    {incoming ? '+' : '-'}
-                    {formatCurrency(
-                      Math.abs(Number(item.amount)),
-                      data.benefits.wallet?.currency ||
-                        data.business.default_currency
-                    )}
-                  </strong>
-                </div>
-              );
-            })
+                );
+              })
           ) : (
             <p className="text-muted-foreground p-5 text-sm">
               Ainda não existem movimentos no cartão-saldo.
@@ -2788,7 +3065,11 @@ function VoucherPortalCard({
 }: {
   item: PortalData['benefits']['vouchers'][number];
   data: PortalData;
-  onUse?: (benefitCode: string, serviceId?: string, benefitPin?: string) => void;
+  onUse?: (
+    benefitCode: string,
+    serviceId?: string,
+    benefitPin?: string
+  ) => void;
 }) {
   const monetary = item.voucher_type !== 'service';
   const initial = monetary
@@ -2887,7 +3168,11 @@ function PackPortalCard({
 }: {
   pack: PortalData['benefits']['packs'][number];
   data: PortalData;
-  onUse?: (benefitCode: string, serviceId?: string, benefitPin?: string) => void;
+  onUse?: (
+    benefitCode: string,
+    serviceId?: string,
+    benefitPin?: string
+  ) => void;
 }) {
   const total = (pack.balances || []).reduce(
     (sum, balance) => sum + Number(balance.total_sessions || 0),
@@ -3180,9 +3465,20 @@ function FinanceView({
                   {paymentLink?.payment_url && Number(sale.balance_due) > 0 && (
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
                       <div>
-                        <p className="font-semibold text-emerald-900">Pagamento online disponível</p>
+                        <p className="font-semibold text-emerald-900">
+                          Pagamento online disponível
+                        </p>
                         <p className="mt-1 text-xs text-emerald-800">
-                          Pague {formatCurrency(Number(paymentLink.amount), paymentLink.currency)} em segurança através da {paymentLink.provider === 'sumup' ? 'SumUp' : 'plataforma de pagamentos'}.
+                          Pague{' '}
+                          {formatCurrency(
+                            Number(paymentLink.amount),
+                            paymentLink.currency
+                          )}{' '}
+                          em segurança através da{' '}
+                          {paymentLink.provider === 'sumup'
+                            ? 'SumUp'
+                            : 'plataforma de pagamentos'}
+                          .
                         </p>
                       </div>
                       <Button
@@ -3544,7 +3840,7 @@ function CampaignsView({
                 </button>
               )}
               {!campaign.image_url && (
-                <div className="relative flex h-40 items-center justify-center overflow-hidden bg-gradient-to-br from-violet-700 via-fuchsia-600 to-amber-400 text-white">
+                <div className="relative flex h-40 items-center justify-center overflow-hidden bg-[#153d30] text-white">
                   <div className="absolute -top-16 -right-12 size-44 rounded-full bg-white/15 blur-2xl" />
                   <Sparkles className="size-14 drop-shadow-lg" />
                 </div>
@@ -3555,7 +3851,9 @@ function CampaignsView({
                     {campaign.badge_text && (
                       <Badge className="mb-2">{campaign.badge_text}</Badge>
                     )}
-                    <h2 className="text-2xl font-bold tracking-tight">{campaign.title}</h2>
+                    <h2 className="text-2xl font-bold tracking-tight">
+                      {campaign.title}
+                    </h2>
                     <p className="text-muted-foreground mt-1 text-sm">
                       {campaign.summary}
                     </p>
@@ -3563,9 +3861,11 @@ function CampaignsView({
                   <Megaphone className="text-primary size-6 shrink-0" />
                 </div>
                 {campaign.benefit_text && (
-                  <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-4 text-emerald-900">
+                  <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
                     <Gift className="size-5 shrink-0" />
-                    <strong className="text-base">{campaign.benefit_text}</strong>
+                    <strong className="text-base">
+                      {campaign.benefit_text}
+                    </strong>
                   </div>
                 )}
                 <p className="text-sm leading-6 whitespace-pre-line">
@@ -3594,7 +3894,7 @@ function CampaignsView({
                   </details>
                 )}
                 <Button
-                  className="h-12 w-full rounded-xl bg-gradient-to-r from-violet-700 to-fuchsia-600 text-base font-semibold shadow-lg shadow-violet-200 hover:from-violet-800 hover:to-fuchsia-700"
+                  className="h-12 w-full rounded-lg text-base font-semibold"
                   disabled={Boolean(joined || full || joining)}
                   onClick={() => void join(campaign.id)}
                 >
@@ -4497,12 +4797,20 @@ function BookingDialog({
   onCreated: () => Promise<void>;
 }) {
   const [serviceId, setServiceId] = useState(() =>
-    data.catalog.services.some((service) => service.id === preferredServiceId) ? preferredServiceId : data.catalog.services.length === 1 ? data.catalog.services[0].id : ''
+    data.catalog.services.some((service) => service.id === preferredServiceId)
+      ? preferredServiceId
+      : data.catalog.services.length === 1
+        ? data.catalog.services[0].id
+        : ''
   );
   const [professionalId, setProfessionalId] = useState(() =>
-    data.catalog.professionals.some((professional) => professional.id === preferredProfessionalId) ? preferredProfessionalId : data.catalog.professionals.length === 1
-      ? data.catalog.professionals[0].id
-      : ''
+    data.catalog.professionals.some(
+      (professional) => professional.id === preferredProfessionalId
+    )
+      ? preferredProfessionalId
+      : data.catalog.professionals.length === 1
+        ? data.catalog.professionals[0].id
+        : ''
   );
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
@@ -4517,36 +4825,67 @@ function BookingDialog({
     // streaming in; synchronous state updates in this effect caused a second
     // render during React's commit phase.
     const reset = window.setTimeout(() => {
-      setServiceId(data.catalog.services.some((service) => service.id === preferredServiceId) ? preferredServiceId : data.catalog.services.length === 1 ? data.catalog.services[0].id : '');
-      setProfessionalId(data.catalog.professionals.some((professional) => professional.id === preferredProfessionalId) ? preferredProfessionalId : data.catalog.professionals.length === 1 ? data.catalog.professionals[0].id : '');
+      setServiceId(
+        data.catalog.services.some(
+          (service) => service.id === preferredServiceId
+        )
+          ? preferredServiceId
+          : data.catalog.services.length === 1
+            ? data.catalog.services[0].id
+            : ''
+      );
+      setProfessionalId(
+        data.catalog.professionals.some(
+          (professional) => professional.id === preferredProfessionalId
+        )
+          ? preferredProfessionalId
+          : data.catalog.professionals.length === 1
+            ? data.catalog.professionals[0].id
+            : ''
+      );
       setBenefitCode(preferredBenefitCode);
       setBenefitPin(preferredBenefitPin);
       setTime('');
     }, 0);
     return () => window.clearTimeout(reset);
-  }, [data.catalog.professionals, data.catalog.services, open, preferredBenefitCode, preferredBenefitPin, preferredProfessionalId, preferredServiceId]);
+  }, [
+    data.catalog.professionals,
+    data.catalog.services,
+    open,
+    preferredBenefitCode,
+    preferredBenefitPin,
+    preferredProfessionalId,
+    preferredServiceId,
+  ]);
 
   const service = data.catalog.services.find((item) => item.id === serviceId);
   const professional = data.catalog.professionals.find(
     (item) => item.id === professionalId
   );
-  const compatibleVouchers = data.benefits.vouchers.filter((item) =>
-    voucherIsAvailable(item) &&
-    (item.voucher_type === 'service'
-      ? one(item.service)?.id === serviceId && Number(item.remaining_uses) > 0
-      : Number(item.current_balance) > 0)
+  const compatibleVouchers = data.benefits.vouchers.filter(
+    (item) =>
+      voucherIsAvailable(item) &&
+      (item.voucher_type === 'service'
+        ? one(item.service)?.id === serviceId && Number(item.remaining_uses) > 0
+        : Number(item.current_balance) > 0)
   );
-  const compatiblePacks = data.benefits.packs.filter((pack) =>
-    packIsAvailable(pack) && (pack.balances ?? []).some(
-      (balance) =>
-        balance.service &&
-        one(balance.service)?.id === serviceId &&
-        Number(balance.remaining_sessions) > 0
-    )
+  const compatiblePacks = data.benefits.packs.filter(
+    (pack) =>
+      packIsAvailable(pack) &&
+      (pack.balances ?? []).some(
+        (balance) =>
+          balance.service &&
+          one(balance.service)?.id === serviceId &&
+          Number(balance.remaining_sessions) > 0
+      )
   );
   useEffect(() => {
     if (!benefitCode) return;
-    if (![...compatibleVouchers, ...compatiblePacks].some((item) => item.code === benefitCode)) {
+    if (
+      ![...compatibleVouchers, ...compatiblePacks].some(
+        (item) => item.code === benefitCode
+      )
+    ) {
       const clear = window.setTimeout(() => {
         setBenefitCode('');
         setBenefitPin('');
@@ -4659,11 +4998,12 @@ function BookingDialog({
               ))}
             </select>
           </Field>
-          <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm">
+          <div className="border-primary/20 bg-primary/5 rounded-md border px-3 py-2.5 text-sm">
             <strong className="block">Pressão padrão: média</strong>
             <p className="text-muted-foreground mt-0.5 text-xs">
               A pressão é aplicada de forma uniforme em todas as modalidades.
-              Por segurança e conforto, o profissional pode ajustá-la durante a sessão quando necessário.
+              Por segurança e conforto, o profissional pode ajustá-la durante a
+              sessão quando necessário.
             </p>
           </div>
           <Field label="Profissional">
@@ -4770,27 +5110,31 @@ function BookingDialog({
                   onChange={(event) => chooseBenefit(event.target.value)}
                 >
                   <option value="">Pagamento normal</option>
-                  {compatibleVouchers
-                    .map((item) => (
-                      <option key={item.id} value={item.code}>
-                        {item.voucher_type === 'service'
-                          ? one(item.service)?.name
-                          : formatCurrency(
-                              Number(item.current_balance),
-                              item.currency
-                            )}{' '}
-                        · {item.code}
-                      </option>
-                    ))}
+                  {compatibleVouchers.map((item) => (
+                    <option key={item.id} value={item.code}>
+                      {item.voucher_type === 'service'
+                        ? one(item.service)?.name
+                        : formatCurrency(
+                            Number(item.current_balance),
+                            item.currency
+                          )}{' '}
+                      · {item.code}
+                    </option>
+                  ))}
                   {compatiblePacks.map((item) => (
                     <option key={item.id} value={item.code}>
                       {one(item.pack)?.name || 'Pack'} · {item.code}
                     </option>
                   ))}
                 </select>
-                {serviceId && !compatibleVouchers.length && !compatiblePacks.length && (
-                  <p className="text-muted-foreground mt-2 text-xs">Não existe voucher ou pack ativo compatível com este serviço.</p>
-                )}
+                {serviceId &&
+                  !compatibleVouchers.length &&
+                  !compatiblePacks.length && (
+                    <p className="text-muted-foreground mt-2 text-xs">
+                      Não existe voucher ou pack ativo compatível com este
+                      serviço.
+                    </p>
+                  )}
               </Field>
               {benefitCode && (
                 <Field label="PIN">
@@ -4814,8 +5158,9 @@ function BookingDialog({
               )}
             </div>
             {benefitCode && benefitPin && (
-              <p className="border-border bg-muted/40 border-t px-4 py-2.5 text-xs text-muted-foreground">
-                Benefício pronto para usar: o código e o PIN foram preenchidos automaticamente e serão associados à marcação.
+              <p className="border-border bg-muted/40 text-muted-foreground border-t px-4 py-2.5 text-xs">
+                Benefício pronto para usar: o código e o PIN foram preenchidos
+                automaticamente e serão associados à marcação.
               </p>
             )}
           </details>
@@ -4891,7 +5236,8 @@ function buildSlots(
     const collision =
       availability.busy.some(
         (item) =>
-          (!item.professional_profile_id || item.professional_profile_id === professionalId) &&
+          (!item.professional_profile_id ||
+            item.professional_profile_id === professionalId) &&
           new Date(item.scheduled_start) < end &&
           new Date(item.scheduled_end) > start
       ) ||
@@ -4919,7 +5265,10 @@ function PortalMetric({
   detail: string;
 }) {
   return (
-    <article className="border-border bg-background rounded-lg border p-4">
+    <article
+      data-portal-metric
+      className="border-border bg-background rounded-lg border p-4"
+    >
       <div className="flex justify-between">
         <span className="text-muted-foreground text-xs">{label}</span>
         <Icon className="text-primary size-4" />
@@ -4971,9 +5320,11 @@ function MobileNav({
 }) {
   return (
     <button
+      type="button"
+      aria-current={active ? 'page' : undefined}
       onClick={onClick}
       className={cn(
-        'flex h-16 min-w-20 shrink-0 flex-col items-center justify-center gap-1 text-[10px]',
+        'flex h-16 min-w-0 shrink-0 flex-col items-center justify-center gap-1 text-[10px]',
         active ? 'text-primary' : 'text-muted-foreground'
       )}
     >
@@ -4992,9 +5343,9 @@ function PageHeading({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className={styles.heading}>
       <div>
-        <h1 className="text-2xl font-semibold">{title}</h1>
+        <h1>{title}</h1>
         <p className="text-muted-foreground mt-1 text-sm">{detail}</p>
       </div>
       {action}
