@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-27-reserved-voucher-use-and-balanced-portal', date: '2026-10-27', category: 'Correção',
+    title: 'Utilizar vouchers reservados e resumo equilibrado no Portal', areas: ['Agenda', 'Vouchers', 'Packs', 'Portal'],
+    summary: 'Um benefício reservado deixa de ser confundido com uma utilização concluída. A entrada do Portal passa a distribuir o acesso entre as suas áreas principais.',
+    changes: ['Ação Utilizar voucher ou Utilizar sessão do pack disponível enquanto o benefício está reservado; só fica bloqueada após utilização ou pagamento confirmado.', 'Diálogo de utilização separado das opções de receber dinheiro, com indicação da reserva e acesso à compra e documentos do benefício.', 'Reservar mantém o pagamento da sessão pendente; confirmar a utilização desconta o benefício e regista a liquidação.', 'Resumo do Portal com acesso equivalente a marcações, anamneses, benefícios, pagamentos, campanhas e perfil, antes dos detalhes da próxima visita.'],
+    howTo: 'Na marcação com benefício reservado, escolha Utilizar voucher ou Utilizar sessão do pack e confirme. Para consultar a compra e os documentos, abra a ligação apresentada no benefício. No Portal, utilize o resumo inicial para escolher uma área.',
+  },
+  {
     id: '2026-10-27-portal-workspace-and-cancelled-forms', date: '2026-10-27', category: 'Melhoria',
     title: 'Portal mais claro em todos os ecrãs e anamneses canceladas identificadas', areas: ['Portal', 'Anamnese'],
     summary: 'O Portal passa a dar prioridade à próxima sessão e às tarefas do cliente, com navegação compacta e uma base visual comum nas várias áreas.',

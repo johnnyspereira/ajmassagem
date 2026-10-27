@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { VoucherRenewalDialog } from './voucher-renewal-dialog';
 import { AppointmentBenefitSummary } from './appointment-benefit-summary';
+import { appointmentPaymentAction } from '@/lib/finance/appointment-payment-action';
 import { useRouter } from 'next/navigation';
 import {
   useCallback,
@@ -293,7 +294,7 @@ const STATUS_LABEL: Record<ClinicAppointmentStatus, string> = {
   no_show: 'Falta',
 };
 
-function appointmentHasSettledBenefit(appointment: AppointmentRow) {
+function appointmentHasPrepaidBenefit(appointment: AppointmentRow) {
   return Boolean(
     appointment.benefits?.some(
       (benefit) =>
@@ -310,7 +311,7 @@ function appointmentHasSettledBenefit(appointment: AppointmentRow) {
  */
 function appointmentOutstandingAmount(appointment: AppointmentRow) {
   if (appointment.status === 'cancelled') return 0;
-  if (appointmentHasSettledBenefit(appointment) || appointment.paid_at)
+  if (appointmentHasPrepaidBenefit(appointment) || appointment.paid_at)
     return 0;
   const activeSales = (appointment.sales ?? []).filter((sale) =>
     ['open', 'partially_paid', 'paid'].includes(sale.status)
@@ -898,6 +899,14 @@ export function AgendaPage({
   const [benefitSourceId, setBenefitSourceId] = useState('');
   const [benefitVoucherCode, setBenefitVoucherCode] = useState('');
   const [benefitVoucherPin, setBenefitVoucherPin] = useState('');
+  const paymentAction = appointmentPaymentAction({
+    cancelled: editDraft?.status === 'cancelled',
+    paid: Boolean(editDraft?.paidAt || selectedAppointment?.paid_at),
+    benefitType,
+    benefitStatus: appointmentBenefit?.status,
+    outstanding: selectedAppointment ? appointmentOutstandingAmount(selectedAppointment) : 0,
+    hasPaidSale: selectedAppointment?.sales?.some(sale=>sale.status==='paid'),
+  });
   const [allowExpiredBenefit, setAllowExpiredBenefit] = useState(false);
   const [expiryReason, setExpiryReason] = useState('');
   const [benefitCodeLookup, setBenefitCodeLookup] =
@@ -3541,7 +3550,7 @@ export function AgendaPage({
   }
 
   async function consumeAppointmentBenefit() {
-    if (!selectedAppointment || !editDraft || benefitType === 'direct') return;
+    if (!selectedAppointment || !editDraft || benefitType === 'direct' || savingEdit || paymentAction.disabled) return;
     const existingVoucherWithoutPin =
       appointmentBenefit?.benefit_type === 'voucher' &&
       benefitVoucherCode.toUpperCase() ===
@@ -3597,13 +3606,13 @@ export function AgendaPage({
       }
     }
 
-    const { error } = await supabase.rpc('settle_appointment_benefit', {
+    const { error, data: consumedBenefit } = await supabase.rpc('settle_appointment_benefit', {
       p_appointment_id: selectedAppointment.id,
       p_action: 'consume',
     });
     setSavingEdit(false);
-    if (error) {
-      toast.error(`Não foi possível consumir o benefício: ${error.message}`);
+    if (error || !consumedBenefit) {
+      toast.error(error ? `Não foi possível consumir o benefício: ${error.message}` : 'Não existe uma reserva disponível para utilizar. Atualize a marcação.');
       return;
     }
 
@@ -5392,13 +5401,11 @@ export function AgendaPage({
                             </ActionButton>
                             <ActionButton
                               tone="emerald"
-                              disabled={editDraft.status === 'cancelled' || Boolean(editDraft.paidAt) || appointmentOutstandingAmount(selectedAppointment) <= 0}
-                              onClick={() => {if(!editDraft.paidAt && appointmentOutstandingAmount(selectedAppointment)>0)setPaymentChoiceOpen(true);}}
+                              disabled={savingEdit || paymentAction.disabled}
+                              onClick={() => {if(!paymentAction.disabled)setPaymentChoiceOpen(true);}}
                             >
                               <CreditCard className="size-4" />
-                              {editDraft.paidAt || appointmentOutstandingAmount(selectedAppointment) <= 0
-                                ? 'Pago · sem saldo a receber'
-                                : 'Receber'}
+                              {paymentAction.label}
                             </ActionButton>
                             <ActionButton
                               tone="amber"
@@ -5843,10 +5850,9 @@ export function AgendaPage({
       <Dialog open={paymentChoiceOpen} onOpenChange={setPaymentChoiceOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Receber pagamento</DialogTitle>
+            <DialogTitle>{benefitType==='direct' ? 'Receber pagamento' : benefitType==='pack' ? 'Utilizar sessão do pack' : 'Utilizar voucher'}</DialogTitle>
             <DialogDescription>
-              Escolha como esta marcação será liquidada. O estado “Pago” só é
-              aplicado depois da confirmação financeira.
+              {benefitType==='direct' ? 'Escolha como esta marcação será liquidada. O estado Pago só é aplicado depois da confirmação financeira.' : 'Reserve e utilize o benefício para liquidar esta sessão. Reservado ainda não significa utilizado; esta ação desconta o benefício, sem receber dinheiro novamente.'}
             </DialogDescription>
           </DialogHeader>
           {selectedAppointment && editDraft ? (
@@ -5859,9 +5865,9 @@ export function AgendaPage({
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground text-xs">A receber</p>
+                  <p className="text-muted-foreground text-xs">{benefitType==='direct'?'A receber':'Pagamento da sessão'}</p>
                   <p className="font-semibold">
-                    {formatCurrency(
+                    {benefitType !== 'direct' ? (benefitType==='pack'?'1 sessão do pack':'Com voucher') : formatCurrency(
                       Number(selectedAppointment.price ?? 0),
                       selectedAppointment.currency || defaultCurrency
                     )}
@@ -5871,6 +5877,7 @@ export function AgendaPage({
 
               {benefitType !== 'direct' ? (
                 <div className="space-y-2">
+                  {appointmentBenefit?.status !== 'reserved' ? <>
                   <Field label="PIN do voucher ou pack">
                     <Input
                       type="password"
@@ -5885,9 +5892,9 @@ export function AgendaPage({
                     />
                   </Field>
                   <p className="text-muted-foreground text-xs">
-                    Confirme o PIN apresentado pelo cliente antes de consumir o
-                    benefício.
+                    O código e o PIN serão validados ao reservar o benefício.
                   </p>
+                  </> : <p className="text-muted-foreground rounded-md border p-3 text-sm">O benefício está reservado para esta marcação. Confirme a utilização para descontar a sessão e registar o pagamento.</p>}
                   <button
                     type="button"
                     onClick={() => void consumeAppointmentBenefit()}
@@ -5903,18 +5910,18 @@ export function AgendaPage({
                     )}
                     <span>
                       <span className="block font-semibold">
-                        Consumir{' '}
+                        Confirmar utilização de{' '}
                         {benefitType === 'pack' ? 'sessão do pack' : 'voucher'}
                       </span>
                       <span className="text-muted-foreground block text-xs">
-                        Valida o PIN, baixa o saldo e conclui o pagamento.
+                        Desconta o benefício reservado e regista a utilização.
                       </span>
                     </span>
                   </button>
                 </div>
               ) : null}
 
-              <button
+              {benefitType==='direct' && <><button
                 type="button"
                 onClick={() => void payAppointmentWithWallet()}
                 disabled={savingEdit || Boolean(editDraft.paidAt)}
@@ -5950,7 +5957,8 @@ export function AgendaPage({
                     Dinheiro, cartão, MB Way, pagamento parcial ou combinado.
                   </span>
                 </span>
-              </button>
+              </button></>}
+              {benefitType !== 'direct' && appointmentBenefit ? <AppointmentBenefitSummary benefit={appointmentBenefit} currency={selectedAppointment.currency || defaultCurrency} /> : null}
             </div>
           ) : null}
           <DialogFooter>

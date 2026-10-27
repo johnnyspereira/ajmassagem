@@ -33,6 +33,12 @@ export function AppointmentBenefitSummary({
             : '1 sessão de pack'}
         </span>
       </div>
+      {benefit.status === 'reserved' && (
+        <p className="text-muted-foreground">
+          Reservado para esta marcação, ainda por utilizar. Confirme em Utilizar
+          voucher ou Utilizar sessão do pack para descontar o benefício.
+        </p>
+      )}
       {benefit.benefit_type === 'voucher' ? (
         <>
           <dl className="space-y-2">
@@ -61,10 +67,18 @@ export function AppointmentBenefitSummary({
               className="text-primary inline-block underline underline-offset-4"
               href={`/finance?tab=sales#sale-${voucher.issued_sale_id}`}
             >
-              Consultar compra original
+              Consultar compra e documentos do voucher
             </Link>
           ) : null}
         </>
+      ) : null}
+      {benefit.benefit_type === 'pack' && benefit.client_pack?.sale_id ? (
+        <Link
+          className="text-primary inline-block underline underline-offset-4"
+          href={`/finance?tab=sales#sale-${benefit.client_pack.sale_id}`}
+        >
+          Consultar compra e documentos do pack
+        </Link>
       ) : null}
     </div>
   );

@@ -2082,8 +2082,8 @@ function HomeView({
         <div>
           <h1>Olá, {data.client.name?.split(' ')[0] || 'cliente'}.</h1>
           <p>
-            O seu bem-estar, com tudo em ordem. Acompanhe as sessões, prepare a
-            sua visita e encontre o que precisa.
+            Uma visão geral das suas sessões, benefícios, pagamentos e dados.
+            Escolha a área que precisa de consultar.
           </p>
         </div>
         {data.settings.bookingEnabled && (
@@ -2091,6 +2091,65 @@ function HomeView({
             <CalendarCheck /> Marcar uma sessão
           </Button>
         )}
+      </section>
+      <section className={styles.overview} aria-label="Resumo geral do Portal">
+        <QuickLink
+          icon={CalendarDays}
+          label="Marcações"
+          detail={`${upcoming.length} ${upcoming.length === 1 ? 'próxima sessão' : 'próximas sessões'}`}
+          onClick={() => onNavigate('appointments')}
+        />
+        <QuickLink
+          icon={ClipboardList}
+          label="Anamneses"
+          detail={
+            pendingForms
+              ? pendingForms + ' por preencher'
+              : 'Fichas e respostas'
+          }
+          onClick={() => onNavigate('anamnesis')}
+        />
+        {data.settings.benefitsEnabled && (
+          <QuickLink
+            icon={Gift}
+            label="Benefícios e saldo"
+            detail={
+              serviceVoucherUses +
+              packSessions +
+              ' sessões · ' +
+              formatCurrency(walletBalance, data.business.default_currency) +
+              ' em cartão-saldo' +
+              (Object.keys(monetaryVoucherBalances).length
+                ? ' · cartões de valor disponíveis'
+                : '')
+            }
+            onClick={() => onNavigate('benefits')}
+          />
+        )}
+        {data.settings.financialEnabled && (
+          <QuickLink
+            icon={ReceiptText}
+            label="Pagamentos"
+            detail={
+              pendingPayments
+                ? pendingPayments + ' por regularizar'
+                : 'Compras e documentos'
+            }
+            onClick={() => onNavigate('finance')}
+          />
+        )}
+        <QuickLink
+          icon={Megaphone}
+          label="Campanhas"
+          detail={`${data.campaigns.length} ${data.campaigns.length === 1 ? 'disponível' : 'disponíveis'}`}
+          onClick={() => onNavigate('campaigns')}
+        />
+        <QuickLink
+          icon={UserRound}
+          label="Perfil e privacidade"
+          detail="Dados e permissões"
+          onClick={() => onNavigate('profile')}
+        />
       </section>
       <div className={styles.priority}>
         <section className={styles.nextSession} aria-label="Próxima sessão">
@@ -2198,31 +2257,6 @@ function HomeView({
           </button>
         </section>
       </div>
-      <div className={styles.summary} aria-label="Resumo do seu Portal">
-        <button onClick={() => onNavigate('appointments')}>
-          <span>Próximas marcações</span>
-          <strong>{upcoming.length}</strong>
-        </button>
-        {data.settings.benefitsEnabled && (
-          <>
-            <button onClick={() => onNavigate('benefits')}>
-              <span>Sessões em vouchers e packs</span>
-              <strong>{serviceVoucherUses + packSessions}</strong>
-            </button>
-            <button onClick={() => onNavigate('benefits')}>
-              <span>
-                Cartão-saldo
-                {Object.keys(monetaryVoucherBalances).length > 0
-                  ? ' · e cartões de valor disponíveis'
-                  : ''}
-              </span>
-              <strong>
-                {formatCurrency(walletBalance, data.business.default_currency)}
-              </strong>
-            </button>
-          </>
-        )}
-      </div>
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Mais no seu Portal</h2>
@@ -2231,12 +2265,6 @@ function HomeView({
           </Button>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <QuickLink
-            icon={Megaphone}
-            label="Campanhas exclusivas"
-            detail="Consulte as ofertas disponíveis para si"
-            onClick={() => onNavigate('campaigns')}
-          />
           {data.settings.referralsEnabled && (
             <QuickLink
               icon={Share2}
