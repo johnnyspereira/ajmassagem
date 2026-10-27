@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-27-whatsapp-managed-browser-recovery', date: '2026-10-27', category: 'Correção',
+    title: 'Recuperação do WhatsApp quando o navegador fica bloqueado', areas: ['WhatsApp', 'Inbox', 'Centro de controlo'],
+    summary: 'A recuperação passa a encerrar o navegador da sessão antes de voltar a abri-lo, preservando a autenticação guardada.',
+    changes: ['Se o encerramento normal ficar preso, termina apenas o processo criado pelo worker para o perfil exato do WhatsApp, sem encerrar o navegador pessoal nem apagar a sessão.', 'Tentativas repetidas usam intervalos progressivos, até um minuto, em vez de reiniciar continuamente a cada poucos segundos.', 'Inicializações antigas deixam de interferir com a recuperação em curso e o aviso de perfil bloqueado passa a usar linguagem clara.'],
+    howTo: 'Mantenha o worker local em execução. Em falhas temporárias, aguarde a recuperação automática; o estado da ligação é atualizado no Inbox. A correção exige reiniciar o worker após atualizar os seus ficheiros.',
+  },
+  {
     id: '2026-10-27-reserved-voucher-use-and-balanced-portal', date: '2026-10-27', category: 'Correção',
     title: 'Utilizar vouchers reservados e resumo equilibrado no Portal', areas: ['Agenda', 'Vouchers', 'Packs', 'Portal'],
     summary: 'Um benefício reservado deixa de ser confundido com uma utilização concluída. A entrada do Portal passa a distribuir o acesso entre as suas áreas principais.',

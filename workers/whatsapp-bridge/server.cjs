@@ -41,6 +41,7 @@ const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const { downloadCompatibleMedia } = require('./media-download.cjs');
 const { createIncomingDelivery } = require('./incoming-delivery.cjs');
 const { isBrowserSessionError } = require('./browser-health.cjs');
+const { closeManagedClient } = require('./managed-browser-close.cjs');
 
 const PORT = Number(process.env.PORT || 4100);
 const SECRET = process.env.WORKER_SECRET;
@@ -72,6 +73,7 @@ let sentCount = 0;
 let lastRestartAt = null;
 let restartCount = 0;
 let recoveryTimer = null;
+let recoveryFailures = 0;
 const recentOutgoing = [];
 const profilePictureCache = new Map();
 const activityLog = [];
@@ -102,22 +104,21 @@ function scheduleRecovery(instance, error) {
   if (instance && client !== instance) return;
   if (recoveryTimer) return;
   const detail = error?.message || String(error || 'Falha desconhecida');
-  lastError = detail;
+  lastError = /browser is already running|userDataDir/i.test(detail) ? 'A sessão do WhatsApp está a recuperar um navegador bloqueado. Aguarde alguns instantes.' : detail;
   state = 'error';
   connectedAt = null;
   if (instance && client === instance) client = null;
   logActivity('error', `Sessao WhatsApp reiniciada automaticamente: ${detail}`);
-  const closing = Promise.resolve().then(() => instance?.destroy?.()).catch(() => {});
-  recoveryTimer = setTimeout(async () => {
-      // Do not let a stuck Chrome destroy block recovery indefinitely.
-      let deadline;
-      await Promise.race([closing, new Promise(resolve => { deadline = setTimeout(resolve, 8000); })]);
-      clearTimeout(deadline);
-      recoveryTimer = null;
-      starting = null;
-      // Context is retained after the first authenticated CRM request.
-      if (context.accountId && context.userId) void start(context);
-    }, 3000);
+  const closing = closeManagedClient(instance,path.join(AUTH_DIR,`session-${CLIENT_ID}`)).catch(error => logActivity('error','Não foi possível encerrar o navegador da sessão.',{message:error.message}));
+  const delay = Math.min(60000,3000 * 2 ** Math.min(recoveryFailures++,5));
+  const recovery = setTimeout(async () => {
+    await closing;
+    if (recoveryTimer !== recovery) return;
+    recoveryTimer = null;
+    starting = null;
+    if (context.accountId && context.userId) void start(context);
+  }, delay);
+  recoveryTimer = recovery;
 }
 function recoverBrowserError(error) {
   if (isBrowserSessionError(error)) scheduleRecovery(client, error);
@@ -475,6 +476,7 @@ async function persistSyncSnapshot(snapshot, media = {}) {
 function wire(instance) {
   instance.on('error', (error) => scheduleRecovery(instance, error));
   instance.on('qr', (value) => {
+    if (client !== instance) return;
     qr = value;
     state = 'qr';
     lastError = null;
@@ -484,6 +486,7 @@ function wire(instance) {
   });
   instance.on('ready', () => {
     if (client !== instance) return;
+    recoveryFailures = 0;
     instance.pupBrowser?.once('disconnected', () => scheduleRecovery(instance, new Error('Browser disconnected')));
     instance.pupPage?.once('close', () => scheduleRecovery(instance, new Error('Target closed')));
     qr = null;
@@ -582,14 +585,18 @@ async function start(input = {}, restoreOnly = false) {
   });
   wire(client);
   const instance = client;
-  starting = instance
+  const initialization = instance
     .initialize()
+    .then(async () => {
+      if (client !== instance) await closeManagedClient(instance,path.join(AUTH_DIR,`session-${CLIENT_ID}`));
+    })
     .catch((e) => {
       scheduleRecovery(instance, e);
     })
     .finally(() => {
-      starting = null;
+      if (starting === initialization) starting = null;
     });
+  starting = initialization;
   await Promise.race([
     starting,
     new Promise((resolve) => setTimeout(resolve, 45000)),
@@ -601,7 +608,7 @@ async function stop(clear = false) {
   recoveryTimer = null;
   const instance = client;
   client = null;
-  if (instance) await instance.destroy().catch(() => {});
+  if (instance) await closeManagedClient(instance,path.join(AUTH_DIR,`session-${CLIENT_ID}`));
   starting = null;
   qr = null;
   connectedAt = null;
