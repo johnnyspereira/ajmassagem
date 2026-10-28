@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-28-pack-sales-report', date: '2026-10-28', category: 'Melhoria',
+    title: 'Packs vendidos com acesso direto ao relatório', areas: ['Clínica', 'Packs', 'Relatórios'],
+    summary: 'Cada pack no catálogo mostra a quantidade vendida e permite consultar as vendas desse pacote.',
+    changes: ['Tag com o total de unidades vendidas desde o início, incluindo packs inativos. A contagem usa quantidades das vendas e não sessões ou saldos emitidos.', 'Vendas anuladas, canceladas e reembolsadas ficam excluídas; vendas registadas por pagar continuam identificadas pelo respetivo estado.', 'Relatório por pacote com cliente, data, quantidade, valor da linha e acesso à venda original. A lista é paginada e adapta-se ao telemóvel.'],
+    howTo: 'Abra Definições → Clínica → Packs e clique na tag de vendidos do pacote. No relatório, use Ver venda para consultar a operação e Catálogo de packs para regressar.',
+  },
+  {
     id: '2026-10-28-control-center-resource-use', date: '2026-10-28', category: 'Correção',
     title: 'Centro de Controlo mais leve no portátil', areas: ['Centro de controlo', 'Serviços locais'],
     summary: 'A monitorização deixa de acumular consultas PowerShell e reduz o trabalho em segundo plano.',
