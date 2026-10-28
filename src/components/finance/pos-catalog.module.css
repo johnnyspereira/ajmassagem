@@ -1,0 +1,268 @@
+.catalog {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+}
+.toolbar {
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.heading h2 {
+  font-size: 18px;
+  font-weight: 600;
+}
+.heading p {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  margin-top: 4px;
+}
+.tools {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tabs {
+  display: flex;
+  gap: 6px;
+}
+.tabs button {
+  flex: 1;
+  min-height: 42px;
+  padding: 8px 12px;
+  font-size: 13px;
+  border-radius: 8px;
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
+}
+.tabs button[aria-pressed='true'] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+  font-weight: 600;
+}
+.search {
+  position: relative;
+}
+.search > svg {
+  position: absolute;
+  left: 12px;
+  top: 14px;
+  color: var(--muted-foreground);
+}
+.search input {
+  min-height: 44px;
+  padding-left: 36px;
+  padding-right: 40px;
+}
+.search > button {
+  position: absolute;
+  right: 4px;
+  top: 5px;
+}
+.caption {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.caption button {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.grid {
+  padding: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
+}
+.card {
+  min-width: 0;
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--background);
+}
+.card[data-selected='true'] {
+  border-color: var(--primary);
+}
+.add {
+  display: block;
+  width: 100%;
+  text-align: left;
+  height: 100%;
+  cursor: pointer;
+}
+.add:hover {
+  background: var(--muted);
+}
+.add:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -3px;
+}
+.add:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+.media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16/10;
+  overflow: hidden;
+  background: var(--muted);
+}
+.photo {
+  object-fit: cover;
+}
+.placeholder {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 7%, var(--background));
+}
+.placeholder svg {
+  width: 36px;
+  height: 36px;
+  stroke-width: 1.5;
+}
+.placeholder span {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.selected,
+.stock {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 11px;
+  font-weight: 600;
+}
+.stock {
+  background: var(--background);
+  color: var(--foreground);
+}
+.info {
+  padding: 14px;
+}
+.info h3 {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.info p,
+.info small {
+  display: block;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  margin-top: 5px;
+}
+.price {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  gap: 8px;
+}
+.price strong {
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+.price > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.edit {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--background);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  font-size: 11px;
+}
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 48px 20px;
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+.preview {
+  position: relative;
+  aspect-ratio: 16/9;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--muted);
+}
+@media (max-width: 639px) {
+  .toolbar {
+    padding: 14px;
+    gap: 12px;
+  }
+  .heading {
+    align-items: flex-start;
+  }
+  .heading h2 {
+    font-size: 16px;
+  }
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 10px;
+  }
+  .info {
+    padding: 10px;
+  }
+  .info h3 {
+    font-size: 13px;
+  }
+  .price strong {
+    font-size: 15px;
+  }
+  .edit {
+    min-height: 36px;
+    font-size: 10px;
+    padding: 4px 6px;
+    top: 4px;
+    right: 4px;
+  }
+  .search input {
+    font-size: 16px;
+  }
+}

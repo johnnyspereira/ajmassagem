@@ -152,8 +152,8 @@
   .checkout {
     position: sticky;
     top: 16px;
-    max-height: calc(100dvh - 100px);
-    overflow-y: auto;
+    max-height: none;
+    overflow: visible;
   }
 }
 @media (min-width: 1280px) {

@@ -26,6 +26,7 @@ export type PaymentDraft = {
 };
 
 export type CatalogItem = {
+  imageUrl?: string | null;
   id: string;
   type: 'service' | 'product' | 'pack';
   name: string;

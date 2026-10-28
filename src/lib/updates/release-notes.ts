@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-28-visual-pos-payment-date-reactions', date: '2026-10-28', category: 'Melhoria',
+    title: 'POS com fotografias e correção da data do pagamento', areas: ['Financeiro', 'POS', 'WhatsApp', 'Inbox'],
+    summary: 'O catálogo do POS passa a mostrar fotografias, stock e quantidades na venda. A data de hoje deixa de ser recusada durante a manhã.',
+    changes: ['Serviços e packs aproveitam as imagens já configuradas nos serviços. Administradores podem carregar uma fotografia própria para qualquer artigo através de Imagem, sem alterar a fotografia pública do site.', 'Cartões com fotografia, preço, referência e quantidade adicionada; produtos sem stock continuam indisponíveis. Pesquisa e categorias adaptadas a portátil e telemóvel.', 'O carrinho deixa de ter uma segunda rolagem exterior no desktop, permitindo alcançar os controlos pela rolagem da página.', 'Vendas de hoje usam a hora atual; vendas retroativas preservam o dia escolhido no fuso da clínica, incluindo mudanças de hora.', 'Reações no WhatsApp tentam localizar a mesma mensagem pelos identificadores numérico e LID e pelo histórico recente após reconexão. Mensagens indisponíveis apresentam uma explicação em português, sem registar uma reação como enviada.'],
+    howTo: 'Abra Financeiro → Ponto de venda. Clique num artigo para adicionar à venda e use Imagem para carregar JPG, PNG ou WebP até 2 MB. A gestão de imagens exige permissões de administrador. Para pagamentos de hoje, mantenha a data atual. Se uma mensagem já não estiver disponível no WhatsApp, sincronize a conversa antes de tentar reagir novamente.',
+  },
+  {
     id: '2026-10-28-pack-sales-report', date: '2026-10-28', category: 'Melhoria',
     title: 'Packs vendidos com acesso direto ao relatório', areas: ['Clínica', 'Packs', 'Relatórios'],
     summary: 'Cada pack no catálogo mostra a quantidade vendida e permite consultar as vendas desse pacote.',

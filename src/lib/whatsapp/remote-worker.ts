@@ -90,7 +90,7 @@ async function workerFetch<T>(
       payload && typeof payload.error === 'string'
         ? payload.error
         : `WhatsApp worker returned HTTP ${response.status}`;
-    throw new Error(message);
+    throw Object.assign(new Error(message), { status: response.status });
   }
 
   return payload as T;
@@ -173,6 +173,8 @@ export const remoteWhatsAppWorker = {
     accountId: string;
     userId: string;
     messageId: string;
+    phone?: string;
+    fromMe?: boolean;
     emoji: string;
   }): Promise<{ success: true }> {
     return workerFetch('/react', {

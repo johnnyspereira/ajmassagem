@@ -1148,7 +1148,7 @@ export function MessageThread({
         }
       } catch (err) {
         const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Reaction failed: ${reason}`);
+        toast.error(`Não foi possível reagir à mensagem: ${reason}`);
         setReactions(snapshot);
       }
     },

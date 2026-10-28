@@ -3,9 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  BadgeEuro,
   Banknote,
-  Box,
   Check,
   ChevronRight,
   CircleDollarSign,
@@ -28,7 +26,6 @@ import {
   ReceiptText,
   RotateCcw,
   ArrowRightLeft,
-  Search,
   ShoppingCart,
   Trash2,
   WalletCards,
@@ -39,6 +36,8 @@ import { FinanceHeader as PageHeader } from './finance-header';
 import { FinanceMonthWorkspace } from './finance-month-workspace';
 import { accountDateInput } from '@/lib/timezone';
 import styles from './finance.module.css';
+import { PosCatalog } from './pos-catalog';
+import { salePaymentTimestamp } from '@/lib/finance/payment-date';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -189,7 +188,7 @@ export function FinancePage({
   const [saleNotes, setSaleNotes] = useState('');
   const [payments, setPayments] = useState<PaymentDraft[]>([]);
   const [salePaymentDate, setSalePaymentDate] = useState(() =>
-    new Date().toISOString().slice(0, 10)
+    accountDateInput(new Date(), account?.timezone)
   );
   const [alreadyPaidElsewhere, setAlreadyPaidElsewhere] = useState(false);
   const [checkoutAppointmentLabel, setCheckoutAppointmentLabel] = useState('');
@@ -656,7 +655,8 @@ export function FinancePage({
           name: item.name,
           reference: item.reference,
           price: Number(item.price),
-          detail: `${item.validity_days} dias`,
+          detail: `${item.validity_days} dias · ${(item.items ?? []).reduce((sum, part) => sum + Number(part.sessions), 0)} sessões`,
+          imageUrl: item.items?.find(part => part.service?.public_image_url)?.service?.public_image_url,
         }));
     }
     return services
@@ -674,6 +674,7 @@ export function FinancePage({
         reference: item.reference,
         price: Number(item.price),
         detail: `${item.duration_minutes} min`,
+        imageUrl: item.public_image_url,
       }));
   }, [catalogMode, packs, products, search, services]);
 
@@ -737,7 +738,7 @@ export function FinancePage({
     setSaleDiscount(0);
     setSaleNotes('');
     setPayments([]);
-    setSalePaymentDate(new Date().toISOString().slice(0, 10));
+    setSalePaymentDate(accountDateInput(new Date(), account?.timezone));
     setAlreadyPaidElsewhere(false);
   }
 
@@ -792,6 +793,9 @@ export function FinancePage({
 
   async function finishSale(sumUpOnline = false) {
     if (!accountId || !cart.length) return;
+    let paymentTimestamp: string;
+    try { paymentTimestamp = salePaymentTimestamp(salePaymentDate, account?.timezone || 'Europe/Lisbon'); }
+    catch (error) { toast.error(error instanceof Error ? error.message : 'Data inválida.'); return; }
     if (!salePaymentDate) {
       toast.error('Selecione a data em que o pagamento foi efetuado.');
       return;
@@ -881,7 +885,7 @@ export function FinancePage({
         p_notes: saleNotes || null,
         // Keep historic sales and their payments in the accounting period in
         // which they actually happened, rather than the day they were typed.
-        p_paid_at: new Date(`${salePaymentDate}T12:00:00.000Z`).toISOString(),
+        p_paid_at: paymentTimestamp,
       }
     );
     setSaving(false);
@@ -1620,7 +1624,7 @@ export function FinancePage({
               setSaleNotes,
               salePaymentDate,
               setSalePaymentDate,
-              todayDate: new Date().toISOString().slice(0, 10),
+              todayDate: accountDateInput(new Date(), account?.timezone),
               defaultCurrency,
               canOperate,
               saving,
@@ -2731,138 +2735,7 @@ function PosView(props: {
 
   return (
     <div className={styles.posGrid}>
-      <section className={cn(styles.catalog, 'border-border bg-card border')}>
-        <div className="border-border bg-card/95 sticky top-0 z-10 space-y-3 border-b p-4 backdrop-blur">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="bg-muted flex rounded-md p-1">
-              {(['services', 'products', 'packs'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setCatalogMode(mode)}
-                  aria-pressed={catalogMode === mode}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${catalogMode === mode ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  {mode === 'services'
-                    ? 'Serviços'
-                    : mode === 'products'
-                      ? 'Produtos'
-                      : 'Packs'}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setVoucherOpen(true)}
-              >
-                <Gift /> Voucher
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCustomOpen(true)}
-              >
-                <Plus /> Item livre
-              </Button>
-            </div>
-          </div>
-          <div className="relative">
-            <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Pesquisar catálogo..."
-              aria-label="Pesquisar no catálogo"
-              className="h-10 pl-9"
-            />
-            {search ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setSearch('')}
-                aria-label="Limpar pesquisa"
-                className="absolute top-1/2 right-1.5 -translate-y-1/2"
-              >
-                <X />
-              </Button>
-            ) : null}
-          </div>
-        </div>
-        <Button
-          variant="secondary"
-          className={styles.jump}
-          onClick={() =>
-            document
-              .getElementById('finance-checkout')
-              ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-          }
-        >
-          <ShoppingCart className="size-4" />
-          Ver venda atual ({cart.length} itens)
-        </Button>
-        <div
-          className={cn(
-            styles.catalogList,
-            'grid gap-3 p-3 sm:grid-cols-2 2xl:grid-cols-3'
-          )}
-        >
-          {catalog.map((item) => (
-            <button
-              key={`${item.type}-${item.id}`}
-              type="button"
-              onClick={() => props.addCatalogItem(item)}
-              disabled={item.available === false}
-              className="border-border bg-background hover:border-primary/35 hover:bg-primary/[0.03] disabled:bg-muted/40 group min-h-32 rounded-lg border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm disabled:pointer-events-none disabled:opacity-50"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <span className="bg-primary-soft text-primary flex size-9 items-center justify-center rounded-lg transition-transform group-hover:scale-105">
-                  {item.type === 'service' ? (
-                    <BadgeEuro />
-                  ) : item.type === 'product' ? (
-                    <Box />
-                  ) : (
-                    <PackageCheck />
-                  )}
-                </span>
-                <span className="text-sm font-semibold tabular-nums">
-                  {money(item.price, defaultCurrency)}
-                </span>
-              </div>
-              <p className="mt-3 line-clamp-2 text-sm leading-snug font-medium">
-                {item.name}
-              </p>
-              <p className="text-muted-foreground mt-1 text-xs">
-                {item.detail}
-              </p>
-            </button>
-          ))}
-          {catalog.length === 0 ? (
-            <div className="text-muted-foreground col-span-full flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
-              <Search className="mb-3 size-8 opacity-40" />
-              <p className="text-foreground text-sm font-medium">
-                Nenhum item encontrado
-              </p>
-              <p className="mt-1 max-w-xs text-xs">
-                Experimente outro termo ou selecione uma categoria diferente.
-              </p>
-              {search ? (
-                <Button
-                  type="button"
-                  variant="link"
-                  size="sm"
-                  onClick={() => setSearch('')}
-                  className="mt-2"
-                >
-                  Limpar pesquisa
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      </section>
+      <PosCatalog mode={catalogMode} setMode={setCatalogMode} search={search} setSearch={setSearch} catalog={catalog} cart={cart} onAdd={props.addCatalogItem} onVoucher={() => setVoucherOpen(true)} onCustom={() => setCustomOpen(true)} currency={defaultCurrency} />
       <section
         id="finance-checkout"
         className={cn(

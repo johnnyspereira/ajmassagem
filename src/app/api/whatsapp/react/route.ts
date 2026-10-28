@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     // Resolve target message + its conversation; verify ownership.
     const { data: targetMessage, error: msgError } = await supabase
       .from('messages')
-      .select('id, message_id, conversation_id')
+      .select('id, message_id, conversation_id, sender_type')
       .eq('id', message_id)
       .maybeSingle();
 
@@ -119,12 +119,15 @@ export async function POST(request: Request) {
           accountId,
           userId: user.id,
           messageId: targetMessage.message_id,
+          phone: contact.phone,
+          fromMe: targetMessage.sender_type !== 'customer',
           emoji,
         });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'WhatsApp QR reaction failed';
-        return NextResponse.json({ error: message }, { status: 502 });
+        const status = Number((err as { status?: number })?.status);
+        return NextResponse.json({ error: message }, { status: [400, 404, 409, 503].includes(status) ? status : 502 });
       }
     } else {
     // WhatsApp config + access token. Account-scoped post-multi-user.

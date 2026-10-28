@@ -1,3 +1,4 @@
+const { findReactionTarget } = require('./reaction-target.cjs');
 const http = require('node:http');
 // The detached worker outlives the Control Center that owns its output pipes.
 // Closing that window must not turn a console write into a session restart.
@@ -769,8 +770,8 @@ async function react(input) {
     throw new Error('WhatsApp QR is not connected.');
   const messageId = String(input.messageId || input.message_id || '');
   if (!messageId) throw new Error('messageId is required.');
-  const target = await client.getMessageById(messageId).catch(() => null);
-  if (!target) throw new Error('Message is no longer available in WhatsApp.');
+  const target = await findReactionTarget(client, { messageId, phone: input.phone, fromMe: input.fromMe });
+  if (!target) { const error = new Error('Esta mensagem não está disponível na sessão atual do WhatsApp. Sincronize a conversa e tente novamente.'); error.status = 409; throw error; }
   await target.react(String(input.emoji ?? ''));
   return { success: true };
 }
