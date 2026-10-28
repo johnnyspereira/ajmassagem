@@ -1,5 +1,7 @@
 'use client';
 
+import { AgendaActionDialogBody, AgendaActionDialogContent } from './agenda-action-dialog';
+
 import Link from 'next/link';
 import { VoucherRenewalDialog } from './voucher-renewal-dialog';
 import { AppointmentBenefitSummary } from './appointment-benefit-summary';
@@ -4172,7 +4174,7 @@ export function AgendaPage({
       />
 
       <Dialog open={calendarFeedsOpen} onOpenChange={setCalendarFeedsOpen}>
-        <DialogContent className="max-w-2xl">
+        <AgendaActionDialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Calendários externos</DialogTitle>
             <DialogDescription>
@@ -4180,6 +4182,7 @@ export function AgendaPage({
               horários na agenda do profissional selecionado.
             </DialogDescription>
           </DialogHeader>
+          <AgendaActionDialogBody>
           <div className="grid gap-4">
             <div className="grid gap-3 rounded-lg border p-4 md:grid-cols-2">
               <div className="space-y-1.5">
@@ -4288,6 +4291,7 @@ export function AgendaPage({
               )}
             </div>
           </div>
+          </AgendaActionDialogBody>
           <DialogFooter>
             {calendarFeeds.length ? (
               <Button
@@ -4305,7 +4309,7 @@ export function AgendaPage({
               Fechar
             </Button>
           </DialogFooter>
-        </DialogContent>
+        </AgendaActionDialogContent>
       </Dialog>
 
       <Card
@@ -5572,7 +5576,7 @@ export function AgendaPage({
           if (!requestingRefund) setRefundRequestOpen(open);
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <AgendaActionDialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Cancelar e iniciar reembolso</DialogTitle>
             <DialogDescription>
@@ -5581,6 +5585,7 @@ export function AgendaPage({
               processo foi iniciado.
             </DialogDescription>
           </DialogHeader>
+          <AgendaActionDialogBody>
           {selectedAppointment ? (
             <div className="space-y-4">
               <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
@@ -5626,6 +5631,7 @@ export function AgendaPage({
               />
             </div>
           ) : null}
+          </AgendaActionDialogBody>
           <DialogFooter>
             <Button
               variant="outline"
@@ -5647,7 +5653,7 @@ export function AgendaPage({
               Confirmar reembolso
             </Button>
           </DialogFooter>
-        </DialogContent>
+        </AgendaActionDialogContent>
       </Dialog>
 
       <Dialog
@@ -5656,7 +5662,7 @@ export function AgendaPage({
           if (!open) finishNotificationChoice(null);
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <AgendaActionDialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Deseja notificar o cliente?</DialogTitle>
             <DialogDescription>
@@ -5664,6 +5670,7 @@ export function AgendaPage({
               pelos canais disponíveis ou apenas guardar a ação.
             </DialogDescription>
           </DialogHeader>
+          <AgendaActionDialogBody>
           <p className="text-muted-foreground text-sm">
             Esta escolha aplica-se apenas a esta ação. Os lembretes automáticos
             programados mantêm a sua configuração.
@@ -5685,11 +5692,13 @@ export function AgendaPage({
               Voltar sem executar
             </Button>
           </div>
-        </DialogContent>
+
+          </AgendaActionDialogBody>
+        </AgendaActionDialogContent>
       </Dialog>
       <VoucherRenewalDialog appointmentId={renewalAppointmentId} onClose={() => setRenewalAppointmentId(null)} />
       <Dialog open={benefitRefundOpen} onOpenChange={setBenefitRefundOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <AgendaActionDialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Devolver sessão ou reembolsar a compra?</DialogTitle>
             <DialogDescription>
@@ -5698,6 +5707,7 @@ export function AgendaPage({
               . O pagamento pertence à compra original, não a esta marcação.
             </DialogDescription>
           </DialogHeader>
+          <AgendaActionDialogBody>
           <div className="space-y-4 text-sm">
             <div className="space-y-2 rounded-xl border p-4">
               <h3 className="font-semibold">Devolver a sessão ao saldo</h3>
@@ -5759,6 +5769,7 @@ export function AgendaPage({
               )}
             </div>
           </div>
+          </AgendaActionDialogBody>
           <DialogFooter>
             <Button
               variant="outline"
@@ -5767,7 +5778,7 @@ export function AgendaPage({
               Fechar
             </Button>
           </DialogFooter>
-        </DialogContent>
+        </AgendaActionDialogContent>
       </Dialog>
       <Dialog
         open={benefitDecisionOpen}
@@ -5776,7 +5787,7 @@ export function AgendaPage({
           if (!open) setPendingBenefitAction(null);
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <AgendaActionDialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
               {pendingBenefitAction === 'no_show'
@@ -5791,6 +5802,7 @@ export function AgendaPage({
               . Defina o que acontece com ele antes de continuar.
             </DialogDescription>
           </DialogHeader>
+          <AgendaActionDialogBody>
           <div className="grid gap-2">
             <button
               type="button"
@@ -5833,6 +5845,7 @@ export function AgendaPage({
               </span>
             </button>
           </div>
+          </AgendaActionDialogBody>
           <DialogFooter>
             <Button
               variant="outline"
@@ -5844,17 +5857,18 @@ export function AgendaPage({
               Confirmar decisão
             </Button>
           </DialogFooter>
-        </DialogContent>
+        </AgendaActionDialogContent>
       </Dialog>
 
       <Dialog open={paymentChoiceOpen} onOpenChange={setPaymentChoiceOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <AgendaActionDialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{benefitType==='direct' ? 'Receber pagamento' : benefitType==='pack' ? 'Utilizar sessão do pack' : 'Utilizar voucher'}</DialogTitle>
             <DialogDescription>
               {benefitType==='direct' ? 'Escolha como esta marcação será liquidada. O estado Pago só é aplicado depois da confirmação financeira.' : 'Reserve e utilize o benefício para liquidar esta sessão. Reservado ainda não significa utilizado; esta ação desconta o benefício, sem receber dinheiro novamente.'}
             </DialogDescription>
           </DialogHeader>
+          <AgendaActionDialogBody>
           {selectedAppointment && editDraft ? (
             <div className="space-y-3">
               <div className="bg-muted/40 grid grid-cols-2 gap-3 rounded-md border p-3 text-sm">
@@ -5961,6 +5975,7 @@ export function AgendaPage({
               {benefitType !== 'direct' && appointmentBenefit ? <AppointmentBenefitSummary benefit={appointmentBenefit} currency={selectedAppointment.currency || defaultCurrency} /> : null}
             </div>
           ) : null}
+          </AgendaActionDialogBody>
           <DialogFooter>
             <Button
               variant="outline"
@@ -5969,11 +5984,11 @@ export function AgendaPage({
               Cancelar
             </Button>
           </DialogFooter>
-        </DialogContent>
+        </AgendaActionDialogContent>
       </Dialog>
 
       <Dialog open={messageOpen} onOpenChange={setMessageOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <AgendaActionDialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
               {messageAction === 'reminder'
@@ -5981,6 +5996,7 @@ export function AgendaPage({
                 : 'Enviar mensagem de agendamento'}
             </DialogTitle>
           </DialogHeader>
+          <AgendaActionDialogBody>
           <div className="grid gap-3">
             <div className="border-border bg-muted/30 rounded-md border p-3 text-xs">
               <p className="text-muted-foreground">Destino</p>
@@ -5998,6 +6014,7 @@ export function AgendaPage({
               />
             </Field>
           </div>
+          </AgendaActionDialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setMessageOpen(false)}>
               Cancelar
@@ -6014,7 +6031,7 @@ export function AgendaPage({
               Enviar WhatsApp
             </Button>
           </DialogFooter>
-        </DialogContent>
+        </AgendaActionDialogContent>
       </Dialog>
 
       <Dialog
@@ -6027,12 +6044,13 @@ export function AgendaPage({
           }
         }}
       >
-        <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-2xl">
+        <AgendaActionDialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               {editingBlockId ? 'Ficha do bloqueio' : 'Bloquear horário'}
             </DialogTitle>
           </DialogHeader>
+          <AgendaActionDialogBody>
           <div className="grid gap-4">
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Data">
@@ -6184,6 +6202,7 @@ export function AgendaPage({
               />
             ) : null}
           </div>
+          </AgendaActionDialogBody>
           <DialogFooter>
             {editingBlockId ? (
               <Button
@@ -6214,14 +6233,15 @@ export function AgendaPage({
               {editingBlockId ? 'Guardar bloqueio' : 'Bloquear'}
             </Button>
           </DialogFooter>
-        </DialogContent>
+        </AgendaActionDialogContent>
       </Dialog>
 
       <Dialog open={scheduleChangeOpen} onOpenChange={setScheduleChangeOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <AgendaActionDialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Confirmar alteração de horário</DialogTitle>
           </DialogHeader>
+          <AgendaActionDialogBody>
           {scheduleChangeDraft ? (
             <div className="grid gap-4">
               <div className="grid gap-3 sm:grid-cols-2">
@@ -6406,6 +6426,7 @@ export function AgendaPage({
               ) : null}
             </div>
           ) : null}
+          </AgendaActionDialogBody>
           <DialogFooter>
             <Button
               variant="outline"
@@ -6428,7 +6449,7 @@ export function AgendaPage({
               Confirmar
             </Button>
           </DialogFooter>
-        </DialogContent>
+        </AgendaActionDialogContent>
       </Dialog>
 
       <Dialog

@@ -1,5 +1,7 @@
 'use client';
 
+import { AgendaActionDialogBody, AgendaActionDialogContent } from './agenda-action-dialog';
+
 import { useRef, useState } from 'react';
 import { Download, Loader2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
@@ -7,7 +9,6 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -363,7 +364,7 @@ export function AppointmentHistoryImportModal({
         onOpenChange(next);
       }}
     >
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+      <AgendaActionDialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Importar histórico de marcações</DialogTitle>
           <DialogDescription>
@@ -371,6 +372,7 @@ export function AppointmentHistoryImportModal({
             até hoje serão importadas e duplicados serão ignorados.
           </DialogDescription>
         </DialogHeader>
+          <AgendaActionDialogBody>
         <input
           ref={inputRef}
           type="file"
@@ -425,7 +427,8 @@ export function AppointmentHistoryImportModal({
             )}
           </div>
         )}
-        <DialogFooter>
+        </AgendaActionDialogBody>
+          <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Fechar
           </Button>
@@ -436,7 +439,7 @@ export function AppointmentHistoryImportModal({
             </Button>
           )}
         </DialogFooter>
-      </DialogContent>
+      </AgendaActionDialogContent>
     </Dialog>
   );
 }

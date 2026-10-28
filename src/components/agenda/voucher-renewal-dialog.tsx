@@ -1,11 +1,12 @@
 'use client';
+
+import { AgendaActionDialogBody, AgendaActionDialogContent } from './agenda-action-dialog';
 import { useEffect, useState } from 'react';
 import { Gift, Loader2, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
-  DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
@@ -108,7 +109,7 @@ export function VoucherRenewalDialog({
         if (!open && !busy) onClose();
       }}
     >
-      <DialogContent className="flex max-h-[90dvh] flex-col overflow-y-auto sm:max-w-2xl">
+      <AgendaActionDialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Gift className="text-primary size-5" />
@@ -118,6 +119,7 @@ export function VoucherRenewalDialog({
             Oferta individual após consumir o último voucher da modalidade.
           </DialogDescription>
         </DialogHeader>
+          <AgendaActionDialogBody>
         {!data && !error ? (
           <p className="flex items-center gap-2 py-6">
             <Loader2 className="size-4 animate-spin" />A verificar todos os
@@ -296,7 +298,9 @@ export function VoucherRenewalDialog({
             )}
           </>
         ) : null}
-      </DialogContent>
+
+          </AgendaActionDialogBody>
+        </AgendaActionDialogContent>
     </Dialog>
   );
 }

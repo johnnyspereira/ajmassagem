@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-28-agenda-action-dialog-mobile', date: '2026-10-28', category: 'Correção',
+    title: 'Ações da Agenda acessíveis no telemóvel', areas: ['Agenda'],
+    summary: 'Os diálogos de reagendamento e das restantes ações passam a respeitar a altura visível do dispositivo.',
+    changes: ['Conteúdo com rolagem independente e botões de confirmação fora da área que desliza.', 'Altura ajustada à área visível, incluindo alterações provocadas pelo teclado e pela orientação do telemóvel.', 'Campos com tamanho de letra adequado no telemóvel, evitando o zoom automático ao editar. A correção abrange pagamentos, reembolsos, mensagens, bloqueios, importação e renovação de vouchers.'],
+    howTo: 'Na Agenda, abra Remarcar ou outra ação. Deslize o conteúdo para rever os campos; os botões do rodapé mantêm-se acessíveis. Nas ações sem rodapé, deslize até às opções no final.',
+  },
+  {
     id: '2026-10-27-whatsapp-managed-browser-recovery', date: '2026-10-27', category: 'Correção',
     title: 'Recuperação do WhatsApp quando o navegador fica bloqueado', areas: ['WhatsApp', 'Inbox', 'Centro de controlo'],
     summary: 'A recuperação passa a encerrar o navegador da sessão antes de voltar a abri-lo, preservando a autenticação guardada.',
