@@ -89,7 +89,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "f7aab05bdedda96c64afaf5343f51461bcb75ed2"
+          "value": "3bb5e18cd9e197cb20d22b543a7f67bbae121d4f"
         }
       ],
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
@@ -99,7 +99,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "f7aab05bdedda96c64afaf5343f51461bcb75ed2"
+          "value": "3bb5e18cd9e197cb20d22b543a7f67bbae121d4f"
         }
       ],
       "regex": "^/_next/data(?:/(.*))(?:/)?$"
@@ -972,6 +972,12 @@
       "namedRegex": "^/api/clinic/appointments/reminders(?:/)?$"
     },
     {
+      "page": "/api/clinic/catalog-images",
+      "regex": "^/api/clinic/catalog\\-images(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/clinic/catalog\\-images(?:/)?$"
+    },
+    {
       "page": "/api/clinic/catalog-order",
       "regex": "^/api/clinic/catalog\\-order(?:/)?$",
       "routeKeys": {},
@@ -1722,5 +1728,5 @@
     "pathHeader": "x-nextjs-rewritten-path",
     "queryHeader": "x-nextjs-rewritten-query"
   },
-  "deploymentId": "f7aab05bdedda96c64afaf5343f51461bcb75ed2"
+  "deploymentId": "3bb5e18cd9e197cb20d22b543a7f67bbae121d4f"
 }
