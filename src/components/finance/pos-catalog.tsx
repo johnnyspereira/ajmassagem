@@ -5,8 +5,6 @@ import Image from 'next/image';
 import {
   Box,
   Gift,
-  ImagePlus,
-  Loader2,
   PackageCheck,
   Plus,
   Search,
@@ -15,14 +13,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
 import type { CartItem, CatalogItem } from './finance-types';
@@ -85,14 +75,9 @@ export function PosCatalog({
   onCustom: () => void;
   currency: string;
 }) {
-  const { accountId, canEditSettings } = useAuth();
+  const { accountId } = useAuth();
   const [images, setImages] = useState<Record<string, string>>({});
   const [imageError, setImageError] = useState(false);
-  const [editing, setEditing] = useState<CatalogItem | null>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState('');
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
   const [version, setVersion] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
@@ -113,46 +98,6 @@ export function PosCatalog({
       });
     return () => controller.abort();
   }, [accountId, version]);
-  useEffect(() => {
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    const timer = setTimeout(() => setPreview(url), 0);
-    return () => {
-      clearTimeout(timer);
-      URL.revokeObjectURL(url);
-    };
-  }, [file]);
-  async function save(remove = false) {
-    if (!editing || busy) return;
-    setBusy(true);
-    setError('');
-    try {
-      const form = new FormData();
-      form.set('kind', editing.type);
-      form.set('id', editing.id);
-      if (remove) form.set('remove', 'true');
-      else if (file) form.set('file', file);
-      const response = await fetch('/api/clinic/catalog-images', {
-        method: 'POST',
-        body: form,
-      });
-      const data = await response.json();
-      if (!response.ok)
-        throw new Error(data.error || 'Não foi possível guardar a imagem.');
-      setVersion((value) => value + 1);
-      setEditing(null);
-      setFile(null);
-      setPreview('');
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : 'Não foi possível guardar a imagem.'
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
   return (
     <section className={styles.catalog} aria-label="Catálogo do ponto de venda">
       <div className={styles.toolbar}>
@@ -224,7 +169,7 @@ export function PosCatalog({
             </button>
           )}
         </div>
-        {imageError && canEditSettings && (
+        {imageError && (
           <button
             className="text-muted-foreground text-xs underline"
             onClick={() => setVersion((value) => value + 1)}
@@ -277,21 +222,6 @@ export function PosCatalog({
                   </div>
                 </div>
               </button>
-              {canEditSettings && (
-                <button
-                  type="button"
-                  className={styles.edit}
-                  aria-label={`Alterar imagem de ${item.name}`}
-                  onClick={() => {
-                    setEditing(item);
-                    setFile(null);
-                    setPreview('');
-                    setError('');
-                  }}
-                >
-                  <ImagePlus className="size-3.5" /> Imagem
-                </button>
-              )}
             </article>
           );
         })}
@@ -305,85 +235,6 @@ export function PosCatalog({
           </Button>
         </div>
       )}
-      <Dialog
-        open={!!editing}
-        onOpenChange={(open) => {
-          if (!open && !busy) {
-            setEditing(null);
-            setFile(null);
-            setPreview('');
-          }
-        }}
-      >
-        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Imagem do catálogo</DialogTitle>
-            <DialogDescription>
-              {editing?.name} · Visível para a equipa no POS. Não altera a
-              imagem pública do site.
-            </DialogDescription>
-          </DialogHeader>
-          <div className={styles.preview}>
-            <Photo
-              key={preview || 'preview'}
-              src={
-                preview ||
-                (editing &&
-                  (images[`${editing.type}:${editing.id}`] || editing.imageUrl))
-              }
-              type={editing?.type || 'product'}
-            />
-          </div>
-          <label className="grid gap-2 text-sm font-medium">
-            Escolher fotografia
-            <Input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              disabled={busy}
-              onChange={(event) => {
-                setFile(event.target.files?.[0] || null);
-                setPreview('');
-                setError('');
-              }}
-            />
-            <span className="text-muted-foreground text-xs font-normal">
-              JPG, PNG ou WebP, até 2 MB. Prefira imagens horizontais, sem texto
-              pequeno.
-            </span>
-          </label>
-          {error && (
-            <p role="alert" className="text-destructive text-sm">
-              {error}
-            </p>
-          )}
-          <DialogFooter>
-            {editing && images[`${editing.type}:${editing.id}`] && (
-              <Button
-                variant="ghost"
-                disabled={busy}
-                onClick={() => void save(true)}
-              >
-                Remover personalizada
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              disabled={busy}
-              onClick={() => {
-                setEditing(null);
-                setFile(null);
-                setPreview('');
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button disabled={busy || !file} onClick={() => void save()}>
-              {busy && <Loader2 className="size-4 animate-spin" />}Guardar
-              imagem
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </section>
   );
 }

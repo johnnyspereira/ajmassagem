@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { SaleDocumentsButton } from './sale-documents-dialog';
 import { useEffect, useMemo, useState } from 'react';
 import { accountDateInput } from '@/lib/timezone';
 import {
@@ -35,6 +36,7 @@ import {
 } from '@/components/finance/finance-utils';
 import type { FinanceSale } from '@/types';
 import styles from './finance.module.css';
+import lists from './finance-lists.module.css';
 
 export function SalesView({
   sales,
@@ -119,8 +121,16 @@ export function SalesView({
   }, [query, monthSales, status]);
 
   return (
-    <section className="border-border bg-card overflow-hidden rounded-lg border">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b p-4">
+    <section className={lists.workspace}>
+      <div className={lists.heading}>
+        <div>
+          <h2>Vendas e recebimentos</h2>
+          <p>
+            Encontre a venda, acompanhe o pagamento e consulte os comprovativos.
+          </p>
+        </div>
+      </div>
+      <div className="bg-card flex flex-wrap items-end justify-between gap-3 rounded-xl border p-4">
         <label htmlFor="finance-sales-month" className="text-sm font-medium">
           {focusedSale
             ? 'Venda selecionada — escolha um mês para sair'
@@ -153,7 +163,37 @@ export function SalesView({
           A carregar vendas do mês…
         </p>
       ) : null}
-      <div className="border-border grid gap-3 border-b p-4 lg:grid-cols-[1fr_220px]">
+      <div
+        className={lists.summaryStrip}
+        aria-label="Situação das vendas carregadas"
+      >
+        {[
+          ['active', 'Operacionais'],
+          ['paid', 'Pagas'],
+          ['open', 'Pendentes'],
+          ['partially_paid', 'Parciais'],
+          ['refunded', 'Reembolsadas'],
+        ].map(([value, label]) => (
+          <button
+            key={value}
+            aria-pressed={status === value}
+            onClick={() => setStatus(value)}
+          >
+            <span>{label}</span>
+            <strong>
+              {
+                monthSales.filter((sale) =>
+                  value === 'active'
+                    ? !sale.is_historical &&
+                      !['voided', 'refunded'].includes(sale.status)
+                    : sale.status === value
+                ).length
+              }
+            </strong>
+          </button>
+        ))}
+      </div>
+      <div className={lists.filters}>
         <div className="relative">
           <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
           <Input
@@ -176,13 +216,16 @@ export function SalesView({
       </div>
       <div className="border-border bg-muted/30 flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 text-xs">
         <span className="text-muted-foreground">
-          {filtered.length} registos encontrados
+          {filtered.length}{' '}
+          {filtered.length === 1
+            ? 'registo encontrado'
+            : 'registos encontrados'}
         </span>
         <p className="text-muted-foreground">
           Pagamentos e alterações permanecem ligados à venda original.
         </p>
       </div>
-      <div className="divide-border divide-y">
+      <div className={lists.salesList}>
         {filtered.length === 0 ? (
           <Empty icon={ReceiptText} text="Ainda não existem vendas." />
         ) : (
@@ -190,7 +233,11 @@ export function SalesView({
             <details
               key={sale.id}
               id={`sale-${sale.id}`}
-              className="group target:bg-primary/5 target:ring-primary/30 scroll-mt-24 target:ring-2"
+              className={
+                lists.saleRow +
+                ' group target:ring-primary/30 scroll-mt-24 target:ring-2'
+              }
+              data-state={sale.status}
             >
               <summary className={styles.salesSummary}>
                 <div>
@@ -299,6 +346,10 @@ export function SalesView({
                     </div>
                   </div>
                   <div className="flex min-w-40 flex-col gap-2">
+                    <SaleDocumentsButton
+                      saleId={sale.id}
+                      canUpload={canOperate}
+                    />
                     {(sale.payments ?? []).length > 0 ? (
                       <Button
                         variant="outline"

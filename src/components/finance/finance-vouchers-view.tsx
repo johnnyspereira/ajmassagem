@@ -1,7 +1,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { BenefitValidityButton, useBenefitClock } from './benefit-validity-button';
+import { Input } from '@/components/ui/input';
+import { benefitState, benefitStateLabel } from '@/lib/finance/benefit-state';
+import lists from './finance-lists.module.css';
+import {
+  BenefitValidityButton,
+  useBenefitClock,
+} from './benefit-validity-button';
 import { Check, Download, Gift, Loader2, Phone, X } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -54,6 +60,34 @@ export function VouchersView({
   onSell: () => void;
 }) {
   const now = useBenefitClock();
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('all');
+  const stateOf = (voucher: FinanceVoucher) =>
+    benefitState(
+      voucher.status,
+      voucher.expires_at,
+      Number(
+        voucher.voucher_type === 'service'
+          ? (voucher.remaining_uses ?? 0)
+          : voucher.current_balance
+      ),
+      now
+    );
+  const visible = vouchers.filter(
+    (voucher) =>
+      (filter === 'all' || stateOf(voucher) === filter) &&
+      [
+        voucher.code,
+        voucher.recipient_name,
+        voucher.owner?.name,
+        voucher.owner?.phone,
+        voucher.service?.name,
+      ]
+        .join(' ')
+        .toLocaleLowerCase('pt')
+        .includes(query.trim().toLocaleLowerCase('pt'))
+  );
+
   const db = useMemo(() => createClient(), []);
   const [generatingCode, setGeneratingCode] = useState<string | null>(null);
   const [decision, setDecision] = useState<{
@@ -199,7 +233,7 @@ export function VouchersView({
 
   return (
     <section className="border-border bg-card overflow-hidden rounded-lg border">
-      <div className="border-border flex items-center justify-between border-b p-4">
+      <div className={lists.heading + ' border-b p-4'}>
         <div>
           <h2 className="font-semibold">Vouchers emitidos</h2>
           <p className="text-muted-foreground text-xs">
@@ -210,194 +244,259 @@ export function VouchersView({
           <Gift /> Vender voucher
         </Button>
       </div>
-      <div className="border-border border-b p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h3 className="text-sm font-semibold">
-              Pedidos de transferência
-            </h3>
-            <p className="text-muted-foreground text-xs">
-              Pedidos enviados pela página pública do voucher via QR Code.
-            </p>
-          </div>
-          <Badge variant={activeRequests.length ? 'destructive' : 'secondary'}>
-            {activeRequests.length} em aberto
-          </Badge>
+      <div className="space-y-3 p-4">
+        <div className={lists.summaryStrip} aria-label="Estado dos vouchers">
+          {[
+            ['all', 'Todos'],
+            ['available', 'Disponíveis'],
+            ['used', 'Utilizados'],
+            ['expired', 'Expirados'],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              aria-pressed={filter === value}
+              onClick={() => setFilter(value)}
+            >
+              <span>{label}</span>
+              <strong>
+                {value === 'all'
+                  ? vouchers.length
+                  : vouchers.filter((voucher) => stateOf(voucher) === value)
+                      .length}
+              </strong>
+            </button>
+          ))}
         </div>
-        {activeRequests.length ? (
-          <div className="space-y-2">
-            {activeRequests.map((request) => (
-              <article
-                key={request.id}
-                className="border-border bg-background rounded-lg border p-3"
-              >
-                <div className="flex flex-wrap items-start gap-3">
-                  <span className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-md">
-                    <Phone className="size-4" />
-                  </span>
-                  <div className="min-w-56 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium">{request.recipient_name}</p>
-                      <Badge
-                        variant={
-                          request.status === 'pending'
-                            ? 'destructive'
-                            : 'secondary'
-                        }
-                      >
-                        {voucherTransferStatus(request.status)}
-                      </Badge>
-                    </div>
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      {request.recipient_phone} pediu o voucher{' '}
-                      <span className="font-mono">
-                        {request.voucher?.code ?? '—'}
-                      </span>{' '}
-                      em {new Date(request.created_at).toLocaleString('pt-PT')}
-                    </p>
-                    {request.voucher?.owner ? (
+        <label className="text-muted-foreground grid gap-2 text-xs">
+          Encontrar voucher
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Nome, telefone, código ou modalidade"
+          />
+        </label>
+        <p className="text-muted-foreground text-xs">
+          {visible.length} {visible.length === 1 ? 'voucher' : 'vouchers'} nesta
+          vista · os saldos e a validade são consultados em conjunto.
+        </p>
+      </div>
+      <details className="border-y" open={activeRequests.length > 0}>
+        <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
+          Transferências · {activeRequests.length} por tratar
+        </summary>
+        <div className="border-border border-b p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-semibold">
+                Pedidos de transferência
+              </h3>
+              <p className="text-muted-foreground text-xs">
+                Pedidos enviados pela página pública do voucher via QR Code.
+              </p>
+            </div>
+            <Badge
+              variant={activeRequests.length ? 'destructive' : 'secondary'}
+            >
+              {activeRequests.length} em aberto
+            </Badge>
+          </div>
+          {activeRequests.length ? (
+            <div className="space-y-2">
+              {activeRequests.map((request) => (
+                <article
+                  key={request.id}
+                  className="border-border bg-background rounded-lg border p-3"
+                >
+                  <div className="flex flex-wrap items-start gap-3">
+                    <span className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-md">
+                      <Phone className="size-4" />
+                    </span>
+                    <div className="min-w-56 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium">{request.recipient_name}</p>
+                        <Badge
+                          variant={
+                            request.status === 'pending'
+                              ? 'destructive'
+                              : 'secondary'
+                          }
+                        >
+                          {voucherTransferStatus(request.status)}
+                        </Badge>
+                      </div>
                       <p className="text-muted-foreground mt-1 text-xs">
-                        Titular atual:{' '}
-                        {request.voucher.owner.name ||
-                          request.voucher.owner.phone}
+                        {request.recipient_phone} pediu o voucher{' '}
+                        <span className="font-mono">
+                          {request.voucher?.code ?? '—'}
+                        </span>{' '}
+                        em{' '}
+                        {new Date(request.created_at).toLocaleString('pt-PT')}
                       </p>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap justify-end gap-2">
-                    {request.status === 'pending' ? (
+                      {request.voucher?.owner ? (
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          Titular atual:{' '}
+                          {request.voucher.owner.name ||
+                            request.voucher.owner.phone}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {request.status === 'pending' ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!canManage}
+                          onClick={() => {
+                            setDecision({ request, action: 'contacted' });
+                            setDecisionNotes(request.notes ?? '');
+                          }}
+                        >
+                          <Phone /> Contactado
+                        </Button>
+                      ) : null}
                       <Button
-                        variant="outline"
                         size="sm"
                         disabled={!canManage}
                         onClick={() => {
-                          setDecision({ request, action: 'contacted' });
+                          setDecision({ request, action: 'approved' });
                           setDecisionNotes(request.notes ?? '');
                         }}
                       >
-                        <Phone /> Contactado
+                        <Check /> Aprovar
                       </Button>
-                    ) : null}
-                    <Button
-                      size="sm"
-                      disabled={!canManage}
-                      onClick={() => {
-                        setDecision({ request, action: 'approved' });
-                        setDecisionNotes(request.notes ?? '');
-                      }}
-                    >
-                      <Check /> Aprovar
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      disabled={!canManage}
-                      onClick={() => {
-                        setDecision({ request, action: 'rejected' });
-                        setDecisionNotes(request.notes ?? '');
-                      }}
-                    >
-                      <X /> Rejeitar
-                    </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={!canManage}
+                        onClick={() => {
+                          setDecision({ request, action: 'rejected' });
+                          setDecisionNotes(request.notes ?? '');
+                        }}
+                      >
+                        <X /> Rejeitar
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <p className="text-muted-foreground rounded-md border border-dashed p-4 text-center text-sm">
-            Nenhum pedido pendente neste momento.
-          </p>
-        )}
-      </div>
-      <div className="divide-border divide-y">
-        {vouchers.length ? (
-          vouchers.map((voucher) => (
-            <div key={voucher.id} className="p-4">
-              <div className="grid items-center gap-3 md:grid-cols-[150px_1fr_140px_110px_auto]">
-                <div>
-                  <span className="bg-muted block rounded-md px-2 py-1 font-mono text-xs">
-                    {voucher.code}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground rounded-md border border-dashed p-4 text-center text-sm">
+              Nenhum pedido pendente neste momento.
+            </p>
+          )}
+        </div>
+      </details>
+      <div className={lists.grid + ' p-4'}>
+        {visible.length ? (
+          visible.map((voucher) => {
+            const state = stateOf(voucher);
+            const serviceVoucher = voucher.voucher_type === 'service';
+            return (
+              <article
+                key={voucher.id}
+                className={lists.benefitCard}
+                data-state={state}
+              >
+                <div className={lists.rowHeading}>
+                  <div>
+                    <h3>
+                      {voucher.recipient_name ||
+                        voucher.owner?.name ||
+                        'Sem destinatário'}
+                    </h3>
+                    <p>
+                      {serviceVoucher
+                        ? voucher.service?.name || 'Voucher de serviço'
+                        : 'Cartão-presente'}
+                    </p>
+                  </div>
+                  <span className={lists.status} data-state={state}>
+                    {benefitStateLabel[state] || state}
                   </span>
-                  <p className="text-muted-foreground mt-1 text-[10px]">
-                    PIN {voucher.pin_code ?? 'não definido'}
-                  </p>
                 </div>
-                <div>
-                  <p className="font-medium">
-                    {voucher.voucher_type === 'service'
-                      ? voucher.service?.name || 'Voucher de serviço'
-                      : 'Cartão-presente'}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {voucher.recipient_name ||
-                      voucher.owner?.name ||
-                      'Sem destinatário'}{' '}
-                    ·{' '}
-                    {voucher.expires_at
-                      ? `até ${new Date(voucher.expires_at).toLocaleDateString('pt-PT')}`
-                      : 'sem limite'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">
-                    {voucher.voucher_type === 'service'
-                      ? 'Utilizações'
-                      : 'Saldo'}
-                  </p>
+                <div className={lists.balance}>
                   <strong>
-                    {voucher.voucher_type === 'service'
-                      ? `${voucher.remaining_uses ?? 0}/1 disponível`
+                    {serviceVoucher
+                      ? Number(voucher.remaining_uses ?? 0) +
+                        (Number(voucher.remaining_uses ?? 0) === 1
+                          ? ' sessão'
+                          : ' sessões')
                       : money(
                           Number(voucher.current_balance),
                           voucher.currency || currency
                         )}
                   </strong>
-                  <p className="text-muted-foreground text-[10px]">
-                    Utilizado:{' '}
-                    {voucher.voucher_type === 'service'
-                      ? `${1 - Number(voucher.remaining_uses ?? 0)} sessão`
-                      : money(
-                          Number(voucher.initial_balance) -
-                            Number(voucher.current_balance),
-                          voucher.currency || currency
-                        )}
-                  </p>
+                  <span>
+                    {state === 'available'
+                      ? 'disponíveis para utilizar'
+                      : state === 'expired'
+                        ? 'validade terminada'
+                        : state === 'used'
+                          ? 'benefício consumido'
+                          : 'saldo registado'}
+                  </span>
                 </div>
-                <Badge
-                  variant={
-                    voucher.status === 'active' ? 'default' : 'secondary'
+                <div className={lists.meta}>
+                  <span>
+                    {voucher.expires_at
+                      ? 'Validade: ' +
+                        new Date(voucher.expires_at).toLocaleDateString(
+                          'pt-PT',
+                          { timeZone: 'Europe/Lisbon' }
+                        )
+                      : 'Sem limite de validade'}
+                  </span>
+                  <span>Código {voucher.code}</span>
+                </div>
+                <details className={lists.codes}>
+                  <summary>Consultar PIN</summary>
+                  <p>PIN: {voucher.pin_code || 'não definido'}</p>
+                </details>
+                <div className={lists.actions}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={generatingCode === voucher.code}
+                    onClick={() => void generatePdf(voucher)}
+                  >
+                    {generatingCode === voucher.code ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Download className="size-4" />
+                    )}{' '}
+                    PDF do voucher
+                  </Button>
+                  <BenefitValidityButton
+                    kind="voucher"
+                    id={voucher.id}
+                    code={voucher.code}
+                    expiresAt={voucher.expires_at}
+                    status={voucher.status}
+                  />
+                </div>
+                <BenefitLogList
+                  logs={logs.filter((log) => log.voucher_id === voucher.id)}
+                  sourceHref={
+                    voucher.issued_sale_id
+                      ? '/finance?tab=sales#sale-' + voucher.issued_sale_id
+                      : undefined
                   }
-                >
-                  {voucher.status === 'active' && voucher.expires_at && new Date(voucher.expires_at).getTime() <= now ? 'Expirado' : voucher.status}
-                </Badge>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={generatingCode === voucher.code}
-                  onClick={() => void generatePdf(voucher)}
-                  title="Baixar vale-presente em PDF"
-                >
-                  {generatingCode === voucher.code ? (
-                    <Loader2 className="animate-spin" />
-                  ) : (
-                    <Download />
-                  )}
-                  Baixar PDF
-                </Button>
-                <BenefitValidityButton kind="voucher" id={voucher.id} code={voucher.code} expiresAt={voucher.expires_at} status={voucher.status} />
-              </div>
-              <BenefitLogList
-                logs={logs.filter((log) => log.voucher_id === voucher.id)}
-                sourceHref={
-                  voucher.issued_sale_id
-                    ? `/finance?tab=sales#sale-${voucher.issued_sale_id}`
-                    : undefined
-                }
-              />
-            </div>
-          ))
+                />
+              </article>
+            );
+          })
         ) : (
-          <Empty icon={Gift} text="Nenhum voucher emitido." />
+          <div className="col-span-full">
+            <Empty
+              icon={Gift}
+              text={
+                vouchers.length
+                  ? 'Nenhum voucher corresponde aos filtros.'
+                  : 'Nenhum voucher emitido.'
+              }
+            />
+          </div>
         )}
       </div>
       <Dialog
@@ -457,7 +556,11 @@ export function VouchersView({
               onClick={() => void finishTransferDecision()}
               disabled={savingDecision || !canManage}
             >
-              {savingDecision ? <Loader2 className="animate-spin" /> : <Check />}
+              {savingDecision ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <Check />
+              )}
               Confirmar
             </Button>
           </DialogFooter>

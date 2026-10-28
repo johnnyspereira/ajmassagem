@@ -1,8 +1,21 @@
 'use client';
 
+import {
+  CatalogImageField,
+  emptyCatalogImage,
+  saveCatalogImageDraft,
+} from './catalog-image-field';
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Loader2, PackageCheck, Pencil, Plus, Trash2, Power } from 'lucide-react';
+import {
+  Loader2,
+  PackageCheck,
+  Pencil,
+  Plus,
+  Trash2,
+  Power,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { CatalogOrderDialog } from './catalog-order-dialog';
 import { sortCatalog } from '@/lib/clinic/catalog-order';
@@ -41,11 +54,16 @@ export function PackCatalogSettings() {
   );
   const [services, setServices] = useState<ClinicService[]>([]);
   const [loading, setLoading] = useState(true);
-  const [soldCounts, setSoldCounts] = useState<Record<string, number> | null>(null);
+  const [soldCounts, setSoldCounts] = useState<Record<string, number> | null>(
+    null
+  );
   const [saving, setSaving] = useState(false);
+  const [packImage, setPackImage] = useState(emptyCatalogImage);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [deletingPack, setDeletingPack] = useState<FinancePackCatalog | null>(null);
+  const [deletingPack, setDeletingPack] = useState<FinancePackCatalog | null>(
+    null
+  );
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [name, setName] = useState('');
@@ -73,10 +91,12 @@ export function PackCatalogSettings() {
         .eq('account_id', accountId)
         .eq('is_active', true)
         .order('name'),
-      fetch('/api/finance/pack-sales', { cache: 'no-store' }).then(async response => {
-        if (!response.ok) return null;
-        return (await response.json()).counts as Record<string, number>;
-      }).catch(() => null),
+      fetch('/api/finance/pack-sales', { cache: 'no-store' })
+        .then(async (response) => {
+          if (!response.ok) return null;
+          return (await response.json()).counts as Record<string, number>;
+        })
+        .catch(() => null),
     ]);
     setSoldCounts(salesCounts);
     if (packsRes.error || servicesRes.error) {
@@ -97,6 +117,7 @@ export function PackCatalogSettings() {
   }, [load]);
 
   function startCreate() {
+    setPackImage(emptyCatalogImage());
     setEditingId(null);
     setName('');
     setReference('');
@@ -108,6 +129,7 @@ export function PackCatalogSettings() {
   }
 
   function startEdit(pack: FinancePackCatalog) {
+    setPackImage(emptyCatalogImage());
     setEditingId(pack.id);
     setName(pack.name);
     setReference(pack.reference ?? '');
@@ -204,6 +226,20 @@ export function PackCatalogSettings() {
       toast.error(itemsError.message);
       return;
     }
+    setEditingId(packResult.data.id);
+    setSaving(true);
+    try {
+      await saveCatalogImageDraft('pack', packResult.data.id, packImage);
+    } catch (cause) {
+      setSaving(false);
+      toast.error(
+        cause instanceof Error
+          ? cause.message
+          : 'Não foi possível guardar a imagem.'
+      );
+      return;
+    }
+    setSaving(false);
     toast.success(editingId ? 'Pack atualizado.' : 'Pack criado.');
     setOpen(false);
     void load();
@@ -226,17 +262,25 @@ export function PackCatalogSettings() {
     setDeleteError('');
     try {
       const response = await fetch('/api/clinic/packs/delete', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: deletingPack.id }),
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Não foi possível excluir o pack.');
+      if (!response.ok)
+        throw new Error(result.error || 'Não foi possível excluir o pack.');
       setDeletingPack(null);
       toast.success('Pack excluído do catálogo.');
       void load();
     } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : 'Não foi possível excluir o pack.');
-    } finally { setDeleting(false); }
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível excluir o pack.'
+      );
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -295,12 +339,24 @@ export function PackCatalogSettings() {
                     <Badge variant={pack.is_active ? 'default' : 'secondary'}>
                       {pack.is_active ? 'Ativo' : 'Inativo'}
                     </Badge>
-                    {soldCounts !== null ? <Link
-                      href={`/reports?pack=${encodeURIComponent(pack.id)}`}
-                      title="Total desde o início. Exclui vendas anuladas e reembolsadas. Ver relatório deste pack."
-                      aria-label={`${soldCounts[pack.id] ?? 0} packs vendidos de ${pack.name}. Ver relatório`}
-                      className="inline-flex min-h-8 items-center rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/15 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
-                    >{soldCounts[pack.id] ?? 0} vendidos</Link> : <button type="button" className="text-muted-foreground min-h-8 text-xs underline" onClick={() => void load()}>Vendas indisponíveis · Tentar novamente</button>}
+                    {soldCounts !== null ? (
+                      <Link
+                        href={`/reports?pack=${encodeURIComponent(pack.id)}`}
+                        title="Total desde o início. Exclui vendas anuladas e reembolsadas. Ver relatório deste pack."
+                        aria-label={`${soldCounts[pack.id] ?? 0} packs vendidos de ${pack.name}. Ver relatório`}
+                        className="border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 inline-flex min-h-8 items-center rounded-full border px-2.5 py-1 text-xs font-medium hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                      >
+                        {soldCounts[pack.id] ?? 0} vendidos
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        className="text-muted-foreground min-h-8 text-xs underline"
+                        onClick={() => void load()}
+                      >
+                        Vendas indisponíveis · Tentar novamente
+                      </button>
+                    )}
                   </div>
                   <p className="text-muted-foreground mt-1 text-xs">
                     {pack.reference || 'Sem referência'} · {pack.validity_days}{' '}
@@ -339,7 +395,15 @@ export function PackCatalogSettings() {
                     {pack.is_active ? <Power /> : <PackageCheck />}
                     {pack.is_active ? 'Desativar' : 'Ativar'}
                   </Button>
-                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => {setDeleteError(''); setDeletingPack(pack);}}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => {
+                      setDeleteError('');
+                      setDeletingPack(pack);
+                    }}
+                  >
                     <Trash2 /> Excluir
                   </Button>
                 </div>
@@ -353,24 +417,62 @@ export function PackCatalogSettings() {
         </div>
       )}
 
-      <Dialog open={Boolean(deletingPack)} onOpenChange={(value) => {if (!value && !deleting) setDeletingPack(null);}}>
+      <Dialog
+        open={Boolean(deletingPack)}
+        onOpenChange={(value) => {
+          if (!value && !deleting) setDeletingPack(null);
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Excluir pack?</DialogTitle>
-            <DialogDescription>O pack «{deletingPack?.name}» será removido definitivamente do catálogo. Esta ação não pode ser desfeita. Packs associados a vendas ou clientes devem ser desativados para preservar o histórico.</DialogDescription>
+            <DialogDescription>
+              O pack «{deletingPack?.name}» será removido definitivamente do
+              catálogo. Esta ação não pode ser desfeita. Packs associados a
+              vendas ou clientes devem ser desativados para preservar o
+              histórico.
+            </DialogDescription>
           </DialogHeader>
-          {deleteError && <p role="alert" className="text-destructive rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">{deleteError}</p>}
+          {deleteError && (
+            <p
+              role="alert"
+              className="text-destructive border-destructive/30 bg-destructive/5 rounded-lg border p-3 text-sm"
+            >
+              {deleteError}
+            </p>
+          )}
           <DialogFooter>
-            <Button variant="outline" disabled={deleting} onClick={() => setDeletingPack(null)}>Cancelar</Button>
-            <Button variant="destructive" disabled={deleting} onClick={() => void deletePack()}>{deleting ? <Loader2 className="animate-spin" /> : <Trash2 />} {deleting ? 'A excluir…' : 'Excluir pack'}</Button>
+            <Button
+              variant="outline"
+              disabled={deleting}
+              onClick={() => setDeletingPack(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleting}
+              onClick={() => void deletePack()}
+            >
+              {deleting ? <Loader2 className="animate-spin" /> : <Trash2 />}{' '}
+              {deleting ? 'A excluir…' : 'Excluir pack'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editingId ? 'Editar pack' : 'Novo pack'}</DialogTitle>
           </DialogHeader>
+          <CatalogImageField
+            key={editingId || 'new-pack'}
+            kind="pack"
+            id={editingId}
+            draft={packImage}
+            onChange={setPackImage}
+            disabled={saving}
+          />
           <div className="grid gap-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <PackField label="Nome">

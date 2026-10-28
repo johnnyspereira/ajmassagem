@@ -1,17 +1,130 @@
 ﻿import { beforeEach, expect, it, vi } from 'vitest';
-const m = vi.hoisted(() => ({ role: vi.fn(), select: vi.fn(), mutate: vi.fn(), ensure: vi.fn(), save: vi.fn() }));
-vi.mock('@/lib/auth/account', () => ({ requireRole: m.role, toErrorResponse: () => Response.json({error:'Forbidden'}, {status:403}) }));
-vi.mock('@/lib/mysql/db', () => ({ selectRows:m.select, mutate:m.mutate }));
-vi.mock('@/lib/clinic/catalog-images', () => ({ ensureCatalogImages:m.ensure }));
-vi.mock('@/lib/storage/local-storage', () => ({ saveObject:m.save, publicStorageUrl:(bucket:string,path:string)=>`/uploads/${bucket}/${path}` }));
+const m = vi.hoisted(() => ({
+  role: vi.fn(),
+  select: vi.fn(),
+  mutate: vi.fn(),
+  ensure: vi.fn(),
+  save: vi.fn(),
+}));
+vi.mock('@/lib/auth/account', () => ({
+  requireRole: m.role,
+  toErrorResponse: () => Response.json({ error: 'Forbidden' }, { status: 403 }),
+}));
+vi.mock('@/lib/mysql/db', () => ({ selectRows: m.select, mutate: m.mutate }));
+vi.mock('@/lib/clinic/catalog-images', () => ({
+  ensureCatalogImages: m.ensure,
+}));
+vi.mock('@/lib/storage/local-storage', () => ({
+  saveObject: m.save,
+  publicStorageUrl: (bucket: string, path: string) =>
+    `/uploads/${bucket}/${path}`,
+}));
 import { GET, POST } from './route';
-const request=(options:{kind?:string;id?:string;file?:File;remove?:boolean}={})=>{const form=new FormData();form.set('kind',options.kind||'product');form.set('id',options.id||'item');if(options.file)form.set('file',options.file);if(options.remove)form.set('remove','true');return new Request('https://crm.test/api/clinic/catalog-images',{method:'POST',body:form});};
-beforeEach(()=>{vi.clearAllMocks();m.role.mockResolvedValue({accountId:'account'});m.select.mockResolvedValue([{id:'item'}]);});
-it('only reads image metadata belonging to the authenticated account',async()=>{m.select.mockResolvedValue([{kind:'product',item_id:'item',image_url:'/uploads/media/photo.png'}]);expect(await (await GET()).json()).toEqual({images:{'product:item':'/uploads/media/photo.png'}});expect(m.role).toHaveBeenCalledWith('agent');expect(m.select.mock.calls[0][1]).toEqual(['account']);});
-it('stores an image for a verified catalog item without modifying prices, stock or site images',async()=>{const file=new File([new Uint8Array([137,80,78,71,13,10,26,10,0,0,0,0])],'picture.png',{type:'image/png'});const response=await POST(request({file}));expect(response.status).toBe(200);expect(m.role).toHaveBeenCalledWith('admin');expect(m.select.mock.calls[0][1]).toEqual(['item','account']);expect(m.save.mock.calls[0][0]).toBe('media');expect(m.save.mock.calls[0][1]).toMatch(/^account-account\/catalog\/.*\.png$/);expect(m.mutate.mock.calls[0][1].slice(0,3)).toEqual(['account','product','item']);});
-it('does not write files for another-account or deleted item',async()=>{m.select.mockResolvedValue([]);expect((await POST(request())).status).toBe(404);expect(m.save).not.toHaveBeenCalled();expect(m.mutate).not.toHaveBeenCalled();});
-it('rejects SVG and other disguised files',async()=>{expect((await POST(request({file:new File(['<svg>bad</svg>'],'image.png',{type:'image/png'})}))).status).toBe(400);expect(m.save).not.toHaveBeenCalled();});
-it('rejects oversized uploads',async()=>{expect((await POST(request({file:new File([new Uint8Array(2*1024*1024+1)],'large.png',{type:'image/png'})}))).status).toBe(400);expect(m.save).not.toHaveBeenCalled();});
-it('removes only the scoped custom image association',async()=>{expect((await POST(request({remove:true}))).status).toBe(200);expect(m.mutate).toHaveBeenCalledWith('DELETE FROM clinic_catalog_images WHERE account_id=? AND kind=? AND item_id=?',['account','product','item']);expect(m.save).not.toHaveBeenCalled();});
-it('does not allow catalog table names from the request',async()=>{expect((await POST(request({kind:'accounts'}))).status).toBe(400);expect(m.select).not.toHaveBeenCalled();});
-it('blocks unauthorized image changes before querying or writing',async()=>{m.role.mockRejectedValue(new Error('Forbidden'));expect((await POST(request())).status).toBe(403);expect(m.select).not.toHaveBeenCalled();expect(m.save).not.toHaveBeenCalled();});
+const request = (
+  options: { kind?: string; id?: string; file?: File; remove?: boolean } = {}
+) => {
+  const form = new FormData();
+  form.set('kind', options.kind || 'product');
+  form.set('id', options.id || 'item');
+  if (options.file) form.set('file', options.file);
+  if (options.remove) form.set('remove', 'true');
+  return new Request('https://crm.test/api/clinic/catalog-images', {
+    method: 'POST',
+    body: form,
+  });
+};
+beforeEach(() => {
+  vi.clearAllMocks();
+  m.role.mockResolvedValue({ accountId: 'account' });
+  m.select.mockResolvedValue([{ id: 'item' }]);
+});
+it('only reads image metadata belonging to the authenticated account', async () => {
+  m.select.mockResolvedValue([
+    { kind: 'product', item_id: 'item', image_url: '/uploads/media/photo.png' },
+  ]);
+  expect(await (await GET()).json()).toEqual({
+    images: { 'product:item': '/uploads/media/photo.png' },
+  });
+  expect(m.role).toHaveBeenCalledWith('agent');
+  expect(m.select.mock.calls[0][1]).toEqual(['account']);
+});
+it('stores an image for a verified catalog item without modifying prices, stock or site images', async () => {
+  const file = new File(
+    [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0])],
+    'picture.png',
+    { type: 'image/png' }
+  );
+  const response = await POST(request({ file }));
+  expect(response.status).toBe(200);
+  expect(m.role).toHaveBeenCalledWith('admin');
+  expect(m.select.mock.calls[0][1]).toEqual(['item', 'account']);
+  expect(m.save.mock.calls[0][0]).toBe('media');
+  expect(m.save.mock.calls[0][1]).toMatch(
+    /^account-account\/catalog\/.*\.png$/
+  );
+  expect(m.mutate.mock.calls[0][1].slice(0, 3)).toEqual([
+    'account',
+    'product',
+    'item',
+  ]);
+});
+it('does not write files for another-account or deleted item', async () => {
+  m.select.mockResolvedValue([]);
+  expect((await POST(request())).status).toBe(404);
+  expect(m.save).not.toHaveBeenCalled();
+  expect(m.mutate).not.toHaveBeenCalled();
+});
+it('rejects SVG and other disguised files', async () => {
+  expect(
+    (
+      await POST(
+        request({
+          file: new File(['<svg>bad</svg>'], 'image.png', {
+            type: 'image/png',
+          }),
+        })
+      )
+    ).status
+  ).toBe(400);
+  expect(m.save).not.toHaveBeenCalled();
+});
+it('rejects oversized uploads', async () => {
+  expect(
+    (
+      await POST(
+        request({
+          file: new File([new Uint8Array(2 * 1024 * 1024 + 1)], 'large.png', {
+            type: 'image/png',
+          }),
+        })
+      )
+    ).status
+  ).toBe(400);
+  expect(m.save).not.toHaveBeenCalled();
+});
+it('removes only the scoped custom image association', async () => {
+  expect((await POST(request({ remove: true }))).status).toBe(200);
+  expect(m.mutate).toHaveBeenCalledWith(
+    'DELETE FROM clinic_catalog_images WHERE account_id=? AND kind=? AND item_id=?',
+    ['account', 'product', 'item']
+  );
+  expect(m.save).not.toHaveBeenCalled();
+});
+it('does not allow catalog table names from the request', async () => {
+  expect((await POST(request({ kind: 'accounts' }))).status).toBe(400);
+  expect(m.select).not.toHaveBeenCalled();
+});
+it('blocks unauthorized image changes before querying or writing', async () => {
+  m.role.mockRejectedValue(new Error('Forbidden'));
+  expect((await POST(request())).status).toBe(403);
+  expect(m.select).not.toHaveBeenCalled();
+  expect(m.save).not.toHaveBeenCalled();
+});
+
+it('reads safely before the optional image schema is installed without running DDL', async () => {
+  m.select.mockRejectedValue({ code: 'ER_NO_SUCH_TABLE' });
+  const r = await GET();
+  expect(r.status).toBe(200);
+  expect(await r.json()).toEqual({ images: {}, needsSetup: true });
+  expect(m.ensure).not.toHaveBeenCalled();
+});

@@ -13,11 +13,20 @@ const tables = {
 export async function GET() {
   try {
     const { accountId } = await requireRole('agent');
-    await ensureCatalogImages();
-    const rows = await selectRows<RowDataPacket[]>(
-      'SELECT kind,item_id,image_url FROM clinic_catalog_images WHERE account_id=?',
-      [accountId]
-    );
+    let rows: RowDataPacket[];
+    try {
+      rows = await selectRows<RowDataPacket[]>(
+        'SELECT kind,item_id,image_url FROM clinic_catalog_images WHERE account_id=?',
+        [accountId]
+      );
+    } catch (error) {
+      if ((error as { code?: string }).code === 'ER_NO_SUCH_TABLE')
+        return Response.json(
+          { images: {}, needsSetup: true },
+          { headers: { 'Cache-Control': 'private, no-store' } }
+        );
+      throw error;
+    }
     return Response.json(
       {
         images: Object.fromEntries(

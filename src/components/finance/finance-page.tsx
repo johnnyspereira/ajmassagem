@@ -37,6 +37,7 @@ import { FinanceMonthWorkspace } from './finance-month-workspace';
 import { accountDateInput } from '@/lib/timezone';
 import styles from './finance.module.css';
 import { PosCatalog } from './pos-catalog';
+import { SaleDocumentsDialog } from './sale-documents-dialog';
 import { salePaymentTimestamp } from '@/lib/finance/payment-date';
 
 import { Badge } from '@/components/ui/badge';
@@ -186,6 +187,8 @@ export function FinancePage({
   const [clientWalletBalance, setClientWalletBalance] = useState(0);
   const [saleDiscount, setSaleDiscount] = useState(0);
   const [saleNotes, setSaleNotes] = useState('');
+  const [attachProofAfterSale, setAttachProofAfterSale] = useState(false);
+  const [proofSale, setProofSale] = useState<{ id: string; returnAppointmentId?: string } | null>(null);
   const [payments, setPayments] = useState<PaymentDraft[]>([]);
   const [salePaymentDate, setSalePaymentDate] = useState(() =>
     accountDateInput(new Date(), account?.timezone)
@@ -737,6 +740,7 @@ export function FinancePage({
     setContactId('');
     setSaleDiscount(0);
     setSaleNotes('');
+    setAttachProofAfterSale(false);
     setPayments([]);
     setSalePaymentDate(accountDateInput(new Date(), account?.timezone));
     setAlreadyPaidElsewhere(false);
@@ -939,6 +943,12 @@ export function FinancePage({
       }
     }
     resetSale();
+    if (attachProofAfterSale && saleId) {
+      await loadFinance();
+      setActiveTab('sales');
+      setProofSale({ id: saleId, returnAppointmentId: initialAppointmentId && saleWasPaid ? initialAppointmentId : undefined });
+      return;
+    }
     if (initialAppointmentId && saleWasPaid) {
       window.location.assign(`/agenda?appointment=${encodeURIComponent(initialAppointmentId)}`);
       return;
@@ -1622,6 +1632,8 @@ export function FinancePage({
               remaining,
               saleNotes,
               setSaleNotes,
+              attachProofAfterSale,
+              setAttachProofAfterSale,
               salePaymentDate,
               setSalePaymentDate,
               todayDate: accountDateInput(new Date(), account?.timezone),
@@ -2030,6 +2042,11 @@ export function FinancePage({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <SaleDocumentsDialog saleId={proofSale?.id || null} canUpload={canOperate} onClose={() => {
+        const appointment = proofSale?.returnAppointmentId;
+        setProofSale(null);
+        if (appointment) window.location.assign('/agenda?appointment=' + encodeURIComponent(appointment));
+      }} />
       <Dialog open={customOpen} onOpenChange={setCustomOpen}>
         <DialogContent>
           <DialogHeader>
@@ -2676,6 +2693,8 @@ function PosView(props: {
   remaining: number;
   saleNotes: string;
   setSaleNotes: (value: string) => void;
+  attachProofAfterSale: boolean;
+  setAttachProofAfterSale: (value: boolean) => void;
   salePaymentDate: string;
   setSalePaymentDate: (value: string) => void;
   todayDate: string;
@@ -2717,6 +2736,8 @@ function PosView(props: {
     remaining,
     saleNotes,
     setSaleNotes,
+    attachProofAfterSale,
+    setAttachProofAfterSale,
     salePaymentDate,
     setSalePaymentDate,
     todayDate,
@@ -3105,6 +3126,10 @@ function PosView(props: {
               Use esta data para uma venda retroativa. Os relatórios serão
               atualizados no dia selecionado.
             </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-2 rounded-lg border bg-muted/20 p-3 text-sm">
+            <input type="checkbox" checked={attachProofAfterSale} onChange={event => setAttachProofAfterSale(event.target.checked)} className="mt-1 size-4 shrink-0" />
+            <span>Anexar comprovativo depois de registar<span className="text-muted-foreground mt-1 block text-xs">Abre a opção de carregar uma imagem ou PDF para esta venda.</span></span>
           </label>
           <Textarea
             value={saleNotes}

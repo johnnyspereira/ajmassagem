@@ -39,9 +39,6 @@ export function FinanceHeader({
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <p className="text-primary mb-1 text-[10px] font-semibold tracking-[0.16em] uppercase">
-          Gestão do negócio
-        </p>
         <h1 className="text-2xl font-semibold tracking-tight">Financeiro</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           Vendas, recebimentos e contas com clareza.

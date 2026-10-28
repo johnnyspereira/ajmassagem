@@ -1,5 +1,11 @@
 'use client';
 
+import {
+  CatalogImageField,
+  emptyCatalogImage,
+  saveCatalogImageDraft,
+} from './catalog-image-field';
+
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import workspaceStyles from './settings-workspace.module.css';
@@ -455,6 +461,8 @@ export function ClinicSettings() {
   const [schemaMissing, setSchemaMissing] = useState(false);
   const [services, setServices] = useState<ClinicService[]>([]);
   const [products, setProducts] = useState<ClinicProduct[]>([]);
+  const [productImage, setProductImage] = useState(emptyCatalogImage);
+  const [serviceImage, setServiceImage] = useState(emptyCatalogImage);
   const [rooms, setRooms] = useState<ClinicRoom[]>([]);
   const [professionals, setProfessionals] = useState<AccountMember[]>([]);
   const [professionalWorkSessions, setProfessionalWorkSessions] = useState<
@@ -635,10 +643,12 @@ export function ClinicSettings() {
     if (tab === 'services') {
       setEditingServiceId(null);
       setServiceDraft(defaultServiceDraft());
+      setServiceImage(emptyCatalogImage());
       setServiceOpen(true);
     } else if (tab === 'products') {
       setEditingProductId(null);
       setProductDraft(defaultProductDraft());
+      setProductImage(emptyCatalogImage());
       setProductOpen(true);
     } else {
       setEditingRoomId(null);
@@ -650,6 +660,7 @@ export function ClinicSettings() {
   function openEditService(service: ClinicService) {
     setEditingServiceId(service.id);
     setServiceDraft(serviceDraftFromService(service));
+    setServiceImage(emptyCatalogImage());
     setServiceOpen(true);
   }
 
@@ -739,18 +750,38 @@ export function ClinicSettings() {
         readNumber(serviceDraft.commissionResponsiblePercent, 0)
       ),
     };
-    const { error } = editingServiceId
+    const { error, data: saved } = editingServiceId
       ? await supabase
           .from('clinic_services')
           .update(payload)
           .eq('id', editingServiceId)
           .eq('account_id', accountId)
-      : await supabase.from('clinic_services').insert({
-          account_id: accountId,
-          user_id: user.id,
-          ...payload,
-          is_active: true,
-        });
+          .select('id')
+          .single()
+      : await supabase
+          .from('clinic_services')
+          .insert({
+            account_id: accountId,
+            user_id: user.id,
+            ...payload,
+            is_active: true,
+          })
+          .select('id')
+          .single();
+    if (!error && saved?.id) {
+      setEditingServiceId(saved.id);
+      try {
+        await saveCatalogImageDraft('service', saved.id, serviceImage);
+      } catch (cause) {
+        setSaving(false);
+        toast.error(
+          cause instanceof Error
+            ? cause.message
+            : 'Não foi possível guardar a imagem.'
+        );
+        return;
+      }
+    }
     setSaving(false);
 
     if (error) {
@@ -894,6 +925,7 @@ export function ClinicSettings() {
   function openEditProduct(product: ClinicProduct) {
     setEditingProductId(product.id);
     setProductDraft(productDraftFromProduct(product));
+    setProductImage(emptyCatalogImage());
     setProductOpen(true);
   }
 
@@ -917,18 +949,38 @@ export function ClinicSettings() {
         Math.round(readNumber(productDraft.stockQuantity, 0))
       ),
     };
-    const { error } = editingProductId
+    const { error, data: saved } = editingProductId
       ? await supabase
           .from('clinic_products')
           .update(payload)
           .eq('id', editingProductId)
           .eq('account_id', accountId)
-      : await supabase.from('clinic_products').insert({
-          account_id: accountId,
-          user_id: user.id,
-          ...payload,
-          is_active: true,
-        });
+          .select('id')
+          .single()
+      : await supabase
+          .from('clinic_products')
+          .insert({
+            account_id: accountId,
+            user_id: user.id,
+            ...payload,
+            is_active: true,
+          })
+          .select('id')
+          .single();
+    if (!error && saved?.id) {
+      setEditingProductId(saved.id);
+      try {
+        await saveCatalogImageDraft('product', saved.id, productImage);
+      } catch (cause) {
+        setSaving(false);
+        toast.error(
+          cause instanceof Error
+            ? cause.message
+            : 'Não foi possível guardar a imagem.'
+        );
+        return;
+      }
+    }
     setSaving(false);
 
     if (error) {
@@ -1384,7 +1436,7 @@ export function ClinicSettings() {
           if (!open) setEditingServiceId(null);
         }}
       >
-        <DialogContent className="sm:max-w-3xl">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>
               {editingServiceId ? 'Editar procedimento' : 'Novo procedimento'}
@@ -1397,6 +1449,15 @@ export function ClinicSettings() {
               <TabsTrigger value="public">Site público</TabsTrigger>
             </TabsList>
             <TabsContent value="general" className="mt-4 grid gap-4">
+              <CatalogImageField
+                key={editingServiceId || 'new-service'}
+                kind="service"
+                fallback={serviceDraft.publicImageUrl}
+                id={editingServiceId}
+                draft={serviceImage}
+                onChange={setServiceImage}
+                disabled={saving}
+              />
               <Field label="Nome">
                 <Input
                   value={serviceDraft.name}
@@ -1831,13 +1892,21 @@ export function ClinicSettings() {
           if (!open) setEditingProductId(null);
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>
               {editingProductId ? 'Editar produto' : 'Novo produto'}
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4">
+            <CatalogImageField
+              key={editingProductId || 'new-product'}
+              kind="product"
+              id={editingProductId}
+              draft={productImage}
+              onChange={setProductImage}
+              disabled={saving}
+            />
             <Field label="Nome">
               <Input
                 value={productDraft.name}

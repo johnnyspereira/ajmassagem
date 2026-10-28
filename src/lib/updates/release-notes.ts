@@ -15,6 +15,20 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-28-sale-documents-finance-lists', date: '2026-10-28', category: 'Melhoria',
+    title: 'Comprovativos nas vendas e listas financeiras mais claras', areas: ['Financeiro', 'Vendas', 'Vouchers', 'Packs'],
+    summary: 'As vendas passam a aceitar comprovativos internos, e as listas ganham cores, pesquisa e filtros de estado.',
+    changes: ['Comprovativos em PDF, JPG, PNG ou WebP até 10 MB, ligados a uma venda existente e acessíveis apenas a utilizadores com acesso financeiro da mesma conta.', 'No POS, a opção Anexar comprovativo depois de registar abre o carregamento após criar a venda. Nas vendas existentes, o botão Comprovativos permite anexar, abrir e descarregar os documentos.', 'Anexar não confirma pagamentos, não altera valores e não envia documentos ao cliente. Uma falha no carregamento não exige repetir a venda.', 'Vendas com estados coloridos e filtros rápidos dentro do mês consultado. Vouchers com pesquisa, filtros de disponibilidade e PIN recolhido; benefícios sem saldo aparecem como Utilizado.', 'Packs dos clientes em destaque, com saldos por modalidade, filtros e acesso à venda. O catálogo fica disponível numa secção recolhível.'],
+    howTo: 'Abra uma venda em Financeiro → Vendas e escolha Comprovativos. Para anexar logo após uma venda no POS, assinale a opção antes de registar. Se veio da Agenda, conclua a janela de comprovativos para regressar à marcação. Use os filtros de vouchers e packs para consultar os disponíveis, utilizados ou expirados.',
+  },
+  {
+    id: '2026-10-28-clinic-catalog-image-editors', date: '2026-10-28', category: 'Correção',
+    title: 'Fotografias geridas nos formulários da Clínica', areas: ['Clínica', 'Procedimentos', 'Produtos', 'Packs', 'POS'],
+    summary: 'As fotografias dos artigos passam a ser carregadas na criação ou edição dentro da Clínica. O POS mantém apenas a visualização.',
+    changes: ['Campo Fotografia do artigo nos formulários de procedimentos, produtos e packs, com pré-visualização, substituição e remoção ao guardar.', 'Se o artigo foi criado mas a fotografia falhou, repetir o envio atualiza o mesmo artigo, evitando uma segunda criação.', 'O POS deixa de apresentar botões de edição de imagem. Quando a estrutura de imagens ainda não existe, a consulta permite continuar a usar o catálogo com as fotografias dos serviços existentes.'],
+    howTo: 'Abra Definições → Clínica e crie ou edite o artigo. Escolha um JPG, PNG ou WebP até 2 MB em Fotografia do artigo e guarde o formulário. As fotografias do POS não alteram a imagem pública do serviço.',
+  },
+  {
     id: '2026-10-28-visual-pos-payment-date-reactions', date: '2026-10-28', category: 'Melhoria',
     title: 'POS com fotografias e correção da data do pagamento', areas: ['Financeiro', 'POS', 'WhatsApp', 'Inbox'],
     summary: 'O catálogo do POS passa a mostrar fotografias, stock e quantidades na venda. A data de hoje deixa de ser recusada durante a manhã.',
