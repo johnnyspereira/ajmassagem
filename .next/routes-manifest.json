@@ -89,7 +89,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "3bb5e18cd9e197cb20d22b543a7f67bbae121d4f"
+          "value": "4b3cec9924f2a6b5e2d6e658a1037d3abde2afcd"
         }
       ],
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
@@ -99,7 +99,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "3bb5e18cd9e197cb20d22b543a7f67bbae121d4f"
+          "value": "4b3cec9924f2a6b5e2d6e658a1037d3abde2afcd"
         }
       ],
       "regex": "^/_next/data(?:/(.*))(?:/)?$"
@@ -1068,6 +1068,12 @@
       "namedRegex": "^/api/finance/reminders/test(?:/)?$"
     },
     {
+      "page": "/api/finance/sale-documents",
+      "regex": "^/api/finance/sale\\-documents(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/finance/sale\\-documents(?:/)?$"
+    },
+    {
       "page": "/api/finance/sumup/status",
       "regex": "^/api/finance/sumup/status(?:/)?$",
       "routeKeys": {},
@@ -1728,5 +1734,5 @@
     "pathHeader": "x-nextjs-rewritten-path",
     "queryHeader": "x-nextjs-rewritten-query"
   },
-  "deploymentId": "3bb5e18cd9e197cb20d22b543a7f67bbae121d4f"
+  "deploymentId": "4b3cec9924f2a6b5e2d6e658a1037d3abde2afcd"
 }
