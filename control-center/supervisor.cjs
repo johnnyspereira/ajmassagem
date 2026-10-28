@@ -2,6 +2,9 @@ const { spawn, execFile } = require('node:child_process');
 const { readFileSync, existsSync, appendFileSync, mkdirSync } = require('node:fs');
 const { join, dirname, resolve } = require('node:path');
 const os = require('node:os');
+const { Buffer } = require('node:buffer');
+const { openSync, readSync, closeSync, fstatSync, statfsSync } = require('node:fs');
+const { ProcessInventory, configMatches } = require('./process-inventory.cjs');
 
 function isProjectRoot(candidate) {
   return existsSync(join(candidate, 'workers', 'whatsapp-bridge', 'server.cjs'))
@@ -47,7 +50,7 @@ function readEnv(file) {
 
 function run(file, args, options = {}) {
   return new Promise((resolve, reject) => {
-    execFile(file, args, { windowsHide: true, maxBuffer: 1024 * 1024, ...options }, (error, stdout, stderr) => {
+    execFile(file, args, { windowsHide: true, timeout: 8_000, maxBuffer: 1024 * 1024, ...options }, (error, stdout, stderr) => {
       if (error) return reject(new Error(stderr?.trim() || error.message));
       resolve(stdout.trim());
     });
@@ -55,37 +58,24 @@ function run(file, args, options = {}) {
 }
 
 async function powershell(script) {
-  return run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script]);
+  return run('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')]);
 }
 
-async function processForPort(port) {
-  try {
-    const output = await powershell(`$listener=Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; if($null -ne $listener){$listener.OwningProcess}`);
-    return output ? Number(output) : null;
-  } catch { return null; }
-}
-
-async function tunnelPids(configName) {
-  const escaped = configName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const output = await powershell(`Get-CimInstance Win32_Process -Filter \"Name='cloudflared.exe'\" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -match '${escaped}' } | Select-Object -ExpandProperty ProcessId`);
-  return output ? output.split(/\r?\n/).map(Number).filter(Boolean) : [];
-}
-
-async function processUptime(pid) {
-  if (!pid) return null;
-  try {
-    const output = await powershell(`(Get-Process -Id ${pid} -ErrorAction Stop).StartTime.ToUniversalTime().ToString('o')`);
-    return output || null;
-  } catch { return null; }
-}
-
-async function systemMetrics() {
-  const base = { totalMemory: os.totalmem(), freeMemory: os.freemem(), appMemory: process.memoryUsage().rss, cpuPercent: null, disk: null, network: null };
-  try {
-    const output = await powershell("$cpu=(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average; $disk=Get-CimInstance Win32_LogicalDisk -Filter \"DeviceID='C:'\"; $online=Test-Connection -ComputerName 1.1.1.1 -Count 1 -Quiet -ErrorAction SilentlyContinue; @{cpu=$cpu; size=$disk.Size; free=$disk.FreeSpace; online=$online} | ConvertTo-Json -Compress");
-    const parsed = JSON.parse(output);
-    return { ...base, cpuPercent: Number.isFinite(Number(parsed.cpu)) ? Number(parsed.cpu) : null, disk: parsed.size ? { size: Number(parsed.size), free: Number(parsed.free) } : null, network: typeof parsed.online === 'boolean' ? parsed.online : null };
-  } catch { return base; }
+let previousCpu = os.cpus().map(cpu => cpu.times);
+function systemMetrics() {
+  const current = os.cpus().map(cpu => cpu.times);
+  let idle = 0, total = 0;
+  current.forEach((times, index) => {
+    const old = previousCpu[index];
+    if (!old) return;
+    for (const key of Object.keys(times)) total += times[key] - old[key];
+    idle += times.idle - old.idle;
+  });
+  previousCpu = current;
+  let disk = null;
+  try { const stats = statfsSync('C:/'); disk = { size: stats.blocks * stats.bsize, free: stats.bavail * stats.bsize }; } catch {}
+  return { totalMemory: os.totalmem(), freeMemory: os.freemem(), appMemory: process.memoryUsage().rss,
+    cpuPercent: total > 0 ? Math.round((1 - idle / total) * 100) : null, disk, network: null };
 }
 
 function minutesSince(iso) {
@@ -98,6 +88,9 @@ class Supervisor {
     this.events = [];
     this.children = new Map();
     this.last = null;
+    this.snapshotPending = null;
+    this.snapshotAt = 0;
+    this.inventory = new ProcessInventory(run);
     this.rootEnv = readEnv(join(PROJECT, '.env'));
     this.whatsAppEnv = readEnv(join(PROJECT, 'workers', 'whatsapp-bridge', '.env'));
     this.services = {
@@ -136,7 +129,17 @@ class Supervisor {
   persistedEvents() {
     const file = join(LOG_DIR, 'control-center.log');
     if (!existsSync(file)) return [];
-    return readFileSync(file, 'utf8').split(/\r?\n/).slice(-500).map((line, index) => {
+    const fd = openSync(file, 'r');
+    let text;
+    try {
+      const size = fstatSync(fd).size;
+      const length = Math.min(size, 64 * 1024);
+      const buffer = Buffer.alloc(length);
+      readSync(fd, buffer, 0, length, size - length);
+      text = buffer.toString('utf8');
+      if (size > length) text = text.slice(text.indexOf('\n') + 1);
+    } finally { closeSync(fd); }
+    return text.split(/\r?\n/).slice(-500).map((line, index) => {
       const match = line.match(/^\[(.*?)\] \[(.*?)\] (INFO|WARN|ERROR) (.*)$/);
       return match ? { id: `file-${index}-${match[1]}`, at: match[1], service: match[2], level: match[3].toLowerCase(), message: match[4] } : null;
     }).filter(Boolean);
@@ -152,20 +155,18 @@ class Supervisor {
     }
   }
 
-  async serviceState(service) {
-    let pids = [];
-    if (service.port) {
-      const pid = await processForPort(service.port);
-      if (pid) pids = [pid];
-    } else {
-      pids = await tunnelPids(service.config);
-    }
-    const uptimeAt = await processUptime(pids[0]);
+  async serviceState(service, force = false) {
+    const inventory = await this.inventory.read(force);
+    const pids = service.port
+      ? [inventory.ports.get(service.port)].filter(Boolean)
+      : inventory.processes.filter(row => row.Name === 'cloudflared.exe' && configMatches(row.CommandLine, service.args[service.args.indexOf('--config') + 1])).map(row => Number(row.ProcessId));
+    const uptimeAt = inventory.processes.find(row => Number(row.ProcessId) === pids[0])?.StartedAt || null;
     let health = { ok: pids.length > 0, detail: pids.length ? 'Processo ativo.' : 'Processo não encontrado.' };
+    if (!service.port && !inventory.metadataAvailable) health = { ok: false, detail: 'Verificação temporariamente indisponível; aguarde a próxima atualização.' };
     if (service.id === 'whatsappWorker' && pids[0]) {
       const accountId = this.whatsAppEnv.ACCOUNT_ID;
       const userId = this.whatsAppEnv.USER_ID;
-      const probe = await this.probeHttp(`http://127.0.0.1:4100/status?account_id=${encodeURIComponent(accountId || '')}&user_id=${encodeURIComponent(userId || '')}`, { authorization: `Bearer ${this.whatsAppEnv.WORKER_SECRET || ''}` });
+      const probe = await this.probeHttp(`http://127.0.0.1:4100/status?account_id=${encodeURIComponent(accountId || '')}&user_id=${encodeURIComponent(userId || '')}&autostart=false`, { authorization: `Bearer ${this.whatsAppEnv.WORKER_SECRET || ''}` });
       health = probe.ok ? { ok: Boolean(probe.body.connected), detail: probe.body.connected ? 'Sessão QR conectada.' : `Sessão: ${probe.body.state || 'desconhecida'}.`, meta: probe.body } : { ok: false, detail: probe.error || 'Health check não respondeu.' };
     }
     if (service.id === 'aiWorker' && pids[0]) {
@@ -188,7 +189,14 @@ class Supervisor {
     };
   }
 
-  async snapshot() {
+  snapshot() {
+    if (this.snapshotPending) return this.snapshotPending;
+    if (this.last && Date.now() - this.snapshotAt < 10_000) return Promise.resolve(this.last);
+    this.snapshotPending = this.collectSnapshot().finally(() => { this.snapshotPending = null; });
+    return this.snapshotPending;
+  }
+
+  async collectSnapshot() {
     const services = await Promise.all(Object.values(this.services).map((service) => this.serviceState(service)));
     const ollama = await this.probeHttp('http://127.0.0.1:11434/api/tags');
     const metrics = await systemMetrics();
@@ -200,13 +208,15 @@ class Supervisor {
       system: { cpuCount: os.cpus().length, ...metrics },
     };
     this.last = snapshot;
+    this.snapshotAt = Date.now();
     return snapshot;
   }
 
   async start(id) {
     const service = this.services[id];
     if (!service) throw new Error('Serviço desconhecido.');
-    const current = await this.serviceState(service);
+    const current = await this.serviceState(service, true);
+    this.snapshotAt = 0;
     if (current.pids.length) return { changed: false, reason: 'Já está ativo.' };
     const child = spawn(service.command, service.args, { cwd: service.cwd, env: service.env || process.env, windowsHide: true, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
     child.unref();
@@ -225,7 +235,8 @@ class Supervisor {
   async stop(id) {
     const service = this.services[id];
     if (!service) throw new Error('Serviço desconhecido.');
-    const current = await this.serviceState(service);
+    const current = await this.serviceState(service, true);
+    this.snapshotAt = 0;
     for (const pid of current.pids) {
       try {
         await run('taskkill.exe', ['/PID', String(pid), '/T', '/F']);

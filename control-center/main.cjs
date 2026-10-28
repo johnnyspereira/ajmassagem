@@ -22,15 +22,33 @@ function createWindow() {
   windowRef.on('closed', () => { windowRef = null; });
 }
 
-function broadcastSnapshot() {
-  supervisor.snapshot()
-    .then((snapshot) => windowRef?.webContents.send('control:snapshot', snapshot))
-    .catch((error) => supervisor.event('Sistema', 'error', `Falha ao atualizar painel: ${error.message}`));
+async function broadcastSnapshot() {
+  if (!windowRef || windowRef.isDestroyed() || windowRef.isMinimized() || !windowRef.isVisible()) return;
+  try {
+    const snapshot = await supervisor.snapshot();
+    if (windowRef && !windowRef.isDestroyed()) windowRef.webContents.send('control:snapshot', snapshot);
+  } catch (error) {
+    supervisor.event('Sistema', 'error', `Falha ao atualizar painel: ${error.message}`);
+  }
 }
 
-app.whenReady().then(() => {
+async function poll() {
+  await broadcastSnapshot();
+  if (windowRef) timer = setTimeout(poll, 10_000);
+}
+
+const ownsInstance = app.requestSingleInstanceLock();
+if (!ownsInstance) app.quit();
+app.on('second-instance', () => {
+  if (!windowRef) return;
+  if (windowRef.isMinimized()) windowRef.restore();
+  windowRef.show();
+  windowRef.focus();
+});
+
+if (ownsInstance) app.whenReady().then(() => {
   createWindow();
-  timer = setInterval(broadcastSnapshot, 3_000);
+  windowRef.on('restore', broadcastSnapshot);
   ipcMain.handle('control:snapshot', () => supervisor.snapshot());
   ipcMain.handle('control:action', (_event, action, id) => {
     const result = pendingAction.then(async () => {
@@ -54,8 +72,8 @@ app.whenReady().then(() => {
     if (!result.canceled && result.filePath) require('node:fs').writeFileSync(result.filePath, JSON.stringify(snapshot, null, 2));
     return !result.canceled;
   });
-  broadcastSnapshot();
+  void poll();
 });
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-app.on('before-quit', () => clearInterval(timer));
+app.on('before-quit', () => clearTimeout(timer));

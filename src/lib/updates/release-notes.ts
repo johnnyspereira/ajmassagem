@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-28-control-center-resource-use', date: '2026-10-28', category: 'Correção',
+    title: 'Centro de Controlo mais leve no portátil', areas: ['Centro de controlo', 'Serviços locais'],
+    summary: 'A monitorização deixa de acumular consultas PowerShell e reduz o trabalho em segundo plano.',
+    changes: ['Atualização a cada dez segundos, sem consultas sobrepostas; a pesquisa de processos é partilhada entre os serviços e os detalhes são reutilizados durante trinta segundos.', 'Monitorização automática suspensa quando o painel está minimizado. CPU, memória e disco são medidos sem lançar PowerShell nem executar um ping em cada atualização.', 'Comandos com tempo limite, correção da pesquisa do túnel e leitura limitada aos registos recentes, evitando carregar o ficheiro completo a cada atualização.', 'Abrir novamente o Centro de Controlo foca a janela existente em vez de duplicar o painel.'],
+    howTo: 'Abra o Centro de Controlo atualizado e minimize-o quando não estiver a consultar o estado. Os workers e túneis continuam ligados; as ações de iniciar e parar verificam os processos antes de atuar.',
+  },
+  {
     id: '2026-10-28-agenda-action-dialog-mobile', date: '2026-10-28', category: 'Correção',
     title: 'Ações da Agenda acessíveis no telemóvel', areas: ['Agenda'],
     summary: 'Os diálogos de reagendamento e das restantes ações passam a respeitar a altura visível do dispositivo.',

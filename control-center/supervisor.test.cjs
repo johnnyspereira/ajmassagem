@@ -7,6 +7,8 @@ function supervisor(alive, rootRetryWorks = false) {
   let retried = false;
   const sandbox = { module: { exports: {} }, __dirname, process, console, setTimeout, fetch, AbortSignal, require(name) {
     if (name === 'node:child_process') return { execFile(file, args, options, callback) {
+      assert.equal(options.windowsHide, true);
+      assert.equal(options.timeout, 8000);
       if (file === 'taskkill.exe') {
         if (!args.includes('/T')) { retried = true; if(rootRetryWorks) return callback(null, '', ''); }
         callback(new Error('not found'), '', 'not found');
@@ -32,4 +34,18 @@ test('a failure to stop a live PID is still reported', async () => {
 });
 test('a stale child tree falls back to the parent PID and verifies shutdown', async () => {
   assert.equal((await supervisor(true, true).stop('aiTunnel')).changed, true);
+});
+
+test('overlapping panel and IPC updates share the same snapshot', async () => {
+  const s = supervisor(false);
+  let calls = 0, finish;
+  s.collectSnapshot = () => {
+    calls++;
+    return new Promise(resolve => { finish = resolve; });
+  };
+  const a = s.snapshot();
+  const b = s.snapshot();
+  assert.equal(calls, 1);
+  finish({ ok: true });
+  assert.equal(await a, await b);
 });
