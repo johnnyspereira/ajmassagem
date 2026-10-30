@@ -41,7 +41,7 @@ class ProcessInventory {
     const portsPromise = this.run('netstat.exe', ['-ano', '-p', 'tcp'])
       .then(output => ({ ports: listeningPorts(output) }), error => ({ error }));
     if (force || !this.metadataAt || this.now() - this.metadataAt >= 30_000) {
-      const script = "$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[System.Text.Encoding]::UTF8; @(Get-CimInstance Win32_Process -Filter \"Name='cloudflared.exe' OR Name='node.exe'\" | Select-Object ProcessId,Name,CommandLine,@{Name='StartedAt';Expression={$_.CreationDate.ToUniversalTime().ToString('o')}}) | ConvertTo-Json -Compress";
+      const script = "$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[System.Text.Encoding]::UTF8; @(Get-CimInstance Win32_Process -Filter \"Name='cloudflared.exe' OR Name='node.exe'\" | Select-Object ProcessId,Name,CommandLine,WorkingSetSize,@{Name='StartedAt';Expression={$_.CreationDate.ToUniversalTime().ToString('o')}}) | ConvertTo-Json -Compress";
       try {
         const raw = await this.run('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')]);
         const rows = JSON.parse(raw.replace(/^\uFEFF/, '') || '[]');

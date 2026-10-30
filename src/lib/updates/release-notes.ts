@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-30-control-center-operations', date: '2026-10-30', category: 'Melhoria',
+    title: 'Centro de controlo com recuperação e diagnóstico das ligações', areas: ['Centro de controlo', 'WhatsApp', 'IA', 'Lembretes'],
+    summary: 'O painel local distingue processos em execução de ligações prontas e apresenta ações para recuperar apenas os serviços com falha.',
+    changes: ['Visão geral com causas das falhas, início dos serviços desligados e recuperação seletiva. WhatsApp com consulta do QR, recuperação da sessão e reinício do processo com confirmação.', 'Diagnóstico a pedido das ligações locais e públicas do WhatsApp e da IA, consulta do agendador dos lembretes e dos modelos carregados em memória. O diagnóstico não envia mensagens nem executa lembretes.', 'Teste manual de resposta da IA, atalhos para o CRM, registos pesquisáveis e cópia ou exportação do diagnóstico sem QR nem credenciais conhecidas.', 'Interface ajustada a janelas menores, confirmações dentro do painel e proteção contra cliques repetidos. A monitorização mantém intervalos de dez segundos e pausa quando o painel está minimizado.'],
+    howTo: 'Abra o Centro de controlo local. Em Visão geral, consulte o serviço que precisa de atenção; em WhatsApp, use Recuperar WhatsApp ou Consultar QR. Em Diagnóstico, escolha Executar diagnóstico para comparar as ligações e consultar o agendador. Fechar o painel mantém os serviços em execução.',
+  },
+  {
     id: '2026-10-28-sale-documents-finance-lists', date: '2026-10-28', category: 'Melhoria',
     title: 'Comprovativos nas vendas e listas financeiras mais claras', areas: ['Financeiro', 'Vendas', 'Vouchers', 'Packs'],
     summary: 'As vendas passam a aceitar comprovativos internos, e as listas ganham cores, pesquisa e filtros de estado.',

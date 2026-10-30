@@ -1,5 +1,40 @@
-<!doctype html>
-<html lang="pt-PT"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>JP Massagem — Control Center</title><link rel="stylesheet" href="./styles.css" /></head><body>
-<main class="app-shell"><header class="topbar"><div class="brand"><span>✦</span><div><strong>JP MASSAGEM</strong><small>CENTRO DE CONTROLO</small></div></div><div id="overall-status" class="system-status">● A verificar serviços</div><div class="clock"><span id="today"></span><b id="time"></b><small>Lisboa</small></div><div class="top-actions"><button data-action="restart-all">Reiniciar tudo</button><button data-view="logs">Logs</button><button id="export">Exportar diagnóstico</button></div></header>
-<div class="app-layout"><aside class="sidebar"><p class="sidebar-label">OPERAÇÃO</p><button class="nav active" data-view="dashboard"><span>⌂</span> Visão geral<small>Estado do CRM</small></button><button class="nav" data-view="whatsapp"><span>◉</span> WhatsApp<small>Sessão, Inbox e QR</small></button><button class="nav" data-view="ai-tunnel"><span>☁</span> AI Tunnel<small>Acesso externo</small></button><button class="nav" data-view="ai-worker"><span>◈</span> AI Worker<small>Ollama e respostas</small></button><button class="nav" data-view="system"><span>◌</span> Sistema<small>Recursos do PC</small></button><button class="nav" data-view="logs"><span>▤</span> Logs<small>Eventos em tempo real</small></button><div class="sidebar-help"><b>Atalhos</b><p>R — reiniciar serviços</p><p>L — abrir Logs</p><p>Q — fechar painel</p></div></aside><section id="workspace" class="workspace" aria-live="polite"></section></div></main>
-<script src="./renderer.js"></script></body></html>
+﻿<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'" />
+  <title>JP Massagem — Centro de Controlo</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><strong>JP Massagem</strong><span>Centro de controlo</span></div>
+      <span id="overall-status" class="system-status" aria-live="polite">A verificar serviços…</span>
+      <div class="clock"><span id="today"></span><b id="time"></b><small>Lisboa</small></div>
+      <div class="top-actions"><button data-action="open-crm" data-id="home">Abrir CRM</button><button data-action="refresh" class="icon-button" aria-label="Atualizar estado" title="Atualizar estado"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 2M4 16l2 2a7 7 0 0 0 12-1"/></svg></button></div>
+    </header>
+    <div class="app-layout">
+      <nav class="sidebar" aria-label="Áreas do centro de controlo">
+        <button class="nav active" data-view="dashboard" title="Visão geral"><span class="nav-icon" data-icon="grid"></span><span>Visão geral</span></button>
+        <button class="nav" data-view="whatsapp" title="WhatsApp"><span class="nav-icon" data-icon="chat"></span><span>WhatsApp</span></button>
+        <button class="nav" data-view="ai-worker" title="Inteligência artificial"><span class="nav-icon" data-icon="spark"></span><span>Inteligência artificial</span></button>
+        <button class="nav" data-view="ai-tunnel" title="Túneis e ligações"><span class="nav-icon" data-icon="cloud"></span><span>Túneis e ligações</span></button>
+        <button class="nav" data-view="diagnostics" title="Diagnóstico"><span class="nav-icon" data-icon="pulse"></span><span>Diagnóstico</span></button>
+        <button class="nav" data-view="system" title="Recursos do portátil"><span class="nav-icon" data-icon="monitor"></span><span>Recursos do portátil</span></button>
+        <button class="nav" data-view="logs" title="Registos"><span class="nav-icon" data-icon="list"></span><span>Registos</span></button>
+        <div class="sidebar-note"><span class="small-dot"></span><div><b>Monitorização leve</b><p>A cada 10 s. Pausa quando minimiza este painel.</p></div></div>
+      </nav>
+      <main class="main-content">
+        <div id="feedback" class="feedback" role="status" hidden></div>
+        <section id="workspace"><div class="initial-state"><h1>A verificar o seu espaço de trabalho…</h1><p>Os serviços são consultados sem abrir terminais.</p></div></section>
+      </main>
+    </div>
+    <footer class="app-footer"><span id="last-check">A preparar a primeira verificação…</span><span>Fechar o painel mantém os serviços em execução.</span></footer>
+  </div>
+  <dialog id="confirm-dialog" class="modal"><form method="dialog"><h2 id="confirm-title">Confirmar ação</h2><p id="confirm-copy"></p><div class="modal-actions"><button value="cancel">Cancelar</button><button value="confirm" class="primary">Confirmar</button></div></form></dialog>
+  <dialog id="qr-dialog" class="modal qr-modal"><h2>Ligar o WhatsApp</h2><p>Abra WhatsApp no telemóvel → Dispositivos associados → Associar dispositivo.</p><img id="qr-image" alt="QR de ligação ao WhatsApp" /><p>O QR é temporário. Se expirar, feche esta janela e consulte novamente.</p><form method="dialog"><button class="primary">Concluir</button></form></dialog>
+  <script src="./renderer.js"></script>
+</body>
+</html>

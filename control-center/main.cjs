@@ -1,6 +1,7 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard } = require('electron');
 const { join } = require('node:path');
 const { Supervisor, LOG_DIR } = require('./supervisor.cjs');
+const { crmUrl } = require('./diagnostics.cjs');
 
 let windowRef;
 let timer;
@@ -11,14 +12,16 @@ function createWindow() {
   windowRef = new BrowserWindow({
     width: 1540,
     height: 960,
-    minWidth: 1120,
-    minHeight: 720,
+    minWidth: 780,
+    minHeight: 580,
     backgroundColor: '#071517',
     title: 'JP Massagem — Control Center',
     autoHideMenuBar: true,
     webPreferences: { preload: join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false },
   });
   windowRef.loadFile(join(__dirname, 'renderer', 'index.html'));
+  windowRef.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  windowRef.webContents.on('will-navigate', event => event.preventDefault());
   windowRef.on('closed', () => { windowRef = null; });
 }
 
@@ -50,16 +53,36 @@ if (ownsInstance) app.whenReady().then(() => {
   createWindow();
   windowRef.on('restore', broadcastSnapshot);
   ipcMain.handle('control:snapshot', () => supervisor.snapshot());
-  ipcMain.handle('control:action', (_event, action, id) => {
+  ipcMain.handle('control:action', (event, action, id) => {
+    if (event.sender !== windowRef?.webContents) throw new Error('Janela não autorizada.');
     const result = pendingAction.then(async () => {
-    if (action === 'start') return supervisor.start(id);
-    if (action === 'stop') return supervisor.stop(id);
-    if (action === 'restart') return supervisor.restart(id);
-    if (action === 'restart-all') return supervisor.restartAll();
-    if (action === 'stop-all') return supervisor.stopAll();
-    if (action === 'clear-logs') return supervisor.clearView();
-    if (action === 'quit') { app.quit(); return true; }
-    throw new Error('Ação não suportada.');
+      try {
+        let output;
+        if (['start','stop','restart','recover','restart-process'].includes(action) && !Object.hasOwn(supervisor.services, id)) throw new Error('Serviço inválido.');
+        if (action === 'start') output = await supervisor.start(id);
+        else if (action === 'stop') output = await supervisor.stop(id);
+        else if (action === 'restart') output = await supervisor.restart(id);
+        else if (action === 'recover') output = await supervisor.recover(id);
+        else if (action === 'restart-process') output = await supervisor.restartProcess(id);
+        else if (action === 'restart-all') output = await supervisor.restartAll();
+        else if (action === 'start-missing') output = await supervisor.startMissing();
+        else if (action === 'recover-failed') output = await supervisor.recoverFailed();
+        else if (action === 'diagnose') output = await supervisor.diagnose();
+        else if (action === 'qr') output = await supervisor.qr();
+        else if (action === 'test-ai') output = await supervisor.testAi();
+        else if (action === 'refresh') output = { message:'Estado atualizado.' };
+        else if (action === 'stop-all') output = await supervisor.stopAll();
+        else if (action === 'clear-logs') output = supervisor.clearView();
+        else if (action === 'open-crm') { await shell.openExternal(crmUrl(supervisor.rootEnv.NEXT_PUBLIC_APP_URL || supervisor.rootEnv.NEXT_PUBLIC_SITE_URL,id)); output={message:'Área do CRM aberta no navegador.'}; }
+        else if (action === 'copy-diagnostics') { clipboard.writeText(JSON.stringify(await supervisor.snapshot(),null,2)); output={message:'Diagnóstico copiado, sem QR nem credenciais.'}; }
+        else if (action === 'quit') { app.quit(); return {ok:true}; }
+        else throw new Error('Ação não suportada.');
+        return { ok:true, result:output, snapshot:await supervisor.refresh() };
+      } catch (error) {
+        const message=supervisor.redact(error.message || 'Não foi possível concluir a ação.');
+        supervisor.event('Ação','error',message);
+        return {ok:false,error:message};
+      }
     });
     // Serialize actions so repeated clicks cannot stop a newly started service.
     pendingAction = result.catch(() => {});
