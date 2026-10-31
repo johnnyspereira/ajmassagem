@@ -1,5 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { PUBLIC_ENQUIRY_EVENT } from './public-enquiry-link';
+import { onPublicColor } from '@/lib/public-site/journey';
 import { CheckCircle2, Loader2, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +23,27 @@ export function PublicLeadForm({
     [loading, setLoading] = useState(false),
     [sent, setSent] = useState(false),
     [error, setError] = useState('');
+  useEffect(() => {
+    const prefill = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (
+        loading ||
+        !detail ||
+        detail.slug !== slug ||
+        typeof detail.subject !== 'string' ||
+        detail.subject.length > 150
+      )
+        return;
+      setSubject(detail.subject);
+      if (sent) {
+        setSent(false);
+        setMessage('');
+      }
+      setError('');
+    };
+    window.addEventListener(PUBLIC_ENQUIRY_EVENT, prefill);
+    return () => window.removeEventListener(PUBLIC_ENQUIRY_EVENT, prefill);
+  }, [slug, loading, sent]);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -72,6 +95,7 @@ export function PublicLeadForm({
           <Label htmlFor="lead-name">Nome *</Label>
           <Input
             id="lead-name"
+            autoComplete="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -82,6 +106,8 @@ export function PublicLeadForm({
           <Label htmlFor="lead-phone">Telefone *</Label>
           <Input
             id="lead-phone"
+            type="tel"
+            autoComplete="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             required
@@ -94,6 +120,7 @@ export function PublicLeadForm({
         <Input
           id="lead-email"
           type="email"
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -118,18 +145,30 @@ export function PublicLeadForm({
           className="min-h-28"
         />
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-red-600">
+          {error}
+        </p>
+      )}
       <Button
         type="submit"
         className="w-full text-white"
-        style={{ backgroundColor: primaryColor }}
+        style={{
+          backgroundColor: primaryColor,
+          color: onPublicColor(primaryColor),
+        }}
         disabled={loading}
       >
         {loading ? <Loader2 className="animate-spin" /> : <Send />}Enviar
         mensagem
       </Button>
       <p className="text-center text-[11px] text-slate-500">
-        Ao enviar, autoriza o contacto da empresa sobre esta solicitação. Consulte a <Link className="underline underline-offset-2" href="/privacidade">Política de Privacidade</Link>.
+        Ao enviar, autoriza o contacto da empresa sobre esta solicitação.
+        Consulte a{' '}
+        <Link className="underline underline-offset-2" href="/privacidade">
+          Política de Privacidade
+        </Link>
+        .
       </p>
     </form>
   );

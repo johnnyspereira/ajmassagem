@@ -245,3 +245,137 @@
 @media (prefers-reduced-motion: reduce) {
   .site *, .site *::before, .site *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+
+/* Public catalogue and enquiry journey share the editorial site's palette. */
+.site { --muted: #536057; accent-color: var(--accent); caret-color: var(--accent); }
+.mobileAction { display: none; }
+.site ::selection { background: #e5d7bf; color: #1e2922; }
+.site :is(button,input,select,textarea):focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+.site :is(input,textarea)::placeholder { color: #62685e; opacity: 1; }
+.site :is(button,select) { cursor: pointer; }
+.site button:disabled { cursor: not-allowed; opacity: .55; }
+.site :is(h1,h2,h3) { overflow-wrap: anywhere; text-wrap: balance; }
+.hero h1, .sectionHeading h2, .about h2, .testimonialHeading h2, .faq h2, .contact h2 { letter-spacing: -.035em; }
+.sectionHeading h2 { margin-top: 0; }
+.headerCta, .primaryButton, .mobileBooking { color: var(--on-brand); }
+.headerCta:hover, .primaryButton:hover { color: var(--on-accent); }
+.announcement, .testimonials, .footer { color: var(--on-accent); }
+.testimonials .testimonialCard figcaption, .footer nav a, .footer > span { color: inherit; }
+.testimonials .textButton { display: flex; width: fit-content; margin: 28px auto 0; color: inherit; }
+.testimonialMark, .testimonialHeading > svg { color: inherit; }
+.benefitNumber { width: 20px; height: 20px; flex-shrink: 0; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.catalogue { max-width: 1240px; margin: 0 auto; }
+.catalogueToolbar { display: grid; grid-template-columns: minmax(0,1fr) 190px 190px; align-items: end; gap: 16px; padding-bottom: 18px; border-bottom: 1px solid #d9d4c9; }
+.catalogueToolbar label { min-width: 0; display: grid; gap: 8px; font-size: 12px; color: var(--ink); }
+.catalogueToolbar label > span { display: flex; align-items: center; gap: 6px; }
+.catalogueToolbar svg { width: 16px; height: 16px; }
+.catalogueToolbar input, .catalogueToolbar select { min-width: 0; width: 100%; height: 48px; padding: 0 12px; border: 1px solid #c9c7bd; border-radius: 4px; background: var(--paper); color: var(--ink); font-size: 14px; }
+.catalogueToolbar .catalogueSearch { position: relative; display: block; }
+.catalogueSearch > svg { position: absolute; top: 16px; left: 14px; color: var(--muted); }
+.catalogueToolbar .catalogueSearch input { padding-left: 42px; }
+.catalogueSummary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 16px 0 24px; font-size: 12px; color: var(--muted); }
+.catalogueSummary p { margin: 0; font-variant-numeric: tabular-nums; }
+.serviceCard { display: flex; flex-direction: column; border-radius: 12px; border: 1px solid #ded9ce; }
+.serviceCard:hover { transform: none; box-shadow: none; border-color: var(--brand); }
+.serviceImageLink { display: block; }
+.serviceBody { flex: 1; padding: 24px; }
+.serviceBody h3 a { color: inherit; text-decoration: none; }
+.serviceBody h3 a:hover { text-decoration: underline; text-underline-offset: 5px; }
+.serviceDescription { font-size: 14px; min-height: 4.95em; margin-bottom: 22px; }
+.serviceMeta { font-size: 13px; margin-top: auto; }
+.serviceMeta strong { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.catalogueCardActions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.catalogueCardActions .primaryButton { min-height: 44px; padding: 0 15px; }
+.catalogueCardActions .textButton { min-height: 44px; }
+.compareToggle { display: flex; align-items: center; gap: 8px; min-height: 44px; width: fit-content; margin-top: 12px; padding: 4px 0; color: var(--muted); font-size: 12px; }
+.compareToggle > span { display: grid; width: 17px; height: 17px; place-items: center; border: 1px solid #778175; border-radius: 3px; }
+.compareToggle svg { width: 13px; height: 13px; }
+.compareToggle[aria-pressed="true"] { color: var(--ink); }
+.compareToggle[aria-pressed="true"] > span { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.comparisonTray { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; padding: 18px; border: 1px solid #c7c9be; background: #e9ede4; border-radius: 8px; }
+.comparisonTray > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.comparisonTray > div button { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 7px 12px; border: 1px solid #c7c9be; background: var(--paper); border-radius: 6px; font-size: 12px; text-align: left; }
+.comparisonTray svg { width: 16px; height: 16px; flex-shrink: 0; }
+.comparisonTray > .primaryButton { flex-shrink: 0; }
+.catalogueNotice { margin: 0 0 20px; color: var(--ink); font-size: 14px; }
+.catalogueEmpty { padding: 40px 0; text-align: center; }
+.catalogueEmpty h3 { font: 30px/1.2 Georgia,serif; }
+.catalogueEmpty p { margin: 15px 0; color: var(--muted); }
+.compareDialog { position: fixed; inset: 0; width: min(1000px,calc(100vw - 32px)); max-width: none; max-height: min(850px,90dvh); margin: auto; padding: 0; border: 0; border-radius: 12px; background: var(--paper); color: var(--ink); }
+.compareDialog::backdrop { background: rgb(19 30 22 / 65%); }
+:global(body):has(.compareDialog[open]) { overflow: hidden; }
+.compareShell { display: flex; flex-direction: column; max-height: min(850px,90dvh); }
+.compareShell > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 26px; border-bottom: 1px solid var(--line); }
+.compareShell h2 { margin: 0; font: 36px/1.1 Georgia,serif; letter-spacing: -.03em; }
+.compareShell header p { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+.closeCompare { display: grid; width: 44px; height: 44px; flex: 0 0 44px; place-items: center; border: 1px solid var(--line); border-radius: 50%; }
+.closeCompare svg { width: 20px; height: 20px; }
+.compareScroll { display: grid; min-height: 0; overflow-y: auto; overscroll-behavior: contain; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 26px; padding: 26px; scrollbar-width: thin; scrollbar-color: #99a18f var(--paper); }
+.compareService { min-width: 0; }
+.compareService h3 { margin: 0; font: 25px/1.2 Georgia,serif; }
+.compareService p,.compareService li { margin-top: 14px; font-size: 14px; line-height: 1.7; color: var(--muted); }
+.compareService .comparePrice { color: var(--ink); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.comparePrice span { display: block; color: var(--muted); font-size: 13px; font-weight: 400; }
+.compareService h4 { margin-top: 24px; font-size: 14px; font-weight: 600; }
+.compareService ul { padding-left: 18px; list-style: disc; }
+.compareService li { margin-top: 8px; }
+.compareService .primaryButton { margin-top: 24px; }
+.compareShell > footer { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; justify-content: space-between; padding: 12px 26px; border-top: 1px solid var(--line); }
+.compareShell > footer p { max-width: 42ch; color: var(--muted); font-size: 12px; }
+.plans { padding: clamp(72px,9vw,124px) clamp(24px,8vw,120px); background: var(--paper); }
+.planList,.voucherInvitation { max-width: 1240px; margin: auto; }
+.planRow,.planHighlighted { display: grid; grid-template-columns: 1fr 1fr auto; align-items: center; gap: 32px; padding: 32px 0; border-top: 1px solid #d6d3c9; }
+.planHighlighted { padding: 32px; background: #e8ede4; border: 0; border-radius: 12px; }
+.planList h3 { margin: 0; font: 30px/1.2 Georgia,serif; letter-spacing: -.025em; }
+.planList p { max-width: 45ch; margin-top: 12px; font-size: 14px; line-height: 1.7; color: var(--muted); }
+.planList ul { display: grid; gap: 7px; padding-left: 18px; list-style: disc; font-size: 14px; line-height: 1.6; color: var(--muted); }
+.planAction { display: grid; justify-items: end; gap: 16px; }
+.planAction strong { font-size: 23px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.voucherInvitation { display: flex; align-items: center; justify-content: space-between; gap: 40px; padding-top: 40px; margin-top: 20px; border-top: 1px solid #d6d3c9; }
+.voucherInvitation h3 { font: 32px/1.2 Georgia,serif; }
+.voucherInvitation p { max-width: 65ch; margin-top: 14px; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.voucherInvitation > a { flex-shrink: 0; }
+.formWrap :is(input,textarea) { min-height: 44px; font-size: 16px; color: var(--ink); background: #fff; border-color: #bfc5ba; }
+.formWrap button[type="submit"] { min-height: 48px; color: var(--on-brand); }
+.formWrap form { box-shadow: none; border-radius: 12px; }
+.formWrap label { display: inline-block; margin-bottom: 8px; color: var(--ink); }
+@media (max-width:1100px) {
+  .header { grid-template-columns: 1fr auto auto; gap: 16px; }
+  .header > .nav { display: none; }
+  .header > .mobileMenu { position: relative; display: block; }
+  .mobileMenu summary { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid var(--line); border-radius: 50%; cursor: pointer; list-style: none; }
+  .mobileMenu summary::-webkit-details-marker { display: none; }
+  .mobileMenu nav { position: absolute; top: 52px; right: 0; z-index: 20; display: grid; min-width: 220px; padding: 8px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
+  .mobileMenu nav a { min-height: 44px; padding: 12px; color: var(--ink); font-size: 13px; text-decoration: none; }
+  .mobileMenu summary svg { width: 20px; height: 20px; }
+  .planRow,.planHighlighted { grid-template-columns: 1fr 1fr; }
+  .planAction { grid-column: 1/-1; display: flex; align-items: center; justify-content: space-between; }
+}
+@media (max-width:760px) {
+  .desktopAction { display: none; }
+  .mobileAction { display: inline; }
+  .headerCta { min-height: 44px; }
+  .headerActions .clientArea { display: none; }
+  .header > .mobileMenu summary { width: 44px; height: 44px; }
+  .catalogueToolbar { grid-template-columns: 1fr 1fr; gap: 16px 12px; }
+  .catalogueToolbar .catalogueSearch { grid-column: 1/-1; }
+  .catalogueToolbar :is(input,select) { font-size: 16px; }
+  .catalogueSummary { align-items: start; flex-direction: column; }
+  .comparisonTray { flex-direction: column; align-items: stretch; gap: 14px; padding: 14px; }
+  .comparisonTray > div { display: grid; }
+  .compareShell > header { padding: 20px; gap: 10px; }
+  .compareShell h2 { font-size: 30px; }
+  .compareScroll { grid-template-columns: 1fr; padding: 20px; gap: 30px; }
+  .compareService + .compareService { padding-top: 28px; border-top: 1px solid var(--line); }
+  .compareShell > footer { padding: 10px 20px; }
+  .compareShell > footer p { display: none; }
+  .plans { padding: 68px 22px; }
+  .planRow,.planHighlighted { grid-template-columns: 1fr; gap: 20px; }
+  .planHighlighted { padding: 24px; }
+  .planAction { display: grid; justify-items: start; }
+  .voucherInvitation { flex-direction: column; align-items: start; gap: 20px; }
+  .serviceBody { padding: 22px; }
+  .mobileBooking { color: var(--on-brand); }
+  .site:has(.formWrap :is(input,textarea):focus) .mobileBooking { display: none; }
+}

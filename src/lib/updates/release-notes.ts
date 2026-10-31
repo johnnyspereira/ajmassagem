@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-31-public-service-journey', date: '2026-10-31', category: 'Melhoria',
+    title: 'Site público com pesquisa, comparação de serviços e planos', areas: ['Site público', 'Serviços', 'Planos', 'Contacto'],
+    summary: 'O visitante pode encontrar o serviço, comparar duração e valor e avançar para a modalidade escolhida no Portal, mantendo a identidade visual da JP Massagem.',
+    changes: ['O catálogo deixa de mostrar apenas seis serviços e apresenta todos os serviços publicados carregados pelo site. Inclui pesquisa sem depender de acentos, filtro de duração e ordenação por nome, tempo ou preço quando a moeda é comum.', 'Comparação de até três serviços com duração, preço e informações configuradas pela clínica. A marcação abre o Portal com a modalidade selecionada; com marcação online desativada, o visitante pode pedir informações.', 'Planos configurados e visíveis ganham uma área própria. Pedir informações sobre um plano ou voucher preenche o assunto do formulário, preserva dados já escritos e não envia o pedido sem ação do visitante. A equipa confirma as condições antes da emissão.', 'Avaliações publicadas com consentimento e avaliações Google aprovadas e ativadas passam a aparecer junto dos testemunhos configurados. Os nomes das avaliações são abreviados e não são atribuídas classificações a testemunhos sem nota.', 'Preços preservam os cêntimos. Menu móvel fecha após escolher uma ligação, formulário usa campos apropriados para telefone e preenchimento automático, botões adaptam o contraste à cor configurada e a comparação permite rolar no telemóvel.'],
+    howTo: 'No site público, use a pesquisa e Tempo disponível em Serviços. Selecione Comparar este serviço em duas ou três modalidades e abra a comparação. Use Agendar para consultar os horários dessa modalidade no Portal. Em Planos e vouchers, peça informações e reveja o assunto antes de enviar o formulário. As opções de publicação continuam a ser geridas nas definições do site.',
+  },
+  {
     id: '2026-10-31-historical-appointments-batch', date: '2026-10-31', category: 'Melhoria',
     title: 'Concluir atendimentos antigos em lote sem mexer no caixa', areas: ['Painel', 'Agenda', 'Financeiro', 'Cliente 360'],
     summary: 'O proprietário pode selecionar atendimentos anteriores a uma data e regularizar o histórico com pré-visualização, motivo e autorização explícita.',
