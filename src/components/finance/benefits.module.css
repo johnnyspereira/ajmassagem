@@ -35,6 +35,206 @@
   border-radius: 16px;
   background: var(--card);
 }
+.metric {
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.metric:hover {
+  background: var(--muted);
+}
+.metric:focus-visible,
+.filterChips button:focus-visible,
+.rowDetails summary:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+.filters {
+  display: grid;
+  gap: 14px;
+}
+.filterChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.filterChips button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: var(--card);
+  font-size: 13px;
+  cursor: pointer;
+}
+.filterChips button[aria-pressed='true'] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+.filterChips span {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+.registerRow {
+  --benefit-tone: #64748b;
+  border: 1px solid color-mix(in srgb, var(--benefit-tone) 28%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--benefit-tone) 5%, var(--card));
+  min-width: 0;
+}
+.registerRow[data-state='available'] {
+  --benefit-tone: #059669;
+}
+.registerRow[data-state='expiring'],
+.registerRow[data-state='pending'] {
+  --benefit-tone: #d97706;
+}
+.registerRow[data-state='expired'] {
+  --benefit-tone: #e11d48;
+}
+.rowMain {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 130px 170px auto;
+  gap: 20px;
+  align-items: center;
+  padding: 16px;
+}
+.rowIdentity {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+.rowIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--benefit-tone) 12%, var(--card));
+  color: var(--foreground);
+}
+.stateBadge {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.stateBadge[data-state='available'] {
+  background: #d1fae5;
+  color: #064e3b;
+}
+.stateBadge[data-state='expiring'],
+.stateBadge[data-state='pending'] {
+  background: #fef3c7;
+  color: #78350f;
+}
+.stateBadge[data-state='expired'] {
+  background: #ffe4e6;
+  color: #881337;
+}
+.modalityBalances {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px 12px 60px;
+}
+.modalityBalances > span {
+  display: inline-flex;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  padding: 5px 9px;
+  font-size: 12px;
+}
+.rowDetails {
+  border-top: 1px solid
+    color-mix(in srgb, var(--benefit-tone) 18%, var(--border));
+}
+.rowDetails summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+}
+.rowDetails summary::-webkit-details-marker {
+  display: none;
+}
+.rowDetails[open] summary svg {
+  transform: rotate(180deg);
+}
+.detailsBody {
+  display: grid;
+  gap: 16px;
+  padding: 4px 16px 16px;
+}
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 850px) {
+  .rowMain {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+  }
+  .rowIdentity {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .stateBadge {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .rowBalance {
+    grid-column: 1;
+  }
+  .rowValidity {
+    grid-column: 2;
+    text-align: right;
+  }
+}
+@media (max-width: 420px) {
+  .rowMain {
+    padding: 12px;
+    gap: 12px 8px;
+  }
+  .rowIcon {
+    display: none;
+  }
+  .rowValidity {
+    max-width: 145px;
+  }
+  .modalityBalances {
+    padding: 0 12px 12px;
+  }
+  .modalityBalances > span {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .rowActions > * {
+    flex: 1 1 auto;
+  }
+  .filterChips {
+    gap: 6px;
+  }
+  .filterChips button {
+    min-height: 44px;
+    padding: 8px 10px;
+  }
+}
 .metricIcon {
   display: flex;
   order: 2;
@@ -102,6 +302,13 @@
   }
 }
 @media (max-width: 639px) {
+  .metric > div:last-child > p:last-child {
+    display: none;
+  }
+  .metric > div:last-child > p:nth-child(2) {
+    margin-block: 4px 0;
+    font-size: 20px;
+  }
   .metrics {
     gap: 8px;
   }

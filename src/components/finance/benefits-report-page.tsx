@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowRightLeft,
@@ -11,16 +10,24 @@ import {
   Mail,
   PackageCheck,
   Search,
-  Send,
   WalletCards,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { BenefitsHeader } from './benefits-header';
-import { BenefitValidityButton, useBenefitClock } from './benefit-validity-button';
+import { BenefitRegisterRow } from './benefit-register-row';
+import {
+  benefitState,
+  benefitOrder,
+  matchesBenefitFilter,
+  packRemaining,
+  voucherRemaining,
+  type BenefitFilter,
+} from '@/lib/finance/benefit-availability';
+import { useBenefitClock } from './benefit-validity-button';
 import styles from './benefits.module.css';
 
 import { Badge } from '@/components/ui/badge';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
@@ -47,6 +54,8 @@ type Delivery = {
 const money = (value: number, currency = 'EUR') =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency }).format(value);
 const labels: Record<string, string> = {
+  available: 'Disponível',
+  expiring: 'A terminar',
   active: 'Ativo',
   pending: 'Pendente',
   used: 'Utilizado',
@@ -54,16 +63,9 @@ const labels: Record<string, string> = {
   cancelled: 'Cancelado',
   exhausted: 'Esgotado',
 };
-const date = (value?: string | null) =>
-  value
-    ? new Intl.DateTimeFormat('pt-PT', { dateStyle: 'medium' }).format(
-        new Date(value)
-      )
-    : 'Sem validade';
 
 export function BenefitsReportPage() {
   const now = useBenefitClock();
-  const isAvailableByDate = (item: { status: string; expires_at?: string | null }) => item.status === 'active' && (!item.expires_at || new Date(item.expires_at).getTime() > now);
   const db = useMemo(() => createClient(), []);
   const { accountId, user } = useAuth();
   const [packs, setPacks] = useState<FinanceClientPack[]>([]);
@@ -71,6 +73,10 @@ export function BenefitsReportPage() {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [activeTab, setActiveTab] = useState('modalities');
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<BenefitFilter>('available');
+  const [grouping, setGrouping] = useState('none');
+  const [visibleLimit, setVisibleLimit] = useState(20);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sendingSaleId, setSendingSaleId] = useState<string | null>(null);
   const [voucherToConvert, setVoucherToConvert] =
@@ -115,8 +121,11 @@ export function BenefitsReportPage() {
     ]);
     const error =
       packResult.error || voucherResult.error || deliveryResult.error;
-    if (error) toast.error(`Falha ao carregar benefícios: ${error.message}`);
-    else {
+    if (error) {
+      setLoadError(error.message);
+      toast.error(`Falha ao carregar benefícios: ${error.message}`);
+    } else {
+      setLoadError(null);
       setPacks((packResult.data ?? []) as FinanceClientPack[]);
       setVouchers((voucherResult.data ?? []) as FinanceVoucher[]);
       setDeliveries((deliveryResult.data ?? []) as Delivery[]);
@@ -249,9 +258,15 @@ export function BenefitsReportPage() {
     }
   }
 
-  const term = search.trim().toLowerCase();
+  const normalizeSearch = (value: string) =>
+    value
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase();
+  const term = normalizeSearch(search.trim());
   const matches = (values: Array<string | null | undefined>) =>
-    !term || values.some((value) => value?.toLowerCase().includes(term));
+    !term ||
+    values.some((value) => value && normalizeSearch(value).includes(term));
   const filteredPacks = packs.filter((item) =>
     matches([
       item.contact?.name,
@@ -278,11 +293,66 @@ export function BenefitsReportPage() {
     (voucher) => voucher.voucher_type !== 'service'
   );
   const convertibleVouchers = serviceVouchers.filter(canConvertVoucher);
-  const groupedServices = groupByService(serviceVouchers);
-  const archivedVouchers = serviceVouchers.filter(
-    (voucher) => voucher.status !== 'active'
+  const stateOfVoucher = (item: FinanceVoucher) =>
+    benefitState(item, voucherRemaining(item), now);
+  const stateOfPack = (item: FinanceClientPack) =>
+    benefitState(item, packRemaining(item), now);
+  const sortVouchers = (items: FinanceVoucher[]) =>
+    [...items].sort((left, right) =>
+      benefitOrder(
+        { ...left, state: stateOfVoucher(left) },
+        { ...right, state: stateOfVoucher(right) }
+      )
+    );
+  const matchingServices = sortVouchers(
+    serviceVouchers.filter((item) =>
+      matchesBenefitFilter(stateOfVoucher(item), statusFilter)
+    )
   );
-  const activePacks = packs.filter(isAvailableByDate);
+  const matchingValues = sortVouchers(
+    valueVouchers.filter((item) =>
+      matchesBenefitFilter(stateOfVoucher(item), statusFilter)
+    )
+  );
+  const matchingPacks = filteredPacks
+    .filter((item) => matchesBenefitFilter(stateOfPack(item), statusFilter))
+    .sort((left, right) =>
+      benefitOrder(
+        { ...left, state: stateOfPack(left) },
+        { ...right, state: stateOfPack(right) }
+      )
+    );
+  const groupedServices = groupByService(
+    matchingServices.slice(0, visibleLimit),
+    grouping
+  );
+  const filterStates =
+    activeTab === 'packs'
+      ? filteredPacks.map(stateOfPack)
+      : (activeTab === 'value' ? valueVouchers : serviceVouchers).map(
+          stateOfVoucher
+        );
+  const matchingCount =
+    activeTab === 'packs'
+      ? matchingPacks.length
+      : activeTab === 'value'
+        ? matchingValues.length
+        : matchingServices.length;
+  function switchTab(tab: string) {
+    setActiveTab(tab);
+    setVisibleLimit(20);
+  }
+  function shortcut(tab: string) {
+    switchTab(tab);
+    setSearch('');
+    setStatusFilter('available');
+  }
+  const archivedVouchers = serviceVouchers.filter(
+    (voucher) => !canConvertVoucher(voucher)
+  );
+  const activePacks = packs.filter((item) =>
+    matchesBenefitFilter(stateOfPack(item), 'available')
+  );
   const sessions = activePacks.reduce(
     (sum, item) =>
       sum +
@@ -293,10 +363,14 @@ export function BenefitsReportPage() {
     0
   );
   const activeServices = vouchers.filter(
-    (item) => item.voucher_type === 'service' && isAvailableByDate(item)
+    (item) =>
+      item.voucher_type === 'service' &&
+      matchesBenefitFilter(stateOfVoucher(item), 'available')
   );
   const activeValueVouchers = vouchers.filter(
-    (item) => item.voucher_type !== 'service' && isAvailableByDate(item)
+    (item) =>
+      item.voucher_type !== 'service' &&
+      matchesBenefitFilter(stateOfVoucher(item), 'available')
   );
   const valueBalance = activeValueVouchers.reduce(
     (sum, item) => sum + Number(item.current_balance || 0),
@@ -312,11 +386,23 @@ export function BenefitsReportPage() {
         onReconcile={() => void reconcilePaidAmounts()}
         onDeliveries={() => setActiveTab('deliveries')}
       />
+      {loadError && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-950 dark:bg-rose-950 dark:text-rose-100"
+        >
+          <p>Não foi possível atualizar os benefícios: {loadError}</p>
+          <Button variant="outline" onClick={() => void load()}>
+            Tentar novamente
+          </Button>
+        </div>
+      )}
       <section className={styles.metrics}>
         <Metric
           icon={PackageCheck}
           tone="emerald"
           label="Packs utilizáveis"
+          onClick={() => shortcut('packs')}
           value={activePacks.length}
           detail={`${sessions} sessões disponíveis`}
         />
@@ -324,6 +410,7 @@ export function BenefitsReportPage() {
           icon={Gift}
           tone="violet"
           label="Vouchers por modalidade"
+          onClick={() => shortcut('modalities')}
           value={activeServices.length}
           detail="Sessões ativas por serviço"
         />
@@ -331,6 +418,7 @@ export function BenefitsReportPage() {
           icon={WalletCards}
           tone="sky"
           label="Cartões de valor"
+          onClick={() => shortcut('value')}
           value={activeValueVouchers.length}
           detail={
             valueBalance
@@ -342,6 +430,7 @@ export function BenefitsReportPage() {
           icon={ArrowRightLeft}
           tone="amber"
           label="Prontos a converter"
+          onClick={() => switchTab('convert')}
           value={convertibleVouchers.length}
           detail="Voucher → cartão-saldo"
         />
@@ -352,17 +441,16 @@ export function BenefitsReportPage() {
           <Input
             className="h-11 rounded-xl pl-9"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setVisibleLimit(20);
+            }}
             aria-label="Pesquisar benefícios"
             placeholder="Pesquisar cliente, modalidade, telefone, voucher ou código..."
           />
         </div>
       </section>
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="space-y-5"
-      >
+      <Tabs value={activeTab} onValueChange={switchTab} className="space-y-5">
         <nav aria-label="Tipos de benefícios" className={styles.tabsNav}>
           <TabsList className={styles.tabsList}>
             <TabsTrigger
@@ -372,7 +460,7 @@ export function BenefitsReportPage() {
               )}
               value="modalities"
             >
-              Por modalidade{' '}
+              Vouchers de sessão{' '}
               <Badge variant="secondary">{serviceVouchers.length}</Badge>
             </TabsTrigger>
             <TabsTrigger
@@ -380,10 +468,9 @@ export function BenefitsReportPage() {
                 styles.tab,
                 'data-active:bg-primary/10 data-active:text-primary'
               )}
-              value="convert"
+              value="packs"
             >
-              Converter em saldo{' '}
-              <Badge variant="secondary">{convertibleVouchers.length}</Badge>
+              Packs <Badge variant="secondary">{filteredPacks.length}</Badge>
             </TabsTrigger>
             <TabsTrigger
               className={cn(
@@ -400,9 +487,10 @@ export function BenefitsReportPage() {
                 styles.tab,
                 'data-active:bg-primary/10 data-active:text-primary'
               )}
-              value="packs"
+              value="convert"
             >
-              Packs <Badge variant="secondary">{filteredPacks.length}</Badge>
+              Converter em saldo{' '}
+              <Badge variant="secondary">{convertibleVouchers.length}</Badge>
             </TabsTrigger>
             <TabsTrigger
               className={cn(
@@ -411,49 +499,123 @@ export function BenefitsReportPage() {
               )}
               value="deliveries"
             >
-              Histórico <Badge variant="secondary">{deliveries.length}</Badge>
+              Envios <Badge variant="secondary">{deliveries.length}</Badge>
             </TabsTrigger>
           </TabsList>
         </nav>
+        {['modalities', 'packs', 'value'].includes(activeTab) && (
+          <section className={styles.filters} aria-label="Filtrar benefícios">
+            <div className={styles.filterChips}>
+              {(
+                [
+                  ['available', 'Disponíveis'],
+                  ['expiring', 'A terminar'],
+                  ['expired', 'Expirados'],
+                  ['used', 'Utilizados'],
+                  ['pending', 'Por ativar'],
+                  ['all', 'Todos'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={statusFilter === value}
+                  onClick={() => {
+                    setStatusFilter(value);
+                    setVisibleLimit(20);
+                  }}
+                >
+                  {label}
+                  <span>
+                    {
+                      filterStates.filter((state) =>
+                        matchesBenefitFilter(state, value)
+                      ).length
+                    }
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-muted-foreground text-xs" role="status">
+                {loading
+                  ? 'A atualizar os benefícios…'
+                  : `${matchingCount} de ${filterStates.length} registos · ${statusFilter === 'available' ? 'com saldo e dentro da validade' : statusFilter === 'expiring' ? 'validade a terminar nos próximos 7 dias' : 'conforme o filtro selecionado'}`}
+              </p>
+              {activeTab === 'modalities' && (
+                <label className="flex items-center gap-2 text-xs">
+                  Agrupar por
+                  <select
+                    value={grouping}
+                    onChange={(event) => setGrouping(event.target.value)}
+                    className="bg-background min-h-9 rounded-lg border px-2"
+                  >
+                    <option value="none">Sem grupos</option>
+                    <option value="service">Modalidade</option>
+                    <option value="client">Cliente</option>
+                  </select>
+                </label>
+              )}
+            </div>
+          </section>
+        )}
         <TabsContent value="modalities" className="mt-0 space-y-6">
           <SectionIntro
-            title="Vouchers por modalidade"
-            description="Cada grupo representa um serviço. Assim vê rapidamente quem tem sessões de Massagem, Esfoliação ou outra modalidade."
+            title="Vouchers de sessão"
+            description="Consulte o saldo e a validade. Abra Detalhes e opções para gerir o voucher."
           />
           {groupedServices.map(([serviceName, items]) => (
             <section key={serviceName} className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
-                <div>
-                  <h2 className="font-semibold">{serviceName}</h2>
-                  <p className="text-muted-foreground text-sm">
-                    {items.length} {items.length === 1 ? 'voucher' : 'vouchers'}{' '}
-                    ·{' '}
-                    {
-                      items.filter(isAvailableByDate)
-                        .length
-                    }{' '}
-                    ativo(s)
-                  </p>
+              {grouping !== 'none' && (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+                  <div>
+                    <h2 className="font-semibold">
+                      {grouping === 'client'
+                        ? items[0]?.owner?.name ||
+                          items[0]?.recipient_name ||
+                          'Cliente não associado'
+                        : serviceName}
+                    </h2>
+                    <p className="text-muted-foreground text-sm">
+                      {items.length}{' '}
+                      {items.length === 1 ? 'voucher' : 'vouchers'} ·{' '}
+                      {
+                        items.filter((item) =>
+                          matchesBenefitFilter(
+                            stateOfVoucher(item),
+                            'available'
+                          )
+                        ).length
+                      }{' '}
+                      ativo(s)
+                    </p>
+                  </div>
+                  <Badge variant="outline">
+                    {grouping === 'client' ? 'Cliente' : 'Modalidade'}
+                  </Badge>
                 </div>
-                <Badge variant="outline">Modalidade</Badge>
-              </div>
-              <div className="grid gap-4 lg:grid-cols-2">
+              )}
+              <div className="space-y-3">
                 {items.map((voucher) => (
                   <VoucherCard
                     key={voucher.id}
                     voucher={voucher}
-                    sending={sendingSaleId === voucher.issued_sale_id}
+                    now={now}
+                    sending={Boolean(
+                      sendingSaleId && sendingSaleId === voucher.issued_sale_id
+                    )}
                     onResend={() => void resendVoucher(voucher)}
                     onConvert={() => setVoucherToConvert(voucher)}
+                    onUpdated={() => void load()}
                   />
                 ))}
               </div>
             </section>
           ))}
-          {!serviceVouchers.length && (
+          {!matchingServices.length && !loading && (
             <Empty
               icon={Gift}
-              text="Nenhum voucher de modalidade encontrado."
+              text="Nenhum voucher neste filtro. Experimente Todos ou altere a pesquisa."
             />
           )}
         </TabsContent>
@@ -516,37 +678,50 @@ export function BenefitsReportPage() {
             title="Cartões de valor e saldo livre"
             description="Estes vouchers já representam valor monetário. Não precisam de conversão: podem ser usados no POS conforme as regras da venda."
           />
-          <div className="grid gap-4 lg:grid-cols-2">
-            {valueVouchers.map((voucher) => (
+          <div className="space-y-3">
+            {matchingValues.slice(0, visibleLimit).map((voucher) => (
               <VoucherCard
                 key={voucher.id}
                 voucher={voucher}
-                sending={sendingSaleId === voucher.issued_sale_id}
+                now={now}
+                sending={Boolean(
+                  sendingSaleId && sendingSaleId === voucher.issued_sale_id
+                )}
                 onResend={() => void resendVoucher(voucher)}
                 onConvert={() => setVoucherToConvert(voucher)}
+                onUpdated={() => void load()}
               />
             ))}
           </div>
-          {!valueVouchers.length && (
+          {!matchingValues.length && !loading && (
             <Empty
               icon={WalletCards}
               text="Nenhum cartão de valor encontrado."
             />
           )}
         </TabsContent>
-        <TabsContent value="packs" className="mt-0 grid gap-4 lg:grid-cols-2">
-          {filteredPacks.map((pack) => (
+        <TabsContent value="packs" className="mt-0 space-y-3">
+          <SectionIntro
+            title="Packs dos clientes"
+            description="Veja as sessões restantes de cada modalidade e abra os detalhes para gerir o pack."
+          />
+          {matchingPacks.slice(0, visibleLimit).map((pack) => (
             <PackCard
               key={pack.id}
               pack={pack}
+              now={now}
+              onUpdated={() => void load()}
               onConvert={() => {
                 setPackSessionsToConvert(1);
                 setPackToConvert(pack);
               }}
             />
           ))}
-          {!filteredPacks.length && (
-            <Empty icon={PackageCheck} text="Nenhum pack encontrado." />
+          {!matchingPacks.length && !loading && (
+            <Empty
+              icon={PackageCheck}
+              text="Nenhum pack neste filtro. Experimente Todos ou altere a pesquisa."
+            />
           )}
         </TabsContent>
         <TabsContent value="deliveries" className="mt-0 space-y-3">
@@ -584,6 +759,18 @@ export function BenefitsReportPage() {
           )}
         </TabsContent>
       </Tabs>
+      {['modalities', 'packs', 'value'].includes(activeTab) &&
+        matchingCount > visibleLimit && (
+          <div className="flex justify-center">
+            <Button
+              variant="outline"
+              onClick={() => setVisibleLimit((value) => value + 20)}
+            >
+              Mostrar mais {Math.min(20, matchingCount - visibleLimit)} ·{' '}
+              {matchingCount - visibleLimit} por mostrar
+            </Button>
+          </div>
+        )}
       <Dialog
         open={Boolean(voucherToConvert)}
         onOpenChange={(open) => !open && setVoucherToConvert(null)}
@@ -712,6 +899,7 @@ function canConvertVoucher(voucher: FinanceVoucher) {
   return (
     voucher.voucher_type === 'service' &&
     voucher.status === 'active' &&
+    (!voucher.expires_at || Date.parse(voucher.expires_at) > Date.now()) &&
     Number(voucher.remaining_uses ?? 0) > 0 &&
     Boolean(voucher.owner_contact_id) &&
     paidVoucherValue(voucher) > 0
@@ -724,7 +912,10 @@ function conversionReason(voucher: FinanceVoucher) {
     return 'Aguarda pagamento. Assim que ficar ativo, poderá ser convertido se ainda tiver sessão disponível.';
   if (voucher.status === 'cancelled')
     return 'Foi cancelado e não pode ser convertido em saldo.';
-  if (voucher.status === 'expired')
+  if (
+    voucher.status === 'expired' ||
+    (voucher.expires_at && Date.parse(voucher.expires_at) <= Date.now())
+  )
     return 'A validade terminou e este voucher já não pode ser convertido.';
   if (voucher.status === 'used')
     return 'Já não tem sessões disponíveis para converter.';
@@ -736,10 +927,15 @@ function conversionReason(voucher: FinanceVoucher) {
     return 'O valor pago ainda está a ser apurado a partir da venda deste voucher.';
   return 'Disponível para conversão em cartão-saldo.';
 }
-function groupByService(vouchers: FinanceVoucher[]) {
+function groupByService(vouchers: FinanceVoucher[], grouping: string) {
   const groups = new Map<string, FinanceVoucher[]>();
   vouchers.forEach((voucher) => {
-    const key = voucher.service?.name || 'Modalidade não definida';
+    const key =
+      grouping === 'none'
+        ? 'Todos'
+        : grouping === 'client'
+          ? `${voucher.owner?.name || voucher.recipient_name || 'Cliente não associado'} · ${voucher.owner_contact_id || voucher.id}`
+          : voucher.service?.name || 'Modalidade não definida';
     groups.set(key, [...(groups.get(key) ?? []), voucher]);
   });
   return [...groups.entries()].sort(([left], [right]) =>
@@ -751,15 +947,21 @@ function Metric({
   label,
   value,
   detail,
+  onClick,
 }: {
   icon: typeof Gift;
   label: string;
   value: number;
   detail: string;
+  onClick: () => void;
   tone: 'emerald' | 'violet' | 'sky' | 'amber';
 }) {
   return (
-    <div className={styles.metric}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(styles.metric, 'text-left')}
+    >
       <div className={styles.metricIcon}>
         <Icon className="size-4" />
       </div>
@@ -770,14 +972,14 @@ function Metric({
           {detail}
         </p>
       </div>
-    </div>
+    </button>
   );
 }
 function Status({ value }: { value: string }) {
   return (
     <Badge
       variant={
-        value === 'active'
+        value === 'active' || value === 'available'
           ? 'default'
           : value === 'expired' || value === 'cancelled'
             ? 'destructive'
@@ -853,7 +1055,7 @@ function ConversionReasonCard({ voucher }: { voucher: FinanceVoucher }) {
           <p className="font-semibold">
             {voucher.service?.name || 'Modalidade não definida'}
           </p>
-          <Status value={voucher.status === 'active' && voucher.expires_at && new Date(voucher.expires_at).getTime() <= now ? 'expired' : voucher.status} />
+          <Status value={benefitState(voucher, voucherRemaining(voucher), now)} />
         </div>
         <p className="text-sm">
           {voucher.owner?.name ||
@@ -930,188 +1132,53 @@ function ConversionEmpty({
 }
 function VoucherCard({
   voucher,
+  now,
   sending,
   onResend,
   onConvert,
+  onUpdated,
 }: {
   voucher: FinanceVoucher;
+  now: number;
   sending: boolean;
   onResend: () => void;
   onConvert: () => void;
+  onUpdated: () => void;
 }) {
-  const service = voucher.voucher_type === 'service';
-  const email = voucher.owner?.email;
-  const canConvert = canConvertVoucher(voucher);
-  const now = useBenefitClock();
   return (
-    <Card className="gap-0 overflow-hidden">
-      <div className={styles.voucherAccent} />
-      <CardContent className="space-y-5 p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 gap-3">
-            <div className="rounded-2xl bg-violet-100 p-3 text-violet-700">
-              <Gift className="size-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="font-semibold">
-                {voucher.recipient_name ||
-                  voucher.owner?.name ||
-                  'Destinatário não definido'}
-              </p>
-              <p className="text-muted-foreground truncate text-sm">
-                {voucher.service?.name ||
-                  (service ? 'Voucher de serviço' : 'Cartão de valor')}
-              </p>
-            </div>
-          </div>
-          <Status value={voucher.status === 'active' && voucher.expires_at && new Date(voucher.expires_at).getTime() <= now ? 'expired' : voucher.status} />
-        </div>
-        <div className="bg-muted/60 grid grid-cols-2 gap-3 rounded-xl p-3">
-          <div>
-            <p className="text-muted-foreground text-xs">
-              {service ? 'Sessões disponíveis' : 'Saldo disponível'}
-            </p>
-            <p className="mt-1 font-semibold">
-              {service
-                ? `${Number(voucher.remaining_uses ?? 0)} sessão(ões)`
-                : money(Number(voucher.current_balance), voucher.currency)}
-            </p>
-          </div>
-          <div>
-            <p className="text-muted-foreground text-xs">Validade</p>
-            <p className="mt-1 font-semibold">{date(voucher.expires_at)}</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <code className="rounded-lg bg-violet-50 px-2.5 py-1.5 text-xs font-bold tracking-wide text-violet-800">
-            {voucher.code} · PIN {voucher.pin_code || '—'}
-          </code>
-          <div className="flex flex-wrap gap-2">
-            <BenefitValidityButton kind="voucher" id={voucher.id} code={voucher.code} expiresAt={voucher.expires_at} status={voucher.status} />
-            <Link
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-              href={
-                voucher.owner_contact_id
-                  ? `/contacts/${voucher.owner_contact_id}`
-                  : '/contacts'
-              }
-            >
-              Cliente
-            </Link>
-            {canConvert && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onConvert}
-                title="Converte o valor pago num cartão-saldo utilizável no POS"
-              >
-                <ArrowRightLeft /> Converter em saldo
-              </Button>
-            )}
-            <Button
-              size="sm"
-              onClick={onResend}
-              disabled={!voucher.issued_sale_id || !email || sending}
-              title={
-                !email ? 'O cliente precisa de ter email registado.' : undefined
-              }
-            >
-              {sending ? <Loader2 className="animate-spin" /> : <Send />}{' '}
-              Reenviar PDF
-            </Button>
-          </div>
-        </div>
-        {service && !canConvert && (
-          <p className="bg-muted/60 text-muted-foreground rounded-lg p-2.5 text-xs">
-            <strong>Saldo:</strong> {conversionReason(voucher)}
-          </p>
-        )}
-        {!email && (
-          <p className="text-xs text-amber-700">
-            Adicione um email ao cliente para poder reenviar este voucher.
-          </p>
-        )}
-      </CardContent>
-    </Card>
+    <BenefitRegisterRow
+      voucher={voucher}
+      now={now}
+      sending={sending}
+      onResend={onResend}
+      onConvert={onConvert}
+      canConvert={canConvertVoucher(voucher)}
+      onUpdated={onUpdated}
+    />
   );
 }
 function remainingPackSessions(pack: FinanceClientPack) {
-  return (pack.balances ?? []).reduce(
-    (sum, item) => sum + Number(item.remaining_sessions),
-    0
-  );
+  return packRemaining(pack);
 }
 function PackCard({
   pack,
+  now,
   onConvert,
+  onUpdated,
 }: {
   pack: FinanceClientPack;
+  now: number;
   onConvert: () => void;
+  onUpdated: () => void;
 }) {
-  const now = useBenefitClock();
-  const total = (pack.balances ?? []).reduce(
-    (sum, item) => sum + Number(item.total_sessions),
-    0
-  );
-  const remaining = remainingPackSessions(pack);
-  const percentage = total ? Math.round((remaining / total) * 100) : 0;
   return (
-    <Card className="gap-0 overflow-hidden">
-      <div className={styles.packAccent} />
-      <CardContent className="space-y-5 p-5">
-        <div className="flex justify-between gap-3">
-          <div className="flex gap-3">
-            <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700">
-              <PackageCheck className="size-5" />
-            </div>
-            <div>
-              <p className="font-semibold">
-                {pack.contact?.name || 'Cliente sem nome'}
-              </p>
-              <p className="text-muted-foreground text-sm">
-                {pack.pack?.name || 'Pack'}
-              </p>
-            </div>
-          </div>
-          <Status value={pack.status === 'active' && pack.expires_at && new Date(pack.expires_at).getTime() <= now ? 'expired' : pack.status} />
-        </div>
-        <div>
-          <div className="mb-2 flex justify-between text-sm">
-            <span className="text-muted-foreground">Sessões restantes</span>
-            <strong>
-              {remaining} de {total}
-            </strong>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-emerald-100">
-            <div
-              className="h-full rounded-full bg-emerald-500"
-              style={{ width: `${percentage}%` }}
-            />
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <code className="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-800">
-            {pack.code || 'Sem código'} · PIN {pack.pin_code || '—'}
-          </code>
-          <div className="flex flex-wrap gap-2">
-            <BenefitValidityButton kind="pack" id={pack.id} code={pack.code} expiresAt={pack.expires_at} status={pack.status} />
-            <Link
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-              href={
-                pack.contact_id ? `/contacts/${pack.contact_id}` : '/contacts'
-              }
-            >
-              Ver cliente
-            </Link>
-            {pack.status === 'active' && remaining > 0 && (
-              <Button variant="outline" size="sm" onClick={onConvert}>
-                <ArrowRightLeft /> Converter sessões
-              </Button>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <BenefitRegisterRow
+      pack={pack}
+      now={now}
+      onConvert={onConvert}
+      canConvert={packRemaining(pack) > 0}
+      onUpdated={onUpdated}
+    />
   );
 }
 function Empty({ icon: Icon, text }: { icon: typeof Gift; text: string }) {

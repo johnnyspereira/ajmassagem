@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-31-benefits-clear-register', date: '2026-10-31', category: 'Melhoria',
+    title: 'Vouchers e packs com saldos claros e filtros por disponibilidade', areas: ['Vouchers e packs', 'Benefícios'],
+    summary: 'Os cartões grandes dão lugar a uma lista compacta, com cliente, modalidade, saldo e validade. A entrada mostra os benefícios utilizáveis.',
+    changes: ['Filtros Disponíveis, A terminar nos próximos sete dias, Expirados, Utilizados, Por ativar e Todos, com contagens. Benefícios sem saldo deixam de contar como ativos, mesmo que a data de validade ainda não tenha terminado.', 'Packs mostram as sessões restantes por modalidade. Os registos próximos do prazo aparecem primeiro e as cores distinguem disponibilidade e situações que precisam de atenção.', 'PIN, valor pago, validade e opções de gestão ficam em Detalhes e opções. Um valor pago desconhecido aparece como não registado, sem ser confundido com saldo em falta.', 'Pesquisa de nomes com ou sem acentos, agrupamento opcional de vouchers por modalidade ou cliente e carregamento progressivo de vinte registos.', 'Resumo superior clicável, acesso a Packs junto dos vouchers e apresentação compacta no telemóvel. As ações existentes de conversão e reenvio continuam disponíveis nos detalhes.'],
+    howTo: 'Abra Vouchers e packs. Comece em Disponíveis ou use os filtros para consultar o histórico. Em Packs, veja o saldo de cada modalidade. Abra Detalhes e opções no registo para consultar o PIN, aceder ao Cliente 360, agendar o cliente ou gerir o benefício. Use Todos para incluir cancelados e benefícios sem saldo.',
+  },
+  {
     id: '2026-10-31-return-consumed-appointment-benefit', date: '2026-10-31', category: 'Correção',
     title: 'Devolver vouchers e sessões de packs utilizados após cancelar', areas: ['Agenda', 'Vouchers', 'Packs', 'Financeiro'],
     summary: 'O proprietário pode repor uma utilização já descontada de uma marcação cancelada, com motivo e histórico.',

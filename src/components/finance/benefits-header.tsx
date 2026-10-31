@@ -32,14 +32,11 @@ export function BenefitsHeader({
   return (
     <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
       <div className="min-w-0">
-        <p className="text-primary mb-1 text-[10px] font-semibold tracking-[.16em] uppercase">
-          Relacionamento e benefícios
-        </p>
         <h1 className="text-2xl font-semibold tracking-tight">
           Vouchers e packs
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Consulte sessões, validades e saldos de cada cliente.
+          Saiba o que cada cliente pode utilizar e o que precisa de atenção.
         </p>
       </div>
       <div className="flex items-center gap-2">
