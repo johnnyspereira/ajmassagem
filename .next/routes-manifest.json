@@ -89,7 +89,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "7e5c1e84fefaa4a7b8562815e303f5a59b3e6ebf"
+          "value": "59e3cabc13da25d73a1e1b6bcac9dc1430424507"
         }
       ],
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
@@ -99,7 +99,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "7e5c1e84fefaa4a7b8562815e303f5a59b3e6ebf"
+          "value": "59e3cabc13da25d73a1e1b6bcac9dc1430424507"
         }
       ],
       "regex": "^/_next/data(?:/(.*))(?:/)?$"
@@ -246,6 +246,14 @@
         "nxtPid": "nxtPid"
       },
       "namedRegex": "^/api/clinic/appointments/(?<nxtPid>[^/]+?)/renewal(?:/)?$"
+    },
+    {
+      "page": "/api/clinic/appointments/[id]/restore-benefit",
+      "regex": "^/api/clinic/appointments/([^/]+?)/restore\\-benefit(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/clinic/appointments/(?<nxtPid>[^/]+?)/restore\\-benefit(?:/)?$"
     },
     {
       "page": "/api/clinic/appointments/[id]/restore-status",
@@ -1734,5 +1742,5 @@
     "pathHeader": "x-nextjs-rewritten-path",
     "queryHeader": "x-nextjs-rewritten-query"
   },
-  "deploymentId": "7e5c1e84fefaa4a7b8562815e303f5a59b3e6ebf"
+  "deploymentId": "59e3cabc13da25d73a1e1b6bcac9dc1430424507"
 }
