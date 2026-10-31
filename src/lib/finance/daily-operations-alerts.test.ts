@@ -33,7 +33,13 @@ beforeEach(() => {
   mocks.today.mockResolvedValue({
     day: '2026-10-25',
     cash: { id: 'cash', opened_at: '2026-10-25T08:00:00Z' },
-    appointments: [{ id: 'appointment' }],
+    appointments: [
+      {
+        id: 'appointment',
+        name: 'Cliente Exemplo',
+        scheduled_start: '2026-10-25T19:00:00Z',
+      },
+    ],
     hasActivity: true,
   });
   mocks.notify.mockResolvedValue({ internal: 1, whatsapp: 'sent' });
@@ -63,11 +69,15 @@ it('sends grouped actionable evening alerts with daily deduplication and retry s
       accountId: 'account',
       dedupeKey: 'daily-operations:2026-10-25:closing',
       retryWhatsApp: true,
-      actionUrl: '/finance',
+      actionUrl: '/dashboard#attention',
       body: expect.stringContaining('1 atendimento'),
     })
   );
   expect(mocks.notify.mock.calls[0][0].body).toContain('caixa');
+  expect(mocks.notify.mock.calls[0][0].body).toContain('Cliente Exemplo');
+  expect(mocks.notify.mock.calls[0][0].body).toContain(
+    '/agenda?appointment=appointment'
+  );
 });
 it('does not notify when there are no outstanding closing tasks', async () => {
   mocks.today.mockResolvedValue({

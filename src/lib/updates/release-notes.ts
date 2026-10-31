@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-31-operational-attention-queue', date: '2026-10-31', category: 'Novidade',
+    title: 'Central de pendências com cliente, motivo e próximo passo', areas: ['Painel', 'Agenda', 'Financeiro', 'WhatsApp', 'Lembretes'],
+    summary: 'O meu dia passa a reunir atendimentos por concluir, pagamentos em falta, benefícios por utilizar, fecho de caixa e falhas da fila WhatsApp.',
+    changes: ['Fila por prioridade, com pesquisa, filtros, contagens e cinco registos por página. Cada linha apresenta cliente, data, motivo e ligação ao registo de origem, além de acesso ao Cliente 360 quando aplicável.', 'Sessões futuras e atendimentos cancelados ou com falta não são tratados como fechos pendentes. Pagamentos com saldo zero e benefícios já utilizados ficam excluídos dos respetivos alertas.', 'Adiar 1 h oculta uma pendência nesta lista, neste dispositivo; Mostrar adiadas e Repor na fila permitem rever e desfazer. O adiamento não altera os lembretes automáticos nem os estados do CRM.', 'Atualização automática com a página visível e ao regressar à janela, sem ocultar a lista durante atualizações em segundo plano. Uma falha de consulta apresenta erro e opção de tentar novamente.', 'Os lembretes de fecho existentes identificam os clientes e horários de até oito atendimentos pendentes e abrem a central. Mantêm as fases das 21:30 e 23:15 de Lisboa e a proteção contra duplicações.'],
+    howTo: 'Abra Painel → O meu dia → Precisa da sua atenção. Filtre por tipo ou pesquise um cliente, serviço ou venda. Use a ação da linha para abrir o registo e corrigir a pendência; depois, atualize a fila. Os itens desaparecem quando a origem deixar de estar pendente.',
+  },
+  {
     id: '2026-10-31-benefits-clear-register', date: '2026-10-31', category: 'Melhoria',
     title: 'Vouchers e packs com saldos claros e filtros por disponibilidade', areas: ['Vouchers e packs', 'Benefícios'],
     summary: 'Os cartões grandes dão lugar a uma lista compacta, com cliente, modalidade, saldo e validade. A entrada mostra os benefícios utilizáveis.',

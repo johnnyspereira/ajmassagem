@@ -52,7 +52,15 @@ export async function runDailyOperationsAlerts(now = new Date()) {
           );
         if (today.appointments.length)
           tasks.push(
-            `${today.appointments.length} atendimento(s) de hoje já terminaram e continuam por concluir. Confirme Concluído, Faltou ou Cancelado na Agenda.`
+            `${today.appointments.length} atendimento(s) de hoje já terminaram e continuam por concluir. Confirme Concluído, Faltou ou Cancelado na Agenda.\n${today.appointments
+              .slice(0, 8)
+              .map(
+                (appointment) =>
+                  `${appointment.name || 'Cliente não identificado'}${appointment.scheduled_start ? ` · ${new Date(appointment.scheduled_start).toLocaleString('pt-PT', { timeZone: 'Europe/Lisbon', dateStyle: 'short', timeStyle: 'short' })}` : ''}\nhttps://jpmassagem.pt/agenda?appointment=${encodeURIComponent(appointment.id)}`
+              )
+              .join(
+                '\n\n'
+              )}${today.appointments.length > 8 ? '\nConsulte os restantes na central de pendências.' : ''}`
           );
       }
       if (!tasks.length) continue;
@@ -69,7 +77,7 @@ export async function runDailyOperationsAlerts(now = new Date()) {
               ? 'Antes da meia-noite: pendências do dia'
               : 'Fechar o dia: caixa e atendimentos',
         body: tasks.join(' '),
-        actionUrl: '/finance',
+        actionUrl: phase === 'opening' ? '/finance' : '/dashboard#attention',
         dedupeKey: `daily-operations:${today.day}:${phase}`,
         metadata: {
           day: today.day,
@@ -77,7 +85,7 @@ export async function runDailyOperationsAlerts(now = new Date()) {
           pending_appointments: today.appointments.length,
           cash_open: !!today.cash,
         },
-        whatsappText: `JP Massagem · ${phase === 'opening' ? 'Começar o dia' : 'Fechar o dia'}\n\n${tasks.join('\n\n')}\n\nAbra o Financeiro para resolver: https://jpmassagem.pt/finance\nAgenda: https://jpmassagem.pt/agenda\n\nHorário: Europe/Lisbon. Nenhum estado ou pagamento foi alterado automaticamente.`,
+        whatsappText: `JP Massagem · ${phase === 'opening' ? 'Começar o dia' : 'Fechar o dia'}\n\n${tasks.join('\n\n')}\n\nCentral de pendências: https://jpmassagem.pt/dashboard#attention\nFinanceiro: https://jpmassagem.pt/finance\nAgenda: https://jpmassagem.pt/agenda\n\nHorário: Europe/Lisbon. Nenhum estado ou pagamento foi alterado automaticamente.`,
       });
       if (result.internal > 0) notified++;
       if (result.whatsapp === 'failed' || result.whatsapp === 'not_configured')

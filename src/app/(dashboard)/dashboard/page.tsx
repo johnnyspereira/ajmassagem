@@ -60,6 +60,7 @@ import { PipelineDonut } from '@/components/dashboard/pipeline-donut';
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart';
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
 import { FollowUpCommandCenter } from '@/components/dashboard/follow-up-command-center';
+import { AttentionQueue } from '@/components/dashboard/attention-queue';
 import {
   AutomationInsightsPanel,
   InboxOperationsPanel,
@@ -70,7 +71,8 @@ import {
 type RangeDays = 7 | 30 | 90;
 
 export default function DashboardPage() {
-  const { defaultCurrency, profile } = useAuth();
+  const { defaultCurrency, profile, accountId } = useAuth();
+  const [attentionVersion, setAttentionVersion] = useState(0);
   const [view, setView] = useState<'day' | 'reports' | 'activity'>('day');
   const viewRef = useRef<'day' | 'reports' | 'activity'>('day');
   const inFlight = useRef(false);
@@ -345,6 +347,7 @@ export default function DashboardPage() {
   );
 
   const handleAppointmentChanged = (id: string) => {
+    setAttentionVersion(value => value + 1);
     setPortalPending(
       (current) => current?.filter((item) => item.id !== id) ?? null
     );
@@ -405,7 +408,7 @@ export default function DashboardPage() {
             size="icon"
             aria-label="Atualizar dashboard"
             title="Atualizar dashboard"
-            onClick={() => loadAll(range)}
+            onClick={() => { setAttentionVersion(value => value + 1); loadAll(range); }}
             disabled={refreshing}
           >
             <RefreshCw className={cn('size-4', refreshing && 'animate-spin')} />
@@ -541,6 +544,7 @@ export default function DashboardPage() {
           </button>
         ))}
       </nav>
+      {view === 'day' && <AttentionQueue key={accountId || 'loading'} refreshKey={attentionVersion} />}
       {dashboardDataUnavailable ? (
         <div className="border-border bg-card rounded-2xl border p-8 text-center">
           <TriangleAlert className="mx-auto mb-3 size-7 text-amber-600" />
@@ -575,7 +579,7 @@ export default function DashboardPage() {
               <section className="border-border bg-card overflow-hidden rounded-2xl border">
                 <div className="border-border flex items-center justify-between border-b px-5 py-4">
                   <h2 className="text-base font-semibold">
-                    Precisa de atenção
+                    Organização do CRM
                   </h2>
                   <Link
                     href="/inbox"
