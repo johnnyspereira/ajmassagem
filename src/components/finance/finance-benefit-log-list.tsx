@@ -41,7 +41,11 @@ export function BenefitLogList({
                 )}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <strong>{BENEFIT_LOG_LABEL[log.action]}</strong>
+                  <strong>
+                    {log.metadata?.action === 'consumed_benefit_restored'
+                      ? 'Utilização devolvida ao saldo'
+                      : BENEFIT_LOG_LABEL[log.action]}
+                  </strong>
                   <span className="text-muted-foreground">
                     {new Date(log.created_at).toLocaleString('pt-PT')}
                   </span>
@@ -71,7 +75,11 @@ export function BenefitLogList({
                     <span>Sessões: {log.sessions}</span>
                   ) : null}
                 </div>
-                {log.notes ? <p className="text-muted-foreground mt-2 whitespace-pre-wrap">{log.notes}</p> : null}
+                {log.notes ? (
+                  <p className="text-muted-foreground mt-2 whitespace-pre-wrap">
+                    {log.notes}
+                  </p>
+                ) : null}
                 {href ? (
                   <p className="text-primary mt-2 text-[11px] font-medium">
                     Abrir registo original

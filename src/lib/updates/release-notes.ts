@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-31-return-consumed-appointment-benefit', date: '2026-10-31', category: 'Correção',
+    title: 'Devolver vouchers e sessões de packs utilizados após cancelar', areas: ['Agenda', 'Vouchers', 'Packs', 'Financeiro'],
+    summary: 'O proprietário pode repor uma utilização já descontada de uma marcação cancelada, com motivo e histórico.',
+    changes: ['A ação Devolver benefício permite confirmar a reposição de uma utilização do voucher, do valor consumido de um cartão-saldo ou das sessões utilizadas na modalidade do pack.', 'A devolução exige cancelamento guardado e motivo de 5 a 500 caracteres. A validade original mantém-se; um benefício expirado continua expirado após recuperar o saldo.', 'Reposição e histórico são guardados na mesma transação, com identificação do proprietário. Pedidos repetidos não duplicam o saldo. Benefícios cancelados e compras anuladas ou reembolsadas ficam protegidos.', 'O dinheiro da compra não é reembolsado e não é enviada mensagem automática. A marcação mantém-se cancelada e o pagamento por benefício é atualizado sem apagar pagamentos diretos existentes.'],
+    howTo: 'Abra a marcação cancelada na Agenda, escolha Devolver benefício, indique o motivo e clique em Confirmar devolução ao saldo. Consulte o histórico do voucher ou pack no Financeiro para ver o registo da reposição.',
+  },
+  {
     id: '2026-10-31-client360-appointment-payment-details', date: '2026-10-31', category: 'Melhoria',
     title: 'Cliente 360 com pagamentos nas marcações e indicadores consultáveis', areas: ['Cliente 360', 'Agenda', 'Financeiro', 'Vouchers', 'Packs'],
     summary: 'As marcações do cliente mostram como foram liquidadas ou o que falta fazer. Os cinco indicadores do topo abrem os registos que representam.',

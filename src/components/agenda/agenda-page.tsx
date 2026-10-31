@@ -934,6 +934,8 @@ export function AgendaPage({
     setNotificationPrompt(null);
   }
   const [benefitRefundOpen, setBenefitRefundOpen] = useState(false);
+  const [restoreBenefitReason, setRestoreBenefitReason] = useState('');
+  const [restoringBenefit, setRestoringBenefit] = useState(false);
   const [renewalAppointmentId, setRenewalAppointmentId] = useState<string | null>(null);
   const [refundReason, setRefundReason] = useState('');
   const [requestingRefund, setRequestingRefund] = useState(false);
@@ -3414,6 +3416,32 @@ export function AgendaPage({
     });
   }
 
+  async function restoreConsumedBenefit() {
+    if (!isOwner || !selectedAppointment || !appointmentBenefit || restoringBenefit) return;
+    const appointmentId = selectedAppointment.id;
+    const benefitId = appointmentBenefit.id;
+    const reason = restoreBenefitReason.trim();
+    if (reason.length < 5 || reason.length > 500) { toast.error('Indique um motivo de 5 a 500 caracteres.'); return; }
+    setRestoringBenefit(true);
+    try {
+      const response = await fetch(`/api/clinic/appointments/${appointmentId}/restore-benefit`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ benefitId, reason }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Não foi possível devolver a utilização.');
+      setSelectedAppointment(current => current?.id === appointmentId ? { ...current, paid_at: payload.paidAt ?? null, benefits: current.benefits?.map(benefit => benefit.id === benefitId ? { ...benefit, status: 'released' } : benefit) } : current);
+      setEditDraft(current => current ? { ...current, paidAt: payload.paidAt ?? null } : current);
+      setAppointmentBenefit(null);
+      setBenefitRefundOpen(false);
+      setRestoreBenefitReason('');
+      if (selectedAppointment.contact_id) await loadAppointmentBenefits(appointmentId, selectedAppointment.contact_id, selectedAppointment.service_id || '');
+      setAppointmentEvents(await loadAgendaEvents('appointment', appointmentId));
+      void loadAgenda();
+      toast.success(payload.alreadyRestored ? 'Esta utilização já tinha sido devolvida.' : payload.status === 'expired' ? 'Saldo devolvido. A validade original já terminou; ajuste-a se autorizar uma nova utilização.' : 'Utilização devolvida ao saldo do cliente.');
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'Falha ao devolver a utilização.'); }
+    finally { setRestoringBenefit(false); }
+  }
+
   async function requestAppointmentRefund() {
     if (!selectedAppointment || !accountId || !canOperate) return;
     const refundableSales = (selectedAppointment.sales ?? []).filter(
@@ -5441,6 +5469,7 @@ export function AgendaPage({
                               }
                               onClick={() => {
                                 if (appointmentBenefit) {
+                                  setRestoreBenefitReason('');
                                   setBenefitRefundOpen(true);
                                   return;
                                 }
@@ -5448,7 +5477,7 @@ export function AgendaPage({
                                 setRefundRequestOpen(true);
                               }}
                             >
-                              <CircleDollarSign className="size-4" /> Reembolso
+                              <CircleDollarSign className="size-4" /> {appointmentBenefit ? 'Devolver benefício' : 'Reembolso'}
                             </ActionButton>
                             {canManageRenewals && selectedAppointment.status === 'completed' ? (
                               <ActionButton tone="amber" onClick={() => setRenewalAppointmentId(selectedAppointment.id)}>
@@ -5697,7 +5726,7 @@ export function AgendaPage({
         </AgendaActionDialogContent>
       </Dialog>
       <VoucherRenewalDialog appointmentId={renewalAppointmentId} onClose={() => setRenewalAppointmentId(null)} />
-      <Dialog open={benefitRefundOpen} onOpenChange={setBenefitRefundOpen}>
+      <Dialog open={benefitRefundOpen} onOpenChange={open => { if (!restoringBenefit) setBenefitRefundOpen(open); }}>
         <AgendaActionDialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Devolver sessão ou reembolsar a compra?</DialogTitle>
@@ -5712,8 +5741,7 @@ export function AgendaPage({
             <div className="space-y-2 rounded-xl border p-4">
               <h3 className="font-semibold">Devolver a sessão ao saldo</h3>
               <p className="text-muted-foreground">
-                Cancele a marcação e escolha Devolver ao saldo. Depois, guarde a
-                marcação. Esta opção liberta a reserva e não devolve dinheiro.
+                {appointmentBenefit?.status === 'consumed' ? 'Reponha no benefício a sessão ou o saldo descontado nesta marcação cancelada.' : 'Cancele a marcação e escolha Devolver ao saldo. Depois, guarde a marcação. Esta opção liberta a reserva e não devolve dinheiro.'}
               </p>
               {appointmentBenefit?.status === 'reserved' &&
               editDraft?.status !== 'cancelled' ? (
@@ -5726,10 +5754,18 @@ export function AgendaPage({
                 >
                   Cancelar e escolher devolução ao saldo
                 </Button>
+              ) : appointmentBenefit?.status === 'consumed' && selectedAppointment?.status === 'cancelled' ? (
+                <div className="space-y-3">
+                  <p>Esta utilização já foi descontada. O proprietário pode repô-la no mesmo voucher ou pack, com registo do motivo. A validade original mantém-se.</p>
+                  {isOwner ? <>
+                    <label className="block space-y-1.5"><span className="font-medium">Motivo da devolução</span><Textarea value={restoreBenefitReason} onChange={event => setRestoreBenefitReason(event.target.value)} maxLength={500} disabled={restoringBenefit} placeholder="Ex.: sessão cancelada após utilização do voucher" /></label>
+                    <p className="text-muted-foreground text-xs">Esta ação repõe o benefício e mantém a marcação cancelada. Não devolve dinheiro nem envia mensagens ao cliente.</p>
+                    <Button disabled={restoringBenefit || restoreBenefitReason.trim().length < 5 || editDraft?.status !== 'cancelled'} onClick={() => void restoreConsumedBenefit()}>{restoringBenefit ? 'A devolver…' : 'Confirmar devolução ao saldo'}</Button>
+                  </> : <p className="text-muted-foreground">Peça ao proprietário para autorizar esta devolução.</p>}
+                </div>
               ) : (
                 <p className="text-muted-foreground">
-                  O benefício já foi consumido ou a marcação está cancelada.
-                  Cancelar novamente não repõe uma sessão consumida.
+                  {appointmentBenefit?.status === 'consumed' ? 'Guarde primeiro o cancelamento. Depois, volte a Devolver benefício para repor a utilização ao saldo.' : 'A reserva já foi libertada ou não existe uma utilização para devolver.'}
                 </p>
               )}
             </div>
@@ -5773,6 +5809,7 @@ export function AgendaPage({
           <DialogFooter>
             <Button
               variant="outline"
+              disabled={restoringBenefit}
               onClick={() => setBenefitRefundOpen(false)}
             >
               Fechar
