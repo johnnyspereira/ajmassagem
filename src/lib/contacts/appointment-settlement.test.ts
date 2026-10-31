@@ -10,6 +10,23 @@ const base: SettlementAppointment = {
   status: 'completed',
 };
 describe('Client 360 appointment settlement', () => {
+  it('identifies historical invoicing without pretending a new receipt', () => {
+    expect(
+      appointmentSettlementTags({
+        ...base,
+        sales: [
+          {
+            status: 'paid',
+            paid_amount: 0,
+            balance_due: 0,
+            is_historical: true,
+          },
+        ],
+      })
+    ).toEqual([
+      { label: 'Faturação anterior · sem novo recebimento', tone: 'neutral' },
+    ]);
+  });
   it('shows cash only from a confirmed payment', () => {
     expect(
       appointmentSettlementTags({

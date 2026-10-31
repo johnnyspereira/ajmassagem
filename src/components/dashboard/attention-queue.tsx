@@ -20,6 +20,7 @@ import {
   type AttentionKind,
 } from '@/lib/dashboard/attention-types';
 import styles from './attention-queue.module.css';
+import { HistoricalAppointmentsDialog } from './historical-appointments-dialog';
 
 const at = (value: string) =>
   new Intl.DateTimeFormat('pt-PT', {
@@ -29,7 +30,7 @@ const at = (value: string) =>
   }).format(new Date(value));
 export function AttentionQueue({ refreshKey = 0 }: { refreshKey?: number }) {
   const [now, setNow] = useState(() => Date.now());
-  const { accountId, user, isViewer } = useAuth();
+  const { accountId, user, isViewer, isOwner } = useAuth();
   const [kind, setKind] = useState<AttentionKind | 'all'>('all');
   const [page, setPage] = useState(0),
     [version, setVersion] = useState(0);
@@ -223,6 +224,18 @@ export function AttentionQueue({ refreshKey = 0 }: { refreshKey?: number }) {
           />
         </div>
       </div>
+      {isOwner && kind === 'appointments' && (
+        <div className="flex flex-wrap items-center gap-3 border-t px-5 py-3">
+          <HistoricalAppointmentsDialog
+            key={`${accountId}:${query}`}
+            search={query}
+            onComplete={() => setVersion((value) => value + 1)}
+          />
+          <span className="text-muted-foreground text-xs">
+            Histórico anterior a hoje, com seleção em lote e autorização.
+          </span>
+        </div>
+      )}
       {hidden > 0 && (
         <div className={styles.snoozed}>
           <span>

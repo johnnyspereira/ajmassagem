@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-31-historical-appointments-batch', date: '2026-10-31', category: 'Melhoria',
+    title: 'Concluir atendimentos antigos em lote sem mexer no caixa', areas: ['Painel', 'Agenda', 'Financeiro', 'Cliente 360'],
+    summary: 'O proprietário pode selecionar atendimentos anteriores a uma data e regularizar o histórico com pré-visualização, motivo e autorização explícita.',
+    changes: ['Selecionar todos abrange os elegíveis de todas as páginas da fila, até 200 por lote. A pesquisa e a data limite ajudam a restringir a seleção; o dia selecionado fica excluído.', 'Sessões sem venda são registadas como faturação anterior liquidada fora do CRM, no valor e data da marcação, sem criar pagamentos, entradas de caixa ou faturas fiscais. Casos já pagos ou com benefício utilizado são apenas concluídos, preservando os registos existentes.', 'Dívidas, vendas anuladas ou reembolsadas e benefícios ainda reservados exigem revisão individual. Pedidos repetidos e pré-visualizações desatualizadas não duplicam o histórico.', 'A operação guarda utilizador e motivo, cancela links de anamnese pendentes e preserva respostas enviadas. Não envia mensagens aos clientes. O Cliente 360 identifica faturação anterior sem novo recebimento.'],
+    howTo: 'No Painel, abra Precisa da sua atenção → Atendimentos → Regularizar atendimentos antigos. Escolha a data limite, consulte, selecione os atendimentos, indique o motivo e confirme a autorização. Use Concluir sem caixa. Consulte as vendas históricas no Financeiro ou nos Relatórios.',
+  },
+  {
     id: '2026-10-31-operational-attention-queue', date: '2026-10-31', category: 'Novidade',
     title: 'Central de pendências com cliente, motivo e próximo passo', areas: ['Painel', 'Agenda', 'Financeiro', 'WhatsApp', 'Lembretes'],
     summary: 'O meu dia passa a reunir atendimentos por concluir, pagamentos em falta, benefícios por utilizar, fecho de caixa e falhas da fila WhatsApp.',

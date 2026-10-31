@@ -12,6 +12,7 @@ export type SettlementAppointment = {
     client_pack?: { code?: string | null } | null;
   }>;
   sales?: Array<{
+    is_historical?: boolean | number;
     status: string;
     paid_amount: number;
     balance_due: number;
@@ -92,6 +93,11 @@ export function appointmentSettlementTags(
     tags.push({
       label: `Por pagar · ${formatCurrency(due, appointment.currency)}`,
       tone: 'pending',
+    });
+  } else if (sales.some((sale) => sale.is_historical) && !methods.length) {
+    tags.push({
+      label: 'Faturação anterior · sem novo recebimento',
+      tone: 'neutral',
     });
   } else if (
     received > 0 ||
