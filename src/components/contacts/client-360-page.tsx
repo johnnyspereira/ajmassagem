@@ -66,6 +66,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { formatCurrency } from '@/lib/currency';
+import { appointmentSettlementTags } from '@/lib/contacts/appointment-settlement';
+import {
+  CLIENT_APPOINTMENT_SELECT,
+  Client360MetricDialog,
+  type ClientMetric,
+} from './client-360-metric-dialog';
 import {
   findExistingContact,
   isUniqueViolation,
@@ -90,11 +96,12 @@ import type {
   Tag as ContactTag,
 } from '@/types';
 
-type Appointment = {
+export type Appointment = {
   id: string;
   scheduled_start: string;
   scheduled_end: string;
   status: string;
+  paid_at?: string | null;
   source?: string | null;
   price: number;
   original_price?: number | null;
@@ -433,6 +440,7 @@ export function Client360Page({
   const [createConversationOpen, setCreateConversationOpen] = useState(false);
   const [creatingConversation, setCreatingConversation] = useState(false);
   const [activeTab, setActiveTab] = useState<ClientTab>(initialTab);
+  const [metricDetail, setMetricDetail] = useState<ClientMetric | null>(null);
   const [packBenefitTab, setPackBenefitTab] = useState<'active' | 'used'>(
     'active'
   );
@@ -510,9 +518,7 @@ export function Client360Page({
         .limit(12),
       supabase
         .from('clinic_appointments')
-        .select(
-          'id, scheduled_start, scheduled_end, status, source, price, original_price, referral_id, referral_discount_amount, currency, confirmation_status, service:clinic_services(name, color), room:clinic_rooms(name), professional:profiles!clinic_appointments_professional_profile_id_fkey(full_name, email), benefits:finance_appointment_benefits(*, voucher:finance_vouchers(*), client_pack:finance_client_packs(*), client_pack_balance:finance_client_pack_balances(total_sessions, used_sessions, remaining_sessions)), sales:finance_sales(*, payments:finance_payments(*))'
-        )
+        .select(CLIENT_APPOINTMENT_SELECT)
         .eq('account_id', accountId)
         .eq('contact_id', contactId)
         .order('scheduled_start', { ascending: false })
@@ -1644,27 +1650,38 @@ export function Client360Page({
         </CardContent>
       </Card>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-5 [&>div:last-child]:col-span-2 xl:[&>div:last-child]:col-span-1">
         <Metric
           icon={CalendarClock}
+          onClick={() => setMetricDetail('next')}
           label="Próxima marcação"
           value={
-            nextAppointment
-              ? safeDate(nextAppointment.scheduled_start, 'dd/MM HH:mm')
+            summary?.next_appointment_at || nextAppointment
+              ? safeDate(
+                  summary?.next_appointment_at ??
+                    nextAppointment?.scheduled_start,
+                  'dd/MM HH:mm'
+                )
               : 'Sem marcação'
           }
           detail={
-            nextAppointment?.service?.name ?? 'Agende o próximo atendimento'
+            summary?.next_appointment_at &&
+            summary.next_appointment_at !== nextAppointment?.scheduled_start
+              ? 'Consultar próximas marcações'
+              : (nextAppointment?.service?.name ??
+                'Agende o próximo atendimento')
           }
         />
         <Metric
           icon={MessageCircle}
+          onClick={() => setMetricDetail('conversations')}
           label="Conversas"
           value={String(summary?.conversations_total ?? conversations.length)}
           detail={`${Number(summary?.unread_total ?? conversations.reduce((sum, item) => sum + Number(item.unread_count ?? 0), 0))} não lidas`}
         />
         <Metric
           icon={BriefcaseBusiness}
+          onClick={() => setMetricDetail('deals')}
           label="Negócios ativos"
           value={String(summary?.active_deals ?? activeDeals.length)}
           detail={formatCurrency(
@@ -1674,12 +1691,14 @@ export function Client360Page({
         />
         <Metric
           icon={CircleDollarSign}
+          onClick={() => setMetricDetail('appointments')}
           label="Atendimentos"
           value={String(summary?.appointments_total ?? appointments.length)}
           detail={`${completedAppointments} concluídos`}
         />
         <Metric
           icon={ReceiptText}
+          onClick={() => setMetricDetail('finance')}
           label="Total recebido"
           value={formatCurrency(totalReceived, defaultCurrency)}
           detail={
@@ -1689,6 +1708,27 @@ export function Client360Page({
           }
         />
       </div>
+
+      {metricDetail && accountId && (
+        <Client360MetricDialog
+          key={`${contact.id}-${metricDetail}`}
+          kind={metricDetail}
+          accountId={accountId}
+          contactId={contact.id}
+          currency={defaultCurrency}
+          onClose={() => setMetricDetail(null)}
+          onNavigate={(href) => router.push(href)}
+          renderAppointment={(appointment) => (
+            <AppointmentRow
+              key={appointment.id}
+              appointment={appointment}
+              onOpen={() =>
+                router.push(`/agenda?appointment=${appointment.id}`)
+              }
+            />
+          )}
+        />
+      )}
 
       <Tabs value={activeTab} onValueChange={changeTab} className="gap-4">
         <TabsList className="w-full justify-start overflow-x-auto">
@@ -2349,21 +2389,30 @@ export function Client360Page({
 
         <TabsContent value="appointments">
           <Card>
-            <CardHeader className="flex-row items-start justify-between gap-3">
-              <div>
+            <CardHeader className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:flex-wrap">
+              <div className="min-w-0 flex-1">
                 <CardTitle>Agenda do cliente</CardTitle>
                 <CardDescription>
                   Marcações recentes; os indicadores consideram todo o
                   histórico.
                 </CardDescription>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => router.push(`/agenda?contact=${contact.id}`)}
-              >
-                <CalendarClock /> Ver agenda
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setMetricDetail('appointments')}
+                >
+                  <History /> Consultar histórico
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => router.push(`/agenda?contact=${contact.id}`)}
+                >
+                  <CalendarClock /> Ver agenda
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               {appointments.length ? (
@@ -3410,24 +3459,32 @@ function Metric({
   label,
   value,
   detail,
+  onClick,
 }: {
   icon: typeof CalendarClock;
   label: string;
   value: string;
   detail: string;
+  onClick: () => void;
 }) {
   return (
-    <Card size="sm" className="gap-2">
-      <CardContent className="p-3">
+    <Card size="sm" className="gap-2 overflow-hidden py-0">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={`${label}: ${value}. ${detail}. Ver detalhes`}
+        className="hover:bg-muted/60 focus-visible:ring-ring w-full p-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-inset"
+      >
         <div className="text-muted-foreground flex items-center justify-between text-xs">
           <span>{label}</span>
           <Icon className="h-4 w-4" />
         </div>
         <p className="mt-2 text-lg font-semibold">{value}</p>
-        <p className="text-muted-foreground mt-0.5 truncate text-xs">
-          {detail}
-        </p>
-      </CardContent>
+        <p className="text-muted-foreground mt-0.5 text-xs">{detail}</p>
+        <span className="text-primary mt-2 inline-flex items-center gap-1 text-xs font-medium">
+          Ver detalhes <ArrowUpRight className="size-3" aria-hidden />
+        </span>
+      </button>
     </Card>
   );
 }
@@ -3460,14 +3517,26 @@ function AppointmentRow({
     <button
       type="button"
       onClick={onOpen}
-      className="border-border hover:bg-muted flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-left"
+      className="border-border hover:bg-muted focus-visible:ring-ring flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left focus-visible:ring-2"
     >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate font-medium">
             {appointment.service?.name ?? 'Procedimento'}
           </p>
-          <Badge variant="secondary">{labelFor(appointment.status)}</Badge>
+          <Badge
+            variant="secondary"
+            className={cn(
+              appointment.status === 'completed' &&
+                'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100',
+              appointment.status === 'confirmed' &&
+                'bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-100',
+              ['cancelled', 'no_show'].includes(appointment.status) &&
+                'bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-100'
+            )}
+          >
+            {labelFor(appointment.status)}
+          </Badge>
           {appointment.referral_id ? (
             <Badge className="bg-emerald-600 text-white">
               <HeartHandshake /> Indicação · -
@@ -3505,6 +3574,25 @@ function AppointmentRow({
             formatCurrency(Number(appointment.price), appointment.currency)
           )}
         </p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {appointmentSettlementTags(appointment).map((tag, index) => (
+            <Badge
+              key={`${tag.label}-${index}`}
+              variant="secondary"
+              className={cn(
+                'max-w-full break-words whitespace-normal',
+                tag.tone === 'paid' &&
+                  'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100',
+                tag.tone === 'benefit' &&
+                  'bg-violet-100 text-violet-900 dark:bg-violet-950 dark:text-violet-100',
+                tag.tone === 'pending' &&
+                  'bg-amber-100 text-amber-950 dark:bg-amber-950 dark:text-amber-100'
+              )}
+            >
+              {tag.label}
+            </Badge>
+          ))}
+        </div>
       </div>
       <ArrowUpRight className="text-muted-foreground h-4 w-4 shrink-0" />
     </button>

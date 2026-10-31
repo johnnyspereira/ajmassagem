@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-31-client360-appointment-payment-details', date: '2026-10-31', category: 'Melhoria',
+    title: 'Cliente 360 com pagamentos nas marcações e indicadores consultáveis', areas: ['Cliente 360', 'Agenda', 'Financeiro', 'Vouchers', 'Packs'],
+    summary: 'As marcações do cliente mostram como foram liquidadas ou o que falta fazer. Os cinco indicadores do topo abrem os registos que representam.',
+    changes: ['Etiquetas de pagamento confirmado por meio, como Dinheiro, Cartão ou MB WAY, de pagamento parcial e de saldo por receber. Pagamentos antigos sem meio registado são identificados sem assumir dinheiro.', 'Vouchers e packs distinguem utilização concluída de reserva que ainda falta utilizar, com o código do benefício quando disponível. Benefícios devolvidos deixam de aparecer como utilizados.', 'Cartões Próxima marcação, Conversas, Negócios ativos, Atendimentos e Total recebido abrem consultas paginadas do histórico, sem limitar a consulta às marcações recentes da ficha.', 'Filtros de atendimentos concluídos, agendados, confirmados, cancelados, faltas e sessões terminadas por concluir. Recebimentos permitem consultar vendas com valor recebido ou saldo pendente.', 'Diálogos adaptados ao telemóvel, com rolagem interna e navegação entre páginas sempre acessível.'],
+    howTo: 'Abra o Cliente 360 e consulte a aba Agenda para ver as etiquetas. Clique em Ver detalhes num cartão do topo ou em Consultar histórico na Agenda. Em Atendimentos, use Mostrar para identificar os concluídos ou as sessões que terminaram sem fecho; selecione uma marcação para a abrir na Agenda.',
+  },
+  {
     id: '2026-10-30-control-center-operations', date: '2026-10-30', category: 'Melhoria',
     title: 'Centro de controlo com recuperação e diagnóstico das ligações', areas: ['Centro de controlo', 'WhatsApp', 'IA', 'Lembretes'],
     summary: 'O painel local distingue processos em execução de ligações prontas e apresenta ações para recuperar apenas os serviços com falha.',
