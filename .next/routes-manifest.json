@@ -89,7 +89,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "0bde230e5debd21aa145c1ab443685e6c4677009"
+          "value": "24ccdf3e770758bb34ea7d782d42e68e94eca2c1"
         }
       ],
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
@@ -99,7 +99,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "0bde230e5debd21aa145c1ab443685e6c4677009"
+          "value": "24ccdf3e770758bb34ea7d782d42e68e94eca2c1"
         }
       ],
       "regex": "^/_next/data(?:/(.*))(?:/)?$"
@@ -1028,6 +1028,12 @@
       "namedRegex": "^/api/dashboard/attention(?:/)?$"
     },
     {
+      "page": "/api/dashboard/attention/regularize",
+      "regex": "^/api/dashboard/attention/regularize(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/dashboard/attention/regularize(?:/)?$"
+    },
+    {
       "page": "/api/finance/benefits/validity",
       "regex": "^/api/finance/benefits/validity(?:/)?$",
       "routeKeys": {},
@@ -1748,5 +1754,5 @@
     "pathHeader": "x-nextjs-rewritten-path",
     "queryHeader": "x-nextjs-rewritten-query"
   },
-  "deploymentId": "0bde230e5debd21aa145c1ab443685e6c4677009"
+  "deploymentId": "24ccdf3e770758bb34ea7d782d42e68e94eca2c1"
 }
