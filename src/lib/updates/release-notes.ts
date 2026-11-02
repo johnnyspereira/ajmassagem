@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-02-review-link-destination', date: '2026-11-02', category: 'Melhoria',
+    title: 'Escolher o link de avaliação enviado ao concluir a sessão', areas: ['Painel', 'Agenda', 'Definições', 'Mensagens automáticas'],
+    summary: 'O administrador pode escolher entre a avaliação pessoal do sistema e um link HTTPS editável, como o Google.',
+    changes: ['Novo painel Link de avaliação ao concluir em Definições → Mensagens automáticas, com seleção do destino, endereço editável, pré-visualização e gravação explícita. Um atalho Link de avaliação no Painel abre esta definição.', 'O envio usa o destino guardado na variável {link_avaliacao}. A opção Sistema mantém as ligações pessoais existentes. Google / link externo envia o endereço configurado e as avaliações ficam no serviço de destino.', 'A mudança afeta os próximos pedidos; não reenvia mensagens anteriores. Voltar ao Sistema preserva o endereço externo guardado. O registo do pedido conserva o destino e o link efetivamente encaminhados.', 'A gravação exige administrador ou proprietário e fica limitada à própria conta. Endereços inválidos são bloqueados e guardar outros dados da Clínica não substitui esta definição.'],
+    howTo: 'No Painel, clique em Link de avaliação, ou abra Definições → Mensagens automáticas. Escolha Avaliação do sistema ou Google / link externo. Para Google, cole o endereço completo e clique em Guardar destino. Mantenha {link_avaliacao} no modelo Pedido de avaliação. A atualização da aplicação inclui a migration 057; reinicie a aplicação no cPanel após aplicar o pacote.',
+  },
+  {
     id: '2026-11-02-public-plan-details', date: '2026-11-02', category: 'Melhoria',
     title: 'Planos e packs com página de detalhes antes do contacto', areas: ['Site público', 'Planos', 'Packs', 'Clínica'],
     summary: 'Ver o plano abre uma página própria com informações para o visitante decidir, sem pedir o preenchimento de um formulário.',

@@ -1,4 +1,5 @@
 'use client';
+import {withoutReviewLinkSettings} from '@/lib/clinic/review-link';
 
 import {
   CatalogImageField,
@@ -1131,7 +1132,7 @@ export function ClinicSettings() {
       .from('clinic_communication_settings')
       .upsert({
         account_id: accountId,
-        ...communication,
+        ...withoutReviewLinkSettings(communication),
         anamnesis_public_slug: anamnesisSlug,
         confirmation_reminder_hours: Math.max(
           1,

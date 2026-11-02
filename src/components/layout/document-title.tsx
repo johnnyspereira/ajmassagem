@@ -5,7 +5,10 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
 import { useAuth } from '@/hooks/use-auth';
-import { resolveSection } from '@/components/settings/settings-sections';
+import {
+  resolveSection,
+  SECTION_META,
+} from '@/components/settings/settings-sections';
 
 const ROUTE_TITLE_KEYS: Array<[string, string]> = [
   ['/dashboard', 'dashboard'],
@@ -44,7 +47,7 @@ export function DocumentTitle() {
 
     if (pathname === '/settings' || pathname.startsWith('/settings/')) {
       const section = resolveSection(searchParams.get('tab'));
-      document.title = `${tSettings(section)} · ${tHeader('settings')} · ${brand}`;
+      document.title = `${tSettings.has(section) ? tSettings(section) : SECTION_META[section].label} · ${tHeader('settings')} · ${brand}`;
       return;
     }
 

@@ -17,6 +17,7 @@ import {
   BarChart3,
   ListTodo,
   History,
+  Star,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -71,7 +72,7 @@ import {
 type RangeDays = 7 | 30 | 90;
 
 export default function DashboardPage() {
-  const { defaultCurrency, profile, accountId } = useAuth();
+  const { defaultCurrency, profile, accountId, canEditSettings } = useAuth();
   const [attentionVersion, setAttentionVersion] = useState(0);
   const [view, setView] = useState<'day' | 'reports' | 'activity'>('day');
   const viewRef = useRef<'day' | 'reports' | 'activity'>('day');
@@ -347,7 +348,7 @@ export default function DashboardPage() {
   );
 
   const handleAppointmentChanged = (id: string) => {
-    setAttentionVersion(value => value + 1);
+    setAttentionVersion((value) => value + 1);
     setPortalPending(
       (current) => current?.filter((item) => item.id !== id) ?? null
     );
@@ -403,12 +404,24 @@ export default function DashboardPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          {canEditSettings && (
+            <Link
+              href="/settings?tab=automated-messages#review-link"
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              <Star className="size-4" />
+              Link de avaliação
+            </Link>
+          )}
           <Button
             variant="outline"
             size="icon"
             aria-label="Atualizar dashboard"
             title="Atualizar dashboard"
-            onClick={() => { setAttentionVersion(value => value + 1); loadAll(range); }}
+            onClick={() => {
+              setAttentionVersion((value) => value + 1);
+              loadAll(range);
+            }}
             disabled={refreshing}
           >
             <RefreshCw className={cn('size-4', refreshing && 'animate-spin')} />
@@ -544,7 +557,12 @@ export default function DashboardPage() {
           </button>
         ))}
       </nav>
-      {view === 'day' && <AttentionQueue key={accountId || 'loading'} refreshKey={attentionVersion} />}
+      {view === 'day' && (
+        <AttentionQueue
+          key={accountId || 'loading'}
+          refreshKey={attentionVersion}
+        />
+      )}
       {dashboardDataUnavailable ? (
         <div className="border-border bg-card rounded-2xl border p-8 text-center">
           <TriangleAlert className="mx-auto mb-3 size-7 text-amber-600" />
