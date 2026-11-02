@@ -332,6 +332,46 @@
 .planList ul { display: grid; gap: 7px; padding-left: 18px; list-style: disc; font-size: 14px; line-height: 1.6; color: var(--muted); }
 .planAction { display: grid; justify-items: end; gap: 16px; }
 .planAction strong { font-size: 23px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.planBrief { max-width: 30ch; color: var(--muted); font-size: 13px; text-align: right; }
+.planPageHeader { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; max-width: 1320px; padding: 24px 32px; margin: auto; border-bottom: 1px solid var(--line); }
+.planPage { display: grid; grid-template-columns: minmax(0,1fr) minmax(290px,.55fr); align-items: start; gap: clamp(40px,7vw,100px); max-width: 1320px; margin: 0 auto; padding: 72px 32px; }
+.planStory h1 { margin: 0; font: 400 clamp(44px,6vw,76px)/1.05 Georgia,serif; letter-spacing: -.035em; }
+.planIntroduction { max-width: 60ch; margin-top: 24px; color: var(--muted); font-size: 18px; line-height: 1.75; white-space: pre-line; }
+.planLeadPrice { display: none; }
+.planFacts { display: flex; gap: 36px; margin-top: 32px; padding: 24px 0; border-block: 1px solid var(--line); }
+.planFacts dt { color: var(--muted); font-size: 13px; }
+.planFacts dd { margin: 6px 0 0; font-size: 23px; font-variant-numeric: tabular-nums; }
+.planStory section { margin-top: 44px; }
+.planStory h2 { font: 400 32px/1.2 Georgia,serif; letter-spacing: -.025em; margin: 0 0 20px; }
+.planPackName { margin-bottom: 12px; font-size: 15px; font-weight: 600; }
+.planDescription,.planNextSteps p { max-width: 65ch; color: var(--muted); font-size: 15px; line-height: 1.8; white-space: pre-line; }
+.planSessions { margin-top: 24px; }
+.planSessions li { display: flex; align-items: center; justify-content: space-between; gap: 20px; border-top: 1px solid var(--line); padding: 20px 0; }
+.planSessions h3 { font-size: 18px; font-weight: 500; }
+.planSessions p { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: var(--muted); font-size: 13px; }
+.planSessions p svg { width: 16px; height: 16px; flex-shrink: 0; }
+.planSessions a { flex-shrink: 0; }
+.planFeatures { display: grid; gap: 16px; }
+.planFeatures li { display: flex; align-items: start; gap: 10px; font-size: 15px; line-height: 1.7; color: var(--muted); }
+.planFeatures svg { margin-top: 4px; width: 18px; height: 18px; flex-shrink: 0; color: var(--ink); }
+.planPurchase { position: sticky; top: 24px; display: flex; flex-direction: column; align-items: start; gap: 20px; padding: 32px; border-radius: 12px; background: #e8ede4; }
+.planPurchase p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.7; }
+.planPurchase .planPriceLabel { font-size: 13px; }
+.planPrice { font: 400 clamp(32px,3vw,46px)/1.1 Georgia,serif; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.planPurchase .primaryButton { min-height: 48px; width: 100%; }
+.planPurchase .planPurchaseNote { font-size: 12px; }
+.planPageFooter { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; max-width: 1320px; margin: auto; padding: 24px 32px; border-top: 1px solid var(--line); }
+.planPageFooter > a:last-child { min-height: 44px; display: inline-flex; align-items: center; font-size: 13px; text-decoration: underline; text-underline-offset: 4px; }
+@media (max-width:760px) {
+  .planPageHeader { padding: 18px 22px; }
+  .planPage { grid-template-columns: 1fr; gap: 36px; padding: 44px 22px; }
+  .planIntroduction { font-size: 16px; }
+  .planLeadPrice { display: block; margin-top: 24px; font-size: 28px; font-variant-numeric: tabular-nums; }
+  .planPurchase { position: static; padding: 24px; }
+  .planSessions li { flex-direction: column; align-items: start; gap: 10px; }
+  .planBrief { text-align: left; }
+  .planPageFooter { padding: 20px 22px; }
+}
 .voucherInvitation { display: flex; align-items: center; justify-content: space-between; gap: 40px; padding-top: 40px; margin-top: 20px; border-top: 1px solid #d6d3c9; }
 .voucherInvitation h3 { font: 32px/1.2 Georgia,serif; }
 .voucherInvitation p { max-width: 65ch; margin-top: 14px; color: var(--muted); font-size: 14px; line-height: 1.7; }

@@ -4,6 +4,21 @@ export type SitePlan = {
   description: string;
   features: string[];
   highlighted?: boolean;
+  pack_id?: string | null;
+};
+export type PublicPlanPack = {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  currency: string;
+  validity_days: number;
+  items: Array<{
+    service_id: string;
+    name: string;
+    duration_minutes: number;
+    sessions: number;
+  }>;
 };
 export type SiteBenefit = { title: string; description: string };
 export type SiteTestimonial = { name: string; role: string; quote: string };

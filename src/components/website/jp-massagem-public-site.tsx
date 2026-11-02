@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { PublicLeadForm } from '@/components/website/public-lead-form';
 import { onPublicColor, publicName } from '@/lib/public-site/journey';
+import { publicPlanHref, publicPlanInfo } from '@/lib/public-site/plans';
 import { PublicServiceCatalogue } from './public-service-catalogue';
 import { PublicEnquiryLink } from './public-enquiry-link';
 import { PublicMobileMenu } from './public-mobile-menu';
@@ -237,41 +238,51 @@ export function JpMassagemPublicSite({ site }: { site: Site }) {
                 </h2>
               </div>
               <p>
-                Explore os planos da JP Massagem e fale connosco para escolher o
-                seu.
+                Conheça o que cada plano inclui e escolha o seu próximo momento.
               </p>
             </div>
             <div className={styles.planList}>
-              {plans.map((plan, index) => (
-                <article
-                  key={`${plan.name}-${index}`}
-                  className={
-                    plan.highlighted ? styles.planHighlighted : styles.planRow
-                  }
-                >
-                  <div>
-                    <h3>{plan.name}</h3>
-                    {plan.description && <p>{plan.description}</p>}
-                  </div>
-                  {!!plan.features.length && (
-                    <ul>
-                      {plan.features.map((feature, i) => (
-                        <li key={i}>{feature}</li>
-                      ))}
-                    </ul>
-                  )}
-                  <div className={styles.planAction}>
-                    <strong>{plan.price}</strong>
-                    <PublicEnquiryLink
-                      slug={settings.slug}
-                      subject={`Interesse no plano: ${plan.name}`}
-                      className={styles.primaryButton}
-                    >
-                      Quero saber mais <ArrowUpRight aria-hidden="true" />
-                    </PublicEnquiryLink>
-                  </div>
-                </article>
-              ))}
+              {plans.map((plan, index) => {
+                const info = publicPlanInfo(plan, site.planPacks || []);
+                return (
+                  <article
+                    key={`${plan.name}-${index}`}
+                    className={
+                      plan.highlighted ? styles.planHighlighted : styles.planRow
+                    }
+                  >
+                    <div>
+                      <h3>{plan.name}</h3>
+                      {plan.description && <p>{plan.description}</p>}
+                    </div>
+                    {!!plan.features.length && (
+                      <ul>
+                        {plan.features.map((feature, i) => (
+                          <li key={i}>{feature}</li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className={styles.planAction}>
+                      <strong>{info.price}</strong>
+                      {info.pack && (
+                        <span className={styles.planBrief}>
+                          {info.pack.items.reduce(
+                            (sum, item) => sum + item.sessions,
+                            0
+                          )}{' '}
+                          sessões · {info.pack.validity_days} dias de validade
+                        </span>
+                      )}
+                      <Link
+                        href={publicPlanHref(settings.slug, plan, index)}
+                        className={styles.primaryButton}
+                      >
+                        Ver o plano <ArrowUpRight aria-hidden="true" />
+                      </Link>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
             <div className={styles.voucherInvitation}>
               <div>

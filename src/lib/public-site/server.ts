@@ -5,6 +5,7 @@ import { remoteWhatsAppWorker } from '@/lib/whatsapp/remote-worker';
 import type { PublicSiteSettings } from './types';
 import { selectRows } from '@/lib/mysql/db';
 import type { RowDataPacket } from 'mysql2';
+import { loadPublicPlanPacks } from './plan-packs';
 export const getPublicBusinessSite = cache(async (slug: string) => {
   const admin = supabaseAdmin();
   const { data: settings, error } = await admin
@@ -14,7 +15,15 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
     .eq('enabled', true)
     .maybeSingle();
   if (error || !settings) return null;
-  const [account, services, team, portal, whatsappConfig, reviews, importedGoogleReviews] = await Promise.all([
+  const [
+    account,
+    services,
+    team,
+    portal,
+    whatsappConfig,
+    reviews,
+    importedGoogleReviews,
+  ] = await Promise.all([
     admin
       .from('accounts')
       .select('id,name,logo_url,default_currency')
@@ -22,7 +31,9 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
       .single(),
     admin
       .from('clinic_services')
-      .select('id,name,description,public_presentation,public_benefits,public_considerations,public_image_url,duration_minutes,price,currency,color,coming_soon')
+      .select(
+        'id,name,description,public_presentation,public_benefits,public_considerations,public_image_url,duration_minutes,price,currency,color,coming_soon'
+      )
       .eq('account_id', settings.account_id)
       .eq('is_active', true)
       .eq('online_enabled', true)
@@ -51,34 +62,69 @@ export const getPublicBusinessSite = cache(async (slug: string) => {
       .maybeSingle(),
     admin
       .from('clinic_appointment_reviews')
-      .select('rating,comment,submitted_at,contact:contacts(name),appointment:clinic_appointments(service:clinic_services(name))')
+      .select(
+        'rating,comment,submitted_at,contact:contacts(name),appointment:clinic_appointments(service:clinic_services(name))'
+      )
       .eq('account_id', settings.account_id)
       .not('published_at', 'is', null)
       .eq('consent_to_publish', true)
       .order('published_at', { ascending: false })
       .limit(6),
-    selectRows<(RowDataPacket & { rating: number; comment: string | null; reviewer_name: string | null; reviewed_at: Date | null })[]>(`SELECT rating,comment,reviewer_name,reviewed_at FROM google_business_profile_reviews WHERE account_id=? AND approved=TRUE AND TRIM(COALESCE(comment,''))<>'' ORDER BY reviewed_at DESC LIMIT 12`, [settings.account_id]),
+    selectRows<
+      (RowDataPacket & {
+        rating: number;
+        comment: string | null;
+        reviewer_name: string | null;
+        reviewed_at: Date | null;
+      })[]
+    >(
+      `SELECT rating,comment,reviewer_name,reviewed_at FROM google_business_profile_reviews WHERE account_id=? AND approved=TRUE AND TRIM(COALESCE(comment,''))<>'' ORDER BY reviewed_at DESC LIMIT 12`,
+      [settings.account_id]
+    ),
   ]);
   if (account.error) return null;
+  const planPacks = (settings as PublicSiteSettings).show_plans
+    ? await loadPublicPlanPacks(
+        settings.account_id,
+        (settings as PublicSiteSettings).plans ?? []
+      )
+    : [];
   let whatsappConnected = whatsappConfig.data?.status === 'connected';
   if (remoteWhatsAppWorker.enabled()) {
     try {
       const status = await Promise.race([
-        remoteWhatsAppWorker.status({ accountId: settings.account_id, userId: whatsappConfig.data?.user_id || await resolveAuditUserId(admin, settings.account_id), autoStart: false }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 1_200)),
+        remoteWhatsAppWorker.status({
+          accountId: settings.account_id,
+          userId:
+            whatsappConfig.data?.user_id ||
+            (await resolveAuditUserId(admin, settings.account_id)),
+          autoStart: false,
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), 1_200)
+        ),
       ]);
       whatsappConnected = status.connected === true;
-    } catch { whatsappConnected = false; }
+    } catch {
+      whatsappConnected = false;
+    }
   }
   return {
     settings: settings as PublicSiteSettings,
     account: account.data,
     services: services.data ?? [],
+    planPacks,
     team: team.data ?? [],
     portal: portal.data?.enabled ? portal.data : null,
     reviews: reviews.data ?? [],
     googleReviews: (settings as PublicSiteSettings).google_reviews_enabled
-      ? importedGoogleReviews.map((review) => ({ rating: Number(review.rating), comment: review.comment ?? '', name: review.reviewer_name || 'Cliente Google', publishedAt: review.reviewed_at?.toISOString() ?? null, mapsUrl: null }))
+      ? importedGoogleReviews.map((review) => ({
+          rating: Number(review.rating),
+          comment: review.comment ?? '',
+          name: review.reviewer_name || 'Cliente Google',
+          publishedAt: review.reviewed_at?.toISOString() ?? null,
+          mapsUrl: null,
+        }))
       : [],
     googleMapsUrl: (settings as PublicSiteSettings).google_review_url || null,
     whatsappConnected,

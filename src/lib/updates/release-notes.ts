@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-02-public-plan-details', date: '2026-11-02', category: 'Melhoria',
+    title: 'Planos e packs com página de detalhes antes do contacto', areas: ['Site público', 'Planos', 'Packs', 'Clínica'],
+    summary: 'Ver o plano abre uma página própria com informações para o visitante decidir, sem pedir o preenchimento de um formulário.',
+    changes: ['Cada plano publicado tem uma ligação para consultar a descrição e os benefícios. A página adapta-se ao desktop e ao telemóvel e permite regressar à lista de planos.', 'No editor do site, cada plano pode ser associado explicitamente a um pack da Clínica. A página apresenta modalidades, sessões por modalidade, duração, validade e preço do cadastro. O valor do pack também substitui o preço manual na lista pública e aparece no editor como automático.', 'Só são disponibilizados os packs associados, ativos e com todas as modalidades ativas e publicadas no site. Packs desativados, removidos ou indisponíveis deixam de apresentar o preço antigo e a opção de adesão. Não são expostos dados de clientes, PINs ou vendas.', 'Com WhatsApp configurado, Quero este plano abre uma conversa com o nome e o valor já escritos. O visitante decide enviar a mensagem. Os planos independentes mantêm as informações manuais, sem inventar sessões ou validade.'],
+    howTo: 'Abra Site público → Planos e benefícios. Em cada plano, escolha Pack da Clínica associado e use Guardar e publicar. No site, clique em Ver o plano para consultar as informações antes de contactar a equipa. Sem associação, continuam disponíveis a descrição, os benefícios e o preço manual do plano.',
+  },
+  {
     id: '2026-10-31-public-service-journey', date: '2026-10-31', category: 'Melhoria',
     title: 'Site público com pesquisa, comparação de serviços e planos', areas: ['Site público', 'Serviços', 'Planos', 'Contacto'],
     summary: 'O visitante pode encontrar o serviço, comparar duração e valor e avançar para a modalidade escolhida no Portal, mantendo a identidade visual da JP Massagem.',
