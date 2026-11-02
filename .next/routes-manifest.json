@@ -89,7 +89,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "3222e078c406aa49384feca3fa0b10beb6a25474"
+          "value": "283a92c4201e87ff5ad069fbefca0f1948037f59"
         }
       ],
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
@@ -99,7 +99,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "3222e078c406aa49384feca3fa0b10beb6a25474"
+          "value": "283a92c4201e87ff5ad069fbefca0f1948037f59"
         }
       ],
       "regex": "^/_next/data(?:/(.*))(?:/)?$"
@@ -719,6 +719,15 @@
         "nxtPslug": "nxtPslug"
       },
       "namedRegex": "^/site/(?<nxtPslug>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/site/[slug]/planos/[plan]",
+      "regex": "^/site/([^/]+?)/planos/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug",
+        "nxtPplan": "nxtPplan"
+      },
+      "namedRegex": "^/site/(?<nxtPslug>[^/]+?)/planos/(?<nxtPplan>[^/]+?)(?:/)?$"
     },
     {
       "page": "/uploads/[bucket]/[...path]",
@@ -1754,5 +1763,5 @@
     "pathHeader": "x-nextjs-rewritten-path",
     "queryHeader": "x-nextjs-rewritten-query"
   },
-  "deploymentId": "3222e078c406aa49384feca3fa0b10beb6a25474"
+  "deploymentId": "283a92c4201e87ff5ad069fbefca0f1948037f59"
 }
