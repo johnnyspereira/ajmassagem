@@ -27,6 +27,12 @@ const entries: Array<[string, string, string, boolean?, boolean?]> = [
     true,
   ],
   [
+    '/site/[slug]/planos/[plan]',
+    'Planos e packs da JP Massagem',
+    'Conheça as informações dos planos da JP Massagem, consulte as sessões e condições publicadas e fale com a equipa para aderir.',
+    true,
+  ],
+  [
     '/servicos/[service]',
     'Massagens e experiências',
     'Conheça esta modalidade, os seus benefícios e os cuidados a considerar. Consulte os detalhes e faça a sua marcação na JP Massagem.',
