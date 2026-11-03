@@ -4,6 +4,11 @@ const mocks = vi.hoisted(() => ({
   rows: vi.fn(),
   tx: vi.fn(),
   execute: vi.fn(),
+  schema: vi.fn(),
+}));
+vi.mock('@/lib/clinic/review-link-schema', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/clinic/review-link-schema')>()),
+  ensureReviewLinkSchema: mocks.schema,
 }));
 vi.mock('@/lib/auth/account', () => ({
   requireRole: mocks.role,
@@ -18,6 +23,7 @@ import { GET, PUT } from './route';
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.role.mockResolvedValue({ accountId: 'own' });
+  mocks.schema.mockResolvedValue(undefined);
   mocks.rows.mockResolvedValue([
     { review_link_mode: 'system', review_google_url: null },
   ]);
@@ -37,6 +43,7 @@ it('requires admin permission before reading or writing', async () => {
   mocks.role.mockRejectedValueOnce(Error('Forbidden'));
   expect((await GET()).status).toBe(403);
   expect(mocks.rows).not.toHaveBeenCalled();
+  expect(mocks.schema).not.toHaveBeenCalled();
   mocks.role.mockRejectedValueOnce(Error('Forbidden'));
   expect((await save({ mode: 'system' })).status).toBe(403);
   expect(mocks.tx).not.toHaveBeenCalled();
@@ -88,4 +95,14 @@ it('requires initial clinic communication configuration', async () => {
   expect(
     mocks.execute.mock.calls.some(([sql]) => sql.startsWith('UPDATE'))
   ).toBe(false);
+});
+it('prepares the schema before loading or saving and reports database permission failures', async () => {
+  mocks.schema.mockRejectedValueOnce({ code: 'ER_TABLEACCESS_DENIED_ERROR' });
+  const response = await GET();
+  expect(response.status).toBe(503);
+  expect((await response.json()).error).toContain('migração 057');
+  expect(mocks.rows).not.toHaveBeenCalled();
+  mocks.schema.mockRejectedValueOnce({ code: 'ER_NO_SUCH_TABLE' });
+  expect((await save({ mode: 'system' })).status).toBe(503);
+  expect(mocks.tx).not.toHaveBeenCalled();
 });

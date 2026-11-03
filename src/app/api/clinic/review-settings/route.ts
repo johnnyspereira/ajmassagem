@@ -1,11 +1,16 @@
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { normalizeReviewUrl, parseReviewMode } from '@/lib/clinic/review-link';
 import { selectRows, transaction } from '@/lib/mysql/db';
+import {
+  ensureReviewLinkSchema,
+  reviewLinkSchemaError,
+} from '@/lib/clinic/review-link-schema';
 import type { RowDataPacket } from 'mysql2';
 
 export async function GET() {
   try {
     const { accountId } = await requireRole('admin');
+    await ensureReviewLinkSchema();
     const rows = await selectRows<RowDataPacket[]>(
       'SELECT review_link_mode,review_google_url FROM clinic_communication_settings WHERE account_id=?',
       [accountId]
@@ -27,7 +32,7 @@ export async function GET() {
       { headers: { 'Cache-Control': 'private, no-store' } }
     );
   } catch (error) {
-    return toErrorResponse(error);
+    return reviewLinkSchemaError(error) ?? toErrorResponse(error);
   }
 }
 export async function PUT(request: Request) {
@@ -44,6 +49,7 @@ export async function PUT(request: Request) {
         { status: 400 }
       );
     }
+    await ensureReviewLinkSchema();
     const saved = await transaction(async (connection) => {
       const [rows] = await connection.execute<RowDataPacket[]>(
         'SELECT account_id FROM clinic_communication_settings WHERE account_id=? FOR UPDATE',
@@ -71,6 +77,6 @@ export async function PUT(request: Request) {
       { headers: { 'Cache-Control': 'private, no-store' } }
     );
   } catch (error) {
-    return toErrorResponse(error);
+    return reviewLinkSchemaError(error) ?? toErrorResponse(error);
   }
 }

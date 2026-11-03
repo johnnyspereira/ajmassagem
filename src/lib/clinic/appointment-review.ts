@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { engineSendText } from '@/lib/automations/meta-send';
 import { getPublicUrl } from '@/lib/public-url';
 import { reviewRequestUrl } from './review-link';
+import { ensureReviewLinkSchema } from './review-link-schema';
 import {
   mergeAutomatedMessageTemplates,
   renderAutomatedMessage,
@@ -29,6 +30,7 @@ export async function sendAppointmentReviewRequest(
     account: { name?: string | null; owner_user_id?: string | null } | null;
   };
   if (!a.contact?.phone) return { skipped: true };
+  await ensureReviewLinkSchema();
   const { data: settings, error: settingsError } = await db
     .from('clinic_communication_settings')
     .select('automated_message_templates,review_link_mode,review_google_url')

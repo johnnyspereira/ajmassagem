@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-03-review-link-schema-repair', date: '2026-11-03', category: 'Correção',
+    title: 'Carregamento do destino das avaliações com atualização incompleta', areas: ['Definições', 'Agenda', 'Avaliações'],
+    summary: 'O painel prepara os campos de configuração em falta antes de consultar ou guardar o destino da avaliação.',
+    changes: ['Preparação automática dos quatro campos da migração 057, incluindo instalações parcialmente atualizadas, sem substituir configurações ou avaliações existentes.', 'A preparação também acontece antes de encaminhar um pedido de avaliação. Falhas de permissões e estrutura no painel apresentam instruções específicas em vez de apenas Internal server error.'],
+    howTo: 'Após atualizar a aplicação, abra Definições → Mensagens automáticas e clique em Tentar carregar novamente. Se a base de dados impedir a preparação automática, siga a mensagem apresentada para verificar as permissões MySQL ou aplicar as migrações pendentes no cPanel.',
+  },
+  {
     id: '2026-11-02-review-link-destination', date: '2026-11-02', category: 'Melhoria',
     title: 'Escolher o link de avaliação enviado ao concluir a sessão', areas: ['Painel', 'Agenda', 'Definições', 'Mensagens automáticas'],
     summary: 'O administrador pode escolher entre a avaliação pessoal do sistema e um link HTTPS editável, como o Google.',

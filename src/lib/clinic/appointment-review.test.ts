@@ -1,6 +1,9 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 const send = vi.hoisted(() => vi.fn());
+vi.mock('./review-link-schema', () => ({
+  ensureReviewLinkSchema: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock('@/lib/automations/meta-send', () => ({ engineSendText: send }));
 vi.mock('@/lib/public-url', () => ({
   getPublicUrl: (path: string) => 'https://crm.test' + path,
@@ -171,8 +174,13 @@ it('does not mark a request as sent if the transport fails', async () => {
   ).rejects.toThrow('offline');
   expect(writes).toEqual([]);
 });
-it('blocks a misconfigured external link before any transport call',async()=>{
-  const {db}=fixture({review_link_mode:'google',review_google_url:'javascript:alert(1)'});
-  await expect(sendAppointmentReviewRequest(db,'appointment','https://crm.test')).rejects.toThrow();
+it('blocks a misconfigured external link before any transport call', async () => {
+  const { db } = fixture({
+    review_link_mode: 'google',
+    review_google_url: 'javascript:alert(1)',
+  });
+  await expect(
+    sendAppointmentReviewRequest(db, 'appointment', 'https://crm.test')
+  ).rejects.toThrow();
   expect(send).not.toHaveBeenCalled();
 });
