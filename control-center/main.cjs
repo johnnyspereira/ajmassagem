@@ -126,7 +126,8 @@ if (ownsInstance) app.whenReady().then(() => {
           const child = require('node:child_process').spawn('cmd.exe', ['/c', command], { detached:true, windowsHide:true, stdio:'ignore', cwd:installRoot });
           child.unref();
           output = { message: 'Atualização iniciada. O painel vai fechar e reabrir após concluir.', log };
-          setTimeout(() => app.quit(), 1500);
+          // Dá tempo ao processo externo para iniciar antes de libertar a janela.
+          setTimeout(() => app.quit(), 7000);
         }
         else if (action === 'setup') {
           const script = join(__dirname, '..', 'scripts', 'install-transfer-final.ps1');
