@@ -2,6 +2,7 @@ param([Parameter(Mandatory=$true)][string]$ZipPath,[Parameter(Mandatory=$true)][
 $ErrorActionPreference='Stop'
 $log=Join-Path $env:TEMP 'jp-designer-crm-update.log'
 Start-Transcript -Path $log -Append | Out-Null
+trap { Add-Content -LiteralPath $log -Value "ERRO: $($_.Exception.Message)"; Stop-Transcript | Out-Null; exit 1 }
 $stage=Join-Path $env:TEMP 'jp-designer-crm-update-stage'
 if(Test-Path $stage){Remove-Item $stage -Recurse -Force}
 Expand-Archive -LiteralPath $ZipPath -DestinationPath $stage -Force
