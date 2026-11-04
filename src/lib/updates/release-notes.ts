@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-control-center-auto-install', date: '2026-11-04', category: 'Novidade',
+    title: 'Atualização automática pelo GitHub', areas: ['Control Center', 'Atualizações'],
+    summary: 'Depois de baixar uma versão, o painel pode aplicar os ficheiros, reiniciar e voltar a abrir automaticamente.',
+    changes: ['O pacote é baixado diretamente do GitHub.', 'A aplicação aguarda o encerramento antes de substituir os ficheiros.', 'Autenticação, ambiente e caches locais são preservados.'],
+    howTo: 'Clique em Baixar versão e, quando terminar, em Instalar atualização.'
+  },
+  {
     id: '2026-11-04-control-center-inline-scripts', date: '2026-11-04', category: 'Correção',
     title: 'Inicialização da interface desbloqueada', areas: ['Control Center', 'Interface'],
     summary: 'A política local do painel estava a bloquear o tema, a marca e a página de configurações.',

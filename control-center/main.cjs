@@ -110,7 +110,12 @@ if (ownsInstance) app.whenReady().then(() => {
         }
         else if (action === 'install-update') {
           if (!updateChecked) throw new Error('Baixe primeiro a atualização pelo GitHub.');
-          output = { message: 'Atualização baixada. Feche o painel, substitua os ficheiros pelo pacote baixado e reinicie.' };
+          const script = join(__dirname, '..', 'scripts', 'apply-control-center-update.ps1');
+          const installRoot = join(__dirname, '..');
+          const child = require('node:child_process').spawn('powershell.exe', ['-NoProfile','-ExecutionPolicy','Bypass','-File',script,'-ZipPath',join(app.getPath('downloads'),'jp-designer-crm-main.zip'),'-InstallRoot',installRoot], { detached:true, windowsHide:true, stdio:'ignore' });
+          child.unref();
+          output = { message: 'Atualização instalada. O Control Center vai fechar e reabrir automaticamente.' };
+          setTimeout(() => app.quit(), 500);
         }
         else if (action === 'setup') {
           const script = join(__dirname, '..', 'scripts', 'install-transfer-final.ps1');
