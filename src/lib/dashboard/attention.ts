@@ -65,7 +65,8 @@ export function attentionSource(accountId: string, now: Date) {
         o.created_at occurred_at,NULL amount,NULL currency,1 priority
       FROM whatsapp_outbox o JOIN conversations v ON v.id=o.conversation_id AND v.account_id=o.account_id
       LEFT JOIN contacts c ON c.id=v.contact_id AND c.account_id=v.account_id
-      WHERE o.account_id=? AND (o.status IN ('failed','dead') OR (o.status IN ('pending','processing') AND o.available_at<? AND (o.lease_until IS NULL OR o.lease_until<?)))`,
+      WHERE o.account_id=? AND o.created_at>=DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
+        AND (o.status IN ('failed','dead') OR (o.status IN ('pending','processing') AND o.available_at<? AND (o.lease_until IS NULL OR o.lease_until<?)))`,
       values: [accountId, late, now],
     },
   ];

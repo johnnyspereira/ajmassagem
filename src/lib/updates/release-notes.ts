@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-attention-ignore-old-messages', date: '2026-11-04', category: 'Melhoria',
+    title: 'Fila de mensagens antigas deixa de bloquear a atenção', areas: ['Painel', 'Inbox', 'WhatsApp'],
+    summary: 'Falhas de envio com mais de 24 horas deixam de aparecer como pendência operacional, sem apagar o histórico.',
+    changes: ['A fila “Mensagens” considera apenas envios das últimas 24 horas.', 'Mensagens antigas continuam no histórico e podem ser consultadas na conversa, mas não exigem tratamento retroativo.'],
+    howTo: 'Use Rever conversa apenas para mensagens recentes que ainda façam sentido. A limpeza da fila cancela o envio, enquanto este filtro remove somente a pressão visual de registos antigos.'
+  },
+  {
     id: '2026-11-04-inbox-remote-worker-sync', date: '2026-11-04', category: 'Correção',
     title: 'Atualização mais rápida com worker remoto', areas: ['Inbox', 'WhatsApp'],
     summary: 'O Inbox verifica a sessão remota a cada três segundos enquanto está visível, reduzindo o atraso de mensagens e avatares que não passam pelo Realtime.',
