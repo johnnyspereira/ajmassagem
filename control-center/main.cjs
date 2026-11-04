@@ -82,8 +82,14 @@ if (ownsInstance) app.whenReady().then(() => {
         else if (action === 'copy-diagnostics') { clipboard.writeText(JSON.stringify(await supervisor.snapshot(),null,2)); output={message:'Diagnóstico copiado, sem QR nem credenciais.'}; }
         else if (action === 'check-update') {
           const response = await fetch('https://api.github.com/repos/johnnyspereira/ajmassagem/releases/latest', { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'JP-Designer-CRM-Control-Center' } });
-          if (!response.ok) throw new Error(`GitHub respondeu HTTP ${response.status}.`);
-          const release = await response.json();
+          let release;
+          if (response.ok) release = await response.json();
+          else if (response.status === 404) {
+            const tagsResponse = await fetch('https://api.github.com/repos/johnnyspereira/ajmassagem/tags', { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'JP-Designer-CRM-Control-Center' } });
+            if (!tagsResponse.ok) throw new Error(`GitHub respondeu HTTP ${tagsResponse.status}.`);
+            const tags = await tagsResponse.json();
+            release = { tag_name: tags[0]?.name, html_url: `https://github.com/johnnyspereira/ajmassagem/releases/tag/${tags[0]?.name || ''}`, name: 'Tag publicada (release ainda não criada)' };
+          } else throw new Error(`GitHub respondeu HTTP ${response.status}.`);
           output = { message: release.tag_name && release.tag_name !== `v${packageInfo.version}` ? `Atualização disponível: ${release.tag_name}.` : `O Control Center já está atualizado (${packageInfo.version}).`, version: packageInfo.version, latest: release.tag_name, url: release.html_url, notes: release.name || release.body || '' };
         }
         else if (action === 'setup') {
