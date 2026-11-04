@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-inbox-google-review', date: '2026-11-04', category: 'Novidade',
+    title: 'Pedir uma avaliação Google diretamente na conversa', areas: ['Inbox', 'Avaliações'],
+    summary: 'Novo botão prepara uma mensagem personalizada para convidar o cliente a avaliar a nova página Google.',
+    changes: ['Pedir avaliação Google aparece junto à caixa de mensagem, com texto sobre a nova página e a possibilidade de avaliar com comentário ou apenas estrelas.', 'O pedido usa o link Google guardado nas Mensagens automáticas, mesmo quando as avaliações da Agenda usam o Sistema. Sem link válido, apresenta instruções para o configurar.', 'A mensagem fica no rascunho para revisão e envio normal. O texto já escrito é preservado e uma resposta atrasada não é inserida noutra conversa.'],
+    howTo: 'Configure o endereço da nova página em Definições → Mensagens automáticas → Link de avaliação e guarde. No Inbox, abra a conversa do cliente, clique em Pedir avaliação Google, reveja a mensagem e clique em Enviar.',
+  },
+  {
     id: '2026-11-03-review-link-schema-repair', date: '2026-11-03', category: 'Correção',
     title: 'Carregamento do destino das avaliações com atualização incompleta', areas: ['Definições', 'Agenda', 'Avaliações'],
     summary: 'O painel prepara os campos de configuração em falta antes de consultar ou guardar o destino da avaliação.',

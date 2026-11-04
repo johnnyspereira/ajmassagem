@@ -59,6 +59,7 @@ import {
 import type { InteractiveMessagePayload, QuickReply } from '@/types';
 import { QuickReplyPicker } from './quick-reply-picker';
 import { LibraryPicker, type InboxLibraryItem } from './library-picker';
+import { GoogleReviewButton } from './google-review-button';
 
 /** Media content types an agent can send from the composer. */
 export type ComposerMediaKind = 'image' | 'video' | 'document' | 'audio';
@@ -1024,9 +1025,20 @@ export function MessageComposer({
           `items-end` buttons below the textarea. Indented to line up
           under the textarea left edge. */}
       {!draft && !recording && (
-        <p className="text-muted-foreground mt-1 px-2 text-[10px]">
+        <div className="mt-2 flex flex-wrap items-center gap-2 px-2">
+          <GoogleReviewButton
+            key={`${accountId}:${conversationId}`}
+            conversationId={conversationId}
+            disabled={readOnly || sending || busy}
+            onPrepared={(message) => {
+              setText((previous) => previous.includes(message) ? previous : previous.trim() ? `${previous}\n\n${message}` : message);
+              requestAnimationFrame(() => { adjustHeight(); textareaRef.current?.focus(); });
+            }}
+          />
+        <p className="text-muted-foreground min-w-0 text-[10px]">
           {fromLeads ? 'Mensagem preparada nos Leads. Reveja o texto antes de enviar.' : t('draftHint')}
         </p>
+        </div>
       )}
 
       {/* Interactive-message builder dialog. */}
