@@ -42,6 +42,8 @@
       updater.insertAdjacentHTML('afterbegin', '<button data-action="download-update">Baixar versão</button><button data-action="install-update">Instalar atualização</button>');
     }
     updater?.querySelector('[data-action="setup"]')?.remove();
+    const checkButton = updater?.querySelector('[data-action="check-update"]');
+    if (checkButton) checkButton.textContent = 'Verificar versão';
     const removeLegacySetup = () => document.querySelectorAll('[data-action="setup"]').forEach(node => node.remove());
     new MutationObserver(removeLegacySetup).observe(document.body, { childList: true, subtree: true });
     removeLegacySetup();

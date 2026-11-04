@@ -95,7 +95,7 @@ if (ownsInstance) app.whenReady().then(() => {
           else if (response.status === 404) {
             const tagsResponse = await fetch('https://api.github.com/repos/johnnyspereira/ajmassagem/tags', { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'JP-Designer-CRM-Control-Center' } });
             if (!tagsResponse.ok) throw new Error(`GitHub respondeu HTTP ${tagsResponse.status}.`);
-            const tags = await tagsResponse.json();
+            const tags = (await tagsResponse.json()).sort((a,b) => String(b.name||'').localeCompare(String(a.name||''), undefined, {numeric:true}));
             release = { tag_name: tags[0]?.name, html_url: `https://github.com/johnnyspereira/ajmassagem/releases/tag/${tags[0]?.name || ''}`, name: 'Tag publicada (release ainda não criada)' };
           } else throw new Error(`GitHub respondeu HTTP ${response.status}.`);
           output = { message: release.tag_name && release.tag_name !== `v${packageInfo.version}` ? `Atualização disponível: ${release.tag_name}.` : `O Control Center já está atualizado (${packageInfo.version}).`, version: packageInfo.version, latest: release.tag_name, url: release.html_url, notes: release.name || release.body || '' };
