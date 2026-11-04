@@ -24,7 +24,7 @@
         <button class="nav" data-view="diagnostics" title="Diagnóstico"><span class="nav-icon" data-icon="pulse"></span><span>Diagnóstico</span></button>
         <button class="nav" data-view="system" title="Recursos do portátil"><span class="nav-icon" data-icon="monitor"></span><span>Recursos do portátil</span></button>
         <button class="nav" data-view="logs" title="Registos"><span class="nav-icon" data-icon="list"></span><span>Registos</span></button>
-        <button class="nav" data-view="system" title="Configurações e recursos"><span class="nav-icon" data-icon="monitor"></span><span>Configurações</span></button>
+        <button class="nav" data-view="settings" title="Configurações"><span class="nav-icon" data-icon="monitor"></span><span>Configurações</span></button>
         <div class="sidebar-note"><span class="small-dot"></span><div><b>Monitorização leve</b><p>A cada 10 s. Pausa quando minimiza este painel.</p></div></div>
       </nav>
       <main class="main-content">
@@ -36,10 +36,11 @@
   </div>
   <dialog id="confirm-dialog" class="modal"><form method="dialog"><h2 id="confirm-title">Confirmar ação</h2><p id="confirm-copy"></p><div class="modal-actions"><button value="cancel">Cancelar</button><button value="confirm" class="primary">Confirmar</button></div></form></dialog>
   <dialog id="qr-dialog" class="modal qr-modal"><h2>Ligar o WhatsApp</h2><p>Abra WhatsApp no telemóvel → Dispositivos associados → Associar dispositivo.</p><img id="qr-image" alt="QR de ligação ao WhatsApp" /><p>O QR é temporário. Se expirar, feche esta janela e consulte novamente.</p><form method="dialog"><button class="primary">Concluir</button></form></dialog>
+  <script>
+    function settings(){ return head('Configurações','Tudo o que é necessário para preparar, atualizar e manter este portátil.') + `<div class="settings-grid"><section class="setting-card"><h2>Identidade</h2><p>Nome do sistema e suporte configurados no ambiente do CRM.</p><code>CRM_BRAND_NAME<br>CRM_BRAND_SHORT_NAME<br>CRM_SUPPORT_EMAIL</code><p>Reinicie o painel depois de alterar.</p></section><section class="setting-card"><h2>Serviços</h2><p>Gerencie os serviços individualmente e valide a ligação antes de reiniciar.</p><div class="button-row">${openView('whatsapp','WhatsApp')}${openView('ai-worker','IA local')}${openView('ai-tunnel','Túneis')}</div></section><section class="setting-card"><h2>Atualizações</h2><p>Versão instalada: <strong id="installed-version">a consultar…</strong></p><div class="button-row">${button('check-update','Verificar atualizações',{primary:true})}${button('setup','Instalar/configurar')}${button('restart-app','Reiniciar painel')}</div><p>Após atualizar, reinicie o painel para carregar a nova interface.</p></section><section class="setting-card"><h2>Encerramento seguro</h2><p>Para os Workers e desliga o computador depois da confirmação.</p>${button('end-shift','Encerrar expediente',{danger:true})}</section></div>`; }
+  </script>
   <script src="./renderer.js"></script>
   <script>
-    const originalSystemView = system;
-    system = function settingsView(){ return head('Configurações','Centralize marca, atualizações, serviços e manutenção do portátil.') + `<div class="settings-grid"><section class="setting-card"><h2>Identidade do sistema</h2><p>O nome e o suporte vêm do ficheiro .env do CRM.</p><code>CRM_BRAND_NAME<br>CRM_BRAND_SHORT_NAME<br>CRM_SUPPORT_EMAIL</code><p>Reinicie o painel depois de alterar.</p></section><section class="setting-card"><h2>Serviços e ligações</h2><p>Abra cada área para gerir WhatsApp, IA e túneis. O diagnóstico confirma se a ligação local e externa está saudável.</p><div class="button-row">${openView('whatsapp','WhatsApp')}${openView('ai-worker','IA local')}${openView('ai-tunnel','Túneis')}</div></section><section class="setting-card"><h2>Atualizações</h2><p>Procure a versão mais recente e execute a instalação sem abrir terminais.</p><div class="button-row">${button('check-update','Verificar atualizações',{primary:true})}${button('setup','Instalar/configurar')}</div></section><section class="setting-card"><h2>Encerramento seguro</h2><p>Encerra os serviços e desliga o computador após confirmação.</p>${button('end-shift','Encerrar expediente',{danger:true})}</section></div>`; };
     const savedTheme = localStorage.getItem('jp-control-theme');
     if (savedTheme === 'light') document.body.classList.add('light-theme');
     document.getElementById('toggle-theme').addEventListener('click', () => {
@@ -49,6 +50,8 @@
     window.controlCenter.config().then((config) => {
       if (!config) return;
       document.getElementById('brand-name').textContent = config.brandName;
+      const version = document.getElementById('installed-version');
+      if (version) version.textContent = 'v' + config.version;
       document.title = config.brandName + ' — Control Center';
     }).catch(() => {});
   </script>

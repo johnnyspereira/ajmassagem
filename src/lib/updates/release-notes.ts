@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-control-center-settings', date: '2026-11-04', category: 'Melhoria',
+    title: 'Configurações e reinício do Control Center', areas: ['Control Center'],
+    summary: 'A área de configurações passou a ser uma página própria, com versão instalada e reinício após atualização.',
+    changes: ['A barra lateral abre Configurações sem redirecionar para recursos do portátil.', 'A versão instalada é apresentada na área de atualizações.', 'Foi acrescentado Reiniciar painel para aplicar ficheiros atualizados.'],
+    howTo: 'Abra Configurações, confirme a versão e clique em Reiniciar painel depois de atualizar.'
+  },
+  {
     id: '2026-11-04-control-center-interface', date: '2026-11-04', category: 'Melhoria',
     title: 'Nova interface do Control Center', areas: ['Control Center', 'Configuração'],
     summary: 'As ações principais passaram para o topo, com tema claro/escuro e uma área dedicada de configurações.',

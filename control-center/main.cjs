@@ -59,6 +59,7 @@ if (ownsInstance) app.whenReady().then(() => {
   windowRef.on('restore', broadcastSnapshot);
   ipcMain.handle('control:snapshot', () => supervisor.snapshot());
   ipcMain.handle('control:config', () => ({
+    version: packageInfo.version,
     brandName: supervisor.rootEnv.CRM_BRAND_NAME || 'Johnny Pereira - JP Designer CRM',
     brandShortName: supervisor.rootEnv.CRM_BRAND_SHORT_NAME || 'JP Designer CRM',
     supportEmail: supervisor.rootEnv.CRM_SUPPORT_EMAIL || '',
@@ -81,6 +82,7 @@ if (ownsInstance) app.whenReady().then(() => {
         else if (action === 'qr') output = await supervisor.qr();
         else if (action === 'test-ai') output = await supervisor.testAi();
         else if (action === 'refresh') output = { message:'Estado atualizado.' };
+        else if (action === 'restart-app') { app.relaunch(); app.exit(0); output = { message: 'Control Center a reiniciar.' }; }
         else if (action === 'stop-all') output = await supervisor.stopAll();
         else if (action === 'clear-logs') output = supervisor.clearView();
         else if (action === 'open-crm') { await shell.openExternal(crmUrl(supervisor.rootEnv.NEXT_PUBLIC_APP_URL || supervisor.rootEnv.NEXT_PUBLIC_SITE_URL,id)); output={message:'Área do CRM aberta no navegador.'}; }
