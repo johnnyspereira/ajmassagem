@@ -11,6 +11,7 @@ import { mutate, selectRows, transaction } from '@/lib/mysql/db';
 import {assertAppointmentCollectible} from '@/lib/finance/appointment-payment-guard';
 import {accountDateInput} from '@/lib/timezone';
 import {validateBenefitExpiry} from '@/lib/finance/benefit-administration';
+import { returnCampaignWalletCredit } from '@/lib/portal/campaign-wallet-return';
 
 type RpcContext = { accountId: string; userId: string; bypassTenant?: boolean };
 const ok = (data: unknown = null) => ({ data, error: null });
@@ -119,7 +120,7 @@ async function refreshVoucherPaidAmountsForSale(
   );
 }
 
-async function addPayment(
+export async function addPayment(
   connection: PoolConnection,
   input: {
     accountId: string;
@@ -249,6 +250,7 @@ async function addPayment(
   // registered later from the POS, agenda or receivables screen, so activate
   // them here in the shared payment path once the sale is fully settled.
   if (complete) {
+    await connection.execute("UPDATE portal_campaign_enrollments SET status='converted' WHERE sale_id=? AND account_id=? AND status<>'cancelled'", [input.saleId,input.accountId]);
     await connection.execute(
       "UPDATE finance_vouchers SET status='active' WHERE issued_sale_id=? AND status='pending'",
       [input.saleId]
@@ -2692,6 +2694,7 @@ export async function executeMysqlRpc(
               ]
             );
           }
+          await returnCampaignWalletCredit(connection, context.accountId, saleId, context.userId);
           await connection.execute(
             `UPDATE finance_payments SET status=? WHERE sale_id=? AND status='confirmed'`,
             [mode === 'refund' ? 'refunded' : 'voided', saleId]

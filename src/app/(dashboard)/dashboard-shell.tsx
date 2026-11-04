@@ -14,6 +14,7 @@ import { NotificationRealtimeAlerts } from '@/components/notifications/notificat
 import { PushNotifications } from '@/components/notifications/push-notifications';
 import { WorkTimeProvider } from '@/components/work-time/work-time-provider';
 import { DocumentTitle } from '@/components/layout/document-title';
+import { AccessTracker } from '@/components/layout/access-tracker';
 import { ContextualHelp } from '@/components/support/contextual-help';
 import { MobileAppNavigation } from '@/components/layout/mobile-app-navigation';
 import { NavigationState } from '@/components/layout/navigation-state';
@@ -64,6 +65,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     <WorkTimeProvider>
       <NavigationState>
         <DocumentTitle />
+        <AccessTracker />
         <div className="bg-background flex h-dvh overflow-hidden">
           {/* Reports this tab's online/away presence once we know a user is
           signed in. Headless — renders nothing. */}

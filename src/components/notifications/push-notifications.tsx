@@ -1,4 +1,5 @@
 'use client';
+import styles from './push-notifications.module.css';
 
 import { useEffect, useState } from 'react';
 import { BellRing, Download, X } from 'lucide-react';
@@ -131,7 +132,7 @@ export function PushNotifications({
     return null;
 
   return (
-    <div className="border-primary/30 bg-background fixed right-4 bottom-4 z-[80] w-[calc(100vw-2rem)] max-w-sm rounded-xl border p-4 shadow-xl">
+    <div data-push-optin className={`${styles.prompt} border-primary/30 bg-background fixed right-4 bottom-4 z-[80] w-[calc(100vw-2rem)] max-w-sm rounded-xl border p-4 shadow-xl`}>
       <button
         className="text-muted-foreground absolute top-2 right-2 p-2"
         onClick={dismiss}

@@ -1,4 +1,5 @@
 'use client';
+import { CampaignStorePurchase } from './campaign-store-purchase';
 
 /* eslint-disable @next/next/no-img-element */
 
@@ -424,6 +425,7 @@ type PortalData = {
     commerce_enabled?: boolean;
     commerce_price?: number | null;
     commerce_currency?: string | null;
+    campaign_kind?: 'promotional' | 'exchange';
     image_url: string | null;
     badge_text: string | null;
     benefit_text: string | null;
@@ -436,6 +438,11 @@ type PortalData = {
       status: string;
       joined_at: string;
       sale_id?: string | null;
+      sale_status?: string | null;
+      balance_due?: number | null;
+      paid_amount?: number | null;
+      total_amount?: number | null;
+      payment_method?: string | null;
     };
   }>;
   privacy: {
@@ -512,6 +519,23 @@ export function ClientPortal({ slug }: { slug: string }) {
   const [portalPermissionsRequired, setPortalPermissionsRequired] =
     useState(false);
   const [tab, setTab] = useState<PortalTab>('home');
+  const activitySlug=data?.settings.slug;
+  useEffect(() => {
+    if (!activitySlug) return;
+    const endpoint=`/api/portal/${encodeURIComponent(activitySlug)}/activity`;
+    const record=(body:object)=>{void fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).catch(()=>{});};
+    record({tab});
+    if(tab!=='campaigns')return;
+    const seen=new Set<string>();
+    const observer=new IntersectionObserver(entries=>{
+      for(const entry of entries){
+        const id=(entry.target as HTMLElement).dataset.campaignId;
+        if(entry.isIntersecting&&id&&!seen.has(id)){seen.add(id);record({tab,campaignId:id});}
+      }
+    },{threshold:0.25});
+    const timer=setTimeout(()=>{document.querySelectorAll('[data-campaign-id]').forEach(element=>observer.observe(element));},100);
+    return()=>{clearTimeout(timer);observer.disconnect();};
+  },[activitySlug,tab]);
   const [menuOpen, setMenuOpen] = useState(false);
   function navigatePortal(next: PortalTab) {
     setTab(next);
@@ -3846,6 +3870,7 @@ function CampaignsView({
           return (
             <article
               key={campaign.id}
+              data-campaign-id={campaign.id}
               className="group overflow-hidden rounded-3xl border border-violet-100 bg-white shadow-[0_18px_60px_-30px_rgba(109,40,217,.45)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_-28px_rgba(109,40,217,.55)]"
             >
               {campaign.image_url && (
@@ -3879,6 +3904,7 @@ function CampaignsView({
                     {campaign.badge_text && (
                       <Badge className="mb-2">{campaign.badge_text}</Badge>
                     )}
+                    <Badge variant="outline" className="mb-2 ml-2">{campaign.campaign_kind==='exchange'?'Troca de saldo':'Promocional'}</Badge>
                     <h2 className="text-2xl font-bold tracking-tight">
                       {campaign.title}
                     </h2>
@@ -3921,7 +3947,11 @@ function CampaignsView({
                     <p className="mt-2 whitespace-pre-line">{campaign.terms}</p>
                   </details>
                 )}
-                <Button
+                {campaign.commerce_enabled ? <CampaignStorePurchase
+                  campaign={campaign} slug={data.settings.slug}
+                  balance={Number(data.benefits.wallet?.balance||0)} disabled={full}
+                  onRefresh={onRefresh}
+                /> : <Button
                   className="h-12 w-full rounded-lg text-base font-semibold"
                   disabled={Boolean(joined || full || joining)}
                   onClick={() => void join(campaign.id)}
@@ -3940,7 +3970,7 @@ function CampaignsView({
                       : campaign.commerce_enabled
                         ? `Comprar por ${formatCurrency(Number(campaign.commerce_price), campaign.commerce_currency || data.business.default_currency)}`
                         : 'Quero aderir'}
-                </Button>
+                </Button>}
               </div>
             </article>
           );

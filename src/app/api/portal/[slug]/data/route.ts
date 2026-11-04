@@ -1,6 +1,10 @@
 ﻿import { portalErrorResponse, requirePortalAccess } from '@/lib/portal/server';
 
 import { portalAnamnesisStatus } from '@/lib/portal/anamnesis-status';
+import { campaignVisible } from '@/lib/portal/campaign-rules';
+import { ensurePortalStoreSchema } from '@/lib/portal/store-schema';
+import {selectRows} from '@/lib/mysql/db';
+import type {RowDataPacket} from 'mysql2';
 import {
   ONLINE_BOOKING_BUFFER_MS,
   onlineBusyAppointments,
@@ -13,6 +17,7 @@ export async function GET(
   try {
     const { slug } = await params;
     const { admin, settings, access } = await requirePortalAccess(slug);
+    await ensurePortalStoreSchema();
     const now = new Date().toISOString();
     const busyEnd = new Date();
     busyEnd.setDate(
@@ -212,7 +217,7 @@ export async function GET(
         .maybeSingle(),
     ]);
 
-    const coreResults = [account, contact, appointments];
+    const coreResults = [account, contact, appointments, wallet];
     const failed = coreResults.find((result) => result.error);
     if (failed?.error) throw failed.error;
 
@@ -324,11 +329,10 @@ export async function GET(
           .lte('starts_at', now)
           .or(`ends_at.is.null,ends_at.gte.${now}`)
           .order('starts_at', { ascending: false }),
-        admin
-          .from('portal_campaign_enrollments')
-          .select('campaign_id,status,joined_at,sale_id')
-          .eq('account_id', access.account_id)
-          .eq('contact_id', access.contact_id),
+        selectRows<RowDataPacket[]>(`SELECT e.campaign_id,e.status,e.joined_at,e.sale_id,e.payment_method,
+          s.status sale_status,s.balance_due,s.paid_amount,s.total_amount
+          FROM portal_campaign_enrollments e LEFT JOIN finance_sales s ON s.id=e.sale_id AND s.account_id=e.account_id AND s.contact_id=e.contact_id
+          WHERE e.account_id=? AND e.contact_id=?`,[access.account_id,access.contact_id]).then(data=>({data,error:null})),
       ]);
     const secondaryResults = [
       benefitLogs,
@@ -421,7 +425,9 @@ export async function GET(
         code: effectiveReferralCode.data,
         items: referrals.data ?? [],
       },
-      campaigns: (campaignsUnavailable ? [] : (campaigns.data ?? [])).map(
+      campaigns: (campaignsUnavailable ? [] : (campaigns.data ?? [])).filter(
+        (campaign) => campaignVisible(campaign.campaign_kind, Number(wallet.data?.balance || 0))
+      ).map(
         (campaign) => ({
           ...campaign,
           enrollmentCount: Number(campaign.enrollments?.[0]?.count ?? 0),

@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-portal-campaign-store', date: '2026-11-04', category: 'Novidade',
+    title: 'Loja de campanhas com cartão-saldo e acompanhamento de acessos', areas: ['Portal', 'Campanhas', 'Financeiro', 'Equipa'],
+    summary: 'Campanhas de troca permitem usar o saldo e pagar a diferença por cartão ou MB WAY. Um painel apresenta os acessos autenticados dos clientes e da equipa.',
+    changes: ['Campanhas promocionais ficam ocultas para clientes com saldo EUR positivo; a elegibilidade é validada também na compra e no envio da campanha por email. Campanhas de troca permitem aplicar o saldo disponível.', 'O editor associa a campanha a uma modalidade ou pack. A compra mostra o valor, saldo utilizado e diferença antes de confirmar, cria o benefício pendente e ativa-o após pagamento integral.', 'Cartão usa checkout SumUp para a diferença; MB WAY apresenta o número 935864343 e fica a aguardar registo da receção no Financeiro. Compras totalmente cobertas pelo saldo ficam pagas no Portal.', 'Pedidos repetidos retomam a venda, sem duplicar o desconto de saldo. Mudanças de preço ou saldo exigem revisão. Anular ou reembolsar a venda no Financeiro devolve a parte paga em cartão-saldo.', 'O painel de acessos apresenta clientes no Portal, campanhas consultadas e páginas do CRM visitadas pela equipa, com pesquisa, filtros e paginação. Registos começam com a atualização e agrupam consultas repetidas em cinco minutos.', 'O convite para ativar notificações deixa de sobrepor botões quando existe um diálogo aberto.'],
+    howTo: 'Abra Campanhas do Portal, escolha o tipo, ative Comprar diretamente no Portal, associe uma modalidade ou pack, defina o preço e publique. No Portal, o cliente abre a compra e confirma os valores. Para consultar acessos, abra Acompanhar acessos ao Portal, campanhas e CRM nessa página como administrador ou proprietário. A atualização inclui a migração 058.',
+  },
+  {
     id: '2026-11-04-inbox-google-review', date: '2026-11-04', category: 'Novidade',
     title: 'Pedir uma avaliação Google diretamente na conversa', areas: ['Inbox', 'Avaliações'],
     summary: 'Novo botão prepara uma mensagem personalizada para convidar o cliente a avaliar a nova página Google.',

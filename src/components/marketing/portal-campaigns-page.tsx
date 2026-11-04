@@ -38,12 +38,17 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/use-auth';
 import { createClient } from '@/lib/supabase/client';
+import { AccessActivityPanel } from './access-activity-panel';
 import {
   MEDIA_MAX_BYTES_BY_KIND,
   uploadAccountMedia,
 } from '@/lib/storage/upload-media';
 
 type Campaign = {
+  campaign_kind?: 'promotional' | 'exchange';
+  commerce_source_id?: string | null;
+  commerce_item_type?: string | null;
+  commerce_validity_days?: number;
   id: string;
   title: string;
   summary: string;
@@ -83,6 +88,9 @@ type Draft = {
   capacity: string;
   commerceEnabled: boolean;
   commercePrice: string;
+  kind: 'promotional' | 'exchange';
+  source: string;
+  validity: string;
 };
 const localDate = (value = new Date()) =>
   new Date(value.getTime() - value.getTimezoneOffset() * 60000)
@@ -101,11 +109,15 @@ const emptyDraft = (): Draft => ({
   capacity: '',
   commerceEnabled: false,
   commercePrice: '',
+  kind: 'promotional',
+  source: '',
+  validity: '365',
 });
 
 export function PortalCampaignsPage() {
   const supabase = useMemo(() => createClient(), []);
-  const { accountId, profile, canSendMessages } = useAuth();
+  const { accountId, profile, canSendMessages, canEditSettings } = useAuth();
+  const [catalog, setCatalog] = useState<{services:{id:string;name:string}[];packs:{id:string;name:string}[]}>({services:[],packs:[]});
   const [items, setItems] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -119,6 +131,16 @@ export function PortalCampaignsPage() {
   const load = useCallback(async () => {
     if (!accountId) return;
     setLoading(true);
+    try {
+      const response = await fetch('/api/marketing/campaign-store', {cache:'no-store'});
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Não foi possível preparar a loja de campanhas.');
+      setCatalog(payload);
+    } catch(error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível carregar a loja.');
+      setLoading(false);
+      return;
+    }
     const [{ data, error }, { data: portal }] = await Promise.all([
       supabase
         .from('portal_campaigns')
@@ -145,7 +167,6 @@ export function PortalCampaignsPage() {
   }, [accountId, supabase]);
   useEffect(() => {
     // Loading follows the authenticated account becoming available.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
   function edit(item?: Campaign) {
@@ -165,6 +186,9 @@ export function PortalCampaignsPage() {
             capacity: item.capacity ? String(item.capacity) : '',
             commerceEnabled: Boolean((item as Campaign & { commerce_enabled?: boolean }).commerce_enabled),
             commercePrice: String((item as Campaign & { commerce_price?: number | null }).commerce_price ?? ''),
+            kind: item.campaign_kind || 'promotional',
+            source: item.commerce_source_id ? `${item.commerce_item_type === 'pack' ? 'pack' : 'voucher'}:${item.commerce_source_id}` : '',
+            validity: String(item.commerce_validity_days || 365),
           }
         : emptyDraft()
     );
@@ -199,6 +223,7 @@ export function PortalCampaignsPage() {
   async function save() {
     if (!accountId || !profile || !draft.title.trim())
       return toast.error('Indique o título da campanha.');
+    if (draft.commerceEnabled && (!(Number(draft.commercePrice)>0) || !draft.source)) return toast.error('Escolha uma modalidade ou pack e indique o preço da campanha.');
     setSaving(true);
     const row = {
       account_id: accountId,
@@ -215,7 +240,10 @@ export function PortalCampaignsPage() {
       commerce_enabled: draft.commerceEnabled,
       commerce_price: draft.commerceEnabled && Number(draft.commercePrice) > 0 ? Number(draft.commercePrice) : null,
       commerce_currency: 'EUR',
-      commerce_item_type: draft.commerceEnabled ? 'service' : null,
+      commerce_item_type: draft.commerceEnabled ? draft.source.split(':')[0] : null,
+      commerce_source_id: draft.commerceEnabled ? draft.source.split(':')[1] : null,
+      campaign_kind: draft.kind,
+      commerce_validity_days: Math.min(3650,Math.max(1,Number(draft.validity)||365)),
       created_by: profile.id,
     };
     const result = editing
@@ -253,6 +281,7 @@ export function PortalCampaignsPage() {
     finally { setSendingCampaign(null); }
   }
   async function updateEnrollment(entry: Campaign['enrollments'][number], status: 'contacted' | 'converted' | 'cancelled') {
+    if(entry.sale_id)return toast.error('Esta adesão tem uma compra. Gerencie o pagamento ou anulação em Ver venda.');
     const { error } = await supabase
       .from('portal_campaign_enrollments')
       .update({ status })
@@ -322,6 +351,7 @@ export function PortalCampaignsPage() {
           value={converted}
         />
       </div>
+      {canEditSettings && <details className="rounded-2xl border bg-card p-4"><summary className="cursor-pointer font-medium">Acompanhar acessos ao Portal, campanhas e CRM</summary><div className="mt-4"><AccessActivityPanel /></div></details>}
       <div className="grid gap-4 xl:grid-cols-2">
         {items.length ? (
           items.map((item) => (
@@ -347,6 +377,7 @@ export function PortalCampaignsPage() {
                       {item.badge_text && (
                         <Badge variant="outline">{item.badge_text}</Badge>
                       )}
+                      <Badge variant="outline">{item.campaign_kind==='exchange'?'Troca de saldo':'Promocional · sem saldo'}</Badge>
                     </div>
                     <CardTitle className="text-xl">{item.title}</CardTitle>
                     <p className="text-muted-foreground mt-1 text-sm">
@@ -490,14 +521,14 @@ export function PortalCampaignsPage() {
                               Contactado
                             </Button>
                           )}
-                          {entry.status !== 'converted' && (
+                          {!entry.sale_id && entry.status !== 'converted' && (
                             <Button size="sm" variant="outline" onClick={() => void updateEnrollment(entry, 'converted')}>
                               Converter
                             </Button>
                           )}
-                          <Button size="icon-sm" variant="ghost" aria-label="Remover interesse" onClick={() => void updateEnrollment(entry, 'cancelled')}>
+                          {!entry.sale_id && <Button size="icon-sm" variant="ghost" aria-label="Remover interesse" onClick={() => void updateEnrollment(entry, 'cancelled')}>
                             <Archive />
-                          </Button>
+                          </Button>}
                         </div>
                       </div>
                     ))}
@@ -549,8 +580,8 @@ export function PortalCampaignsPage() {
         )}
       </div>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden sm:max-w-2xl">
+          <DialogHeader className="shrink-0">
             <DialogTitle>
               {editing ? 'Editar campanha' : 'Nova campanha'}
             </DialogTitle>
@@ -558,7 +589,7 @@ export function PortalCampaignsPage() {
               A campanha só aparece aos clientes depois de publicada.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4">
+          <div className="grid min-h-0 gap-4 overflow-y-auto pr-1">
             <div className="rounded-xl border border-violet-200 bg-gradient-to-r from-violet-50 to-fuchsia-50 p-4">
               <p className="flex items-center gap-2 font-semibold text-violet-900">
                 <Sparkles className="size-4" /> Uma oferta que merece atenção
@@ -595,10 +626,27 @@ export function PortalCampaignsPage() {
             />
             <label className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
               <input type="checkbox" checked={draft.commerceEnabled} onChange={(event) => setDraft({ ...draft, commerceEnabled: event.target.checked })} />
-              <span><strong>Venda online com SumUp</strong><br /><span className="text-xs text-emerald-800">Cria uma venda e checkout para o cliente pagar no Portal.</span></span>
+              <span><strong>Comprar diretamente no Portal</strong><br /><span className="text-xs text-emerald-800">Cria a compra e o voucher ou pack. Pagamento por saldo, cartão ou MB WAY.</span></span>
+            </label>
+            <label className="grid gap-2 text-sm">Tipo de campanha
+              <select className="min-h-11 rounded-lg border bg-background px-3" value={draft.kind} onChange={event=>setDraft({...draft,kind:event.target.value as Draft['kind']})}>
+                <option value="promotional">Promocional — oculta para clientes com saldo</option>
+                <option value="exchange">Troca de saldo — permite saldo + diferença</option>
+              </select>
             </label>
             {draft.commerceEnabled && (
-              <Input type="number" min="0.01" step="0.01" placeholder="Preço da oferta (€)" value={draft.commercePrice} onChange={(event) => setDraft({ ...draft, commercePrice: event.target.value })} />
+              <div className="grid gap-3">
+                <label className="grid gap-2 text-sm">O que o cliente recebe
+                  <select className="min-h-11 max-w-full rounded-lg border bg-background px-3" value={draft.source} onChange={event=>setDraft({...draft,source:event.target.value})}>
+                    <option value="">Escolha uma modalidade ou pack</option>
+                    <optgroup label="Voucher de uma sessão">{catalog.services.map(item=><option key={item.id} value={`voucher:${item.id}`}>{item.name}</option>)}</optgroup>
+                    <optgroup label="Packs">{catalog.packs.map(item=><option key={item.id} value={`pack:${item.id}`}>{item.name}</option>)}</optgroup>
+                  </select>
+                </label>
+                <label className="grid gap-2 text-sm">Preço final da campanha (€)<Input type="number" min="0.01" step="0.01" value={draft.commercePrice} onChange={(event) => setDraft({ ...draft, commercePrice: event.target.value })} /></label>
+                {!draft.source.startsWith('pack:') && <label className="grid gap-2 text-sm">Validade do voucher em dias<Input type="number" min="1" max="3650" value={draft.validity} onChange={event=>setDraft({...draft,validity:event.target.value})} /></label>}
+                <p className="text-xs text-muted-foreground">O pack mantém as sessões e a validade do catálogo. MB WAY para 935864343, com confirmação da receção no Financeiro. O benefício fica disponível após pagamento integral.</p>
+              </div>
             )}
             <div className="grid gap-3 sm:grid-cols-2">
               <Input
@@ -674,7 +722,7 @@ export function PortalCampaignsPage() {
               onChange={(e) => setDraft({ ...draft, terms: e.target.value })}
             />
           </div>
-          <DialogFooter>
+          <DialogFooter className="shrink-0">
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
