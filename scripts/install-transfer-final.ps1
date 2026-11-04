@@ -12,8 +12,9 @@ if ($copy.ExitCode -ge 8) { throw "Falha ao copiar a instalação (robocopy $($c
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw 'Instale Node.js 20 ou superior antes de continuar.' }
 if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { throw 'O npm não está disponível.' }
 if (-not (Test-Path (Join-Path $localRoot 'package.json'))) { throw "Cópia incompleta: $localRoot\package.json não foi encontrado." }
-# Evita caches globais incompletas (comuns após uma instalação interrompida).
-$env:PUPPETEER_CACHE_DIR = Join-Path $localRoot '.puppeteer-cache'
+# Evita reutilizar caches incompletas após uma instalação interrompida.
+# Uma pasta nova por tentativa também não interfere com processos antigos.
+$env:PUPPETEER_CACHE_DIR = Join-Path $localRoot ('.puppeteer-cache-' + [guid]::NewGuid().ToString('N'))
 if (-not (Test-Path $env:PUPPETEER_CACHE_DIR)) { New-Item -ItemType Directory -Force -Path $env:PUPPETEER_CACHE_DIR | Out-Null }
 function Install-Dependencies([string]$path) {
   Push-Location $path
