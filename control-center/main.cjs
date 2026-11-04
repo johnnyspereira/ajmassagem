@@ -123,8 +123,8 @@ if (ownsInstance) app.whenReady().then(() => {
           const log = join(app.getPath('temp'),'jp-designer-crm-update.log');
           require('node:fs').writeFileSync(log, `Início da atualização ${new Date().toISOString()}\nScript: ${script}\nPacote: ${zip}\n`);
           const consoleLog = join(app.getPath('temp'),'jp-designer-crm-updater-console.log');
-          const command = `start "JP Designer CRM updater" cmd /c powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${script}" -ZipPath "${zip}" -InstallRoot "${installRoot}" ^>^> "${consoleLog}" 2^>^&1`;
-          const child = require('node:child_process').spawn('cmd.exe', ['/c', command], { detached:true, windowsHide:true, stdio:'ignore', cwd:installRoot });
+          const logHandle = require('node:fs').openSync(consoleLog, 'a');
+          const child = require('node:child_process').spawn('powershell.exe', ['-NoProfile','-ExecutionPolicy','Bypass','-File',script,'-ZipPath',zip,'-InstallRoot',installRoot], { detached:true, windowsHide:true, stdio:['ignore',logHandle,logHandle], cwd:installRoot });
           child.unref();
           output = { message: 'Atualização iniciada. Consulte o detalhe no modal. Se não avançar, veja o log técnico.', log: consoleLog };
           // Dá tempo ao processo externo para iniciar antes de libertar a janela.
