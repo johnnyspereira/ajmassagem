@@ -18,5 +18,6 @@ for($i=1;$i -le 5;$i++){
 if(-not $ok){throw "Falha ao aplicar atualização após 5 tentativas (robocopy $LASTEXITCODE)."}
 $launcher=Join-Path $InstallRoot 'control-center\start-control-center.cmd'
 if(-not (Test-Path $launcher)){throw "Launcher não encontrado: $launcher"}
-Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c',"`"$launcher`"") -WorkingDirectory (Split-Path $launcher) -WindowStyle Hidden
+$command = "cd /d `"$InstallRoot`" && npm.cmd run control:center"
+Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c',$command) -WorkingDirectory $InstallRoot
 Stop-Transcript | Out-Null
