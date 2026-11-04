@@ -250,6 +250,7 @@ type CommunicationEventRow = {
 };
 
 type ReportData = {
+  portalCampaigns: Array<{ id: string; title: string; status: string; created_at: string; starts_at: string; ends_at: string | null }>;
   sales: SaleRow[];
   payments: FinancePayment[];
   paymentLinks: Array<{ id: string; provider: string; status: string; amount: number; currency: string; paid_at: string | null; created_at: string }>;
@@ -284,6 +285,7 @@ type ReportTab =
   | 'team';
 
 const EMPTY_DATA: ReportData = {
+  portalCampaigns: [],
   sales: [],
   payments: [],
   paymentLinks: [],
@@ -680,6 +682,14 @@ export function ReportsPage() {
         .lte('created_at', range.currentEnd)
         .order('created_at', { ascending: false })
         .limit(5000),
+      supabase
+        .from('portal_campaigns')
+        .select('id,title,status,created_at,starts_at,ends_at')
+        .eq('account_id', accountId)
+        .gte('created_at', range.currentStart)
+        .lte('created_at', range.currentEnd)
+        .order('created_at', { ascending: false })
+        .limit(1000),
     ] as const;
 
     const results = await Promise.all(queries);
@@ -729,6 +739,7 @@ export function ReportsPage() {
       wallets: (results[17].data ?? []) as unknown as WalletRow[],
       communicationEvents: (results[18].data ?? []) as CommunicationEventRow[],
       paymentLinks: (results[19].data ?? []) as ReportData['paymentLinks'],
+      portalCampaigns: (results[20].data ?? []) as ReportData['portalCampaigns'],
       warnings,
     });
     if (warnings.length) {
@@ -2336,8 +2347,8 @@ export function ReportsPage() {
               <MetricCard
                 icon={Megaphone}
                 label="Campanhas"
-                value={String(data.broadcasts.length)}
-                detail={`${analytics.confirmedBroadcastRecipients} envios`}
+                value={String(data.portalCampaigns.length + data.broadcasts.length)}
+                detail={`${data.portalCampaigns.length} do Portal · ${data.broadcasts.length} transmissões`}
                 tone="blue"
               />
               <MetricCard

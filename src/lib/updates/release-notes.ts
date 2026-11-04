@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-reports-growth-campaigns', date: '2026-11-04', category: 'Correção',
+    title: 'Crescimento passa a incluir campanhas do Portal', areas: ['Relatórios', 'Campanhas'],
+    summary: 'A métrica de campanhas deixou de depender apenas das transmissões WhatsApp e passa a contabilizar também campanhas exclusivas do Portal no período.',
+    changes: ['O cartão Campanhas soma campanhas do Portal e transmissões, com a divisão apresentada no detalhe.', 'A consulta respeita o período selecionado no Relatório 360.'],
+    howTo: 'Abra Relatórios 360 → Crescimento e ajuste o período. O cartão mostra quantas campanhas vieram do Portal e quantas foram transmissões.'
+  },
+  {
     id: '2026-11-04-attention-ignore-old-messages', date: '2026-11-04', category: 'Melhoria',
     title: 'Fila de mensagens antigas deixa de bloquear a atenção', areas: ['Painel', 'Inbox', 'WhatsApp'],
     summary: 'Falhas de envio com mais de 24 horas deixam de aparecer como pendência operacional, sem apagar o histórico.',
