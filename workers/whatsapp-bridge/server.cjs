@@ -24,20 +24,111 @@ function installWhatsAppWebMediaPatch() {
     'whatsapp-web.js/src/util/Injected/Utils.js'
   );
   const source = readFileSync(utilsPath, 'utf8');
-  if (source.includes('delete message.__x_id;')) return;
+  if (source.includes('message.id = newMsgKey;')) return;
   const anchor = "\n        // Bot's won't reply if canonicalUrl is set (linking)";
   if (!source.includes(anchor)) {
     throw new Error('Não foi possível aplicar a compatibilidade de mídia do WhatsApp Web.');
   }
   writeFileSync(
     utilsPath,
-    source.replace(anchor, '\n        delete message.__x_id;' + anchor),
+    // New WhatsApp Web media data can carry a stale/undefined id field. It
+    // is spread into `message` after the newly generated key and makes the
+    // status sender crash while reading `msg.id`. Restore the local key after
+    // that spread; normal messages and Status media then use the same key.
+    source.replace(anchor, '\n        message.id = newMsgKey;\n        delete message.__x_id;' + anchor),
     'utf8'
   );
   console.log('[bridge:startup] Compatibilidade de mídia WhatsApp aplicada.');
 }
 
 installWhatsAppWebMediaPatch();
+
+// Newer WhatsApp Web builds can send a Status medium but omit `msg.id` from
+// its serialized response. whatsapp-web.js then fails after the send while
+// reading `msg.id.remote`. Keep the original message key in that response.
+function installStatusMediaSerializationPatch() {
+  const utilsPath = require.resolve('whatsapp-web.js/src/util/Injected/Utils.js');
+  const source = readFileSync(utilsPath, 'utf8');
+  if (source.includes('if (!msg.id && message.id)')) return;
+  const anchor = "        if (typeof msg.id.remote === 'object') {";
+  if (!source.includes(anchor)) {
+    throw new Error('NÃ£o foi possÃ­vel aplicar a serializaÃ§Ã£o de mÃ­dia no Status.');
+  }
+  writeFileSync(
+    utilsPath,
+    source.replace(anchor, '        if (!msg.id && message.id) msg.id = message.id;\n\n' + anchor),
+    'utf8'
+  );
+  console.log('[bridge:startup] Compatibilidade de serializaÃ§Ã£o do Status aplicada.');
+}
+
+installStatusMediaSerializationPatch();
+
+// WhatsApp Web's LID-era Status action no longer accepts the old positional
+// `(messageModel, mediaUpdate)` arguments used by whatsapp-web.js 1.34.x.
+// It expects `{ mediaMsgData, beforeSend, funnelContext }` and LID identities.
+// Without this adapter it throws "Cannot read properties of undefined (reading
+// 'id')" before a Status image/video/audio is sent.
+function installLidAwareStatusMediaPatch() {
+  const utilsPath = require.resolve('whatsapp-web.js/src/util/Injected/Utils.js');
+  const source = readFileSync(utilsPath, 'utf8');
+  if (source.includes('mediaMsgData: statusMediaMessage')) return;
+  const oldBlock = `            await window
+                .require('WAWebSendStatusMsgAction')
+                [
+                    isMedia
+                        ? 'sendStatusMediaMsgAction'
+                        : 'sendStatusTextMsgAction'
+                ](...(isMedia ? [msg, mediaUpdate] : [statusOptions]));
+
+            return msg;`;
+  const newBlock = `            const statusAction = window.require('WAWebSendStatusMsgAction');
+            if (isMedia) {
+                const MeUser = window.require('WAWebUserPrefsMeUser');
+                const MsgKey = window.require('WAWebMsgKey');
+                const statusWid = window
+                    .require('WAWebWidFactory')
+                    .createWid('status@broadcast');
+                const from = MeUser.getMeDeviceLidOrThrow();
+                const participant = MeUser.getMaybeMeLidUser();
+                if (!from || !participant) {
+                    throw new Error('A identidade LID do WhatsApp não está disponível para publicar Status com média.');
+                }
+                const statusKey = new MsgKey({
+                    fromMe: true,
+                    remote: statusWid,
+                    id: await MsgKey.newId(),
+                    participant,
+                });
+                const statusMediaMessage = {
+                    ...message,
+                    id: statusKey,
+                    from,
+                    to: statusWid,
+                    author: participant,
+                    local: true,
+                    self: 'out',
+                    isNewMsg: true,
+                    type: 'chat',
+                };
+                await statusAction.sendStatusMediaMsgAction({
+                    mediaMsgData: statusMediaMessage,
+                    beforeSend: async () => {},
+                    funnelContext: undefined,
+                });
+                return new (window.require('WAWebCollections').Msg.modelClass)(statusMediaMessage);
+            }
+
+            await statusAction.sendStatusTextMsgAction(statusOptions);
+            return msg;`;
+  if (!source.includes(oldBlock)) {
+    throw new Error('Não foi possível localizar a rotina de Status para aplicar a compatibilidade LID.');
+  }
+  writeFileSync(utilsPath, source.replace(oldBlock, newBlock), 'utf8');
+  console.log('[bridge:startup] Compatibilidade LID para Status com média aplicada.');
+}
+
+installLidAwareStatusMediaPatch();
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const { downloadCompatibleMedia } = require('./media-download.cjs');
 const { createIncomingDelivery } = require('./incoming-delivery.cjs');
@@ -276,12 +367,19 @@ async function outboundMediaFromUrl(url, filename) {
     filename || undefined
   );
 }
-async function profilePicturePayload(contact) {
-  const key = String(contact?.id?._serialized || contact?.id?.user || '');
+async function profilePicturePayload(contact, fallbackContactId = '') {
+  const key = String(contact?.id?._serialized || contact?.id?.user || fallbackContactId || '');
   const cached = key ? profilePictureCache.get(key) : null;
   if (cached && cached.expiresAt > Date.now()) return cached.value;
 
-  const url = await contact?.getProfilePicUrl?.().catch(() => null);
+  // Some WhatsApp Web builds return a contact shell without the profile
+  // methods. Ask the client directly as a fallback; this is also important
+  // for contacts saved on the phone but not hydrated in the current chat.
+  const url = await (contact?.getProfilePicUrl
+    ? contact.getProfilePicUrl().catch(() => null)
+    : fallbackContactId
+      ? client?.getProfilePicUrl(fallbackContactId).catch(() => null)
+      : null);
   let value = { profilePicUrl: url || null };
   if (url) {
     try {
@@ -716,17 +814,6 @@ async function publishStatus(input) {
   if (mediaUrl && !['image', 'video', 'audio'].includes(contentType)) {
     throw new Error('Status media must be image, video or audio.');
   }
-  // Current WhatsApp Web releases use a LID-only internal route for Status
-  // media. whatsapp-web.js cannot build that route yet: it crashes after the
-  // upload with "Cannot read properties of undefined (reading id)". Do not
-  // pretend a scheduled post succeeded; return a useful, actionable error.
-  // Text-only Status remains supported by the native web action below.
-  if (mediaUrl) {
-    throw new Error(
-      'Status WhatsApp com imagem, vídeo ou áudio está temporariamente indisponível nesta sessão QR. Publique apenas texto ou use um Story do Instagram; o WhatsApp Web ainda não suporta mídia em Status por esta integração.'
-    );
-  }
-
   // WhatsApp Web occasionally rolls out before whatsapp-web.js updates its
   // injected helper. The new web build still exposes WAWebStatusGatingUtils
   // but dropped this optional capability probe; defaulting it to `false`
@@ -1078,7 +1165,7 @@ async function sync(input) {
       const contact = message
         ? await message.getContact().catch(() => null)
         : await client.getContactById(snapshot.chatId).catch(() => null);
-      const profilePicture = await profilePicturePayload(contact);
+      const profilePicture = await profilePicturePayload(contact, snapshot.chatId || snapshot.phone);
       if (
         await persistSyncSnapshot(
           {
