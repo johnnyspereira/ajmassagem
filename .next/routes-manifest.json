@@ -89,7 +89,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "6463d1fc475e5fd456c843afad2794c3f83dc116"
+          "value": "9d93c192b1eb0c8da352a15b014d0241c326b05c"
         }
       ],
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
@@ -99,7 +99,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "6463d1fc475e5fd456c843afad2794c3f83dc116"
+          "value": "9d93c192b1eb0c8da352a15b014d0241c326b05c"
         }
       ],
       "regex": "^/_next/data(?:/(.*))(?:/)?$"
@@ -1795,5 +1795,5 @@
     "pathHeader": "x-nextjs-rewritten-path",
     "queryHeader": "x-nextjs-rewritten-query"
   },
-  "deploymentId": "6463d1fc475e5fd456c843afad2794c3f83dc116"
+  "deploymentId": "9d93c192b1eb0c8da352a15b014d0241c326b05c"
 }
