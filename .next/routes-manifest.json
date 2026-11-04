@@ -89,7 +89,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "ca33b16f9f875e3ffe6067642122ca15a0fbe6aa"
+          "value": "3aa0af128f90118b6bf043e3c85abf7369d7fd25"
         }
       ],
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
@@ -99,7 +99,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "ca33b16f9f875e3ffe6067642122ca15a0fbe6aa"
+          "value": "3aa0af128f90118b6bf043e3c85abf7369d7fd25"
         }
       ],
       "regex": "^/_next/data(?:/(.*))(?:/)?$"
@@ -1181,6 +1181,12 @@
       "namedRegex": "^/api/inbox/conversations/clear(?:/)?$"
     },
     {
+      "page": "/api/inbox/google-review-invitation",
+      "regex": "^/api/inbox/google\\-review\\-invitation(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/inbox/google\\-review\\-invitation(?:/)?$"
+    },
+    {
       "page": "/api/install",
       "regex": "^/api/install(?:/)?$",
       "routeKeys": {},
@@ -1769,5 +1775,5 @@
     "pathHeader": "x-nextjs-rewritten-path",
     "queryHeader": "x-nextjs-rewritten-query"
   },
-  "deploymentId": "ca33b16f9f875e3ffe6067642122ca15a0fbe6aa"
+  "deploymentId": "3aa0af128f90118b6bf043e3c85abf7369d7fd25"
 }
