@@ -79,9 +79,11 @@ if (ownsInstance) app.whenReady().then(() => {
         else if (action === 'open-crm') { await shell.openExternal(crmUrl(supervisor.rootEnv.NEXT_PUBLIC_APP_URL || supervisor.rootEnv.NEXT_PUBLIC_SITE_URL,id)); output={message:'Área do CRM aberta no navegador.'}; }
         else if (action === 'copy-diagnostics') { clipboard.writeText(JSON.stringify(await supervisor.snapshot(),null,2)); output={message:'Diagnóstico copiado, sem QR nem credenciais.'}; }
         else if (action === 'setup') {
-          const script = join(supervisor.root, 'scripts', 'install-transfer-final.ps1');
+          const script = join(__dirname, '..', 'scripts', 'install-transfer-final.ps1');
           const result = await execFileAsync('powershell.exe', ['-NoProfile','-ExecutionPolicy','Bypass','-File',script], { windowsHide:true, timeout: 15 * 60 * 1000, maxBuffer: 2 * 1024 * 1024 });
-          output = { message: 'Instalação e configuração concluídas. Reinicie o Control Center para aplicar tudo.', detail: result.stdout.slice(-2000) };
+          let ollama = 'não encontrado';
+          try { const check = await execFileAsync('ollama.exe', ['--version'], { windowsHide:true, timeout: 10000 }); ollama = check.stdout.trim() || 'instalado'; } catch {}
+          output = { message: `Instalação concluída. Ollama: ${ollama}. Reinicie o Control Center para aplicar tudo.`, detail: result.stdout.slice(-2000) };
         }
         else if (action === 'end-shift') {
           await supervisor.stopAll();
