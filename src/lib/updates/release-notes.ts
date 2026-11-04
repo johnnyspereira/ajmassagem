@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-control-center-update-check', date: '2026-11-04', category: 'Novidade',
+    title: 'Control Center verifica versões no GitHub', areas: ['Workers', 'Control Center', 'Atualizações'],
+    summary: 'O painel pode consultar a release mais recente do JP Designer CRM sem alterar ficheiros locais.',
+    changes: ['Foi adicionado o botão Verificar atualizações.', 'A versão local e a release mais recente são comparadas.', 'A consulta é apenas informativa nesta primeira versão, sem substituir a sessão WhatsApp.'],
+    howTo: 'Abra o Control Center e clique em Verificar atualizações. A mensagem apresentada indica se existe uma release mais recente.'
+  },
+  {
     id: '2026-11-04-control-center-actions', date: '2026-11-04', category: 'Novidade',
     title: 'Control Center com instalação e encerramento do expediente', areas: ['Workers', 'Control Center'],
     summary: 'O painel passou a oferecer ações diretas para configurar o portátil e terminar o expediente.',

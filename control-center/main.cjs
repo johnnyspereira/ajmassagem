@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, clipboard } = require('electron');
 const { join } = require('node:path');
+const { readFileSync } = require('node:fs');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const execFileAsync = promisify(execFile);
@@ -10,6 +11,7 @@ let windowRef;
 let timer;
 let pendingAction = Promise.resolve();
 const supervisor = new Supervisor();
+const packageInfo = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
 
 function createWindow() {
   windowRef = new BrowserWindow({
@@ -78,6 +80,12 @@ if (ownsInstance) app.whenReady().then(() => {
         else if (action === 'clear-logs') output = supervisor.clearView();
         else if (action === 'open-crm') { await shell.openExternal(crmUrl(supervisor.rootEnv.NEXT_PUBLIC_APP_URL || supervisor.rootEnv.NEXT_PUBLIC_SITE_URL,id)); output={message:'Área do CRM aberta no navegador.'}; }
         else if (action === 'copy-diagnostics') { clipboard.writeText(JSON.stringify(await supervisor.snapshot(),null,2)); output={message:'Diagnóstico copiado, sem QR nem credenciais.'}; }
+        else if (action === 'check-update') {
+          const response = await fetch('https://api.github.com/repos/johnnyspereira/ajmassagem/releases/latest', { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'JP-Designer-CRM-Control-Center' } });
+          if (!response.ok) throw new Error(`GitHub respondeu HTTP ${response.status}.`);
+          const release = await response.json();
+          output = { message: release.tag_name && release.tag_name !== `v${packageInfo.version}` ? `Atualização disponível: ${release.tag_name}.` : `O Control Center já está atualizado (${packageInfo.version}).`, version: packageInfo.version, latest: release.tag_name, url: release.html_url, notes: release.name || release.body || '' };
+        }
         else if (action === 'setup') {
           const script = join(__dirname, '..', 'scripts', 'install-transfer-final.ps1');
           let ollama = 'não encontrado';
