@@ -24,7 +24,7 @@
         <button class="nav" data-view="diagnostics" title="Diagnóstico"><span class="nav-icon" data-icon="pulse"></span><span>Diagnóstico</span></button>
         <button class="nav" data-view="system" title="Recursos do portátil"><span class="nav-icon" data-icon="monitor"></span><span>Recursos do portátil</span></button>
         <button class="nav" data-view="logs" title="Registos"><span class="nav-icon" data-icon="list"></span><span>Registos</span></button>
-        <button class="nav" data-view="settings" title="Configurações"><span class="nav-icon" data-icon="monitor"></span><span>Configurações</span></button>
+        <button class="nav" data-view="system" title="Configurações"><span class="nav-icon" data-icon="monitor"></span><span>Configurações</span></button>
         <div class="sidebar-note"><span class="small-dot"></span><div><b>Monitorização leve</b><p>A cada 10 s. Pausa quando minimiza este painel.</p></div></div>
       </nav>
       <main class="main-content">
@@ -41,6 +41,7 @@
   </script>
   <script src="./renderer.js"></script>
   <script>
+    system = settings;
     const savedTheme = localStorage.getItem('jp-control-theme');
     if (savedTheme === 'light') document.body.classList.add('light-theme');
     document.getElementById('toggle-theme').addEventListener('click', () => {
