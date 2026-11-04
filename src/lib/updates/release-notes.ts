@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-reports-benefit-values', date: '2026-11-04', category: 'Melhoria',
+    title: 'Relatórios distinguem valor original e valor pago dos benefícios', areas: ['Relatórios', 'Financeiro', 'Vouchers', 'Packs'],
+    summary: 'Os cartões de Vouchers e Packs passam a explicar claramente se o valor apresentado é referência original ou montante pago apurado.',
+    changes: ['Vouchers mostram o saldo atual e, no detalhe, o valor original e o valor pago registado.', 'Packs mostram sessões utilizadas e os valores original e pago quando ligados a uma venda.', 'Quando não existe pagamento associado, o valor pago aparece como zero em vez de ser confundido com o preço do catálogo.'],
+    howTo: 'Abra Relatórios → Crescimento e consulte os cartões Vouchers e Packs. O detalhe de cada cartão indica “original” e “pago”.'
+  },
+  {
     id: '2026-11-04-portal-anamnesis-cancelled', date: '2026-11-04', category: 'Correção',
     title: 'Anamneses canceladas aparecem corretamente no Portal', areas: ['Portal', 'Anamnese'],
     summary: 'Fichas pendentes de atendimentos cancelados, faltas ou sessões concluídas passam a ser identificadas como canceladas.',

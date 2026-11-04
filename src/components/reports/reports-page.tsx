@@ -1075,6 +1075,21 @@ export function ReportsPage() {
     const voucherBalance = data.vouchers
       .filter((voucher) => voucher.status === 'active')
       .reduce((sum, voucher) => sum + numberValue(voucher.current_balance), 0);
+    const voucherOriginalValue = data.vouchers
+      .filter((voucher) => voucher.status === 'active')
+      .reduce((sum, voucher) => sum + numberValue(voucher.initial_balance), 0);
+    const voucherPaidValue = data.vouchers
+      .filter((voucher) => voucher.status === 'active')
+      .reduce((sum, voucher) => sum + numberValue(voucher.paid_amount), 0);
+    const packOriginalValue = data.packs
+      .filter((pack) => pack.status === 'active')
+      .reduce((sum, pack) => sum + numberValue(pack.pack?.price), 0);
+    const packPaidValue = data.packs
+      .filter((pack) => pack.status === 'active')
+      .reduce((sum, pack) => {
+        const sale = pack.sale_id ? data.sales.find((item) => item.id === pack.sale_id) : null;
+        return sum + numberValue(sale?.paid_amount);
+      }, 0);
     const walletBalance = data.wallets.reduce(
       (sum, wallet) => sum + numberValue(wallet.balance),
       0
@@ -1188,6 +1203,10 @@ export function ReportsPage() {
       daily: Array.from(dayMap.values()),
       packTotals,
       voucherBalance,
+      voucherOriginalValue,
+      voucherPaidValue,
+      packOriginalValue,
+      packPaidValue,
       walletBalance,
       workStats: Array.from(workByUser.values()).sort(
         (a, b) => b.minutes - a.minutes
@@ -2474,14 +2493,14 @@ export function ReportsPage() {
                   analytics.voucherBalance,
                   defaultCurrency
                 )}
-                detail={`${data.vouchers.filter((item) => item.status === 'active').length} ativos`}
+                detail={`${data.vouchers.filter((item) => item.status === 'active').length} ativos · original ${formatCurrency(analytics.voucherOriginalValue, defaultCurrency)} · pago ${formatCurrency(analytics.voucherPaidValue, defaultCurrency)}`}
                 href="/finance?tab=vouchers"
                 icon={Gift}
               />
               <BenefitInventory
                 title="Packs"
                 value={`${analytics.packTotals.remaining} sessões`}
-                detail={`${analytics.packTotals.used} utilizadas de ${analytics.packTotals.purchased}`}
+                detail={`${analytics.packTotals.used} utilizadas de ${analytics.packTotals.purchased} · original ${formatCurrency(analytics.packOriginalValue, defaultCurrency)} · pago ${formatCurrency(analytics.packPaidValue, defaultCurrency)}`}
                 href="/finance?tab=packs"
                 icon={PackageCheck}
               />
