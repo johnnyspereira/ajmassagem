@@ -49,10 +49,17 @@ Write-Host 'A instalar dependências do Control Center...'
 Install-Dependencies $localRoot
 Write-Host 'A instalar dependências do Worker WhatsApp...'
 Install-Dependencies (Join-Path $localRoot 'workers\whatsapp-bridge')
+$requiredWorkerFiles = @('server.cjs','reaction-target.cjs','media-download.cjs','incoming-delivery.cjs')
+foreach ($required in $requiredWorkerFiles) {
+  if (-not (Test-Path (Join-Path $localRoot "workers\whatsapp-bridge\$required"))) { throw "Ficheiro obrigatório ausente no Worker: $required" }
+}
 Push-Location (Join-Path $localRoot 'workers\whatsapp-bridge')
 try {
+  $chromeDir = Join-Path $env:PUPPETEER_CACHE_DIR 'chrome'
+  if (Test-Path $chromeDir) { Get-ChildItem $chromeDir -Directory | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue }
   Write-Host 'A instalar o Chrome usado pelo Puppeteer...'
-  & npx.cmd --yes puppeteer browsers install chrome@stable
+  $puppeteerCli = Join-Path (Get-Location) 'node_modules\puppeteer\lib\cjs\puppeteer\node\cli.js'
+  & node $puppeteerCli browsers install chrome@stable
   if ($LASTEXITCODE -ne 0) { throw "Não foi possível instalar o Chrome do Puppeteer (código $LASTEXITCODE)." }
 } finally { Pop-Location }
 @"
