@@ -127,7 +127,7 @@ if (ownsInstance) app.whenReady().then(() => {
           child.unref();
           output = { message: 'Atualização iniciada. O painel vai fechar e reabrir após concluir.', log };
           // Dá tempo ao processo externo para iniciar antes de libertar a janela.
-          setTimeout(() => app.quit(), 7000);
+          // O utilizador reinicia pelo botão do modal depois de confirmar que a preparação terminou.
         }
         else if (action === 'setup') {
           const script = join(__dirname, '..', 'scripts', 'install-transfer-final.ps1');
