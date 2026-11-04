@@ -123,9 +123,10 @@ if (ownsInstance) app.whenReady().then(() => {
           const log = join(app.getPath('temp'),'jp-designer-crm-update.log');
           require('node:fs').writeFileSync(log, `Início da atualização ${new Date().toISOString()}\nScript: ${script}\nPacote: ${zip}\n`);
           const consoleLog = join(app.getPath('temp'),'jp-designer-crm-updater-console.log');
-          const logHandle = require('node:fs').openSync(consoleLog, 'a');
-          const child = require('node:child_process').spawn('powershell.exe', ['-NoProfile','-ExecutionPolicy','Bypass','-File',script,'-ZipPath',zip,'-InstallRoot',installRoot], { detached:true, windowsHide:true, stdio:['ignore',logHandle,logHandle], cwd:installRoot });
-          child.unref();
+          const runAt = new Date(Date.now()+60000); const hh = String(runAt.getHours()).padStart(2,'0'); const mm = String(runAt.getMinutes()).padStart(2,'0');
+          const taskCommand = `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${script}" -ZipPath "${zip}" -InstallRoot "${installRoot}"`;
+          await execFileAsync('schtasks.exe', ['/Create','/TN','JP Designer CRM Updater','/SC','ONCE','/ST',`${hh}:${mm}`,'/TR',taskCommand,'/F'], { windowsHide:true });
+          await execFileAsync('schtasks.exe', ['/Run','/TN','JP Designer CRM Updater'], { windowsHide:true });
           output = { message: 'Atualização iniciada. Consulte o detalhe no modal. Se não avançar, veja o log técnico.', log: consoleLog };
           // Dá tempo ao processo externo para iniciar antes de libertar a janela.
           // O utilizador reinicia pelo botão do modal depois de confirmar que a preparação terminou.
