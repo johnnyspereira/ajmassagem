@@ -1,7 +1,8 @@
 {
   "name": "wacrm",
-  "version": "0.8.0",
+  "version": "0.9.2",
   "private": true,
+  "main": "control-center/main.cjs",
   "description": "Self-hosted WhatsApp CRM built on Next.js and MySQL/MariaDB.",
   "license": "MIT",
   "author": "Arnas Donauskas",
@@ -43,7 +44,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:migrate:mysql": "node scripts/mysql-migrate.mjs",
-    "db:audit:mysql": "node scripts/audit-mysql-schema.mjs"
+    "db:audit:mysql": "node scripts/audit-mysql-schema.mjs",
+    "control:center": "set ELECTRON_RUN_AS_NODE=&& electron control-center/main.cjs",
+    "control:center:build": "set ELECTRON_RUN_AS_NODE=&& electron-builder --win portable"
   },
   "dependencies": {
     "@adiwajshing/keyed-db": "^0.2.4",
@@ -89,6 +92,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "prettier": "^3.9.1",
@@ -104,5 +109,22 @@
     "hono": "^4.12.25",
     "js-yaml": "^4.2.0",
     "@babel/core": "^7.29.6"
+  },
+  "build": {
+    "appId": "pt.jpmassagem.controlcenter",
+    "productName": "JP Massagem Control Center",
+    "asar": true,
+    "npmRebuild": false,
+    "buildDependenciesFromSource": false,
+    "directories": {
+      "output": "release/control-center-v2"
+    },
+    "files": [
+      "control-center/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "portable"
+    }
   }
 }
