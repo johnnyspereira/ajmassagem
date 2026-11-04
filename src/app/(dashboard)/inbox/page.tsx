@@ -99,6 +99,7 @@ export default function InboxPage() {
    */
   const [resyncToken, setResyncToken] = useState(0);
   const [lastInboxSyncAt, setLastInboxSyncAt] = useState<Date | null>(null);
+  const [refreshingPhotos, setRefreshingPhotos] = useState(false);
 
   /**
    * Whether the desktop contact sidebar (tags / deals / notes) is shown.
@@ -645,6 +646,27 @@ export default function InboxPage() {
     }
   }, []);
 
+  const refreshWhatsAppPhotos = useCallback(async () => {
+    if (refreshingPhotos) return;
+    setRefreshingPhotos(true);
+    try {
+      const response = await fetch('/api/whatsapp/baileys/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_limit: 500, message_limit: 1 }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Não foi possível atualizar as fotos.');
+      setLastInboxSyncAt(new Date());
+      setResyncToken((n) => n + 1);
+      toast.success('Atualização das fotos iniciada para todos os contactos.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível atualizar as fotos.');
+    } finally {
+      setRefreshingPhotos(false);
+    }
+  }, [refreshingPhotos]);
+
   // Realtime is immediate when its websocket is healthy. Remote WhatsApp
   // workers may write through MySQL, however, so those writes do not always
   // produce a Supabase event. Keep a short visible-tab sync as a fallback so
@@ -983,6 +1005,12 @@ export default function InboxPage() {
                   : 'Sincronização automática ativa'}
               </span>
             </div>
+          ) : null}
+          {isOwner ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => void refreshWhatsAppPhotos()} disabled={!whatsappConnection?.connected || refreshingPhotos} title="Atualiza as fotos de todos os contactos através do WhatsApp">
+              {refreshingPhotos ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              <span className="hidden sm:inline">Atualizar fotos</span>
+            </Button>
           ) : null}
           {isOwner ? (
             <Button

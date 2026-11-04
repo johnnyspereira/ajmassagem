@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-inbox-refresh-photos', date: '2026-11-04', category: 'Melhoria',
+    title: 'Atualizar fotos de perfil de todos os contactos', areas: ['Inbox', 'WhatsApp'],
+    summary: 'O proprietário pode pedir uma sincronização geral das fotos do WhatsApp sem abrir cada conversa.',
+    changes: ['Adicionado o botão Atualizar fotos no cabeçalho do Inbox.', 'A operação usa a sessão WhatsApp ligada, preserva mensagens e atualiza a lista após a sincronização.'],
+    howTo: 'No Inbox, com o WhatsApp ligado, clique em Atualizar fotos. A sincronização é geral e pode demorar alguns segundos conforme o número de contactos.'
+  },
+  {
     id: '2026-11-04-inbox-fast-refresh', date: '2026-11-04', category: 'Melhoria',
     title: 'Inbox atualiza mensagens em poucos segundos', areas: ['Inbox', 'WhatsApp'],
     summary: 'Além do Realtime, o Inbox verifica a sessão ligada em segundo plano enquanto a página está visível, incluindo mensagens recebidas pelo worker remoto.',
