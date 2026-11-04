@@ -33,7 +33,7 @@ if (-not (($userPath -split ';') -contains $toolsPath)) {
 $env:Path = "$toolsPath;$env:Path"
 # Evita reutilizar caches incompletas após uma instalação interrompida.
 # Uma pasta nova por tentativa também não interfere com processos antigos.
-$env:PUPPETEER_CACHE_DIR = Join-Path $localRoot ('.puppeteer-cache-' + [guid]::NewGuid().ToString('N'))
+$env:PUPPETEER_CACHE_DIR = Join-Path $env:USERPROFILE '.cache\puppeteer'
 if (-not (Test-Path $env:PUPPETEER_CACHE_DIR)) { New-Item -ItemType Directory -Force -Path $env:PUPPETEER_CACHE_DIR | Out-Null }
 function Install-Dependencies([string]$path) {
   Push-Location $path
@@ -49,6 +49,12 @@ Write-Host 'A instalar dependências do Control Center...'
 Install-Dependencies $localRoot
 Write-Host 'A instalar dependências do Worker WhatsApp...'
 Install-Dependencies (Join-Path $localRoot 'workers\whatsapp-bridge')
+Push-Location (Join-Path $localRoot 'workers\whatsapp-bridge')
+try {
+  Write-Host 'A instalar o Chrome usado pelo Puppeteer...'
+  & npx.cmd puppeteer browsers install chrome
+  if ($LASTEXITCODE -ne 0) { throw "Não foi possível instalar o Chrome do Puppeteer (código $LASTEXITCODE)." }
+} finally { Pop-Location }
 @"
 @echo off
 set "JP_MASSAGEM_PROJECT_DIR=$localRoot"
