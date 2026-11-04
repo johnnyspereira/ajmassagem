@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-control-center-inline-scripts', date: '2026-11-04', category: 'Correção',
+    title: 'Inicialização da interface desbloqueada', areas: ['Control Center', 'Interface'],
+    summary: 'A política local do painel estava a bloquear o tema, a marca e a página de configurações.',
+    changes: ['Os scripts de inicialização do painel passam a executar corretamente.', 'Tema, nome da empresa e Configurações ficam ativos ao abrir o Control Center.'],
+    howTo: 'Atualize a instalação e abra novamente o Control Center.'
+  },
+  {
     id: '2026-11-04-control-center-theme', date: '2026-11-04', category: 'Correção',
     title: 'Tema claro, escuro e automático corrigido', areas: ['Control Center', 'Interface'],
     summary: 'O seletor de tema passa a alterar todos os painéis e pode seguir automaticamente o tema do Windows.',
