@@ -58,6 +58,11 @@ if (ownsInstance) app.whenReady().then(() => {
   createWindow();
   windowRef.on('restore', broadcastSnapshot);
   ipcMain.handle('control:snapshot', () => supervisor.snapshot());
+  ipcMain.handle('control:config', () => ({
+    brandName: supervisor.rootEnv.CRM_BRAND_NAME || 'Johnny Pereira - JP Designer CRM',
+    brandShortName: supervisor.rootEnv.CRM_BRAND_SHORT_NAME || 'JP Designer CRM',
+    supportEmail: supervisor.rootEnv.CRM_SUPPORT_EMAIL || '',
+  }));
   ipcMain.handle('control:action', (event, action, id) => {
     if (event.sender !== windowRef?.webContents) throw new Error('Janela não autorizada.');
     const result = pendingAction.then(async () => {

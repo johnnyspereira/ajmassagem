@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-control-center-brand-config', date: '2026-11-04', category: 'Melhoria',
+    title: 'Marca do Control Center configurável pelo ambiente', areas: ['Control Center', 'Configuração'],
+    summary: 'O nome apresentado no Control Center passa a vir do .env do CRM, permitindo reutilizar o sistema para diferentes empresas.',
+    changes: ['CRM_BRAND_NAME define o nome completo apresentado.', 'CRM_BRAND_SHORT_NAME pode ser usado como nome curto do produto.', 'CRM_SUPPORT_EMAIL fica disponível para futuras mensagens de suporte.'],
+    howTo: 'Adicione as variáveis ao .env antes de instalar: CRM_BRAND_NAME="Johnny Pereira - JP Designer CRM" e CRM_BRAND_SHORT_NAME="JP Designer CRM". Reinicie o Control Center.'
+  },
+  {
     id: '2026-11-04-control-center-update-check', date: '2026-11-04', category: 'Novidade',
     title: 'Control Center verifica versões no GitHub', areas: ['Workers', 'Control Center', 'Atualizações'],
     summary: 'O painel pode consultar a release mais recente do JP Designer CRM sem alterar ficheiros locais.',

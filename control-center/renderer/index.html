@@ -10,7 +10,7 @@
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <div class="brand"><strong>JP Massagem</strong><span>Centro de controlo</span></div>
+      <div class="brand"><strong id="brand-name">JP Designer CRM</strong><span id="brand-subtitle">Centro de controlo</span></div>
       <span id="overall-status" class="system-status" aria-live="polite">A verificar serviços…</span>
       <div class="clock"><span id="today"></span><b id="time"></b><small>Lisboa</small></div>
       <div class="top-actions"><button data-action="open-crm" data-id="home">Abrir CRM</button><button data-action="refresh" class="icon-button" aria-label="Atualizar estado" title="Atualizar estado"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 2M4 16l2 2a7 7 0 0 0 12-1"/></svg></button></div>
@@ -36,5 +36,12 @@
   <dialog id="confirm-dialog" class="modal"><form method="dialog"><h2 id="confirm-title">Confirmar ação</h2><p id="confirm-copy"></p><div class="modal-actions"><button value="cancel">Cancelar</button><button value="confirm" class="primary">Confirmar</button></div></form></dialog>
   <dialog id="qr-dialog" class="modal qr-modal"><h2>Ligar o WhatsApp</h2><p>Abra WhatsApp no telemóvel → Dispositivos associados → Associar dispositivo.</p><img id="qr-image" alt="QR de ligação ao WhatsApp" /><p>O QR é temporário. Se expirar, feche esta janela e consulte novamente.</p><form method="dialog"><button class="primary">Concluir</button></form></dialog>
   <script src="./renderer.js"></script>
+  <script>
+    window.controlCenter.config().then((config) => {
+      if (!config) return;
+      document.getElementById('brand-name').textContent = config.brandName;
+      document.title = config.brandName + ' — Control Center';
+    }).catch(() => {});
+  </script>
 </body>
 </html>

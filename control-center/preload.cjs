@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('controlCenter', {
   snapshot: () => ipcRenderer.invoke('control:snapshot'),
+  config: () => ipcRenderer.invoke('control:config'),
   action: (action, id) => ipcRenderer.invoke('control:action', action, id),
   openLogs: () => ipcRenderer.invoke('control:open-logs'),
   export: () => ipcRenderer.invoke('control:export'),
