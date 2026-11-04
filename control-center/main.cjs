@@ -97,6 +97,10 @@ if (ownsInstance) app.whenReady().then(() => {
             if (!tagsResponse.ok) throw new Error(`GitHub respondeu HTTP ${tagsResponse.status}.`);
             const tags = (await tagsResponse.json()).sort((a,b) => String(b.name||'').localeCompare(String(a.name||''), undefined, {numeric:true}));
             release = { tag_name: tags[0]?.name, html_url: `https://github.com/johnnyspereira/ajmassagem/releases/tag/${tags[0]?.name || ''}`, name: 'Tag publicada (release ainda não criada)' };
+          } else if (response.status === 403) {
+            const raw = await fetch('https://raw.githubusercontent.com/johnnyspereira/ajmassagem/main/package.json', { headers: { 'User-Agent': 'JP-Designer-CRM-Control-Center' } });
+            if (!raw.ok) throw new Error(`GitHub respondeu HTTP ${response.status}.`);
+            const pkg = await raw.json(); release = { tag_name: `v${pkg.version}`, html_url: 'https://github.com/johnnyspereira/ajmassagem', name: 'Versão publicada no GitHub' };
           } else throw new Error(`GitHub respondeu HTTP ${response.status}.`);
           const cur = packageInfo.version.split('.').map(Number); const rem = String(release.tag_name||'').replace(/^v/,'').split('.').map(Number); const newer = rem.length===3 && (rem[0]>cur[0] || rem[0]===cur[0] && (rem[1]>cur[1] || rem[1]===cur[1] && rem[2]>cur[2]));
           output = { message: newer ? `Atualização disponível: ${release.tag_name}.` : `O Control Center já está atualizado (${packageInfo.version}).`, version: packageInfo.version, latest: release.tag_name, url: release.html_url, notes: release.name || release.body || '' };
