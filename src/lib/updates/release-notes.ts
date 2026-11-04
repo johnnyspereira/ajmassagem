@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-control-center-093', date: '2026-11-04', category: 'Melhoria',
+    title: 'Control Center 0.9.3', areas: ['Control Center', 'Interface', 'Atualizações'],
+    summary: 'Nova versão visual do painel, preparada para validação do atualizador via GitHub.',
+    changes: ['Identidade visual com fundo atmosférico e cartões com profundidade.', 'Ícone da marca com interação subtil.', 'Versão publicada como v0.9.3 para testar o ciclo de atualização.'],
+    howTo: 'No Control Center, verifique a versão, baixe a v0.9.3 e instale-a. O painel deve reiniciar automaticamente.'
+  },
+  {
     id: '2026-11-04-control-center-auto-install', date: '2026-11-04', category: 'Novidade',
     title: 'Atualização automática pelo GitHub', areas: ['Control Center', 'Atualizações'],
     summary: 'Depois de baixar uma versão, o painel pode aplicar os ficheiros, reiniciar e voltar a abrir automaticamente.',
