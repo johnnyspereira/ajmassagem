@@ -1,5 +1,8 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, clipboard } = require('electron');
 const { join } = require('node:path');
+const { execFile } = require('node:child_process');
+const { promisify } = require('node:util');
+const execFileAsync = promisify(execFile);
 const { Supervisor, LOG_DIR } = require('./supervisor.cjs');
 const { crmUrl } = require('./diagnostics.cjs');
 
@@ -75,6 +78,16 @@ if (ownsInstance) app.whenReady().then(() => {
         else if (action === 'clear-logs') output = supervisor.clearView();
         else if (action === 'open-crm') { await shell.openExternal(crmUrl(supervisor.rootEnv.NEXT_PUBLIC_APP_URL || supervisor.rootEnv.NEXT_PUBLIC_SITE_URL,id)); output={message:'Área do CRM aberta no navegador.'}; }
         else if (action === 'copy-diagnostics') { clipboard.writeText(JSON.stringify(await supervisor.snapshot(),null,2)); output={message:'Diagnóstico copiado, sem QR nem credenciais.'}; }
+        else if (action === 'setup') {
+          const script = join(supervisor.root, 'scripts', 'install-transfer-final.ps1');
+          const result = await execFileAsync('powershell.exe', ['-NoProfile','-ExecutionPolicy','Bypass','-File',script], { windowsHide:true, timeout: 15 * 60 * 1000, maxBuffer: 2 * 1024 * 1024 });
+          output = { message: 'Instalação e configuração concluídas. Reinicie o Control Center para aplicar tudo.', detail: result.stdout.slice(-2000) };
+        }
+        else if (action === 'end-shift') {
+          await supervisor.stopAll();
+          await execFileAsync('shutdown.exe', ['/s','/t','30','/c','JP Designer CRM: expediente encerrado.'], { windowsHide:true });
+          output = { message: 'Workers encerrados. O portátil será desligado em 30 segundos.' };
+        }
         else if (action === 'quit') { app.quit(); return {ok:true}; }
         else throw new Error('Ação não suportada.');
         return { ok:true, result:output, snapshot:await supervisor.refresh() };

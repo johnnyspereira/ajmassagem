@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-control-center-actions', date: '2026-11-04', category: 'Novidade',
+    title: 'Control Center com instalação e encerramento do expediente', areas: ['Workers', 'Control Center'],
+    summary: 'O painel passou a oferecer ações diretas para configurar o portátil e terminar o expediente.',
+    changes: ['Instalar/configurar executa o instalador local sem abrir uma janela de terminal.', 'Encerrar expediente para os Workers e agenda o desligamento do portátil após 30 segundos.'],
+    howTo: 'Use os botões no rodapé do Control Center. Confirme que não existem envios ou tarefas em andamento antes de encerrar o expediente.'
+  },
+  {
     id: '2026-11-04-worker-desktop-shortcut', date: '2026-11-04', category: 'Melhoria',
     title: 'Atalho do Control Center criado automaticamente', areas: ['Workers', 'Control Center'],
     summary: 'A instalação do novo portátil passa a criar um atalho no Ambiente de Trabalho.',
