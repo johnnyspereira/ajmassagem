@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-control-center-theme', date: '2026-11-04', category: 'Correção',
+    title: 'Tema claro, escuro e automático corrigido', areas: ['Control Center', 'Interface'],
+    summary: 'O seletor de tema passa a alterar todos os painéis e pode seguir automaticamente o tema do Windows.',
+    changes: ['O botão alterna entre tema claro, escuro e sistema.', 'Os fundos e cartões deixam de ficar presos ao tema escuro.', 'A preferência fica guardada localmente.'],
+    howTo: 'Clique no botão ◐ no topo. O terceiro estado usa automaticamente o tema definido no sistema operativo.'
+  },
+  {
     id: '2026-11-04-control-center-settings', date: '2026-11-04', category: 'Melhoria',
     title: 'Configurações e reinício do Control Center', areas: ['Control Center'],
     summary: 'A área de configurações passou a ser uma página própria, com versão instalada e reinício após atualização.',

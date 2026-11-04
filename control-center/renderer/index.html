@@ -42,11 +42,17 @@
   <script src="./renderer.js"></script>
   <script>
     system = settings;
-    const savedTheme = localStorage.getItem('jp-control-theme');
-    if (savedTheme === 'light') document.body.classList.add('light-theme');
+    const savedTheme = localStorage.getItem('jp-control-theme') || 'system';
+    const applyTheme = (mode) => {
+      const light = mode === 'light' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: light)').matches);
+      document.body.classList.toggle('light-theme', light);
+      document.getElementById('toggle-theme').title = mode === 'system' ? 'Tema do sistema' : light ? 'Tema claro' : 'Tema escuro';
+    };
+    applyTheme(savedTheme);
     document.getElementById('toggle-theme').addEventListener('click', () => {
-      document.body.classList.toggle('light-theme');
-      localStorage.setItem('jp-control-theme', document.body.classList.contains('light-theme') ? 'light' : 'dark');
+      const next = savedTheme === 'system' ? 'light' : savedTheme === 'light' ? 'dark' : 'system';
+      localStorage.setItem('jp-control-theme', next);
+      window.location.reload();
     });
     window.controlCenter.config().then((config) => {
       if (!config) return;
