@@ -10,6 +10,7 @@ const { crmUrl } = require('./diagnostics.cjs');
 let windowRef;
 let timer;
 let pendingAction = Promise.resolve();
+let updateChecked = false;
 const supervisor = new Supervisor();
 const packageInfo = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
 
@@ -98,6 +99,18 @@ if (ownsInstance) app.whenReady().then(() => {
             release = { tag_name: tags[0]?.name, html_url: `https://github.com/johnnyspereira/ajmassagem/releases/tag/${tags[0]?.name || ''}`, name: 'Tag publicada (release ainda não criada)' };
           } else throw new Error(`GitHub respondeu HTTP ${response.status}.`);
           output = { message: release.tag_name && release.tag_name !== `v${packageInfo.version}` ? `Atualização disponível: ${release.tag_name}.` : `O Control Center já está atualizado (${packageInfo.version}).`, version: packageInfo.version, latest: release.tag_name, url: release.html_url, notes: release.name || release.body || '' };
+        }
+        else if (action === 'download-update') {
+          const response = await fetch('https://github.com/johnnyspereira/ajmassagem/archive/refs/heads/main.zip', { headers: { 'User-Agent': 'JP-Designer-CRM-Control-Center' } });
+          if (!response.ok) throw new Error(`GitHub respondeu HTTP ${response.status}.`);
+          const target = join(app.getPath('downloads'), 'jp-designer-crm-main.zip');
+          require('node:fs').writeFileSync(target, Buffer.from(await response.arrayBuffer()));
+          updateChecked = true;
+          output = { message: `Atualização baixada para ${target}.`, path: target };
+        }
+        else if (action === 'install-update') {
+          if (!updateChecked) throw new Error('Baixe primeiro a atualização pelo GitHub.');
+          output = { message: 'Atualização baixada. Feche o painel, substitua os ficheiros pelo pacote baixado e reinicie.' };
         }
         else if (action === 'setup') {
           const script = join(__dirname, '..', 'scripts', 'install-transfer-final.ps1');
