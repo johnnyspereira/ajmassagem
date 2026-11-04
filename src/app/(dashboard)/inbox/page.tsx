@@ -697,7 +697,10 @@ export default function InboxPage() {
       }
     };
     const initialTimer = window.setTimeout(runWhenVisible, 1_500);
-    const interval = window.setInterval(runWhenVisible, 10_000);
+    // The remote bridge writes through MySQL and cannot emit a browser
+    // Realtime event. Three seconds keeps the Inbox feeling live while the
+    // in-flight guard prevents overlapping worker requests.
+    const interval = window.setInterval(runWhenVisible, 3_000);
 
     return () => {
       window.clearTimeout(initialTimer);

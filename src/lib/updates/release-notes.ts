@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-inbox-remote-worker-sync', date: '2026-11-04', category: 'Correção',
+    title: 'Atualização mais rápida com worker remoto', areas: ['Inbox', 'WhatsApp'],
+    summary: 'O Inbox verifica a sessão remota a cada três segundos enquanto está visível, reduzindo o atraso de mensagens e avatares que não passam pelo Realtime.',
+    changes: ['O fallback do worker remoto passou de dez para três segundos.', 'Os pedidos continuam protegidos contra sobreposição e não são executados em abas ocultas.'],
+    howTo: 'Deixe o Inbox aberto e o WhatsApp ligado. A foto só aparece quando o WhatsApp permite obtê-la; use Atualizar fotos para repetir a consulta geral.'
+  },
+  {
     id: '2026-11-04-inbox-mark-all-read', date: '2026-11-04', category: 'Melhoria',
     title: 'Marcar todas as conversas como lidas', areas: ['Inbox', 'WhatsApp'],
     summary: 'O proprietário pode limpar de uma vez as pendências de leitura no CRM.',
