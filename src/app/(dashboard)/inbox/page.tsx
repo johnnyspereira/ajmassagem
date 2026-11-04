@@ -645,9 +645,10 @@ export default function InboxPage() {
     }
   }, []);
 
-  // Realtime is immediate when its websocket is healthy, but it cannot
-  // recover messages that arrive while the browser/connection misses an
-  // event. Pull a short recent window every minute as a reliable fallback.
+  // Realtime is immediate when its websocket is healthy. Remote WhatsApp
+  // workers may write through MySQL, however, so those writes do not always
+  // produce a Supabase event. Keep a short visible-tab sync as a fallback so
+  // the Inbox updates within seconds instead of waiting for a manual click.
   // Do nothing in a background tab: the next visibility event already
   // triggers an immediate resync, while avoiding needless worker traffic.
   useEffect(() => {
@@ -658,8 +659,8 @@ export default function InboxPage() {
         void syncInboxFromWhatsApp();
       }
     };
-    const initialTimer = window.setTimeout(runWhenVisible, 5_000);
-    const interval = window.setInterval(runWhenVisible, 60_000);
+    const initialTimer = window.setTimeout(runWhenVisible, 1_500);
+    const interval = window.setInterval(runWhenVisible, 10_000);
 
     return () => {
       window.clearTimeout(initialTimer);

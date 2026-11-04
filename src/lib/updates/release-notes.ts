@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-inbox-fast-refresh', date: '2026-11-04', category: 'Melhoria',
+    title: 'Inbox atualiza mensagens em poucos segundos', areas: ['Inbox', 'WhatsApp'],
+    summary: 'Além do Realtime, o Inbox verifica a sessão ligada em segundo plano enquanto a página está visível, incluindo mensagens recebidas pelo worker remoto.',
+    changes: ['A sincronização de fallback passa a iniciar rapidamente e repete-se a cada 10 segundos apenas no separador visível.', 'A ligação Realtime continua a ser usada quando disponível; o fallback cobre escritas do worker remoto que não geram evento no browser.'],
+    howTo: 'Mantenha o Inbox aberto para acompanhar novas mensagens. Não é necessário clicar em Sincronizar conversa; ao voltar ao separador, a atualização é disparada novamente.'
+  },
+  {
     id: '2026-11-04-campaign-management-cleanup', date: '2026-11-04', category: 'Melhoria',
     title: 'Campanhas mais organizadas e relatório de acessos separado', areas: ['Campanhas', 'Relatórios', 'Portal'],
     summary: 'A gestão de campanhas ficou dedicada às ofertas, com filtros e estados para controlar o que fica publicado. Os acessos foram movidos para Relatórios 360.',
