@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-transfer-installer-local', date: '2026-11-04', category: 'Correção',
+    title: 'Instalação dos Workers agora usa sempre o disco local', areas: ['Workers', 'Control Center'],
+    summary: 'O instalador copia a aplicação para Documentos antes de executar o npm, evitando falhas de Electron, Puppeteer e caminhos UNC.',
+    changes: ['Dependências são instaladas apenas na cópia local.', 'O launcher é recriado com o caminho local correto.', 'A instalação interrompe-se com uma mensagem clara se a cópia estiver incompleta.'],
+    howTo: 'Execute o install-transfer-final.ps1 a partir da pasta partilhada e abra o start-control-center.cmd dentro de Documentos → JP-Massagem-Workers.'
+  },
+  {
     id: '2026-11-04-voucher-filters-order', date: '2026-11-04', category: 'Melhoria',
     title: 'Vouchers disponíveis aparecem primeiro', areas: ['Financeiro', 'Vouchers'],
     summary: 'O filtro de vouchers foi reorganizado para destacar primeiro os benefícios que ainda podem ser utilizados.',
