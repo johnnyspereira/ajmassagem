@@ -13,7 +13,7 @@
       <div class="brand"><strong id="brand-name">JP Designer CRM</strong><span id="brand-subtitle">Centro de controlo</span></div>
       <span id="overall-status" class="system-status" aria-live="polite">A verificar serviços…</span>
       <div class="clock"><span id="today"></span><b id="time"></b><small>Lisboa</small></div>
-      <div class="top-actions"><button data-action="open-crm" data-id="home">Abrir CRM</button><button data-action="refresh" class="icon-button" aria-label="Atualizar estado" title="Atualizar estado"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 2M4 16l2 2a7 7 0 0 0 12-1"/></svg></button></div>
+      <div class="top-actions"><button data-action="check-update">Atualizar</button><button data-action="setup">Instalar/configurar</button><button data-action="end-shift" class="danger">Encerrar expediente</button><button data-action="open-crm" data-id="home">Abrir CRM</button><button id="toggle-theme" class="icon-button" aria-label="Alternar tema" title="Alternar tema">◐</button><button data-action="refresh" class="icon-button" aria-label="Atualizar estado" title="Atualizar estado"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 2M4 16l2 2a7 7 0 0 0 12-1"/></svg></button></div>
     </header>
     <div class="app-layout">
       <nav class="sidebar" aria-label="Áreas do centro de controlo">
@@ -24,6 +24,7 @@
         <button class="nav" data-view="diagnostics" title="Diagnóstico"><span class="nav-icon" data-icon="pulse"></span><span>Diagnóstico</span></button>
         <button class="nav" data-view="system" title="Recursos do portátil"><span class="nav-icon" data-icon="monitor"></span><span>Recursos do portátil</span></button>
         <button class="nav" data-view="logs" title="Registos"><span class="nav-icon" data-icon="list"></span><span>Registos</span></button>
+        <button class="nav" data-view="system" title="Configurações e recursos"><span class="nav-icon" data-icon="monitor"></span><span>Configurações</span></button>
         <div class="sidebar-note"><span class="small-dot"></span><div><b>Monitorização leve</b><p>A cada 10 s. Pausa quando minimiza este painel.</p></div></div>
       </nav>
       <main class="main-content">
@@ -31,12 +32,20 @@
         <section id="workspace"><div class="initial-state"><h1>A verificar o seu espaço de trabalho…</h1><p>Os serviços são consultados sem abrir terminais.</p></div></section>
       </main>
     </div>
-    <footer class="app-footer"><span id="last-check">A preparar a primeira verificação…</span><span>Fechar o painel mantém os serviços em execução.</span><span class="footer-actions"><button data-action="check-update">Verificar atualizações</button><button data-action="setup">Instalar/configurar</button><button data-action="end-shift" class="danger">Encerrar expediente</button></span></footer>
+    <footer class="app-footer"><span id="last-check">A preparar a primeira verificação…</span><span>Fechar o painel mantém os serviços em execução.</span></footer>
   </div>
   <dialog id="confirm-dialog" class="modal"><form method="dialog"><h2 id="confirm-title">Confirmar ação</h2><p id="confirm-copy"></p><div class="modal-actions"><button value="cancel">Cancelar</button><button value="confirm" class="primary">Confirmar</button></div></form></dialog>
   <dialog id="qr-dialog" class="modal qr-modal"><h2>Ligar o WhatsApp</h2><p>Abra WhatsApp no telemóvel → Dispositivos associados → Associar dispositivo.</p><img id="qr-image" alt="QR de ligação ao WhatsApp" /><p>O QR é temporário. Se expirar, feche esta janela e consulte novamente.</p><form method="dialog"><button class="primary">Concluir</button></form></dialog>
   <script src="./renderer.js"></script>
   <script>
+    const originalSystemView = system;
+    system = function settingsView(){ return head('Configurações','Centralize marca, atualizações, serviços e manutenção do portátil.') + `<div class="settings-grid"><section class="setting-card"><h2>Identidade do sistema</h2><p>O nome e o suporte vêm do ficheiro .env do CRM.</p><code>CRM_BRAND_NAME<br>CRM_BRAND_SHORT_NAME<br>CRM_SUPPORT_EMAIL</code><p>Reinicie o painel depois de alterar.</p></section><section class="setting-card"><h2>Serviços e ligações</h2><p>Abra cada área para gerir WhatsApp, IA e túneis. O diagnóstico confirma se a ligação local e externa está saudável.</p><div class="button-row">${openView('whatsapp','WhatsApp')}${openView('ai-worker','IA local')}${openView('ai-tunnel','Túneis')}</div></section><section class="setting-card"><h2>Atualizações</h2><p>Procure a versão mais recente e execute a instalação sem abrir terminais.</p><div class="button-row">${button('check-update','Verificar atualizações',{primary:true})}${button('setup','Instalar/configurar')}</div></section><section class="setting-card"><h2>Encerramento seguro</h2><p>Encerra os serviços e desliga o computador após confirmação.</p>${button('end-shift','Encerrar expediente',{danger:true})}</section></div>`; };
+    const savedTheme = localStorage.getItem('jp-control-theme');
+    if (savedTheme === 'light') document.body.classList.add('light-theme');
+    document.getElementById('toggle-theme').addEventListener('click', () => {
+      document.body.classList.toggle('light-theme');
+      localStorage.setItem('jp-control-theme', document.body.classList.contains('light-theme') ? 'light' : 'dark');
+    });
     window.controlCenter.config().then((config) => {
       if (!config) return;
       document.getElementById('brand-name').textContent = config.brandName;

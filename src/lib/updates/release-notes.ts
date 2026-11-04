@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-control-center-interface', date: '2026-11-04', category: 'Melhoria',
+    title: 'Nova interface do Control Center', areas: ['Control Center', 'Configuração'],
+    summary: 'As ações principais passaram para o topo, com tema claro/escuro e uma área dedicada de configurações.',
+    changes: ['O tema pode ser alternado pelo botão ◐ e fica guardado neste computador.', 'Atualizar, Instalar/configurar e Encerrar expediente ficam sempre acessíveis no topo.', 'A área Configurações reúne identidade, serviços, atualizações e manutenção.'],
+    howTo: 'Abra Configurações na barra lateral. Use ◐ no topo para alternar entre tema escuro e claro.'
+  },
+  {
     id: '2026-11-04-control-center-brand-config', date: '2026-11-04', category: 'Melhoria',
     title: 'Marca do Control Center configurável pelo ambiente', areas: ['Control Center', 'Configuração'],
     summary: 'O nome apresentado no Control Center passa a vir do .env do CRM, permitindo reutilizar o sistema para diferentes empresas.',
