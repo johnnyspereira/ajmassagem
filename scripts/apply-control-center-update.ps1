@@ -1,5 +1,7 @@
 param([Parameter(Mandatory=$true)][string]$ZipPath,[Parameter(Mandatory=$true)][string]$InstallRoot)
 $ErrorActionPreference='Stop'
+$log=Join-Path $env:TEMP 'jp-designer-crm-update.log'
+Start-Transcript -Path $log -Append | Out-Null
 $stage=Join-Path $env:TEMP 'jp-designer-crm-update-stage'
 if(Test-Path $stage){Remove-Item $stage -Recurse -Force}
 Expand-Archive -LiteralPath $ZipPath -DestinationPath $stage -Force
@@ -15,3 +17,4 @@ for($i=1;$i -le 5;$i++){
 if(-not $ok){throw "Falha ao aplicar atualização após 5 tentativas (robocopy $LASTEXITCODE)."}
 $launcher=Join-Path $InstallRoot 'control-center\start-control-center.cmd'
 if(Test-Path $launcher){Start-Process -FilePath $launcher -WorkingDirectory (Split-Path $launcher)}
+Stop-Transcript | Out-Null

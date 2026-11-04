@@ -112,10 +112,15 @@ if (ownsInstance) app.whenReady().then(() => {
           if (!updateChecked) throw new Error('Baixe primeiro a atualização pelo GitHub.');
           const script = join(__dirname, '..', 'scripts', 'apply-control-center-update.ps1');
           const installRoot = join(__dirname, '..');
-          const child = require('node:child_process').spawn('powershell.exe', ['-NoProfile','-ExecutionPolicy','Bypass','-File',script,'-ZipPath',join(app.getPath('downloads'),'jp-designer-crm-main.zip'),'-InstallRoot',installRoot], { detached:true, windowsHide:true, stdio:'ignore' });
+          const zip = join(app.getPath('downloads'),'jp-designer-crm-main.zip');
+          if (!require('node:fs').existsSync(script)) throw new Error('Instalador de atualização ausente. Instale novamente o pacote atual do Control Center.');
+          if (!require('node:fs').existsSync(zip)) throw new Error('Pacote de atualização ausente. Baixe novamente pelo GitHub.');
+          const log = join(app.getPath('temp'),'jp-designer-crm-update.log');
+          require('node:fs').writeFileSync(log, `Início da atualização ${new Date().toISOString()}\nScript: ${script}\nPacote: ${zip}\n`);
+          const child = require('node:child_process').spawn('powershell.exe', ['-NoProfile','-ExecutionPolicy','Bypass','-File',script,'-ZipPath',zip,'-InstallRoot',installRoot], { detached:true, windowsHide:true, stdio:'ignore' });
           child.unref();
-          output = { message: 'Atualização instalada. O Control Center vai fechar e reabrir automaticamente.' };
-          setTimeout(() => app.quit(), 500);
+          output = { message: 'Atualização iniciada. O painel vai fechar e reabrir após concluir.', log };
+          setTimeout(() => app.quit(), 1500);
         }
         else if (action === 'setup') {
           const script = join(__dirname, '..', 'scripts', 'install-transfer-final.ps1');
