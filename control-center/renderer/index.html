@@ -66,7 +66,7 @@
       if (!config) return;
       document.getElementById('brand-name').textContent = config.brandName;
       const version = document.getElementById('installed-version');
-      if (version) version.textContent = 'v' + config.version;
+      if (version) version.textContent = 'v' + (config.version || '0.8.0');
       document.title = config.brandName + ' — Control Center';
     }).catch(() => {});
   </script>
