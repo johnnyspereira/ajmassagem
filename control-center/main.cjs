@@ -117,7 +117,8 @@ if (ownsInstance) app.whenReady().then(() => {
           if (!require('node:fs').existsSync(zip)) throw new Error('Pacote de atualização ausente. Baixe novamente pelo GitHub.');
           const log = join(app.getPath('temp'),'jp-designer-crm-update.log');
           require('node:fs').writeFileSync(log, `Início da atualização ${new Date().toISOString()}\nScript: ${script}\nPacote: ${zip}\n`);
-          const child = require('node:child_process').spawn('powershell.exe', ['-NoProfile','-ExecutionPolicy','Bypass','-File',script,'-ZipPath',zip,'-InstallRoot',installRoot], { detached:true, windowsHide:true, stdio:'ignore' });
+          const command = `start "JP Designer CRM updater" powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${script}" -ZipPath "${zip}" -InstallRoot "${installRoot}"`;
+          const child = require('node:child_process').spawn('cmd.exe', ['/c', command], { detached:true, windowsHide:true, stdio:'ignore', cwd:installRoot });
           child.unref();
           output = { message: 'Atualização iniciada. O painel vai fechar e reabrir após concluir.', log };
           setTimeout(() => app.quit(), 1500);
