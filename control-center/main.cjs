@@ -80,9 +80,14 @@ if (ownsInstance) app.whenReady().then(() => {
         else if (action === 'copy-diagnostics') { clipboard.writeText(JSON.stringify(await supervisor.snapshot(),null,2)); output={message:'Diagnóstico copiado, sem QR nem credenciais.'}; }
         else if (action === 'setup') {
           const script = join(__dirname, '..', 'scripts', 'install-transfer-final.ps1');
-          const result = await execFileAsync('powershell.exe', ['-NoProfile','-ExecutionPolicy','Bypass','-File',script], { windowsHide:true, timeout: 15 * 60 * 1000, maxBuffer: 2 * 1024 * 1024 });
           let ollama = 'não encontrado';
-          try { const check = await execFileAsync('ollama.exe', ['--version'], { windowsHide:true, timeout: 10000 }); ollama = check.stdout.trim() || 'instalado'; } catch {}
+          try { const check = await execFileAsync('ollama.exe', ['--version'], { windowsHide:true, timeout: 10000 }); ollama = check.stdout.trim() || 'instalado'; } catch {
+            try {
+              await execFileAsync('winget.exe', ['install','--id','Ollama.Ollama','--exact','--accept-source-agreements','--accept-package-agreements'], { windowsHide:true, timeout: 10 * 60 * 1000, maxBuffer: 2 * 1024 * 1024 });
+              ollama = 'instalado agora';
+            } catch { ollama = 'não instalado (instale Ollama.Ollama pelo winget)'; }
+          }
+          const result = await execFileAsync('powershell.exe', ['-NoProfile','-ExecutionPolicy','Bypass','-File',script], { windowsHide:true, timeout: 15 * 60 * 1000, maxBuffer: 2 * 1024 * 1024 });
           output = { message: `Instalação concluída. Ollama: ${ollama}. Reinicie o Control Center para aplicar tudo.`, detail: result.stdout.slice(-2000) };
         }
         else if (action === 'end-shift') {
