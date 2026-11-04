@@ -247,10 +247,10 @@ export function VouchersView({
       <div className="space-y-3 p-4">
         <div className={lists.summaryStrip} aria-label="Estado dos vouchers">
           {[
-            ['all', 'Todos'],
             ['available', 'Disponíveis'],
             ['used', 'Utilizados'],
             ['expired', 'Expirados'],
+            ['all', 'Todos'],
           ].map(([value, label]) => (
             <button
               key={value}

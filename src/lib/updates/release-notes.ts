@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-voucher-filters-order', date: '2026-11-04', category: 'Melhoria',
+    title: 'Vouchers disponíveis aparecem primeiro', areas: ['Financeiro', 'Vouchers'],
+    summary: 'O filtro de vouchers foi reorganizado para destacar primeiro os benefícios que ainda podem ser utilizados.',
+    changes: ['Disponíveis, Utilizados e Expirados aparecem nessa ordem.', 'Todos ficou como última opção para consulta do histórico completo.'],
+    howTo: 'Abra Financeiro → Vouchers e escolha o estado diretamente nos filtros superiores.'
+  },
+  {
     id: '2026-11-04-reports-benefit-values', date: '2026-11-04', category: 'Melhoria',
     title: 'Relatórios distinguem valor original e valor pago dos benefícios', areas: ['Relatórios', 'Financeiro', 'Vouchers', 'Packs'],
     summary: 'Os cartões de Vouchers e Packs passam a explicar claramente se o valor apresentado é referência original ou montante pago apurado.',
