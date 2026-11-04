@@ -42,6 +42,9 @@
       updater.insertAdjacentHTML('afterbegin', '<button data-action="download-update">Baixar versão</button><button data-action="install-update">Instalar atualização</button>');
     }
     updater?.querySelector('[data-action="setup"]')?.remove();
+    const removeLegacySetup = () => document.querySelectorAll('[data-action="setup"]').forEach(node => node.remove());
+    new MutationObserver(removeLegacySetup).observe(document.body, { childList: true, subtree: true });
+    removeLegacySetup();
     function settings(){ return head('Configurações','Tudo o que é necessário para preparar, atualizar e manter este portátil.') + `<div class="settings-grid"><section class="setting-card"><h2>Identidade</h2><p>Nome do sistema e suporte configurados no ambiente do CRM.</p><code>CRM_BRAND_NAME<br>CRM_BRAND_SHORT_NAME<br>CRM_SUPPORT_EMAIL</code><p>Reinicie o painel depois de alterar.</p></section><section class="setting-card"><h2>Serviços</h2><p>Gerencie os serviços individualmente e valide a ligação antes de reiniciar.</p><div class="button-row">${openView('whatsapp','WhatsApp')}${openView('ai-worker','IA local')}${openView('ai-tunnel','Túneis')}</div></section><section class="setting-card"><h2>Atualizações</h2><p>Versão instalada: <strong id="installed-version">a consultar…</strong></p><div class="button-row">${button('check-update','Verificar atualizações',{primary:true})}${button('setup','Instalar/configurar')}${button('restart-app','Reiniciar painel')}</div><p>Após atualizar, reinicie o painel para carregar a nova interface.</p></section><section class="setting-card"><h2>Encerramento seguro</h2><p>Para os Workers e desliga o computador depois da confirmação.</p>${button('end-shift','Encerrar expediente',{danger:true})}</section></div>`; }
   </script>
   <script src="./renderer.js"></script>
