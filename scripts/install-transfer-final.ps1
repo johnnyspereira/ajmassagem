@@ -52,7 +52,7 @@ Install-Dependencies (Join-Path $localRoot 'workers\whatsapp-bridge')
 Push-Location (Join-Path $localRoot 'workers\whatsapp-bridge')
 try {
   Write-Host 'A instalar o Chrome usado pelo Puppeteer...'
-  & npx.cmd puppeteer browsers install chrome
+  & npx.cmd --yes puppeteer browsers install chrome@stable
   if ($LASTEXITCODE -ne 0) { throw "Não foi possível instalar o Chrome do Puppeteer (código $LASTEXITCODE)." }
 } finally { Pop-Location }
 @"
