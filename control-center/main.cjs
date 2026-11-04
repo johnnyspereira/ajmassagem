@@ -98,7 +98,8 @@ if (ownsInstance) app.whenReady().then(() => {
             const tags = (await tagsResponse.json()).sort((a,b) => String(b.name||'').localeCompare(String(a.name||''), undefined, {numeric:true}));
             release = { tag_name: tags[0]?.name, html_url: `https://github.com/johnnyspereira/ajmassagem/releases/tag/${tags[0]?.name || ''}`, name: 'Tag publicada (release ainda não criada)' };
           } else throw new Error(`GitHub respondeu HTTP ${response.status}.`);
-          output = { message: release.tag_name && release.tag_name !== `v${packageInfo.version}` ? `Atualização disponível: ${release.tag_name}.` : `O Control Center já está atualizado (${packageInfo.version}).`, version: packageInfo.version, latest: release.tag_name, url: release.html_url, notes: release.name || release.body || '' };
+          const cur = packageInfo.version.split('.').map(Number); const rem = String(release.tag_name||'').replace(/^v/,'').split('.').map(Number); const newer = rem.length===3 && (rem[0]>cur[0] || rem[0]===cur[0] && (rem[1]>cur[1] || rem[1]===cur[1] && rem[2]>cur[2]));
+          output = { message: newer ? `Atualização disponível: ${release.tag_name}.` : `O Control Center já está atualizado (${packageInfo.version}).`, version: packageInfo.version, latest: release.tag_name, url: release.html_url, notes: release.name || release.body || '' };
         }
         else if (action === 'download-update') {
           const response = await fetch('https://github.com/johnnyspereira/ajmassagem/archive/refs/heads/main.zip', { headers: { 'User-Agent': 'JP-Designer-CRM-Control-Center' } });
