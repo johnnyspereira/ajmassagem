@@ -89,7 +89,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "3aa0af128f90118b6bf043e3c85abf7369d7fd25"
+          "value": "6b0b6aa5cf55f79a5f751af11de79ed738ab1e95"
         }
       ],
       "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
@@ -99,7 +99,7 @@
       "headers": [
         {
           "key": "x-nextjs-deployment-id",
-          "value": "3aa0af128f90118b6bf043e3c85abf7369d7fd25"
+          "value": "6b0b6aa5cf55f79a5f751af11de79ed738ab1e95"
         }
       ],
       "regex": "^/_next/data(?:/(.*))(?:/)?$"
@@ -342,6 +342,14 @@
         "nxtPid": "nxtPid"
       },
       "namedRegex": "^/api/marketing/campaigns/(?<nxtPid>[^/]+?)/email(?:/)?$"
+    },
+    {
+      "page": "/api/portal/[slug]/activity",
+      "regex": "^/api/portal/([^/]+?)/activity(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/api/portal/(?<nxtPslug>[^/]+?)/activity(?:/)?$"
     },
     {
       "page": "/api/portal/[slug]/appointments",
@@ -863,6 +871,12 @@
       "namedRegex": "^/api/account/transfer\\-ownership(?:/)?$"
     },
     {
+      "page": "/api/activity",
+      "regex": "^/api/activity(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/activity(?:/)?$"
+    },
+    {
       "page": "/api/ai/config",
       "regex": "^/api/ai/config(?:/)?$",
       "routeKeys": {},
@@ -1239,6 +1253,12 @@
       "regex": "^/api/marketing/automation\\-rules/process(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/marketing/automation\\-rules/process(?:/)?$"
+    },
+    {
+      "page": "/api/marketing/campaign-store",
+      "regex": "^/api/marketing/campaign\\-store(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/marketing/campaign\\-store(?:/)?$"
     },
     {
       "page": "/api/message-library/usage",
@@ -1775,5 +1795,5 @@
     "pathHeader": "x-nextjs-rewritten-path",
     "queryHeader": "x-nextjs-rewritten-query"
   },
-  "deploymentId": "3aa0af128f90118b6bf043e3c85abf7369d7fd25"
+  "deploymentId": "6b0b6aa5cf55f79a5f751af11de79ed738ab1e95"
 }
