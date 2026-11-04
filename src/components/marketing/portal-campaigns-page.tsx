@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Clock3,
   ExternalLink,
+  Filter,
   Mail,
   MessageCircle,
   Loader2,
@@ -38,7 +39,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/use-auth';
 import { createClient } from '@/lib/supabase/client';
-import { AccessActivityPanel } from './access-activity-panel';
 import {
   MEDIA_MAX_BYTES_BY_KIND,
   uploadAccountMedia,
@@ -128,6 +128,7 @@ export function PortalCampaignsPage() {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [sendingCampaign, setSendingCampaign] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | Campaign['status'] | 'expired'>('all');
   const load = useCallback(async () => {
     if (!accountId) return;
     setLoading(true);
@@ -266,7 +267,7 @@ export function PortalCampaignsPage() {
     toast.success(
       next === 'published'
         ? 'Campanha publicada no portal.'
-        : 'Campanha arquivada.'
+        : next === 'draft' ? 'Campanha reativada como rascunho.' : 'Campanha arquivada/desativada.'
     );
     await load();
   }
@@ -296,6 +297,11 @@ export function PortalCampaignsPage() {
   const converted = activeEnrollments.filter(
     (entry) => entry.status === 'converted'
   ).length;
+  const visibleItems = items.filter((item) => {
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'expired') return item.status === 'published' && Boolean(item.ends_at && new Date(item.ends_at) < new Date());
+    return item.status === statusFilter;
+  });
   if (loading)
     return (
       <div className="flex min-h-64 items-center justify-center">
@@ -327,6 +333,9 @@ export function PortalCampaignsPage() {
               <Plus /> Nova campanha
             </Button>
           )}
+          <Button variant="outline" render={<Link href="/reports" />}>
+            <Users /> Relatórios de acessos
+          </Button>
         </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -351,10 +360,20 @@ export function PortalCampaignsPage() {
           value={converted}
         />
       </div>
-      {canEditSettings && <details className="rounded-2xl border bg-card p-4"><summary className="cursor-pointer font-medium">Acompanhar acessos ao Portal, campanhas e CRM</summary><div className="mt-4"><AccessActivityPanel /></div></details>}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card p-4">
+        <div className="flex items-center gap-2 text-sm font-medium"><Filter className="size-4 text-primary" /> Mostrar campanhas</div>
+        <select aria-label="Filtrar campanhas" className="h-10 rounded-lg border bg-background px-3 text-sm" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
+          <option value="all">Todas ({items.length})</option>
+          <option value="published">Ativas/publicadas</option>
+          <option value="draft">Rascunhos</option>
+          <option value="expired">Expiradas</option>
+          <option value="archived">Arquivadas/desativadas</option>
+        </select>
+        {canEditSettings && <span className="text-muted-foreground text-xs">Acessos e conversões estão em Relatórios 360 → Comunicações.</span>}
+      </div>
       <div className="grid gap-4 xl:grid-cols-2">
-        {items.length ? (
-          items.map((item) => (
+        {visibleItems.length ? (
+          visibleItems.map((item) => (
             <Card
               key={item.id}
               className="overflow-hidden border-violet-100 bg-gradient-to-br from-white via-white to-violet-50/60 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
@@ -564,6 +583,11 @@ export function PortalCampaignsPage() {
                       onClick={() => void status(item, 'archived')}
                     >
                       <Archive /> Arquivar
+                    </Button>
+                  )}
+                  {canSendMessages && item.status === 'archived' && (
+                    <Button size="sm" onClick={() => void status(item, 'draft')}>
+                      <Pencil /> Reativar como rascunho
                     </Button>
                   )}
                 </div>

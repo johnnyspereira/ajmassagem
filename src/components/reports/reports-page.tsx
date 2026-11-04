@@ -49,6 +49,7 @@ import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
@@ -65,6 +66,7 @@ import {
   workSessionMinutes,
 } from '@/lib/reports/analytics';
 import { createClient } from '@/lib/supabase/client';
+import { AccessActivityPanel } from '@/components/marketing/access-activity-panel';
 import type {
   FinanceBenefitLog,
   FinanceCashMovement,
@@ -1957,6 +1959,13 @@ export function ReportsPage() {
           </TabsContent>
 
           <TabsContent value="communications" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Users className="size-5" /> Acessos ao Portal, campanhas e CRM</CardTitle>
+                <p className="text-muted-foreground text-sm">Consulte quem entrou, quais campanhas foram vistas e a atividade da equipa no período selecionado.</p>
+              </CardHeader>
+              <CardContent><AccessActivityPanel /></CardContent>
+            </Card>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard
                 icon={MessageSquare}

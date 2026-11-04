@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-campaign-management-cleanup', date: '2026-11-04', category: 'Melhoria',
+    title: 'Campanhas mais organizadas e relatório de acessos separado', areas: ['Campanhas', 'Relatórios', 'Portal'],
+    summary: 'A gestão de campanhas ficou dedicada às ofertas, com filtros e estados para controlar o que fica publicado. Os acessos foram movidos para Relatórios 360.',
+    changes: ['A página de Campanhas já não apresenta o painel detalhado de acessos; existe um atalho para Relatórios 360 → Comunicações.', 'Adicionado filtro por publicadas, rascunhos, expiradas e arquivadas/desativadas.', 'Campanhas publicadas podem ser arquivadas para deixarem de aparecer no Portal e reativadas como rascunho para revisão.'],
+    howTo: 'Em Campanhas do Portal, use o filtro Mostrar campanhas. Para acompanhar acessos e visualizações, abra Relatórios 360 e selecione Comunicações. Arquive uma campanha quando quiser retirá-la do Portal sem apagar o histórico.'
+  },
+  {
     id: '2026-11-04-portal-campaign-store', date: '2026-11-04', category: 'Novidade',
     title: 'Loja de campanhas com cartão-saldo e acompanhamento de acessos', areas: ['Portal', 'Campanhas', 'Financeiro', 'Equipa'],
     summary: 'Campanhas de troca permitem usar o saldo e pagar a diferença por cartão ou MB WAY. Um painel apresenta os acessos autenticados dos clientes e da equipa.',
