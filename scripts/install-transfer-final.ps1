@@ -36,6 +36,15 @@ set "JP_MASSAGEM_PROJECT_DIR=$localRoot"
 cd /d "%JP_MASSAGEM_PROJECT_DIR%"
 start "JP Massagem Control Center" npm run control:center
 "@ | Set-Content -Encoding ascii (Join-Path $localRoot 'control-center\start-control-center.cmd')
+$desktop = [Environment]::GetFolderPath('Desktop')
+$shortcutPath = Join-Path $desktop 'JP Designer CRM Control Center.lnk'
+$shell = New-Object -ComObject WScript.Shell
+$shortcut = $shell.CreateShortcut($shortcutPath)
+$shortcut.TargetPath = Join-Path $localRoot 'control-center\start-control-center.cmd'
+$shortcut.WorkingDirectory = $localRoot
+$shortcut.Description = 'Abrir o JP Designer CRM Control Center'
+$shortcut.Save()
+Write-Host "Atalho criado no Ambiente de Trabalho: $shortcutPath"
 Write-Host ''
 Write-Host 'Instalação concluída com sucesso.' -ForegroundColor Green
 Write-Host "Abra: $localRoot\control-center\start-control-center.cmd"

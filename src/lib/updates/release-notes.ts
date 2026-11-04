@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-worker-desktop-shortcut', date: '2026-11-04', category: 'Melhoria',
+    title: 'Atalho do Control Center criado automaticamente', areas: ['Workers', 'Control Center'],
+    summary: 'A instalação do novo portátil passa a criar um atalho no Ambiente de Trabalho.',
+    changes: ['O atalho aponta para a instalação local em Documentos.', 'O diretório de trabalho é configurado automaticamente para evitar erros de caminhos.'],
+    howTo: 'Depois da instalação, abra o atalho “JP Designer CRM Control Center” no Ambiente de Trabalho.'
+  },
+  {
     id: '2026-11-04-transfer-installer-local', date: '2026-11-04', category: 'Correção',
     title: 'Instalação dos Workers agora usa sempre o disco local', areas: ['Workers', 'Control Center'],
     summary: 'O instalador copia a aplicação para Documentos antes de executar o npm, evitando falhas de Electron, Puppeteer e caminhos UNC.',
