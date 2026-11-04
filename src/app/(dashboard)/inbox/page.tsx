@@ -667,6 +667,21 @@ export default function InboxPage() {
     }
   }, [refreshingPhotos]);
 
+  const markAllConversationsRead = useCallback(async () => {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('conversations')
+      .update({ unread_count: 0 })
+      .gt('unread_count', 0);
+    if (error) {
+      toast.error('Não foi possível marcar as conversas como lidas.');
+      return;
+    }
+    setConversations((current) => current.map((conversation) => ({ ...conversation, unread_count: 0 })));
+    setActiveConversation((current) => current ? { ...current, unread_count: 0 } : current);
+    toast.success('Todas as conversas foram marcadas como lidas no CRM.');
+  }, []);
+
   // Realtime is immediate when its websocket is healthy. Remote WhatsApp
   // workers may write through MySQL, however, so those writes do not always
   // produce a Supabase event. Keep a short visible-tab sync as a fallback so
@@ -1005,6 +1020,12 @@ export default function InboxPage() {
                   : 'Sincronização automática ativa'}
               </span>
             </div>
+          ) : null}
+          {isOwner ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => void markAllConversationsRead()} disabled={conversationsNeedingReply === 0} title="Marca todas as conversas como lidas no CRM">
+              <MessageCircleMore className="h-4 w-4" />
+              <span className="hidden sm:inline">Marcar tudo lido</span>
+            </Button>
           ) : null}
           {isOwner ? (
             <Button type="button" variant="outline" size="sm" onClick={() => void refreshWhatsAppPhotos()} disabled={!whatsappConnection?.connected || refreshingPhotos} title="Atualiza as fotos de todos os contactos através do WhatsApp">

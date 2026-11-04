@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-inbox-mark-all-read', date: '2026-11-04', category: 'Melhoria',
+    title: 'Marcar todas as conversas como lidas', areas: ['Inbox', 'WhatsApp'],
+    summary: 'O proprietário pode limpar de uma vez as pendências de leitura no CRM.',
+    changes: ['Novo botão Marcar tudo lido no cabeçalho do Inbox.', 'A ação atualiza as conversas no CRM sem apagar mensagens.'],
+    howTo: 'No Inbox, clique em Marcar tudo lido. A leitura no CRM é independente do estado de leitura exibido no telemóvel WhatsApp.'
+  },
+  {
     id: '2026-11-04-inbox-refresh-photos', date: '2026-11-04', category: 'Melhoria',
     title: 'Atualizar fotos de perfil de todos os contactos', areas: ['Inbox', 'WhatsApp'],
     summary: 'O proprietário pode pedir uma sincronização geral das fotos do WhatsApp sem abrir cada conversa.',
