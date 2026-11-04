@@ -12,6 +12,17 @@ if ($copy.ExitCode -ge 8) { throw "Falha ao copiar a instalação (robocopy $($c
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw 'Instale Node.js 20 ou superior antes de continuar.' }
 if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { throw 'O npm não está disponível.' }
 if (-not (Test-Path (Join-Path $localRoot 'package.json'))) { throw "Cópia incompleta: $localRoot\package.json não foi encontrado." }
+$sourceCloudflared = Join-Path $localRoot '.cloudflared'
+if (Test-Path $sourceCloudflared) {
+  $userCloudflared = Join-Path $env:USERPROFILE '.cloudflared'
+  New-Item -ItemType Directory -Force -Path $userCloudflared | Out-Null
+  Copy-Item "$sourceCloudflared\*" $userCloudflared -Recurse -Force
+  Get-ChildItem $userCloudflared -Filter '*.yml' -File | ForEach-Object {
+    $text = Get-Content $_.FullName -Raw
+    $text = [regex]::Replace($text, "C:/Users/[^/]+/\.cloudflared", ($userCloudflared -replace '\\','/'))
+    Set-Content -LiteralPath $_.FullName -Value $text -Encoding utf8
+  }
+}
 $cloudflared = Join-Path $localRoot 'tools\cloudflared.exe'
 if (-not (Test-Path $cloudflared)) { throw "cloudflared.exe não foi incluído no pacote: $cloudflared" }
 $toolsPath = Split-Path -Parent $cloudflared
