@@ -15,6 +15,20 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-04-portal-anamnesis-cancelled', date: '2026-11-04', category: 'Correção',
+    title: 'Anamneses canceladas aparecem corretamente no Portal', areas: ['Portal', 'Anamnese'],
+    summary: 'Fichas pendentes de atendimentos cancelados, faltas ou sessões concluídas passam a ser identificadas como canceladas.',
+    changes: ['A regra do Portal agora considera cancelamentos e faltas, além de atendimentos concluídos, para revogar o preenchimento.', 'Os cartões de anamnese ficaram mais compactos para mostrar mais fichas por ecrã.'],
+    howTo: 'Abra Portal 360 → Anamneses. Use o filtro “Canceladas e expiradas” para consultar fichas cujo link foi desativado.'
+  },
+  {
+    id: '2026-11-04-portal-navigation-priority', date: '2026-11-04', category: 'Melhoria',
+    title: 'Portal com campanhas e Indique e ganhe em destaque', areas: ['Portal', 'Campanhas', 'Indicações'],
+    summary: 'As áreas de maior interesse deixaram de ficar escondidas no menu Mais e as notificações do Portal são verificadas com maior rapidez.',
+    changes: ['Campanhas aparecem na navegação principal quando existem ofertas publicadas.', 'Indique e ganhe aparece diretamente na navegação quando o programa está ativo.', 'O contador de notificações é atualizado a cada cinco segundos enquanto o Portal está aberto.'],
+    howTo: 'Abra o Portal 360: use Campanhas ou Indique e ganhe diretamente no menu superior. O menu Mais fica reservado para apoio, notificações, pedidos e privacidade.'
+  },
+  {
     id: '2026-11-04-reports-growth-campaigns', date: '2026-11-04', category: 'Correção',
     title: 'Crescimento passa a incluir campanhas do Portal', areas: ['Relatórios', 'Campanhas'],
     summary: 'A métrica de campanhas deixou de depender apenas das transmissões WhatsApp e passa a contabilizar também campanhas exclusivas do Portal no período.',

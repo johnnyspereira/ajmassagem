@@ -9,7 +9,7 @@ export function portalAnamnesisStatus(form: PortalForm) {
   const appointment = Array.isArray(form.appointment)
     ? form.appointment[0]
     : form.appointment;
-  return form.status === 'pending' && appointment?.status === 'completed'
+  return form.status === 'pending' && ['completed', 'cancelled', 'no_show'].includes(String(appointment?.status || ''))
     ? 'revoked'
     : form.status;
 }

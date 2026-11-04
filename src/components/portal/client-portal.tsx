@@ -628,7 +628,7 @@ export function ClientPortal({ slug }: { slug: string }) {
         ).length
       );
     };
-    const timer = window.setInterval(() => void refreshUnread(), 30_000);
+    const timer = window.setInterval(() => void refreshUnread(), 5_000);
     return () => window.clearInterval(timer);
   }, [data, slug]);
 
@@ -1111,6 +1111,12 @@ export function ClientPortal({ slug }: { slug: string }) {
                 : []),
               ...(data.settings.financialEnabled
                 ? [{ id: 'finance', label: 'Pagamentos', icon: ReceiptText }]
+                : []),
+              ...(data.settings.referralsEnabled
+                ? [{ id: 'referrals', label: 'Indique e ganhe', icon: Share2 }]
+                : []),
+              ...(data.campaigns.length
+                ? [{ id: 'campaigns', label: 'Campanhas', icon: Megaphone }]
                 : []),
             ] as Array<{ id: PortalTab; label: string; icon: typeof Home }>
           ).map(({ id, label, icon: Icon }) => (
@@ -2020,7 +2026,7 @@ function PortalNav({
     { id: 'anamnesis', label: 'Fichas de anamnese', icon: ClipboardList },
     { id: 'benefits', label: 'Benefícios e saldo', icon: Gift },
     { id: 'campaigns', label: 'Campanhas exclusivas', icon: Megaphone },
-    { id: 'referrals', label: 'Indique um amigo', icon: Share2 },
+    { id: 'referrals', label: 'Indique e ganhe', icon: Share2 },
     { id: 'finance', label: 'Pagamentos e faturas', icon: ReceiptText },
     { id: 'support', label: 'Meus pedidos', icon: LifeBuoy },
     { id: 'help', label: 'Central de ajuda', icon: BookOpen },
