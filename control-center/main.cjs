@@ -122,10 +122,11 @@ if (ownsInstance) app.whenReady().then(() => {
           if (!require('node:fs').existsSync(zip)) throw new Error('Pacote de atualização ausente. Baixe novamente pelo GitHub.');
           const log = join(app.getPath('temp'),'jp-designer-crm-update.log');
           require('node:fs').writeFileSync(log, `Início da atualização ${new Date().toISOString()}\nScript: ${script}\nPacote: ${zip}\n`);
-          const command = `start "JP Designer CRM updater" powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${script}" -ZipPath "${zip}" -InstallRoot "${installRoot}"`;
+          const consoleLog = join(app.getPath('temp'),'jp-designer-crm-updater-console.log');
+          const command = `start "JP Designer CRM updater" cmd /c powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${script}" -ZipPath "${zip}" -InstallRoot "${installRoot}" ^>^> "${consoleLog}" 2^>^&1`;
           const child = require('node:child_process').spawn('cmd.exe', ['/c', command], { detached:true, windowsHide:true, stdio:'ignore', cwd:installRoot });
           child.unref();
-          output = { message: 'Atualização iniciada. O painel vai fechar e reabrir após concluir.', log };
+          output = { message: 'Atualização iniciada. Consulte o detalhe no modal. Se não avançar, veja o log técnico.', log: consoleLog };
           // Dá tempo ao processo externo para iniciar antes de libertar a janela.
           // O utilizador reinicia pelo botão do modal depois de confirmar que a preparação terminou.
         }
