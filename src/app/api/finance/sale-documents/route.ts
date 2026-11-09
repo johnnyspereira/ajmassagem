@@ -138,6 +138,16 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
+    console.error('[sale-documents] upload failed:', error);
+    const message = error instanceof Error ? error.message : '';
+    // Keep internals private, but turn the common shared-hosting failure into
+    // an actionable message instead of the unhelpful generic 500.
+    if (/EACCES|EPERM|EROFS|ENOSPC|FINANCE_DOCUMENT_DIR|finance_sale_documents/i.test(message)) {
+      return Response.json(
+        { error: 'Não foi possível guardar o comprovativo no servidor. Verifique a pasta FINANCE_DOCUMENT_DIR e a tabela finance_sale_documents no cPanel.' },
+        { status: 500 },
+      );
+    }
     return toErrorResponse(error);
   }
 }
