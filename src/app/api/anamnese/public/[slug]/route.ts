@@ -175,7 +175,7 @@ export async function POST(
       .eq('account_id', settings.account_id);
     if (contactError) {
       console.error('[public-anamnesis] contact sync failed:', contactError.message);
-      return Response.json({ error: 'A ficha foi guardada, mas não foi possível atualizar os dados do cliente.' }, { status: 500 });
+      // A ficha já foi gravada. A sincronização do contacto é complementar.
     }
   }
   await db.from('privacy_consent_events').insert([

@@ -265,13 +265,8 @@ export async function POST(
       .eq('account_id', existing.account_id);
     if (contactError) {
       console.error('[anamnesis] contact sync failed:', contactError.message);
-      return Response.json(
-        {
-          error:
-            'A ficha foi guardada, mas não foi possível atualizar os dados do cliente.',
-        },
-        { status: 500 }
-      );
+      // A ficha clínica já foi gravada. A sincronização do contacto é
+      // complementar e não pode fazer o cliente submeter a ficha novamente.
     }
   }
 
