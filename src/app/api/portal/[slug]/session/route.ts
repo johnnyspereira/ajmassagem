@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { supabaseAdmin } from '@/lib/flows/admin-client';
 import { createPortalAuthClient } from '@/lib/portal/auth';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
@@ -23,14 +24,14 @@ async function registerPortalAccess(input: {
     contact?.name || contact?.email || contact?.phone || 'Um cliente';
   await notifyAccountEvent({
     accountId: input.accountId,
-    type: 'portal_first_access',
+    type: 'portal_access',
     category: 'clients',
     title: 'Novo acesso ao Portal 360',
-    body: `${name} entrou no Portal 360 pela primeira vez.`,
+    body: `${name} entrou no Portal 360 agora.`,
     actionUrl: `/contacts/${input.contactId}`,
     contactId: input.contactId,
-    dedupeKey: `portal-first-access:${input.contactId}`,
-    metadata: { contact_id: input.contactId },
+    dedupeKey: `portal-access:${input.contactId}:${randomUUID()}`,
+    metadata: { contact_id: input.contactId, access_at: new Date().toISOString() },
     whatsappText: [
       '🔔 *Novo acesso ao Portal 360*',
       '',

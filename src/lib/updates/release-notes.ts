@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-21-portal-access-alerts', date: '2026-11-21', category: 'Melhoria',
+    title: 'Alertas em todos os acessos ao Portal 360', areas: ['Portal', 'Clientes', 'WhatsApp'],
+    summary: 'A equipa passa a ser avisada sempre que um cliente entra no Portal 360.',
+    changes: ['Cada login por palavra-passe ou link mágico cria um alerta interno e tenta enviar o aviso WhatsApp ao administrador.', 'O último acesso continua a ser atualizado na ficha do cliente.'],
+    howTo: 'Não é necessária nenhuma ação adicional. Consulte as notificações ou a ficha do cliente para acompanhar os acessos.'
+  },
+  {
     id: '2026-11-04-control-center-093', date: '2026-11-04', category: 'Melhoria',
     title: 'Control Center 0.9.3', areas: ['Control Center', 'Interface', 'Atualizações'],
     summary: 'Nova versão visual do painel, preparada para validação do atualizador via GitHub.',
