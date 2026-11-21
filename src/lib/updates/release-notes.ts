@@ -15,7 +15,7 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
-    id: '2026-11-21-anamnesis-submit-resilience', date: '2026-11-21', category: 'CorreÃ§Ã£o',
+    id: '2026-11-21-anamnesis-submit-resilience', date: '2026-11-21', category: 'Correção',
     title: 'SubmissÃ£o da anamnese mais resistente', areas: ['Anamnese', 'Portal', 'Clientes'],
     summary: 'Uma falha auxiliar ao atualizar o contacto jÃ¡ nÃ£o bloqueia a confirmaÃ§Ã£o da ficha clÃ­nica.',
     changes: ['A ficha Ã© confirmada depois de ser gravada, mesmo que a sincronizaÃ§Ã£o complementar dos dados do cliente falhe.', 'A falha auxiliar continua registada para a equipa corrigir os dados no CRM.'],
