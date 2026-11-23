@@ -144,7 +144,7 @@ export async function POST(request: Request) {
     // an actionable message instead of the unhelpful generic 500.
     if (/EACCES|EPERM|EROFS|ENOSPC|FINANCE_DOCUMENT_DIR|finance_sale_documents/i.test(message)) {
       return Response.json(
-        { error: 'Não foi possível guardar o comprovativo no servidor. Verifique a pasta FINANCE_DOCUMENT_DIR e a tabela finance_sale_documents no cPanel.' },
+        { error: 'Não foi possível guardar o comprovativo. O armazenamento local ou a tabela finance_sale_documents não está disponível no servidor. O administrador deve executar as migrações MySQL e garantir permissão de escrita para a pasta de uploads.', code: 'SALE_DOCUMENT_STORAGE_NOT_READY' },
         { status: 500 },
       );
     }
