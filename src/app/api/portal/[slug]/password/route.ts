@@ -358,7 +358,7 @@ export async function POST(
     );
 
     const recipientName = contact.name ? `, ${contact.name.split(' ')[0]}` : '';
-    const accessText = `Olá${recipientName}. O seu acesso seguro ao Portal 360 está pronto. Entre diretamente em ${portalUrl.toString()} ou use o seu email e a palavra-passe temporária ${password}. O link é pessoal, de utilização única e expira por segurança. No primeiro acesso, defina uma nova palavra-passe.`;
+    const accessText = `Olá${recipientName}. O seu acesso seguro ao Portal 360 está pronto. Entre diretamente em ${portalUrl.toString()} ou use o seu email e a palavra-passe temporária ${password}. O link é pessoal, de utilização única e válido durante 24 horas. Ao abrir o link, defina obrigatoriamente uma nova palavra-passe antes de continuar.`;
     if (delivery === 'email') {
       const { data: account } = await admin
         .from('accounts')

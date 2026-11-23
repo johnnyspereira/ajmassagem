@@ -5,6 +5,8 @@ import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { notifyAccountEvent } from '@/lib/notifications/account-events';
 import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 
+const PORTAL_ACCESS_LINK_TTL_MS = 24 * 60 * 60 * 1000;
+
 async function registerPortalAccess(input: {
   admin: ReturnType<typeof supabaseAdmin>;
   accountId: string;
@@ -183,7 +185,7 @@ export async function POST(
   const { data: access } = settings
     ? await admin
         .from('client_portal_access')
-        .select('id,contact_id,portal_auth_email,requires_password_change,enabled')
+        .select('id,contact_id,portal_auth_email,requires_password_change,password_issued_at,enabled')
         .eq('account_id', settings.account_id)
         .eq('auth_user_id', data.user.id)
         .maybeSingle()
@@ -201,6 +203,16 @@ export async function POST(
   if (access.enabled === false) {
     await portalAuth.auth.signOut();
     return Response.json({ error: 'O acesso deste cliente ao Portal 360 foi inativado.' }, { status: 403 });
+  }
+  const issuedAt = access.password_issued_at
+    ? new Date(access.password_issued_at).getTime()
+    : NaN;
+  if (!Number.isFinite(issuedAt) || Date.now() - issuedAt > PORTAL_ACCESS_LINK_TTL_MS) {
+    await portalAuth.auth.signOut();
+    return Response.json(
+      { error: 'Este link de acesso expirou após 24 horas. Solicite um novo acesso.' },
+      { status: 401 }
+    );
   }
   await registerPortalAccess({
     admin,

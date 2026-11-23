@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-23-portal-link-24-hours', date: '2026-11-23', category: 'Melhoria',
+    title: 'Link do Portal válido por 24 horas', areas: ['Portal', 'Acesso', 'Segurança'],
+    summary: 'O acesso enviado ao cliente passa a ser controlado por uma janela clara de 24 horas e exige a criação de uma palavra-passe no primeiro acesso.',
+    changes: ['Links com mais de 24 horas são recusados mesmo que a sessão do fornecedor ainda os aceite.', 'O texto enviado informa a validade de 24 horas e a obrigação de definir uma nova palavra-passe ao abrir o link.'],
+    howTo: 'Envie um novo acesso pelo CRM. O cliente deve abrir o link no prazo de 24 horas e criar a palavra-passe solicitada para entrar no Portal 360.'
+  },
+  {
     id: '2026-11-21-anamnesis-submit-resilience', date: '2026-11-21', category: 'Correção',
     title: 'SubmissÃ£o da anamnese mais resistente', areas: ['Anamnese', 'Portal', 'Clientes'],
     summary: 'Uma falha auxiliar ao atualizar o contacto jÃ¡ nÃ£o bloqueia a confirmaÃ§Ã£o da ficha clÃ­nica.',
