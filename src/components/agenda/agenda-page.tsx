@@ -157,6 +157,7 @@ type AppointmentRow = Omit<
   > | null;
   sales?: FinanceSale[] | null;
   appointment_services?: Array<{
+    service_id?: string | null;
     service?: Pick<ClinicService, 'name' | 'price'> | null;
     price?: number | null;
     is_offer?: boolean | null;
@@ -872,6 +873,8 @@ export function AgendaPage({
   const [selectedAppointment, setSelectedAppointment] =
     useState<AppointmentRow | null>(null);
   const [editDraft, setEditDraft] = useState<AppointmentEditDraft | null>(null);
+  const [editAdditionalServiceLines, setEditAdditionalServiceLines] =
+    useState<AppointmentServiceLineDraft[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editSaveStage, setEditSaveStage] = useState('');
   const [ownerRestoreStatus, setOwnerRestoreStatus] =
@@ -1486,7 +1489,7 @@ export function AgendaPage({
       supabase
         .from('clinic_appointments')
         .select(
-          '*, contact:contacts(*), service:clinic_services(*), room:clinic_rooms(*), professional:profiles!clinic_appointments_professional_profile_id_fkey(id, user_id, full_name, email, is_professional, professional_title, professional_color), appointment_services:clinic_appointment_services(price,is_offer,service:clinic_services(name,price)), anamnesis:clinic_anamnesis_forms!clinic_appointments_anamnesis_form_id_fkey(id, public_token, status, submitted_at), benefits:finance_appointment_benefits(*, voucher:finance_vouchers(*), client_pack:finance_client_packs(*, pack:finance_pack_catalog(name)), client_pack_balance:finance_client_pack_balances(total_sessions, remaining_sessions)), sales:finance_sales(*, payments:finance_payments(*))'
+          '*, contact:contacts(*), service:clinic_services(*), room:clinic_rooms(*), professional:profiles!clinic_appointments_professional_profile_id_fkey(id, user_id, full_name, email, is_professional, professional_title, professional_color), appointment_services:clinic_appointment_services(service_id,price,is_offer,service:clinic_services(name,price)), anamnesis:clinic_anamnesis_forms!clinic_appointments_anamnesis_form_id_fkey(id, public_token, status, submitted_at), benefits:finance_appointment_benefits(*, voucher:finance_vouchers(*), client_pack:finance_client_packs(*, pack:finance_pack_catalog(name)), client_pack_balance:finance_client_pack_balances(total_sessions, remaining_sessions)), sales:finance_sales(*, payments:finance_payments(*))'
         )
         .eq('account_id', accountId)
         .lt('scheduled_start', end.toISOString())
@@ -1748,7 +1751,7 @@ export function AgendaPage({
     void supabase
       .from('clinic_appointments')
       .select(
-        '*, contact:contacts(*), service:clinic_services(*), room:clinic_rooms(*), professional:profiles!clinic_appointments_professional_profile_id_fkey(id, user_id, full_name, email, is_professional, professional_title, professional_color), appointment_services:clinic_appointment_services(price,is_offer,service:clinic_services(name,price)), anamnesis:clinic_anamnesis_forms!clinic_appointments_anamnesis_form_id_fkey(id, public_token, status, submitted_at), benefits:finance_appointment_benefits(*, voucher:finance_vouchers(*), client_pack:finance_client_packs(*, pack:finance_pack_catalog(name)), client_pack_balance:finance_client_pack_balances(total_sessions, remaining_sessions)), sales:finance_sales(*, payments:finance_payments(*))'
+        '*, contact:contacts(*), service:clinic_services(*), room:clinic_rooms(*), professional:profiles!clinic_appointments_professional_profile_id_fkey(id, user_id, full_name, email, is_professional, professional_title, professional_color), appointment_services:clinic_appointment_services(service_id,price,is_offer,service:clinic_services(name,price)), anamnesis:clinic_anamnesis_forms!clinic_appointments_anamnesis_form_id_fkey(id, public_token, status, submitted_at), benefits:finance_appointment_benefits(*, voucher:finance_vouchers(*), client_pack:finance_client_packs(*, pack:finance_pack_catalog(name)), client_pack_balance:finance_client_pack_balances(total_sessions, remaining_sessions)), sales:finance_sales(*, payments:finance_payments(*))'
       )
       .eq('account_id', accountId)
       .eq('id', initialAppointmentId)
@@ -2703,6 +2706,11 @@ export function AgendaPage({
     }
     setSelectedAppointment(resolvedAppointment);
     setEditDraft(editDraftFromAppointment(resolvedAppointment));
+    setEditAdditionalServiceLines(
+      (resolvedAppointment.appointment_services ?? [])
+        .filter((line) => line.service_id && line.service_id !== resolvedAppointment.service_id)
+        .map((line) => ({ serviceId: line.service_id as string, isOffer: Boolean(line.is_offer) }))
+    );
     setOwnerRestoreStatus('scheduled');
     setOwnerRestoreReason('');
     setAppointmentEvents(await loadAgendaEvents('appointment', appointment.id));
@@ -2818,6 +2826,7 @@ export function AgendaPage({
     if (savingEdit) return;
     setSelectedAppointment(null);
     setEditDraft(null);
+    setEditAdditionalServiceLines([]);
     setAppointmentEvents([]);
     setAppointmentBenefit(null);
     setAvailableVouchers([]);
@@ -3852,6 +3861,34 @@ export function AgendaPage({
     if (error) {
       setSavingEdit(false);
       toast.error(`Falha ao guardar marcação: ${error.message}`);
+      return;
+    }
+
+    const primaryLinePrice = sameService
+      ? Number(selectedAppointment.price ?? 0)
+      : Number(service.price ?? 0);
+    const serviceLines = [
+      { appointment_id: selectedAppointment.id, service_id: editDraft.serviceId, price: primaryLinePrice, is_offer: false },
+      ...editAdditionalServiceLines.map((line) => {
+        const extra = activeServices.find((item) => item.id === line.serviceId);
+        return { appointment_id: selectedAppointment.id, service_id: line.serviceId, price: line.isOffer ? 0 : Number(extra?.price ?? 0), is_offer: line.isOffer };
+      }),
+    ];
+    const { error: deleteServiceLinesError } = await supabase
+      .from('clinic_appointment_services')
+      .delete()
+      .eq('appointment_id', selectedAppointment.id);
+    if (deleteServiceLinesError) {
+      setSavingEdit(false);
+      toast.error(`MarcaÃ§Ã£o guardada, mas nÃ£o foi possÃ­vel atualizar os serviÃ§os: ${deleteServiceLinesError.message}`);
+      return;
+    }
+    const { error: insertServiceLinesError } = await supabase
+      .from('clinic_appointment_services')
+      .insert(serviceLines);
+    if (insertServiceLinesError) {
+      setSavingEdit(false);
+      toast.error(`MarcaÃ§Ã£o guardada, mas os serviÃ§os adicionais falharam: ${insertServiceLinesError.message}`);
       return;
     }
 
@@ -4986,6 +5023,60 @@ export function AgendaPage({
                           }
                         />
                       </Field>
+                    </div>
+
+                    <div className="border-primary/35 bg-primary/5 mt-3 rounded-lg border border-dashed p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium">Serviços adicionais</p>
+                          <p className="text-muted-foreground text-xs">
+                            Inclua outro procedimento na mesma marcação. O voucher ou pack fica associado à marcação e deve ser compatível com o serviço principal.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 space-y-2">
+                        {editAdditionalServiceLines.map((line) => {
+                          const extra = activeServices.find((item) => item.id === line.serviceId);
+                          if (!extra) return null;
+                          return (
+                            <div key={line.serviceId} className="bg-background flex flex-wrap items-center gap-2 rounded-md px-3 py-2 text-sm">
+                              <span className="min-w-0 flex-1 truncate">{extra.name}</span>
+                              <label className="flex items-center gap-1.5 text-xs">
+                                <input
+                                  type="checkbox"
+                                  checked={line.isOffer}
+                                  disabled={!canOperate}
+                                  onChange={(event) =>
+                                    setEditAdditionalServiceLines((current) =>
+                                      current.map((item) => item.serviceId === line.serviceId ? { ...item, isOffer: event.target.checked } : item)
+                                    )
+                                  }
+                                />
+                                Oferta
+                              </label>
+                              <span className={cn('font-medium', line.isOffer && 'text-emerald-600')}>
+                                {line.isOffer ? '0,00 €' : formatCurrency(Number(extra.price ?? 0), extra.currency || defaultCurrency)}
+                              </span>
+                              <Button type="button" variant="ghost" size="icon" className="size-7" disabled={!canOperate} onClick={() => setEditAdditionalServiceLines((current) => current.filter((item) => item.serviceId !== line.serviceId))} title="Remover serviço">
+                                <X className="size-3.5" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                        <NativeSelect
+                          value=""
+                          disabled={!canOperate}
+                          onChange={(value) => {
+                            if (!value || value === editDraft.serviceId || editAdditionalServiceLines.some((line) => line.serviceId === value)) return;
+                            setEditAdditionalServiceLines((current) => [...current, { serviceId: value, isOffer: false }]);
+                          }}
+                        >
+                          <option value="">+ Adicionar serviço</option>
+                          {activeServices.filter((service) => service.id !== editDraft.serviceId && !editAdditionalServiceLines.some((line) => line.serviceId === service.id)).map((service) => (
+                            <option key={service.id} value={service.id}>{service.name} · {service.duration_minutes} min</option>
+                          ))}
+                        </NativeSelect>
+                      </div>
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-[1fr_120px_1fr]">
@@ -8642,3 +8733,4 @@ function NativeSelect({
     </select>
   );
 }
+

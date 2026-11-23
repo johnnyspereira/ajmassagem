@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-23-appointment-additional-services', date: '2026-11-23', category: 'Melhoria',
+    title: 'Mais de um serviÃ§o na mesma marcaÃ§Ã£o', areas: ['Agenda', 'ServiÃ§os', 'BenefÃ­cios'],
+    summary: 'A ficha de uma marcaÃ§Ã£o existente permite adicionar, remover e marcar serviÃ§os adicionais como oferta.',
+    changes: ['Os serviÃ§os adicionais ficam guardados na marcaÃ§Ã£o e aparecem no detalhe da agenda.', 'O voucher ou pack continua associado Ã  marcaÃ§Ã£o e a validaÃ§Ã£o recomenda usar um benefÃ­cio compatÃ­vel com o serviÃ§o principal.'],
+    howTo: 'Abra uma marcaÃ§Ã£o, escolha + Adicionar serviÃ§o na secÃ§Ã£o ServiÃ§os adicionais e guarde. O benefÃ­cio pode ser pesquisado na secÃ§Ã£o Pagamento e benefÃ­cios.'
+  },
+  {
     id: '2026-11-23-sale-document-storage-fallback', date: '2026-11-23', category: 'Correção',
     title: 'Comprovativos com armazenamento cPanel mais resiliente', areas: ['Financeiro', 'Vendas', 'cPanel'],
     summary: 'O carregamento de comprovativos passa a reutilizar a pasta local de uploads configurada no cPanel quando FINANCE_DOCUMENT_DIR não estiver definido.',
