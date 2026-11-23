@@ -19,14 +19,14 @@ export const RELEASE_NOTES: ReleaseNote[] = [
     title: 'Voucher ou pack por serviÃ§o adicional', areas: ['Agenda', 'BenefÃ­cios', 'Financeiro'],
     summary: 'Cada serviÃ§o da mesma marcaÃ§Ã£o pode agora ter o seu prÃ³prio cÃ³digo e PIN de voucher ou pack.',
     changes: ['A ficha mostra campos de cÃ³digo e PIN em cada serviÃ§o adicional.', 'A liquidaÃ§Ã£o processa todos os benefÃ­cios reservados, sem devolver ou consumir o benefÃ­cio de outro serviÃ§o.'],
-    howTo: 'Na ficha da marcaÃ§Ã£o, adicione o serviÃ§o, preencha o respetivo cÃ³digo e PIN e guarde. A migraÃ§Ã£o 109 deve estar aplicada no Supabase.'
+    howTo: 'Na ficha da marcaÃ§Ã£o, adicione o serviÃ§o, preencha o respetivo cÃ³digo e PIN e guarde. A migraÃ§Ã£o MySQL 059 deve estar aplicada no cPanel.'
   },
   {
     id: '2026-11-23-multiple-benefits-per-appointment-service', date: '2026-11-23', category: 'Melhoria',
     title: 'Base preparada para benefícios por serviço', areas: ['Agenda', 'Benefícios', 'Financeiro'],
     summary: 'A base passa a permitir benefícios ativos diferentes na mesma marcação, separados pelo serviço associado.',
     changes: ['A limitação de um único benefício por marcação foi substituída por uma regra por serviço.', 'A estrutura suporta um voucher ou pack distinto para cada serviço da marcação.'],
-    howTo: 'Depois de aplicar a migração 109, a ficha poderá associar um benefício ao serviço principal e outro a cada serviço adicional.'
+    howTo: 'Depois de executar a migração MySQL 059 no cPanel, a ficha poderá associar um benefício ao serviço principal e outro a cada serviço adicional.'
   },
   {
     id: '2026-11-23-leads-quick-view', date: '2026-11-23', category: 'Melhoria',

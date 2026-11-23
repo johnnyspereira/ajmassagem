@@ -2366,9 +2366,11 @@ export async function executeMysqlRpc(
         );
       }
       case 'reserve_appointment_benefit_code':
+      case 'reserve_appointment_benefit_code_for_service':
       case 'reserve_appointment_voucher':
       case 'set_appointment_benefit': {
         const appointmentId = String(args.p_appointment_id);
+        const requestedServiceId = optionalText(args.p_service_id);
         const allowExpired = args.p_allow_expired === true;
         const expiryReason = String(args.p_expiry_reason ?? '').trim();
         let output: unknown = null;
@@ -2389,9 +2391,19 @@ export async function executeMysqlRpc(
           const appointment = appointments[0];
           if (!appointment?.contact_id)
             throw new Error('Appointment requires a client.');
+          const serviceId = requestedServiceId || appointment.service_id;
+          let servicePrice = Number(appointment.price);
+          if (requestedServiceId) {
+            const [serviceRows] = await connection.execute<RowDataPacket[]>(
+              'SELECT price FROM clinic_appointment_services WHERE appointment_id=? AND service_id=? LIMIT 1',
+              [appointmentId, serviceId]
+            );
+            if (!serviceRows[0]) throw new Error('Service is not part of this appointment.');
+            servicePrice = Number(serviceRows[0].price ?? servicePrice);
+          }
           await connection.execute(
-            "UPDATE finance_appointment_benefits SET status='released',released_at=UTC_TIMESTAMP(3) WHERE appointment_id=? AND status='reserved'",
-            [appointmentId]
+            "UPDATE finance_appointment_benefits SET status='released',released_at=UTC_TIMESTAMP(3) WHERE appointment_id=? AND service_id=? AND status='reserved'",
+            [appointmentId, serviceId]
           );
           let type = String(args.p_benefit_type ?? ''),
             source = optionalText(args.p_source_id);
@@ -2455,7 +2467,7 @@ export async function executeMysqlRpc(
             if (!voucher) throw new Error('Voucher unavailable.');
             if (
               voucher.voucher_type === 'service' &&
-              (voucher.service_id !== appointment.service_id ||
+              (voucher.service_id !== serviceId ||
                 Number(voucher.remaining_uses) < 1)
             )
               throw new Error('Voucher is not valid for this service.');
@@ -2469,7 +2481,7 @@ export async function executeMysqlRpc(
               voucher.voucher_type === 'service'
                 ? Number(appointment.price)
                 : Math.min(
-                    Number(appointment.price),
+                    servicePrice,
                     Number(voucher.current_balance) - Number(reserved[0].amount)
                   );
             if (amount <= 0)
@@ -2482,7 +2494,7 @@ export async function executeMysqlRpc(
                 appointmentId,
                 appointment.contact_id,
                 source,
-                appointment.service_id,
+                serviceId,
                 amount,
                 context.userId,
               ]
@@ -2496,7 +2508,7 @@ export async function executeMysqlRpc(
                 source,
                 context.accountId,
                 appointment.contact_id,
-                appointment.service_id,
+                serviceId,
               ]
             );
             const balance = balances[0];
@@ -2556,16 +2568,15 @@ export async function executeMysqlRpc(
             "SELECT * FROM finance_appointment_benefits WHERE appointment_id=? AND account_id=? AND status='reserved' FOR UPDATE",
             [appointmentId, context.accountId]
           );
-          const benefit = rows[0];
-          if (!benefit) return;
-          if (action === 'release') {
+          for (const benefit of rows) {
+            if (action === 'release') {
             await connection.execute(
               "UPDATE finance_appointment_benefits SET status='released',released_at=UTC_TIMESTAMP(3) WHERE id=?",
               [benefit.id]
             );
             output = { ...benefit, status: 'released' };
-            return;
-          }
+              continue;
+            }
           if (action !== 'consume')
             throw new Error('Invalid settlement action.');
           if (benefit.benefit_type === 'voucher') {
@@ -2619,7 +2630,8 @@ export async function executeMysqlRpc(
             'UPDATE clinic_appointments SET paid_at=COALESCE(paid_at,UTC_TIMESTAMP(3)) WHERE id=?',
             [appointmentId]
           );
-          output = { ...benefit, status: 'consumed' };
+            output = { ...benefit, status: 'consumed' };
+          }
         });
         return ok(output);
       }
