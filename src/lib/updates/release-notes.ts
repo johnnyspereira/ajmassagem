@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-23-sale-document-storage-fallback', date: '2026-11-23', category: 'Correção',
+    title: 'Comprovativos com armazenamento cPanel mais resiliente', areas: ['Financeiro', 'Vendas', 'cPanel'],
+    summary: 'O carregamento de comprovativos passa a reutilizar a pasta local de uploads configurada no cPanel quando FINANCE_DOCUMENT_DIR não estiver definido.',
+    changes: ['A pasta privada de comprovativos é criada automaticamente dentro do armazenamento local configurado.', 'A proteção por autenticação e o vínculo à venda mantêm-se inalterados.'],
+    howTo: 'Atualize o runtime e tente anexar novamente. Se a mensagem indicar a tabela, execute as migrações MySQL do cPanel para criar finance_sale_documents.'
+  },
+  {
     id: '2026-11-23-portal-link-24-hours', date: '2026-11-23', category: 'Melhoria',
     title: 'Link do Portal válido por 24 horas', areas: ['Portal', 'Acesso', 'Segurança'],
     summary: 'O acesso enviado ao cliente passa a ser controlado por uma janela clara de 24 horas e exige a criação de uma palavra-passe no primeiro acesso.',

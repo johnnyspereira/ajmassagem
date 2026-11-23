@@ -43,12 +43,18 @@ export function saleDocumentFormat(bytes: Uint8Array) {
 }
 
 // Deliberately outside data/uploads: the public /uploads route cannot serve these files.
+// On cPanel, LOCAL_UPLOAD_DIR is the writable application storage already
+// configured by the runtime. Use it as a fallback so attachments do not fail
+// merely because FINANCE_DOCUMENT_DIR was not added to the environment.
 function location(key: string) {
   if (!/^[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+\.(pdf|png|jpg|webp)$/.test(key))
     throw new Error('Invalid private document key');
   return path.join(
     path.resolve(
       process.env.FINANCE_DOCUMENT_DIR ||
+        (process.env.LOCAL_UPLOAD_DIR
+          ? path.join(process.env.LOCAL_UPLOAD_DIR, 'finance-documents')
+          : undefined) ||
         path.join(process.cwd(), 'data', 'finance-documents')
     ),
     key
