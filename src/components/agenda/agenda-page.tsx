@@ -875,6 +875,9 @@ export function AgendaPage({
   const [editDraft, setEditDraft] = useState<AppointmentEditDraft | null>(null);
   const [editAdditionalServiceLines, setEditAdditionalServiceLines] =
     useState<AppointmentServiceLineDraft[]>([]);
+  const [editAdditionalBenefits, setEditAdditionalBenefits] = useState<
+    Record<string, { code: string; pin: string }>
+  >({});
   const [savingEdit, setSavingEdit] = useState(false);
   const [editSaveStage, setEditSaveStage] = useState('');
   const [ownerRestoreStatus, setOwnerRestoreStatus] =
@@ -2232,6 +2235,43 @@ export function AgendaPage({
       return;
     }
 
+    if (false) for (const line of editAdditionalServiceLines) {
+      const draft = editAdditionalBenefits[line.serviceId];
+      if (!draft?.code.trim()) continue;
+      setEditSaveStage('A reservar benefícios adicionais…');
+      const { error: additionalBenefitError } = await supabase.rpc(
+        'reserve_appointment_benefit_code_for_service',
+        {
+          p_appointment_id: selectedAppointment?.id ?? '',
+          p_service_id: line.serviceId,
+          p_code: draft.code.trim(),
+          p_pin: draft.pin.trim(),
+        }
+      );
+      if (additionalBenefitError) {
+        setSavingEdit(false);
+        toast.error(`ServiÃ§o adicional guardado, mas o benefÃ­cio nÃ£o foi reservado: ${additionalBenefitError?.message ?? 'erro desconhecido'}`);
+        return;
+      }
+    }
+
+    if (false) for (const line of editAdditionalServiceLines) {
+      const draft = editAdditionalBenefits[line.serviceId];
+      if (!draft?.code.trim()) continue;
+      setEditSaveStage('A reservar benefícios adicionais…');
+      const { error: additionalBenefitError } = await supabase.rpc('reserve_appointment_benefit_code_for_service', {
+        p_appointment_id: selectedAppointment?.id ?? '',
+        p_service_id: line.serviceId,
+        p_code: draft.code.trim(),
+        p_pin: draft.pin.trim(),
+      });
+      if (additionalBenefitError) {
+        setSavingEdit(false);
+        toast.error(`Serviço adicional guardado, mas o benefício não foi reservado: ${additionalBenefitError?.message ?? 'erro desconhecido'}`);
+        return;
+      }
+    }
+
     if (
       !(await ensureAvailability(
         {
@@ -2711,6 +2751,7 @@ export function AgendaPage({
         .filter((line) => line.service_id && line.service_id !== resolvedAppointment.service_id)
         .map((line) => ({ serviceId: line.service_id as string, isOffer: Boolean(line.is_offer) }))
     );
+    setEditAdditionalBenefits({});
     setOwnerRestoreStatus('scheduled');
     setOwnerRestoreReason('');
     setAppointmentEvents(await loadAgendaEvents('appointment', appointment.id));
@@ -2827,6 +2868,7 @@ export function AgendaPage({
     setSelectedAppointment(null);
     setEditDraft(null);
     setEditAdditionalServiceLines([]);
+    setEditAdditionalBenefits({});
     setAppointmentEvents([]);
     setAppointmentBenefit(null);
     setAvailableVouchers([]);
@@ -3925,6 +3967,23 @@ export function AgendaPage({
         toast.error(
           `Marcação guardada, mas o benefício falhou: ${benefitError.message}`
         );
+        return;
+      }
+    }
+
+    for (const line of editAdditionalServiceLines) {
+      const draft = editAdditionalBenefits[line.serviceId];
+      if (!draft?.code.trim()) continue;
+      setEditSaveStage('A reservar benefícios adicionais…');
+      const { error: additionalBenefitError } = await supabase.rpc('reserve_appointment_benefit_code_for_service', {
+        p_appointment_id: selectedAppointment.id,
+        p_service_id: line.serviceId,
+        p_code: draft.code.trim(),
+        p_pin: draft.pin.trim(),
+      });
+      if (additionalBenefitError) {
+        setSavingEdit(false);
+        toast.error(`Serviço adicional guardado, mas o benefício não foi reservado: ${additionalBenefitError?.message ?? 'erro desconhecido'}`);
         return;
       }
     }
@@ -5030,7 +5089,7 @@ export function AgendaPage({
                         <div>
                           <p className="text-sm font-medium">Serviços adicionais</p>
                           <p className="text-muted-foreground text-xs">
-                            Inclua outro procedimento na mesma marcação. O voucher ou pack fica associado à marcação e deve ser compatível com o serviço principal.
+                            Cada serviço pode usar o seu próprio voucher ou pack. Introduza o código e PIN do benefício de cada linha.
                           </p>
                         </div>
                       </div>
@@ -5057,6 +5116,8 @@ export function AgendaPage({
                               <span className={cn('font-medium', line.isOffer && 'text-emerald-600')}>
                                 {line.isOffer ? '0,00 €' : formatCurrency(Number(extra.price ?? 0), extra.currency || defaultCurrency)}
                               </span>
+                              <Input className="h-8 w-32 text-xs" placeholder="Código" value={editAdditionalBenefits[line.serviceId]?.code ?? ''} disabled={!canOperate} onChange={(event) => setEditAdditionalBenefits((current) => ({ ...current, [line.serviceId]: { code: event.target.value.toUpperCase(), pin: current[line.serviceId]?.pin ?? '' } }))} />
+                              <Input className="h-8 w-24 text-xs" placeholder="PIN" type="password" value={editAdditionalBenefits[line.serviceId]?.pin ?? ''} disabled={!canOperate} onChange={(event) => setEditAdditionalBenefits((current) => ({ ...current, [line.serviceId]: { code: current[line.serviceId]?.code ?? '', pin: event.target.value } }))} />
                               <Button type="button" variant="ghost" size="icon" className="size-7" disabled={!canOperate} onClick={() => setEditAdditionalServiceLines((current) => current.filter((item) => item.serviceId !== line.serviceId))} title="Remover serviço">
                                 <X className="size-3.5" />
                               </Button>
@@ -5069,6 +5130,7 @@ export function AgendaPage({
                           onChange={(value) => {
                             if (!value || value === editDraft.serviceId || editAdditionalServiceLines.some((line) => line.serviceId === value)) return;
                             setEditAdditionalServiceLines((current) => [...current, { serviceId: value, isOffer: false }]);
+                            setEditAdditionalBenefits((current) => ({ ...current, [value]: { code: '', pin: '' } }));
                           }}
                         >
                           <option value="">+ Adicionar serviço</option>

@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-23-benefits-per-additional-service', date: '2026-11-23', category: 'Melhoria',
+    title: 'Voucher ou pack por serviÃ§o adicional', areas: ['Agenda', 'BenefÃ­cios', 'Financeiro'],
+    summary: 'Cada serviÃ§o da mesma marcaÃ§Ã£o pode agora ter o seu prÃ³prio cÃ³digo e PIN de voucher ou pack.',
+    changes: ['A ficha mostra campos de cÃ³digo e PIN em cada serviÃ§o adicional.', 'A liquidaÃ§Ã£o processa todos os benefÃ­cios reservados, sem devolver ou consumir o benefÃ­cio de outro serviÃ§o.'],
+    howTo: 'Na ficha da marcaÃ§Ã£o, adicione o serviÃ§o, preencha o respetivo cÃ³digo e PIN e guarde. A migraÃ§Ã£o 109 deve estar aplicada no Supabase.'
+  },
+  {
     id: '2026-11-23-multiple-benefits-per-appointment-service', date: '2026-11-23', category: 'Melhoria',
     title: 'Base preparada para benefícios por serviço', areas: ['Agenda', 'Benefícios', 'Financeiro'],
     summary: 'A base passa a permitir benefícios ativos diferentes na mesma marcação, separados pelo serviço associado.',
