@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-23-leads-quick-view', date: '2026-11-23', category: 'Melhoria',
+    title: 'Resumo dos Leads sempre visÃ­vel', areas: ['Leads', 'Relacionamento'],
+    summary: 'Os segmentos de Leads passam a abrir por defeito, para identificar rapidamente quem recuperar, contactar ou agendar.',
+    changes: ['A contagem dos grupos fica visÃ­vel sem abrir um menu extra.', 'Cada grupo continua a funcionar como filtro direto da lista.'],
+    howTo: 'Abra Leads e clique num dos grupos do resumo para filtrar a fila de trabalho; use Limpar filtros para voltar Ã  vista completa.'
+  },
+  {
     id: '2026-11-23-appointment-additional-services', date: '2026-11-23', category: 'Melhoria',
     title: 'Mais de um serviÃ§o na mesma marcaÃ§Ã£o', areas: ['Agenda', 'ServiÃ§os', 'BenefÃ­cios'],
     summary: 'A ficha de uma marcaÃ§Ã£o existente permite adicionar, remover e marcar serviÃ§os adicionais como oferta.',

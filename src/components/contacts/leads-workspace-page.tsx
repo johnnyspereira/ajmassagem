@@ -678,6 +678,7 @@ export function LeadsWorkspacePage({
         </div>
       )}
       <details
+        open
         className={cn('bg-card rounded-xl border p-4', isPipeline && 'hidden')}
       >
         <summary className="cursor-pointer text-sm font-medium">
