@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-23-multiple-benefits-per-appointment-service', date: '2026-11-23', category: 'Melhoria',
+    title: 'Base preparada para benefícios por serviço', areas: ['Agenda', 'Benefícios', 'Financeiro'],
+    summary: 'A base passa a permitir benefícios ativos diferentes na mesma marcação, separados pelo serviço associado.',
+    changes: ['A limitação de um único benefício por marcação foi substituída por uma regra por serviço.', 'A estrutura suporta um voucher ou pack distinto para cada serviço da marcação.'],
+    howTo: 'Depois de aplicar a migração 109, a ficha poderá associar um benefício ao serviço principal e outro a cada serviço adicional.'
+  },
+  {
     id: '2026-11-23-leads-quick-view', date: '2026-11-23', category: 'Melhoria',
     title: 'Resumo dos Leads sempre visÃ­vel', areas: ['Leads', 'Relacionamento'],
     summary: 'Os segmentos de Leads passam a abrir por defeito, para identificar rapidamente quem recuperar, contactar ou agendar.',
