@@ -12,6 +12,16 @@ import { onlineBookingWindow } from '@/lib/clinic/online-booking-buffer';
 import { transaction } from '@/lib/mysql/db';
 import type { RowDataPacket } from 'mysql2';
 
+type WorkingDay = { enabled?: boolean; start?: string; end?: string; breakStart?: string; breakEnd?: string };
+function scheduleParts(value: Date, timeZone = 'Europe/Lisbon') {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone, weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(value);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+  const dayMap: Record<string,string> = { Mon: 'monday', Tue: 'tuesday', Wed: 'wednesday', Thu: 'thursday', Fri: 'friday', Sat: 'saturday', Sun: 'sunday' };
+  return { dayKey: dayMap[get('weekday')] ?? get('weekday').toLowerCase(), date: `${get('year')}-${get('month')}-${get('day')}`, minutes: Number(get('hour')) * 60 + Number(get('minute')) };
+}
+function minutes(value?: string) { if (!value) return null; const [h,m] = value.split(':').map(Number); return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null; }
+function parseHours(value: unknown): Record<string, WorkingDay> { if (value && typeof value === 'object') return value as Record<string, WorkingDay>; try { const parsed = JSON.parse(String(value ?? '{}')); return parsed && typeof parsed === 'object' ? parsed : {}; } catch { return {}; } }
+
 function clientIp(request: Request) {
   return (
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
@@ -129,7 +139,7 @@ export async function POST(
       return Response.json({ error: 'Serviço inválido.' }, { status: 400 });
     const { data: professional } = await admin
       .from('profiles')
-      .select('id')
+      .select('id,working_hours')
       .eq('id', body?.professionalId || '')
       .eq('account_id', settings.account_id)
       .eq('is_professional', true)
@@ -139,6 +149,19 @@ export async function POST(
         { error: 'Profissional inválido.' },
         { status: 400 }
       );
+    const startLocal = scheduleParts(start);
+    const endLocal = scheduleParts(new Date(start.getTime() + Number(service.duration_minutes || 60) * 60_000));
+    const hours = parseHours((professional as { working_hours?: unknown }).working_hours)[startLocal.dayKey];
+    const opening = minutes(hours?.start);
+    const closing = minutes(hours?.end);
+    if (!hours?.enabled || opening === null || closing === null || startLocal.date !== endLocal.date || startLocal.minutes < opening || endLocal.minutes > closing) {
+      return Response.json({ error: 'Este profissional não tem agenda aberta nesse dia ou horário.' }, { status: 409 });
+    }
+    const breakStart = minutes(hours.breakStart);
+    const breakEnd = minutes(hours.breakEnd);
+    if (breakStart !== null && breakEnd !== null && startLocal.minutes < breakEnd && endLocal.minutes > breakStart) {
+      return Response.json({ error: 'O horário escolhido coincide com o intervalo do profissional.' }, { status: 409 });
+    }
     const end = new Date(
       start.getTime() + Number(service.duration_minutes || 60) * 60_000
     );
