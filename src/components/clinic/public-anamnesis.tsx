@@ -130,8 +130,10 @@ export function PublicAnamnesis({
   }
 
   async function submit() {
-    if (!identity.name.trim() || !signature.trim())
-      return toast.error('Preencha o nome e a assinatura.');
+    if (!identity.name.trim())
+      return toast.error('Preencha o nome completo.');
+    if (!signature.trim())
+      return toast.error('Faça a assinatura na área branca antes de enviar.');
     if (!healthConsent || !privacyConsent)
       return toast.error('Aceite os consentimentos para enviar a ficha.');
     const missingQuestion = findMissingRequiredQuestion(
@@ -472,6 +474,28 @@ function SignaturePad({ value, onChange }: { value: string; onChange: (value: st
   const drawing = useRef(false);
   const last = useRef<{ x: number; y: number } | null>(null);
   const locallyDrawn = useRef('');
+  // Native listeners are intentional here: on iOS/Safari React may not
+  // deliver pointerup after pointer capture is released.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const save = () => {
+      if (!drawing.current) return;
+      drawing.current = false;
+      last.current = null;
+      const next = canvas.toDataURL('image/png');
+      locallyDrawn.current = next;
+      onChange(next);
+    };
+    canvas.addEventListener('pointerup', save);
+    canvas.addEventListener('pointercancel', save);
+    canvas.addEventListener('lostpointercapture', save);
+    return () => {
+      canvas.removeEventListener('pointerup', save);
+      canvas.removeEventListener('pointercancel', save);
+      canvas.removeEventListener('lostpointercapture', save);
+    };
+  }, [onChange]);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
