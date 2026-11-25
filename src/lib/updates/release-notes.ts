@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-25-vouchers-actionable-view', date: '2026-11-25', category: 'Melhoria',
+    title: 'Vouchers disponíveis em primeiro plano', areas: ['Financeiro', 'Vouchers'],
+    summary: 'A página de vouchers abre diretamente nos benefícios que ainda podem ser utilizados, com cartões mais compactos.',
+    changes: ['Disponíveis é o filtro inicial; a opção Todos mantém o histórico completo.', 'A grelha aproveita melhor o ecrã desktop e continua adaptada a dispositivos menores.'],
+    howTo: 'Abra Financeiro → Vouchers. Use Todos, Utilizados ou Expirados para consultar os restantes estados.'
+  },
+  {
     id: '2026-11-25-agenda-session-recovery', date: '2026-11-25', category: 'Correção',
     title: 'Agenda recupera sessões expiradas', areas: ['Agenda', 'Autenticação'],
     summary: 'A agenda tenta renovar a sessão antes de carregar os dados, evitando o erro Unauthorized após longos períodos com a página aberta.',

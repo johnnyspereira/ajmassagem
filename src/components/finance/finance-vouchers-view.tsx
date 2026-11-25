@@ -61,7 +61,9 @@ export function VouchersView({
 }) {
   const now = useBenefitClock();
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState('all');
+  // Start with actionable benefits; the complete history remains available
+  // through the explicit “Todos” filter.
+  const [filter, setFilter] = useState('available');
   const stateOf = (voucher: FinanceVoucher) =>
     benefitState(
       voucher.status,

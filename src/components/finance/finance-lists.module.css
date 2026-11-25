@@ -69,13 +69,13 @@
 .grid {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .benefitCard {
   min-width: 0;
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 18px;
+  padding: 14px;
   background: var(--card);
 }
 .benefitCard[data-state='available'],
@@ -265,6 +265,9 @@
   font-weight: 600;
 }
 @media (max-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .grid {
     grid-template-columns: minmax(0, 1fr);
   }
