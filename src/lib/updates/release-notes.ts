@@ -15,7 +15,7 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
-    id: '2026-11-25-portal-booking-working-hours', date: '2026-11-25', category: 'CorreÃ§Ã£o',
+    id: '2026-11-25-portal-booking-working-hours', date: '2026-11-25', category: 'Correção',
     title: 'Portal respeita dias e horÃ¡rios de trabalho', areas: ['Portal', 'Agenda'],
     summary: 'O agendamento pÃºblico deixa de aceitar horÃ¡rios em dias fechados ou fora do horÃ¡rio configurado do profissional.',
     changes: ['A validaÃ§Ã£o confirma o dia de trabalho e o intervalo configurado.', 'HorÃ¡rios que atravessam o fim do expediente ou o intervalo sÃ£o recusados.'],
