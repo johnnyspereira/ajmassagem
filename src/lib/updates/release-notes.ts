@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-25-anamnesis-signature-persistence', date: '2026-11-25', category: 'Correção',
+    title: 'Assinatura da anamnese fica guardada', areas: ['Portal', 'Anamnese'],
+    summary: 'A assinatura desenhada no telemóvel deixa de desaparecer ao soltar o dedo ou durante uma atualização do formulário.',
+    changes: ['A assinatura existente é recuperada ao abrir uma ficha já iniciada.', 'O desenho é convertido e enviado assim que termina o gesto, incluindo toque e caneta.'],
+    howTo: 'Abra a ficha pelo link, assine na área branca e confirme que aparece a indicação de assinatura registada antes de enviar.'
+  },
+  {
     id: '2026-11-25-portal-booking-working-hours', date: '2026-11-25', category: 'Correção',
     title: 'Portal respeita dias e horÃ¡rios de trabalho', areas: ['Portal', 'Agenda'],
     summary: 'O agendamento pÃºblico deixa de aceitar horÃ¡rios em dias fechados ou fora do horÃ¡rio configurado do profissional.',

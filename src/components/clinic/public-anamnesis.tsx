@@ -98,6 +98,11 @@ export function PublicAnamnesis({
         setAnswers(
           (next.answers || {}) as Record<string, string | boolean | string[]>
         );
+        setSignature(
+          typeof next.answers?.signature_data === 'string'
+            ? next.answers.signature_data
+            : ''
+        );
       })
       .catch((loadError) =>
         setError(loadError.message || 'Ficha indisponível.')
@@ -486,7 +491,17 @@ function SignaturePad({ value, onChange }: { value: string; onChange: (value: st
     const rect = canvas.getBoundingClientRect();
     return { x: (event.clientX - rect.left) * (canvas.width / rect.width), y: (event.clientY - rect.top) * (canvas.height / rect.height) };
   };
-  const finish = () => { drawing.current = false; last.current = null; if (canvasRef.current) { const next = canvasRef.current.toDataURL('image/png'); locallyDrawn.current = next; onChange(next); } };
+  const finish = (event?: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!drawing.current) return;
+    event?.preventDefault();
+    drawing.current = false;
+    last.current = null;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const next = canvas.toDataURL('image/png');
+    locallyDrawn.current = next;
+    onChange(next);
+  };
   return <div className="overflow-hidden rounded-xl border bg-white"><canvas ref={canvasRef} width={720} height={180} className="h-36 w-full touch-none cursor-crosshair" onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); drawing.current = true; last.current = point(event); }} onPointerMove={(event) => { if (!drawing.current || !last.current) return; const next = point(event); const canvas = canvasRef.current!; const context = canvas.getContext('2d')!; context.strokeStyle = '#172554'; context.lineWidth = 2.4; context.lineCap = 'round'; context.beginPath(); context.moveTo(last.current.x, last.current.y); context.lineTo(next.x, next.y); context.stroke(); last.current = next; }} onPointerUp={finish} onPointerCancel={finish} /><div className="flex items-center justify-between border-t bg-slate-50 px-3 py-2"><span className="text-muted-foreground text-xs">Assine dentro da área branca</span><button type="button" className="text-xs font-medium text-primary" onClick={() => { const canvas = canvasRef.current; if (!canvas) return; locallyDrawn.current = ''; canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height); onChange(''); }}>Limpar assinatura</button></div>{value && <span className="sr-only">Assinatura registada</span>}</div>;
 }
 
