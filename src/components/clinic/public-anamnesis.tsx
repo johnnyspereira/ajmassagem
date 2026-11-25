@@ -479,6 +479,28 @@ function SignaturePad({ value, onChange }: { value: string; onChange: (value: st
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const coordinates = (event: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      return { x: (event.clientX - rect.left) * (canvas.width / rect.width), y: (event.clientY - rect.top) * (canvas.height / rect.height) };
+    };
+    const mouseDown = (event: MouseEvent) => {
+      drawing.current = true;
+      last.current = coordinates(event);
+    };
+    const mouseMove = (event: MouseEvent) => {
+      if (!drawing.current || !last.current) return;
+      const next = coordinates(event);
+      const context = canvas.getContext('2d');
+      if (!context) return;
+      context.strokeStyle = '#172554';
+      context.lineWidth = 2.4;
+      context.lineCap = 'round';
+      context.beginPath();
+      context.moveTo(last.current.x, last.current.y);
+      context.lineTo(next.x, next.y);
+      context.stroke();
+      last.current = next;
+    };
     const save = () => {
       if (!drawing.current) return;
       drawing.current = false;
@@ -490,10 +512,16 @@ function SignaturePad({ value, onChange }: { value: string; onChange: (value: st
     canvas.addEventListener('pointerup', save);
     canvas.addEventListener('pointercancel', save);
     canvas.addEventListener('lostpointercapture', save);
+    canvas.addEventListener('mousedown', mouseDown);
+    canvas.addEventListener('mousemove', mouseMove);
+    canvas.addEventListener('mouseup', save);
     return () => {
       canvas.removeEventListener('pointerup', save);
       canvas.removeEventListener('pointercancel', save);
       canvas.removeEventListener('lostpointercapture', save);
+      canvas.removeEventListener('mousedown', mouseDown);
+      canvas.removeEventListener('mousemove', mouseMove);
+      canvas.removeEventListener('mouseup', save);
     };
   }, [onChange]);
   useEffect(() => {
