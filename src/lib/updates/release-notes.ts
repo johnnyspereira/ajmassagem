@@ -15,6 +15,13 @@ export interface ReleaseNote {
 /** Newest first. Published with the application so the history needs no SQL requests. */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-25-agenda-session-recovery', date: '2026-11-25', category: 'Correção',
+    title: 'Agenda recupera sessões expiradas', areas: ['Agenda', 'Autenticação'],
+    summary: 'A agenda tenta renovar a sessão antes de carregar os dados, evitando o erro Unauthorized após longos períodos com a página aberta.',
+    changes: ['A sessão do navegador é verificada antes das consultas da agenda.', 'Quando não é possível renovar, é apresentada uma orientação clara para entrar novamente.'],
+    howTo: 'Se a sessão expirar, atualize a página e autentique-se novamente.'
+  },
+  {
     id: '2026-11-25-anamnesis-signature-persistence', date: '2026-11-25', category: 'Correção',
     title: 'Assinatura da anamnese fica guardada', areas: ['Portal', 'Anamnese'],
     summary: 'A assinatura desenhada no telemóvel deixa de desaparecer ao soltar o dedo ou durante uma atualização do formulário.',

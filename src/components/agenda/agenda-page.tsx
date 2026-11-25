@@ -1469,6 +1469,19 @@ export function AgendaPage({
     setLoading(true);
     setSchemaMissing(false);
 
+    // The agenda can remain open for hours; renew an expired browser session
+    // before issuing the parallel reads, otherwise Supabase returns 401 and
+    // the whole calendar appears empty.
+    const sessionResult = await supabase.auth.getSession();
+    if (!sessionResult.data.session) {
+      const refreshed = await supabase.auth.refreshSession();
+      if (!refreshed.data.session) {
+        toast.error('A sessão expirou. Atualize a página e entre novamente.');
+        setLoading(false);
+        return;
+      }
+    }
+
     const [
       servicesRes,
       roomsRes,
